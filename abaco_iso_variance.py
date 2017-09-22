@@ -7,13 +7,21 @@ import glob
 import seawater as sw 
 import pandas as pd 
 
+#### bathymetry 
+bath = '/Users/jake/Documents/baroclinic_modes/DG/ABACO_2017/OceanWatch_smith_sandwell.nc'
+bath_fid = Dataset(bath,'r')
+bath_lon = bath_fid['longitude'][:] - 360
+bath_lat = bath_fid['latitude'][:]
+bath_z = bath_fid['ROSE'][:]
+
+#### gliders 
 dg037_list = glob.glob('/Users/jake/Documents/baroclinic_modes/DG/ABACO_2017/sg037/p*.nc')
 dg038_list = glob.glob('/Users/jake/Documents/baroclinic_modes/DG/ABACO_2017/sg038/p*.nc') # 50-72
 dg_list = np.concatenate([dg037_list[45:],dg038_list[50:72]])
 # dg_list = dg037_list[45:]
 # dg_list = dg038_list[50:72]
 
-# grid parameters  
+##### grid parameters  
 lat_in = 26.5
 lon_in = -76.75
 bin_depth = np.concatenate([np.arange(0,150,5), np.arange(150,300,10), np.arange(300,5000,20)])
@@ -60,7 +68,13 @@ def make_bin(bin_depth,depth_d,depth_c,temp_d,temp_c,salin_d,salin_c, x_g_d, x_g
         y_g_climb[i] = np.nanmean(y_g_c[dp_in_c])/1000
     return(temp_g_dive, temp_g_climb, salin_g_dive, salin_g_climb, x_g_dive, x_g_climb, y_g_dive, y_g_climb)
 
+####################################################################
 ##### iterate for each dive cycle ######
+
+fig0, ax0 = plt.subplots()
+ax0.contour(bath_lon,bath_lat,bath_z)
+w = 1/np.cos(np.deg2rad(26.5))
+ax0.set_aspect(w)
 for i in dg_list:
     nc_fid = Dataset(i,'r')
     glid_num = nc_fid.glider 
@@ -112,14 +126,6 @@ for i in dg_list:
         else:
             closest_dist_climb_i = np.where(all_dist_climb == all_dist_climb.min())
             dist_climb[i] = dist_grid_s[closest_dist_climb_i[0]]      
-    
-    # plot plan view action if needed     
-    if plot_plan > 0:
-        # plt.plot(dist_grid,np.zeros(np.size(dist_grid)),'k',linewidth=2.5)
-        plt.scatter(dist_dive,np.zeros(np.size(dist_dive)),s=0.5)
-        plt.scatter(dist_climb,np.zeros(np.size(dist_climb)),s=0.5)
-        plt.scatter(x_grid_dive,y_grid_dive,s=2)
-        plt.scatter(x_grid_climb,y_grid_climb,s=2)
         
     # create dataframes where each column is a profile 
     t_data_d = pd.DataFrame(theta_grid_dive,index=grid,columns=[glid_num*1000 + dive_num])
@@ -143,11 +149,29 @@ for i in dg_list:
         if df_t.size < 1:
             df_den = pd.concat([den_data_d,den_data_c],axis=1)
         else:
-            df_den = pd.concat([df_den,den_data_d,den_data_c],axis=1)
-
+            df_den = pd.concat([df_den,den_data_d,den_data_c],axis=1)            
+            
+    # plot plan view action if needed     
+    if plot_plan > 0:
+        plt.scatter(dist_dive,np.zeros(np.size(dist_dive)),s=0.5,color='k')
+        plt.scatter(dist_climb,np.zeros(np.size(dist_climb)),s=0.5,color='k')
+        # plt.scatter(x_grid_dive,y_grid_dive,s=2,)
+        # plt.scatter(x_grid_climb,y_grid_climb,s=2)
+        
+        if glid_num > 37:
+            plt.scatter(x_grid_dive,y_grid_dive,s=2,color='#B22222')
+            plt.scatter(x_grid_climb,y_grid_climb,s=2,color='#B22222')
+        else:
+            plt.scatter(x_grid_dive,y_grid_dive,s=2,color='#48D1CC')
+            plt.scatter(x_grid_climb,y_grid_climb,s=2,color='#48D1CC')
+        
+                
+# end of for loop running over each dive 
 if plot_plan > 0:
     plt.show()
         
+
+#######################################################################
         
 # compute average density/temperature as a function of distance offshore       
 count = 0  
@@ -219,23 +243,32 @@ if p_eta > 0:
 
     plot2 = 1
     if plot2 > 0: 
-        fig = plt.figure(num=None, figsize=(5.75, 7.5), dpi=100, facecolor='w', edgecolor='k') 
+        # fig = plt.figure(num=None, figsize=(5.75, 7.5), dpi=100, facecolor='w', edgecolor='k') 
+        f, (ax1,ax2) = plt.subplots(1, 2, sharey=True)
         for i in range(np.size(mean_dist)): # range(np.size(subset[0])): #
             if df_eta.columns[i] > 38000:
-                p38 = plt.plot(df_eta_theta.iloc[:,i],grid,color='#B22222',linewidth=.5,label='DG038')
+                p38 = ax1.plot(df_eta_theta.iloc[:,i],grid,color='#B22222',linewidth=.5,label='DG038')
+                p38_2 = ax2.plot(df_eta.iloc[:,i],grid,color='#B22222',linewidth=.5,label='DG038')
             else:
-                p37 = plt.plot(df_eta_theta.iloc[:,i],grid,color='#48D1CC',linewidth=.5,label='DG037')
-        plt.plot([0, 0],[0, 5000],'--k')
-        plt.axis([-750, 750, 0, 5000])
-        plt.gca().invert_yaxis()    
-        # plt.xlabel(r'$\eta_{\sigma_{\theta}}$')
-        plt.xlabel(r'$\eta_{\theta}$')
-        plt.ylabel('Depth [m]')
-        plt.title('ABACO Vertical Isopycnal Displacements')
-        ax = plt.gca()
-        handles, labels = ax.get_legend_handles_labels()
-        ax.legend([handles[1], handles[-1]],[labels[1], labels[-1]])
-        # plt.legend([p37,p38],['DG037', 'DG038'])
-        plt.grid()
-        fig.savefig('/Users/jake/Desktop/dg037_8_eta_theta_2.png',dpi = 300)  
+                p37 = ax1.plot(df_eta_theta.iloc[:,i],grid,color='#48D1CC',linewidth=.5,label='DG037')
+                p37_2 = ax2.plot(df_eta.iloc[:,i],grid,color='#48D1CC',linewidth=.5,label='DG037')
+        ax1.plot([0, 0],[0, 5000],'--k')
+        ax1.axis([-600, 600, 0, 4800])
+        ax1.invert_yaxis()    
+        ax2.plot([0, 0],[0, 4800],'--k')
+        ax2.axis([-600, 600, 0, 5000])
+        ax2.invert_yaxis()
+        ax2.set_xlabel(r'$\eta_{\sigma_{\theta}}$')
+        ax1.set_xlabel(r'$\eta_{\theta}$')
+        ax1.set_ylabel('Depth [m]')
+        ax1.set_title(r'ABACO Vertical $\theta$ Disp.')
+        ax2.set_title('Vertical Isopycnal Disp.')
+        handles, labels = ax1.get_legend_handles_labels()
+        ax1.legend([handles[1], handles[-1]],[labels[1], labels[-1]],fontsize=10)
+        handles, labels = ax2.get_legend_handles_labels()
+        ax2.legend([handles[1], handles[-1]],[labels[1], labels[-1]],fontsize=10)
+        ax1.grid()
+        ax2.grid()
+        f.savefig('/Users/jake/Desktop/dg037_8_eta_theta.png',dpi = 300)
+        plt.close()
     
