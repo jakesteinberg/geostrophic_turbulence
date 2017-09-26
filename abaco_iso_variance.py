@@ -1,7 +1,10 @@
 # DG along track isopycnal variance 
 
 import numpy as np
+import matplotlib
 import matplotlib.pyplot as plt 
+from mpl_toolkits.axes_grid1 import make_axes_locatable, axes_size
+import datetime 
 from netCDF4 import Dataset
 import glob
 import seawater as sw 
@@ -37,11 +40,12 @@ dist_grid = np.arange(0,125,1)
 df_t = pd.DataFrame()
 df_d = pd.DataFrame()
 df_den = pd.DataFrame()
+time_rec = np.zeros([dg_list.shape[0], 2])
 
 # plot controls 
-plot_plan = 1 
-plot_cross = 0
-p_eta = 0
+plot_plan = 0 
+plot_cross = 1
+p_eta = 1
 
 def make_bin(bin_depth,depth_d,depth_c,temp_d,temp_c,salin_d,salin_c, x_g_d, x_g_c, y_g_d, y_g_c):
     bin_up = bin_depth[0:-2]
@@ -71,10 +75,25 @@ def make_bin(bin_depth,depth_d,depth_c,temp_d,temp_c,salin_d,salin_c, x_g_d, x_g
 ####################################################################
 ##### iterate for each dive cycle ######
 
-fig0, ax0 = plt.subplots()
-ax0.contour(bath_lon,bath_lat,bath_z)
-w = 1/np.cos(np.deg2rad(26.5))
-ax0.set_aspect(w)
+if plot_plan > 0: 
+    levels = [ -5250, -5000, -4750, -4500, -4250, -4000, -3500, -3000, -2500, -2000, -1500, -1000, -500 , 0]
+    fig0, ax0 = plt.subplots(figsize=(7.5,4))
+    bc = ax0.contourf(bath_lon,bath_lat,bath_z,levels,cmap='PuBu_r')
+    ax0.contourf(bath_lon,bath_lat,bath_z,[0, 100, 200], cmap = 'YlGn_r')
+    matplotlib.rcParams['contour.negative_linestyle'] = 'solid'
+    bcl = ax0.contour(bath_lon,bath_lat,bath_z,[-4500, -1000],colors='k')
+    ml = [(-76.75,26.9),(-77.4, 26.8)]
+    ax0.clabel(bcl,manual = ml, inline_spacing=-3, fmt='%1.0f',colors='k')
+    w = 1/np.cos(np.deg2rad(26.5))
+    ax0.axis([-77.5, -75, 25.75, 27.25])
+    ax0.set_aspect(w)
+    divider = make_axes_locatable(ax0)
+    cax = divider.append_axes("right", size="5%", pad=0.05)
+    fig0.colorbar(bc, cax=cax, label='[m]')
+    ax0.set_xlabel('Longitude')
+    ax0.set_ylabel('Latitude')
+
+count = 0    
 for i in dg_list:
     nc_fid = Dataset(i,'r')
     glid_num = nc_fid.glider 
@@ -86,14 +105,18 @@ for i in dg_list:
     y = (lat - lat_in)*(1852*60)
         
     press = nc_fid.variables['ctd_pressure'][:]
-    time = nc_fid.variables['ctd_time'][:]
+    ctd_epoch_time = nc_fid.variables['ctd_time'][:]
     temp = nc_fid.variables['temperature'][:]
     salin = nc_fid.variables['salinity'][:]
-    pitch_ang = nc_fid.variables['eng_pitchAng'][:]
-    
+    pitch_ang = nc_fid.variables['eng_pitchAng'][:]    
     theta = sw.ptmp(salin, temp, press,0)
-    # sigma = sw.pden(salin, theta, press) - 1000
     depth = sw.dpth(press,26.5)
+    
+    # time conversion 
+    secs_per_day = 86400.0
+    dive_start_time = nc_fid.start_time
+    ctd_time = ctd_epoch_time - dive_start_time 
+    datenum_start = 719163 # jan 1 1970
         
     # put on distance/density grid (1 column per profile)
     max_d = np.where(depth == depth.max())
@@ -103,8 +126,16 @@ for i in dg_list:
     dive_mask_i= np.where(pitch_ang_sub1 < 0)
     dive_mask = dive_mask_i[0][:]
     climb_mask_i = np.where(pitch_ang_sub2 > 0)
-    climb_mask = climb_mask_i[0][:] + max_d_ind[0] - 1       
+    climb_mask = climb_mask_i[0][:] + max_d_ind[0] - 1      
     
+    # dive/climb time midpoints
+    time_dive = ctd_time[dive_mask]
+    time_climb = ctd_time[climb_mask]
+    
+    serial_date_time_dive = datenum_start + dive_start_time/(60*60*24) + np.median(time_dive)/secs_per_day
+    serial_date_time_climb = datenum_start + dive_start_time/(60*60*24) + np.median(time_climb)/secs_per_day
+    time_rec[count,:] = np.array([ serial_date_time_dive, serial_date_time_climb ])
+        
     # interpolate (bin_average) to smooth and place T/S on vertical depth grid 
     theta_grid_dive, theta_grid_climb, salin_grid_dive, salin_grid_climb, x_grid_dive, x_grid_climb, y_grid_dive, y_grid_climb = make_bin(bin_depth,depth[dive_mask],depth[climb_mask],theta[dive_mask],theta[climb_mask],salin[dive_mask],salin[climb_mask], x[dive_mask],x[climb_mask],y[dive_mask],y[climb_mask])
     
@@ -153,22 +184,26 @@ for i in dg_list:
             
     # plot plan view action if needed     
     if plot_plan > 0:
-        plt.scatter(dist_dive,np.zeros(np.size(dist_dive)),s=0.5,color='k')
-        plt.scatter(dist_climb,np.zeros(np.size(dist_climb)),s=0.5,color='k')
-        # plt.scatter(x_grid_dive,y_grid_dive,s=2,)
-        # plt.scatter(x_grid_climb,y_grid_climb,s=2)
-        
         if glid_num > 37:
-            plt.scatter(x_grid_dive,y_grid_dive,s=2,color='#B22222')
-            plt.scatter(x_grid_climb,y_grid_climb,s=2,color='#B22222')
+            ax0.scatter(1000*x_grid_dive/(1852*60*np.cos(np.deg2rad(26.5)))+lon_in, 1000*y_grid_dive/(1852*60)+lat_in, s=2, color='#FFD700')
+            ax0.scatter(1000*x_grid_climb/(1852*60*np.cos(np.deg2rad(26.5)))+lon_in, 1000*y_grid_climb/(1852*60)+lat_in ,s=2, color='#FFD700')
         else:
-            plt.scatter(x_grid_dive,y_grid_dive,s=2,color='#48D1CC')
-            plt.scatter(x_grid_climb,y_grid_climb,s=2,color='#48D1CC')
+            ax0.scatter(1000*x_grid_dive/(1852*60*np.cos(np.deg2rad(26.5)))+lon_in, 1000*y_grid_dive/(1852*60)+lat_in,s=2,color='#B22222')
+            ax0.scatter(1000*x_grid_climb/(1852*60*np.cos(np.deg2rad(26.5)))+lon_in, 1000*y_grid_climb/(1852*60)+lat_in,s=2,color='#B22222')
         
-                
-# end of for loop running over each dive 
+        ax0.scatter(1000*dist_dive/(1852*60*np.cos(np.deg2rad(26.5)))+lon_in, np.zeros(np.size(dist_dive))+lat_in,s=0.75,color='k')
+        ax0.scatter(1000*dist_climb/(1852*60*np.cos(np.deg2rad(26.5)))+lon_in, np.zeros(np.size(dist_climb))+lat_in,s=0.75,color='k')
+        ax0.text(1000*(np.median(dist_grid)-20)/(1852*60*np.cos(np.deg2rad(26.5)))+lon_in,lat_in - .3,'~ 125km',fontsize=12,color='w') 
+    
+    count = count + 1
+
+##### end of for loop running over each dive 
 if plot_plan > 0:
-    plt.show()
+    t_s = datetime.date.fromordinal(np.int( np.min(time_rec[:,0]) ))
+    t_e = datetime.date.fromordinal(np.int( np.max(time_rec[:,1]) ))
+    ax0.set_title('Nine ABACO Transects (DG37,38 - 57 dive-cycles): ' + np.str(t_s.month) + '/' + np.str(t_s.day) + ' - ' + np.str(t_e.month) + '/' + np.str(t_e.day))
+    fig0.savefig('/Users/jake/Desktop/abaco/plan_view.png',dpi = 300)
+    plt.close()
         
 
 #######################################################################
@@ -198,7 +233,7 @@ if plot_cross > 0:
     ax2.axis([25,28,0,5000])    
     ax2.invert_yaxis()        
     # plt.show()
-    f.savefig('/Users/jake/Desktop/dg037_8_bin_depth_den.png',dpi = 300)    
+    f.savefig('/Users/jake/Desktop/abaco/dg037_8_bin_depth_den.png',dpi = 300)    
 
 ### plot mean density profile as a function of distance offshore to see how the avg profile changes (and represents the linear trend)   
     
@@ -264,11 +299,27 @@ if p_eta > 0:
         ax1.set_title(r'ABACO Vertical $\theta$ Disp.')
         ax2.set_title('Vertical Isopycnal Disp.')
         handles, labels = ax1.get_legend_handles_labels()
-        ax1.legend([handles[1], handles[-1]],[labels[1], labels[-1]],fontsize=10)
+        ax1.legend([handles[1], handles[-1]],[labels[1], labels[-1]],fontsize=8)
         handles, labels = ax2.get_legend_handles_labels()
-        ax2.legend([handles[1], handles[-1]],[labels[1], labels[-1]],fontsize=10)
+        ax2.legend([handles[1], handles[-1]],[labels[1], labels[-1]],fontsize=8)
         ax1.grid()
         ax2.grid()
-        f.savefig('/Users/jake/Desktop/dg037_8_eta_theta.png',dpi = 300)
+        f.savefig('/Users/jake/Desktop/abaco/dg037_8_eta_theta.png',dpi = 300)
         plt.close()
     
+    ############# Eta_fit #############
+    # first taper fit above and below min/max limits
+    sz = df_eta.shape 
+    num_profs = sz[1]
+    eta_fit_depth_min = 50
+    eta_fit_depth_max = 4750
+    for i in range(num_profs):
+        this_eta = df_eta.iloc[:,i][:]
+        iw = np.where( (this_eta > -1000) & (this_eta < 1000) & (grid>=eta_fit_depth_min) & (grid<=eta_fit_depth_max))
+        eta_fs = df_eta.iloc[:,i][:]
+        
+        i_sh = np.where( (bin_depth < eta_fit_depth_min))
+        eta_fs.iloc[i_sh[0]] = bin_depth[i_sh]*this_eta.iloc[iw[0][0]]/bin_depth[iw[0][0]]
+        
+        i_dp = np.where( (grid > eta_fit_depth_max) )
+        eta_fs.iloc[i_dp[0]] = (grid[i_dp] - grid[-1])*this_eta.iloc[iw[0][-1]]/(grid[iw[0][-1]]-grid[-1])
