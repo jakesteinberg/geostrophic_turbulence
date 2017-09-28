@@ -9,6 +9,9 @@ from netCDF4 import Dataset
 import glob
 import seawater as sw 
 import pandas as pd 
+# functions I've written 
+from grids import make_bin
+from mode_decompositions import vertical_modes
 
 #### bathymetry 
 bath = '/Users/jake/Documents/baroclinic_modes/DG/ABACO_2017/OceanWatch_smith_sandwell.nc'
@@ -29,48 +32,24 @@ lat_in = 26.5
 lon_in = -76.75
 bin_depth = np.concatenate([np.arange(0,150,5), np.arange(150,300,10), np.arange(300,5000,20)])
 grid = bin_depth[1:-1]
-bin_press = sw.pres(grid,lat_in)
+grid_p = sw.pres(grid,lat_in)
 den_grid = np.arange(24.5, 28 , 0.02)
-dist_grid_s = np.arange(0,125,0.005)
-dist_grid = np.arange(0,125,1)
+dist_grid_s = np.arange(5,125,0.005)
+dist_grid = np.arange(5,125,2)
 # depth_grid = np.arange(0,5000,5)
 # grid = depth_grid 
 
 # output dataframe 
 df_t = pd.DataFrame()
+df_s = pd.DataFrame()
 df_d = pd.DataFrame()
 df_den = pd.DataFrame()
 time_rec = np.zeros([dg_list.shape[0], 2])
 
 # plot controls 
 plot_plan = 0 
-plot_cross = 1
+plot_cross = 0
 p_eta = 1
-
-def make_bin(bin_depth,depth_d,depth_c,temp_d,temp_c,salin_d,salin_c, x_g_d, x_g_c, y_g_d, y_g_c):
-    bin_up = bin_depth[0:-2]
-    bin_down = bin_depth[2:]
-    bin_cen = bin_depth[1:-1] 
-    temp_g_dive = np.empty(np.size(bin_cen))
-    temp_g_climb = np.empty(np.size(bin_cen))
-    salin_g_dive = np.empty(np.size(bin_cen))
-    salin_g_climb = np.empty(np.size(bin_cen))
-    x_g_dive = np.empty(np.size(bin_cen))
-    x_g_climb = np.empty(np.size(bin_cen))
-    y_g_dive = np.empty(np.size(bin_cen))
-    y_g_climb = np.empty(np.size(bin_cen))
-    for i in range(np.size(bin_cen)):
-        dp_in_d = (depth_d > bin_up[i]) & (depth_d < bin_down[i])
-        dp_in_c = (depth_c > bin_up[i]) & (depth_c < bin_down[i])
-        temp_g_dive[i] = np.nanmean(temp_d[dp_in_d])
-        temp_g_climb[i] = np.nanmean(temp_c[dp_in_c])
-        salin_g_dive[i] = np.nanmean(salin_d[dp_in_d])
-        salin_g_climb[i] = np.nanmean(salin_c[dp_in_c])
-        x_g_dive[i] = np.nanmean(x_g_d[dp_in_d])/1000
-        x_g_climb[i] = np.nanmean(x_g_c[dp_in_c])/1000
-        y_g_dive[i] = np.nanmean(y_g_d[dp_in_d])/1000
-        y_g_climb[i] = np.nanmean(y_g_c[dp_in_c])/1000
-    return(temp_g_dive, temp_g_climb, salin_g_dive, salin_g_climb, x_g_dive, x_g_climb, y_g_dive, y_g_climb)
 
 ####################################################################
 ##### iterate for each dive cycle ######
@@ -161,20 +140,24 @@ for i in dg_list:
     # create dataframes where each column is a profile 
     t_data_d = pd.DataFrame(theta_grid_dive,index=grid,columns=[glid_num*1000 + dive_num])
     t_data_c = pd.DataFrame(theta_grid_climb,index=grid,columns=[glid_num*1000 + dive_num+.5])
+    s_data_d = pd.DataFrame(salin_grid_dive,index=grid,columns=[glid_num*1000 + dive_num])
+    s_data_c = pd.DataFrame(salin_grid_climb,index=grid,columns=[glid_num*1000 + dive_num+.5])
     d_data_d = pd.DataFrame(dist_dive,index=grid,columns=[glid_num*1000 + dive_num])
     d_data_c = pd.DataFrame(np.flipud(dist_climb),index=grid,columns=[glid_num*1000 + dive_num+.5])
         
     if df_t.size < 1:
         df_t = pd.concat([t_data_d,t_data_c],axis=1)
+        df_s = pd.concat([s_data_d,s_data_c],axis=1)
         df_d = pd.concat([d_data_d,d_data_c],axis=1)
     else:
         df_t = pd.concat([df_t,t_data_d,t_data_c],axis=1)
+        df_s = pd.concat([df_s,s_data_d,s_data_c],axis=1)
         df_d = pd.concat([df_d,d_data_d,d_data_c],axis=1)
         
     # if interpolating on a depth grid, interpolate density 
     if grid[10]-grid[9] > 1: 
-        den_grid_dive = sw.pden(salin_grid_dive, theta_grid_dive, bin_press) - 1000
-        den_grid_climb = sw.pden(salin_grid_climb, theta_grid_climb, bin_press) - 1000
+        den_grid_dive = sw.pden(salin_grid_dive, theta_grid_dive, grid_p) - 1000
+        den_grid_climb = sw.pden(salin_grid_climb, theta_grid_climb, grid_p) - 1000
         den_data_d = pd.DataFrame(den_grid_dive,index=grid,columns=[glid_num*1000 + dive_num])
         den_data_c = pd.DataFrame(den_grid_climb,index=grid,columns=[glid_num*1000 + dive_num+.5])
         if df_t.size < 1:
@@ -211,13 +194,18 @@ if plot_plan > 0:
 # compute average density/temperature as a function of distance offshore       
 count = 0  
 mean_dist = np.nanmean(df_d,0)  
-theta_avg_grid = np.zeros([np.size(grid),np.size(dist_grid)]) 
+theta_avg_grid = np.zeros([np.size(grid),np.size(dist_grid)])
+salin_avg_grid = np.zeros([np.size(grid),np.size(dist_grid)]) 
 sigma_avg_grid = np.zeros([np.size(grid),np.size(dist_grid)])  
 for i in dist_grid:
-    mask = (mean_dist > i-5) & (mean_dist < i+5)
+    mask = (mean_dist > i-7.5) & (mean_dist < i+7.5)
     theta_avg_grid[:,count] = np.nanmean(df_t[df_t.columns[mask]],1)
+    salin_avg_grid[:,count] = np.nanmean(df_s[df_s.columns[mask]],1)
     sigma_avg_grid[:,count] = np.nanmean(df_den[df_den.columns[mask]],1)            
     count = count + 1
+    
+#######################################################################    
+### plot mean density profile as a function of distance offshore to see how the avg profile changes (and represents the linear trend)   
 
 if plot_cross > 0:
     f, (ax1, ax2) = plt.subplots(1, 2, sharey=True)
@@ -234,9 +222,8 @@ if plot_cross > 0:
     ax2.invert_yaxis()        
     # plt.show()
     f.savefig('/Users/jake/Desktop/abaco/dg037_8_bin_depth_den.png',dpi = 300)    
-
-### plot mean density profile as a function of distance offshore to see how the avg profile changes (and represents the linear trend)   
     
+#######################################################################        
 # compute eta 
 # instead of removing a mean, remove the linear trend 
 # create average density profile that is a function of distance 
@@ -276,7 +263,7 @@ if p_eta > 0:
         count = count+1   
         # eta[:,i] = (df_den[df_den.columns[i]] - np.squeeze(sigma_avg_grid[:,closest_i[0]]))/np.squeeze(ddz_avg_sigma[:,closest_i[0]])
 
-    plot2 = 1
+    plot2 = 0
     if plot2 > 0: 
         # fig = plt.figure(num=None, figsize=(5.75, 7.5), dpi=100, facecolor='w', edgecolor='k') 
         f, (ax1,ax2) = plt.subplots(1, 2, sharey=True)
@@ -293,8 +280,8 @@ if p_eta > 0:
         ax2.plot([0, 0],[0, 4800],'--k')
         ax2.axis([-600, 600, 0, 5000])
         ax2.invert_yaxis()
-        ax2.set_xlabel(r'$\eta_{\sigma_{\theta}}$')
-        ax1.set_xlabel(r'$\eta_{\theta}$')
+        ax2.set_xlabel(r'$\eta_{\sigma_{\theta}}$ [m]')
+        ax1.set_xlabel(r'$\eta_{\theta}$ [m]')
         ax1.set_ylabel('Depth [m]')
         ax1.set_title(r'ABACO Vertical $\theta$ Disp.')
         ax2.set_title('Vertical Isopycnal Disp.')
@@ -307,19 +294,80 @@ if p_eta > 0:
         f.savefig('/Users/jake/Desktop/abaco/dg037_8_eta_theta.png',dpi = 300)
         plt.close()
     
-    ############# Eta_fit #############
+    ############# Eta_fit / Mode Decomposition #############
+    
+    # compute N
+    N2 = np.zeros(np.shape(df_eta))
+    for i in range(np.size(dist_grid)):
+        N2[1:,i] = np.squeeze(sw.bfrq(salin_avg_grid[:,i], theta_avg_grid[:,i], grid_p, lat=26.5)[0])  
+    lz = np.where(N2 < 0)   
+    lnan = np.isnan(N2)
+    N2[lz] = 0 
+    N2[lnan] = 0
+    N = np.sqrt(N2)    
+    # define G grid 
+    omega = 0  # frequency zeroed for geostrophic modes
+    mmax = 40  # highest baroclinic mode to be calculated
+    nmodes = mmax + 1
+    
+    G, Gz, c = vertical_modes(N2,grid,omega,mmax)
+    
     # first taper fit above and below min/max limits
     sz = df_eta.shape 
     num_profs = sz[1]
     eta_fit_depth_min = 50
-    eta_fit_depth_max = 4750
+    eta_fit_depth_max = 4250
+    AG = np.zeros([nmodes, num_profs])
+    Eta_m = np.nan*np.zeros([np.size(grid), num_profs])
+    PE_per_mass = np.nan*np.zeros([nmodes, num_profs])
     for i in range(num_profs):
         this_eta = df_eta.iloc[:,i][:]
-        iw = np.where( (this_eta > -1000) & (this_eta < 1000) & (grid>=eta_fit_depth_min) & (grid<=eta_fit_depth_max))
-        eta_fs = df_eta.iloc[:,i][:]
+        iw = np.where((grid>=eta_fit_depth_min) & (grid<=eta_fit_depth_max))
+        if iw[0].size > 1:
+            eta_fs = df_eta.iloc[:,i][:]
         
-        i_sh = np.where( (bin_depth < eta_fit_depth_min))
-        eta_fs.iloc[i_sh[0]] = bin_depth[i_sh]*this_eta.iloc[iw[0][0]]/bin_depth[iw[0][0]]
+            i_sh = np.where( (bin_depth < eta_fit_depth_min))
+            eta_fs.iloc[i_sh[0]] = bin_depth[i_sh]*this_eta.iloc[iw[0][0]]/bin_depth[iw[0][0]]
         
-        i_dp = np.where( (grid > eta_fit_depth_max) )
-        eta_fs.iloc[i_dp[0]] = (grid[i_dp] - grid[-1])*this_eta.iloc[iw[0][-1]]/(grid[iw[0][-1]]-grid[-1])
+            i_dp = np.where( (grid > eta_fit_depth_max) )
+            eta_fs.iloc[i_dp[0]] = (grid[i_dp] - grid[-1])*this_eta.iloc[iw[0][-1]]/(grid[iw[0][-1]]-grid[-1])
+            
+            AG[1:,i] = np.squeeze(np.linalg.lstsq(G[:,1:],np.transpose(np.atleast_2d(eta_fs)))[0])
+            Eta_m[:,i] = np.squeeze(np.matrix(G)*np.transpose(np.matrix(AG[:,i])))
+            PE_per_mass[:,i] = (1/2)*AG[:,i]*AG[:,i]*c*c
+            # plt.plot(eta_fs,grid,'k',linewidth=2)    
+            # plt.plot(Eta_m[:,i],grid,'r--',linewidth=1)    
+             
+    # plt.axis([-600, 600, 0, 5000])        
+    # plt.show()    
+    
+    avg_PE = np.nanmean(PE_per_mass,1)
+    f_ref = np.pi*np.sin(np.deg2rad(26.5))/(12*1800)
+    dk = f_ref/c[1]
+    sc_x = (1000)*f_ref/c[1:]
+    plt.plot(sc_x,avg_PE[1:]/dk)
+    plt.yscale('log')
+    plt.xscale('log')
+    plt.axis('square')
+    plt.axis([10**-3, 10**1, 10**(-2), 10**(2)])
+    plt.grid()
+    plt.xlabel(r'Vertical Wavenumber = Inverse Rossby Radius = $\frac{f}{c}$ [$km**(-1)$]',fontsize=13)
+    plt.ylabel('Spectral Density of Potential Energy')
+    plt.title('ABACO')
+    plt.show()
+    
+    # solves G''(z) + (N^2(z) - omega^2)G(z)/c^2 = 0 
+    #   subject to G'(0) = gG(0)/c^2 (free surface) & G(-D) = 0 (flat bottom)
+    # G(z) is normalized so that the vertical integral of (G'(z))^2 is D
+    # G' is dimensionless, G has dimensions of length
+    
+    # - N is buoyancy frequency [s^-1] (nX1 vector)
+    # - depth [m] (maximum depth is considered the sea floor) (nX1 vector)
+    # - omega is frequency [s^-1] (scalar)
+    # - mmax is the highest baroclinic mode calculated
+    # - m=0 is the barotropic mode
+    # - 0 < m <= mmax are the baroclinic modes
+    # - Modes are calculated by expressing in finite difference form 1) the
+    #  governing equation for interior depths (rows 2 through n-1) and 2) the
+    #  boundary conditions at the surface (1st row) and the bottome (last row).
+    # - Solution is found by solving the eigenvalue system A*x = lambda*B*x
