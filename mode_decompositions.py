@@ -1,7 +1,22 @@
 import numpy as np
 from scipy.sparse import coo_matrix
 from scipy.sparse.linalg import eigs 
+    
+# solves G''(z) + (N^2(z) - omega^2)G(z)/c^2 = 0 
+#   subject to G'(0) = gG(0)/c^2 (free surface) & G(-D) = 0 (flat bottom)
+# G(z) is normalized so that the vertical integral of (G'(z))^2 is D
+# G' is dimensionless, G has dimensions of length
 
+# - N is buoyancy frequency [s^-1] (nX1 vector)
+# - depth [m] (maximum depth is considered the sea floor) (nX1 vector)
+# - omega is frequency [s^-1] (scalar)
+# - mmax is the highest baroclinic mode calculated
+# - m=0 is the barotropic mode
+# - 0 < m <= mmax are the baroclinic modes
+# - Modes are calculated by expressing in finite difference form 1) the
+#  governing equation for interior depths (rows 2 through n-1) and 2) the
+#  boundary conditions at the surface (1st row) and the bottome (last row).
+# - Solution is found by solving the eigenvalue system A*x = lambda*B*x
 def vertical_modes(N2,Depth,omega,mmax): 
     z = -1*Depth
     n = np.size(z); 
@@ -45,3 +60,22 @@ def vertical_modes(N2,Depth,omega,mmax):
         G[:,i] = wmodes[:,i]/norm_constant
         
     return(G,Gz,c)
+
+def PE_Tide_GM(rho0,Depth,nmodes,N2,f_ref):
+    modenum = np.arange(0,nmodes)   
+    Navg = np.trapz(np.nanmean(np.sqrt(N2),1),Depth)/Depth[-1]
+    
+    TE_SD = (75 + 280 + 72)/(rho0*Depth[-1])          # SD tidal energy [m^2/s^2] Hendry 1977
+    sigma_SD = 2*np.pi/(12*3600)                      # SD frequency [s^-1]
+    PE_SD = TE_SD*(sigma_SD**2 - f_ref**2)/(2*sigma_SD**2)
+    
+    bGM = 1300                  # GM internal wave depth scale [m]
+    N0_GM = 5.2e-3              # GM N scale [s^-1];
+    jstar = 3                   # GM vertical mode number scale
+    EGM = 6.3e-5                # GM energy level [no dimensions]
+    HHterm = 1/(modenum[1:]*modenum[1:] + jstar*jstar)
+    HH = HHterm/np.sum(HHterm)
+    
+    PE_GM = bGM*bGM*N0_GM*Navg*HH*EGM/2
+    
+    return(PE_SD, PE_GM)
