@@ -9,6 +9,7 @@ from netCDF4 import Dataset
 import glob
 import seawater as sw 
 import pandas as pd 
+import scipy.io as si
 # functions I've written 
 from grids import make_bin
 from mode_decompositions import vertical_modes, PE_Tide_GM
@@ -23,9 +24,14 @@ bath_z = bath_fid['ROSE'][:]
 #### gliders 
 dg037_list = glob.glob('/Users/jake/Documents/baroclinic_modes/DG/ABACO_2017/sg037/p*.nc')
 dg038_list = glob.glob('/Users/jake/Documents/baroclinic_modes/DG/ABACO_2017/sg038/p*.nc') # 50-72
-dg_list = np.concatenate([dg037_list[45:],dg038_list[50:72]])
-# dg_list = np.array(dg037_list[45:])
+# dg_list = np.concatenate([dg037_list[45:],dg038_list[50:72]])
+dg_list = np.array(dg037_list[45:])
 # dg_list = dg038_list[50:72]
+
+#### Deep Argo (nearby)
+nc_DA_fid = Dataset('/Users/jake/Documents/baroclinic_modes/Deep_Argo/4902326_prof.nc','r') 
+da_press = nc_DA_fid['PRES']
+da_t = nc_DA_fid['TEMP_QC']
 
 ##### grid parameters  
 lat_in = 26.5
@@ -48,8 +54,8 @@ time_rec_2 = np.zeros([dg_list.shape[0], 2])
 # plot controls 
 plot_plan = 0 
 plot_cross = 0
-p_eta = 1
-plot_eta_eng = 1
+p_eta = 0
+plot_eta_eng = 0
 
 ####################################################################
 ##### iterate for each dive cycle ######
@@ -329,7 +335,7 @@ if p_eta > 0:
     N = np.sqrt(N2)    
     # define G grid 
     omega = 0  # frequency zeroed for geostrophic modes
-    mmax = 50  # highest baroclinic mode to be calculated
+    mmax = 60  # highest baroclinic mode to be calculated
     nmodes = mmax + 1
     
     G, Gz, c = vertical_modes(N2,grid,omega,mmax)
@@ -413,19 +419,39 @@ if p_eta > 0:
     
     PE_SD, PE_GM = PE_Tide_GM(rho0,grid,nmodes,N2,f_ref)
     
+    # KE from MATLAB transects
+    import_ke = si.loadmat('/Users/jake/Documents/geostrophic_turbulence/ABACO_KE.mat')
+    ke_data = import_ke['out']
+    ke = ke_data['KE'][0][0]
+    dk_ke = 1000*ke_data['f_ref'][0][0][0]/ke_data['c'][0][0][1]
+    
+    k_h = 1e3*(f_ref/c[1:])*np.sqrt( ke[1:,0]/avg_PE[1:])
+    # text(1.1e3*f_ref./c(end), mean(k_h(end-5:end)), 'k_h [km^-^1]', 'color', 'k')
+    
     if plot_eta_eng > 0:
         fig0, ax0 = plt.subplots()
-        ax0.plot(sc_x,avg_PE[1:]/dk,'r')
-        ax0.plot(sc_x,avg_PE_theta[1:]/dk,'b')
-        # ax0.plot(sc_x,PE_SD[1:]/dk,'k--')
+        PE_p = ax0.plot(sc_x,avg_PE[1:]/dk,'r',label='PE')
+        ax0.plot( [10**-1, 10**0], [1.5*10**1, 1.5*10**-2],color='k',linestyle='--',linewidth=0.8)
+        ax0.text(0.8*10**-1,1.3*10**1,'-3',fontsize=8)
+        ax0.scatter(sc_x,avg_PE[1:]/dk,color='r',s=6)
         ax0.plot(sc_x,PE_GM/dk,linestyle='--',color='#DAA520')
+        ax0.text(sc_x[0]-.009,PE_GM[0]/dk,r'$PE_{GM}$')
+        KE_p = ax0.plot(1000*ke_data['f_ref'][0][0][0]/ke_data['c'][0][0][1:],ke[1:]/(dk_ke/1000),color='b',label='KE')
+        ax0.scatter(1000*ke_data['f_ref'][0][0][0]/ke_data['c'][0][0][1:],ke[1:]/(dk_ke/1000),color='b',s=6)
+        ax0.plot( [1000*f_ref/c[1], 1000*f_ref/c[-2]],[1000*f_ref/c[1], 1000*f_ref/c[-2]],linestyle='--',color='k',linewidth=0.8)
+        ax0.text( 1000*f_ref/c[-2]+.1, 1000*f_ref/c[-2], r'f/c$_m$',fontsize=8)
+        ax0.plot(sc_x,k_h,color='k')
+        ax0.text(sc_x[0]-.008,k_h[0]+.01,r'$k_{h}$ [km$^{-1}$]',fontsize=8)
+        
         ax0.set_yscale('log')
         ax0.set_xscale('log')
-        ax0.axis('square')
-        ax0.axis([10**-3, 10**1, 10**(-2), 10**(2)])
+        # ax0.axis('square')
+        ax0.axis([10**-2, 1.5*10**1, 10**(-4), 10**(3)])
         ax0.grid()
         ax0.set_xlabel(r'Vertical Wavenumber = Inverse Rossby Radius = $\frac{f}{c}$ [$km^{-1}$]',fontsize=13)
-        ax0.set_ylabel('Spectral Density of Potential Energy')
+        ax0.set_ylabel('Spectral Density (and Hor. Wavenumber)')
         ax0.set_title('ABACO')
+        handles, labels = ax0.get_legend_handles_labels()
+        ax0.legend([handles[0],handles[-1]],[labels[0], labels[-1]],fontsize=10)
         fig0.savefig('/Users/jake/Desktop/abaco/dg037_8_PE.png',dpi = 300)
         plt.close()
