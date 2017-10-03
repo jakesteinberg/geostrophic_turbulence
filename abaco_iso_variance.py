@@ -24,8 +24,8 @@ bath_z = bath_fid['ROSE'][:]
 #### gliders 
 dg037_list = glob.glob('/Users/jake/Documents/baroclinic_modes/DG/ABACO_2017/sg037/p*.nc')
 dg038_list = glob.glob('/Users/jake/Documents/baroclinic_modes/DG/ABACO_2017/sg038/p*.nc') # 50-72
-# dg_list = np.concatenate([dg037_list[45:],dg038_list[50:72]])
-dg_list = np.array(dg037_list[45:])
+dg_list = np.concatenate([dg037_list[45:],dg038_list[50:72]])
+# dg_list = np.array(dg037_list[45:])
 # dg_list = dg038_list[50:72]
 
 #### Deep Argo (nearby)
@@ -54,8 +54,9 @@ time_rec_2 = np.zeros([dg_list.shape[0], 2])
 # plot controls 
 plot_plan = 0 
 plot_cross = 0
-p_eta = 0
-plot_eta_eng = 0
+p_eta = 1
+plot_eta = 1
+plot_eng = 0
 
 ####################################################################
 ##### iterate for each dive cycle ######
@@ -206,7 +207,7 @@ sz = df_den.shape
 num_profs = sz[1]
 time_min = np.min(time_rec)
 time_max = np.max(time_rec)
-time_mid = 0.5*(time_max-time_min) + time_min
+time_mid = 10.5*(time_max-time_min) + time_min
         
 # compute average density/temperature as a function of distance offshore       
 count = 0  
@@ -216,7 +217,7 @@ theta_avg_grid = np.zeros([np.size(grid),np.size(dist_grid)])
 salin_avg_grid = np.zeros([np.size(grid),np.size(dist_grid)]) 
 sigma_avg_grid = np.zeros([np.size(grid),np.size(dist_grid)])  
 for i in dist_grid:
-    mask = (mean_dist > i-7.5) & (mean_dist < i+7.5)
+    mask = (mean_dist > i-10) & (mean_dist < i+10)
     profs_per_avg[count] = np.sum(mask)
     theta_avg_grid[:,count] = np.nanmean(df_t[df_t.columns[mask]],1)
     salin_avg_grid[:,count] = np.nanmean(df_s[df_s.columns[mask]],1)
@@ -230,16 +231,22 @@ if plot_cross > 0:
     f, (ax1, ax2) = plt.subplots(1, 2, sharey=True)
     ax1.pcolor(dist_grid,grid,sigma_avg_grid, vmin=25, vmax=28)  
     # ax1.contour(dist_grid,grid,t_avg_grid,colors='k',levels=[2,3,4,5,6,7,8,10,12,16,20])
-    ax1.contour(dist_grid,grid,sigma_avg_grid,colors='k',
-        levels=[25,26,26.2,26.4,26.8,27,27.1,27.2,27.3,27.4,27.5,27.6,27.7,27.75,27.8,27.85,27.9])
+    den_c = ax1.contour(dist_grid,grid,sigma_avg_grid,colors='k',
+        levels=[25,26,26.5,27,27.2,27.4,27.6,27.7,27.75,27.8,27.85,27.9])
+    ax1.clabel(den_c, fontsize=6, inline=1,fmt='%.4g',spacing=10)  
     ax1.invert_yaxis()
+    ax1.set_xlabel('Distance Offshore [km]')
+    ax1.set_ylabel('Depth [m]')
+    ax1.set_title('Avg. Density Cross-Section (4/21 - 6/15)')
     
-    c2s = plt.cm.jet(np.linspace(0,1,125)) 
+    c2s = plt.cm.jet(np.linspace(0,1,62)) 
     for i in range(np.size(dist_grid)):
         ax2.plot(sigma_avg_grid[:,i],grid,color=c2s[i,:])
     ax2.axis([25,28,0,5000])    
-    ax2.invert_yaxis()        
-    # plt.show()
+    ax2.invert_yaxis()  
+    ax2.set_xlabel(r'$\sigma_{\theta}$')
+    ax2.set_title('Avg. Density per Dist.')    
+    ax2.grid()  
     f.savefig('/Users/jake/Desktop/abaco/dg037_8_bin_depth_den.png',dpi = 300)    
     
 #######################################################################        
@@ -261,7 +268,17 @@ if p_eta > 0:
          #         ddz_avg_sigma[j,i] = pfit[0] # (sigma_avg_grid[2:,i] - sigma_avg_grid[0:-2,i])/(grid[2]-grid[0])
          #         
          #         pfit2 = np.polyfit(grid[j-6:j+6],theta_avg_grid[j-6:j+6,i],1)
-         #         ddz_avg_theta[j,i] = pfit2[0] # (sigma_avg_grid[2:,i] - sigma_avg_grid[0:-2,i])/(grid[2]-grid[0])
+         #         ddz_avg_theta[j,i] = pfit2[0] # (sigma_avg_grid[2:,i] - sigma_avg_grid[0:-2,i])/(grid[2]-grid[0])         
+    
+    # compute background N
+    N2 = np.zeros(np.shape(df_den))
+    for i in range(np.size(dist_grid)):
+        N2[1:,i] = np.squeeze(sw.bfrq(salin_avg_grid[:,i], theta_avg_grid[:,i], grid_p, lat=26.5)[0])  
+    lz = np.where(N2 < 0)   
+    lnan = np.isnan(N2)
+    N2[lz] = 0 
+    N2[lnan] = 0
+    N = np.sqrt(N2)    
     
     # find closest average profile to subtract to find eta     
     eta = np.zeros([np.size(grid),np.size(dist_grid)]) 
@@ -271,6 +288,7 @@ if p_eta > 0:
     df_eta = pd.DataFrame()
     eta_theta = np.zeros([np.size(grid),np.size(dist_grid)]) 
     df_eta_theta = pd.DataFrame()
+    closest_rec = np.nan*np.zeros([np.size(mean_dist)])
     
     # subset = np.where((df_den.columns > 37057) & (df_den.columns < 37064)) # 58-63
     ### test for deep salinity offset
@@ -279,6 +297,7 @@ if p_eta > 0:
     for i in range(np.size(mean_dist)):
         dist_test = np.abs(mean_dist[i] - dist_grid) # distance between this profile and every other on dist_grid 
         closest_i = np.where(dist_test == dist_test.min()) # find closest dist_grid station to this profile 
+        closest_rec[i] = np.int(closest_i[0])
         
         theta_anom = (df_t[df_t.columns[i]] - np.squeeze(theta_avg_grid[:,closest_i[0]]))
         salin_anom = (df_s[df_s.columns[i]] - np.squeeze(salin_avg_grid[:,closest_i[0]]))
@@ -302,37 +321,39 @@ if p_eta > 0:
             df_salin_anom = pd.concat([df_salin_anom,df_salin_anom2],axis=1)
             df_sigma_anom = pd.concat([df_sigma_anom,df_sigma_anom2],axis=1)
             df_eta = pd.concat([df_eta,eta2],axis=1)
-            df_eta_theta = pd.concat([df_eta_theta,eta3],axis=1)
-            
+            df_eta_theta = pd.concat([df_eta_theta,eta3],axis=1)            
 
         if df_s.columns[i] > 38000:
             if time_rec[i] < time_mid:
-                ax1.plot(df_theta_anom.iloc[:,i], grid,'r',linewidth=.5)
-                ax2.plot(df_salin_anom.iloc[:,i], grid,'r',linewidth=.5)
+                ax1.plot(df_theta_anom.iloc[:,i], grid,'r',linewidth=.5,label='38')
+                ax2.plot(df_salin_anom.iloc[:,i], grid,'r',linewidth=.5,label='38')
         else:
             if time_rec[i] < time_mid:
-                ax1.plot(df_theta_anom.iloc[:,i], grid,'b',linewidth=.5)
-                ax2.plot(df_salin_anom.iloc[:,i], grid,'b',linewidth=.5)
+                ax1.plot(df_theta_anom.iloc[:,i], grid,'b',linewidth=.5,label='37')
+                ax2.plot(df_salin_anom.iloc[:,i], grid,'b',linewidth=.5,label='37')
             
-        count = count+1    
-    ax1.set_xlabel('Theta Anom')
-    ax1.grid()  
-    ax2.set_xlabel('Salin Anom')    
+        count = count+1   
+    ax1.set_xlabel('Deg. C')    
+    ax1.set_title(r'$\theta - \overline{\theta}$')
+    ax1.axis([-1.5,1.5,0,5000])
+    ax1.grid()     
+    ax1.invert_yaxis()
+    ax1.set_ylabel('Depth [m]')
+    handles, labels = ax1.get_legend_handles_labels()
+    ax1.legend([handles[0],handles[-1]],[labels[0], labels[-1]],fontsize=10)
+    ax2.set_title('Salinity Anomaly')   
+    ax2.set_xlabel('PSU')
+    ax2.axis([-.25,.25,0,5000]) 
     ax2.grid()      
-    f.savefig('/Users/jake/Desktop/abaco/dg037_8_anoms_early.png',dpi = 300)
+    ax2.invert_yaxis()
+    handles, labels = ax2.get_legend_handles_labels()
+    ax2.legend([handles[0],handles[-1]],[labels[0], labels[-1]],fontsize=10)
+    f.savefig('/Users/jake/Desktop/abaco/dg037_8_anoms.png',dpi = 300)
                   
 
     
     ############# Eta_fit / Mode Decomposition #############
-    # compute N
-    N2 = np.zeros(np.shape(df_eta))
-    for i in range(np.size(dist_grid)):
-        N2[1:,i] = np.squeeze(sw.bfrq(salin_avg_grid[:,i], theta_avg_grid[:,i], grid_p, lat=26.5)[0])  
-    lz = np.where(N2 < 0)   
-    lnan = np.isnan(N2)
-    N2[lz] = 0 
-    N2[lnan] = 0
-    N = np.sqrt(N2)    
+    
     # define G grid 
     omega = 0  # frequency zeroed for geostrophic modes
     mmax = 60  # highest baroclinic mode to be calculated
@@ -348,15 +369,19 @@ if p_eta > 0:
     AG = np.zeros([nmodes, num_profs])
     AG_theta = np.zeros([nmodes, num_profs])
     Eta_m = np.nan*np.zeros([np.size(grid), num_profs])
+    Neta = np.nan*np.zeros([np.size(grid), num_profs])
+    NEta_m = np.nan*np.zeros([np.size(grid), num_profs])
     Eta_theta_m = np.nan*np.zeros([np.size(grid), num_profs])
     PE_per_mass = np.nan*np.zeros([nmodes, num_profs])
     PE_theta_per_mass = np.nan*np.zeros([nmodes, num_profs])
     for i in range(num_profs):
         this_eta = df_eta.iloc[:,i][:]
+        # obtain matrix of NEta
+        Neta[:,i] = N[:,np.int(closest_rec[i])]*this_eta
         this_eta_theta = df_eta_theta.iloc[:,i][:]
         iw = np.where((grid>=eta_fit_depth_min) & (grid<=eta_fit_depth_max))
         if iw[0].size > 1:
-            eta_fs = df_eta.iloc[:,i][:]
+            eta_fs = df_eta.iloc[:,i][:] # ETA
             eta_theta_fs = df_eta_theta.iloc[:,i][:]
         
             i_sh = np.where( (bin_depth < eta_fit_depth_min))
@@ -370,12 +395,13 @@ if p_eta > 0:
             AG[1:,i] = np.squeeze(np.linalg.lstsq(G[:,1:],np.transpose(np.atleast_2d(eta_fs)))[0])
             AG_theta[1:,i] = np.squeeze(np.linalg.lstsq(G[:,1:],np.transpose(np.atleast_2d(eta_theta_fs)))[0])
             Eta_m[:,i] = np.squeeze(np.matrix(G)*np.transpose(np.matrix(AG[:,i])))
+            NEta_m[:,i] = N[:,np.int(closest_rec[i])]*np.array(np.squeeze(np.matrix(G)*np.transpose(np.matrix(AG[:,i]))))
             Eta_theta_m[:,i] = np.squeeze(np.matrix(G)*np.transpose(np.matrix(AG_theta[:,i])))
             PE_per_mass[:,i] = (1/2)*AG[:,i]*AG[:,i]*c*c
             PE_theta_per_mass[:,i] = (1/2)*AG_theta[:,i]*AG_theta[:,i]*c*c 
     
     # add fitted Eta to this ......
-    if plot_eta_eng > 0: 
+    if plot_eta > 0: 
         f, (ax1,ax2) = plt.subplots(1, 2, sharey=True)
         for i in range(np.size(mean_dist)): # range(np.size(subset[0])): #
             if df_eta.columns[i] > 38000:
@@ -384,32 +410,38 @@ if p_eta > 0:
                 
                 p38_2 = ax2.plot(df_eta.iloc[:,i],grid,color='#B22222',linewidth=.4,label='DG038')
                 p38_f = ax2.plot(Eta_m[:,i],grid,'k--',linewidth=.3)
+                # p37_2 = ax2.plot(Neta[:,i],grid,color='#48D1CC',linewidth=.4,label='DG037')
+                # p37_f = ax2.plot(NEta_m[:,i],grid,'k--',linewidth=.3)
             else:
                 p37 = ax1.plot(df_eta_theta.iloc[:,i],grid,color='#48D1CC',linewidth=.4,label='DG037')
                 p37_f = ax1.plot(Eta_theta_m[:,i],grid,'k--',linewidth=.3,label='DG037')
                 
                 p37_2 = ax2.plot(df_eta.iloc[:,i],grid,color='#48D1CC',linewidth=.4,label='DG037')
                 p37_f = ax2.plot(Eta_m[:,i],grid,'k--',linewidth=.3)
+                # p37_2 = ax2.plot(Neta[:,i],grid,color='#48D1CC',linewidth=.4,label='DG037')
+                # p37_f = ax2.plot(NEta_m[:,i],grid,'k--',linewidth=.3)
         ax1.plot([0, 0],[0, 5000],'--k')
         ax1.axis([-600, 600, 0, 4800])
         ax1.invert_yaxis()    
         ax2.plot([0, 0],[0, 4800],'--k')
         ax2.axis([-600, 600, 0, 5000])
+        # ax2.axis([-.5, .5, 0, 5000])
         ax2.invert_yaxis()
         ax2.set_xlabel(r'$\eta_{\sigma_{\theta}}$ [m]')
         ax1.set_xlabel(r'$\eta_{\theta}$ [m]')
         ax1.set_ylabel('Depth [m]')
         ax1.set_title(r'ABACO Vertical $\theta$ Disp.')
-        ax2.set_title('Vertical Isopycnal Disp.')
+        ax2.set_title(r'$\eta$ Vertical Isopycnal Disp.')
         handles, labels = ax1.get_legend_handles_labels()
-        ax1.legend([handles[1], handles[-1]],[labels[1], labels[-1]],fontsize=8)
+        ax1.legend([handles[0], handles[-2]],[labels[1], labels[-1]],fontsize=8)
         handles, labels = ax2.get_legend_handles_labels()
         ax2.legend([handles[1], handles[-1]],[labels[1], labels[-1]],fontsize=8)
         ax1.grid()
         ax2.grid()
-        f.savefig('/Users/jake/Desktop/abaco/dg037_8_eta_theta.png',dpi = 300)
+        f.savefig('/Users/jake/Desktop/abaco/dg037_8_eta.png',dpi = 300)
         plt.close()
     
+            
     avg_PE = np.nanmean(PE_per_mass,1)
     avg_PE_theta = np.nanmean(PE_theta_per_mass,1)
     f_ref = np.pi*np.sin(np.deg2rad(26.5))/(12*1800)
@@ -428,7 +460,7 @@ if p_eta > 0:
     k_h = 1e3*(f_ref/c[1:])*np.sqrt( ke[1:,0]/avg_PE[1:])
     # text(1.1e3*f_ref./c(end), mean(k_h(end-5:end)), 'k_h [km^-^1]', 'color', 'k')
     
-    if plot_eta_eng > 0:
+    if plot_eng > 0:
         fig0, ax0 = plt.subplots()
         PE_p = ax0.plot(sc_x,avg_PE[1:]/dk,'r',label='PE')
         ax0.plot( [10**-1, 10**0], [1.5*10**1, 1.5*10**-2],color='k',linestyle='--',linewidth=0.8)
@@ -455,3 +487,41 @@ if p_eta > 0:
         ax0.legend([handles[0],handles[-1]],[labels[0], labels[-1]],fontsize=10)
         fig0.savefig('/Users/jake/Desktop/abaco/dg037_8_PE.png',dpi = 300)
         plt.close()
+        
+        ######### Analysis
+        
+        # avgerage displacements as a function of distance and/or time
+        fig0, ax0 = plt.subplots()
+        time_wins = np.linspace(np.floor(time_min),np.floor(time_max),5)
+        dist_wins = np.linspace(dist_grid[0],dist_grid[-1],5)
+        c3s = plt.cm.jet(np.linspace(0,1,4)) 
+        for i in range(np.size(time_wins)-1):
+            # in_win = np.where((time_rec < time_wins[i+1]) & (time_rec > time_wins[i]) )
+            in_win = np.where((mean_dist < dist_wins[i+1]) & (mean_dist > dist_wins[i]) )
+            avg_prof = np.nanmean(df_eta.iloc[:,in_win[0]],1)
+            plt.plot(avg_prof,grid,color=c3s[i,:])
+            
+        ax0.axis([-100, 100, 0, 5000])
+        ax0.invert_yaxis()
+        plt.show()
+        
+        # dynamic mode amplitude with time
+        time_ord = np.argsort(time_rec)
+        # time_label = datetime.date.fromordinal(np.int(time_rec))
+        myFmt = matplotlib.dates.DateFormatter('%m/%d')
+        mode_range = [1,2,3,4]
+        fig0, ax0 = plt.subplots()
+        plt.plot([time_min, time_max],[0, 0],'k',linewidth=1.5)
+        for i in mode_range:
+            ax_i = ax0.plot(time_rec,AG[i,:],label='Baroclinic Mode ' + np.str(i) )
+            ax0.scatter(time_rec,AG[i,:])
+        plt.axes([0, time_max, -.07, .07])
+        ax0.xaxis.set_major_formatter(myFmt)
+        handles, labels = ax0.get_legend_handles_labels()
+        ax0.set_xlabel('Date')
+        ax0.set_ylabel('Scaled Dynamic Mode (cG) Amplitude')
+        ax0.legend(handles,labels,fontsize=10)
+        ax0.grid()
+        fig0.savefig('/Users/jake/Desktop/abaco/dg037_8_mode_amp.png',dpi = 300)
+            
+        
