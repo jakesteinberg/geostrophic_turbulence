@@ -17,8 +17,14 @@ from scipy.sparse.linalg import eigs
 #  governing equation for interior depths (rows 2 through n-1) and 2) the
 #  boundary conditions at the surface (1st row) and the bottome (last row).
 # - Solution is found by solving the eigenvalue system A*x = lambda*B*x
-def vertical_modes(N2,Depth,omega,mmax): 
+def vertical_modes(N2_0,Depth,omega,mmax): 
     z = -1*Depth
+    
+    if np.size(np.shape(N2_0)) > 1: 
+        N2 = np.nanmean(N2,axis=1)
+    else:
+        N2 = N2_0
+        
     n = np.size(z); 
     nm1 = n - 1; 
     nm2 = n - 2;
@@ -36,7 +42,7 @@ def vertical_modes(N2,Depth,omega,mmax):
     
     D = np.concatenate([ [0],np.arange(1,n) ])
     E = np.concatenate([ [0],np.arange(1,n) ])
-    F = np.concatenate([ [gravity], N2[1:,10] - omega*omega ])
+    F = np.concatenate([ [gravity], N2[1:] - omega*omega ]) # originially says N2[1:,10]
     mat2 = coo_matrix((F,(D,E)),shape=(n,n)) 
     
     # compute eigenvalues and vectors 

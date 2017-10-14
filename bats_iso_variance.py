@@ -39,17 +39,19 @@ bath_z = bath_fid.variables['ROSE'][:]
 dg_list = glob.glob('/Users/jake/Documents/baroclinic_modes/DG/sg035_BATS_2015/p*.nc')
 
 # physical parameters 
+g = 9.81
+rho0 = 1027
 bin_depth = np.concatenate([np.arange(0,150,10), np.arange(150,300,10), np.arange(300,5000,20)])
 ref_lat = 31.8
 lat_in = 31.7
 lon_in = 64.2
 grid = bin_depth[1:-1]
-z = -1*grid
 grid_p = sw.pres(grid,lat_in)
 secs_per_day = 86400.0
 datenum_start = 719163 # jan 1 1970 
 
 plot_bath = 0
+plot_cross = 1
 # initial arrays and dataframes 
 df_t = pd.DataFrame()
 df_s = pd.DataFrame()
@@ -102,7 +104,7 @@ for i in dg_list[10:]:
     press = dive_nc_file.variables['ctd_pressure'][:]
     temp = dive_nc_file.variables['temperature'][:]
     salin = dive_nc_file.variables['salinity'][:]    
-    theta = sw.ptmp(salin, temp, press,0)
+    theta = sw.ptmp(salin, temp, press, 0)
     depth = sw.dpth(press,ref_lat)
     
     # time conversion 
@@ -136,11 +138,13 @@ for i in dg_list[10:]:
         dac_v = np.concatenate([ dac_v,[dive_nc_file.variables['depth_avg_curr_north'].data],[dive_nc_file.variables['depth_avg_curr_north'].data] ])
                 
     # interpolate (bin_average) to smooth and place T/S on vertical depth grid 
-    theta_grid_dive, theta_grid_climb, salin_grid_dive, salin_grid_climb, lon_grid_dive, lon_grid_climb, lat_grid_dive, lat_grid_climb = make_bin(bin_depth,depth[dive_mask],
-        depth[climb_mask],theta[dive_mask],theta[climb_mask],salin[dive_mask],salin[climb_mask], lon[dive_mask]*1000,lon[climb_mask]*1000,lat[dive_mask]*1000,lat[climb_mask]*1000)
+    temp_grid_dive, temp_grid_climb, salin_grid_dive, salin_grid_climb, lon_grid_dive, lon_grid_climb, lat_grid_dive, lat_grid_climb = make_bin(bin_depth,depth[dive_mask],
+        depth[climb_mask],temp[dive_mask],temp[climb_mask],salin[dive_mask],salin[climb_mask], lon[dive_mask]*1000,lon[climb_mask]*1000,lat[dive_mask]*1000,lat[climb_mask]*1000)
     
-    den_grid_dive = sw.pden(salin_grid_dive, theta_grid_dive, grid_p) - 1000
-    den_grid_climb = sw.pden(salin_grid_climb, theta_grid_climb, grid_p) - 1000
+    den_grid_dive = sw.pden(salin_grid_dive, temp_grid_dive, grid_p, pr=0) - 1000
+    den_grid_climb = sw.pden(salin_grid_climb, temp_grid_climb, grid_p, pr=0) - 1000
+    theta_grid_dive = sw.ptmp(salin_grid_dive, temp_grid_dive, grid_p, pr=0)
+    theta_grid_climb = sw.ptmp(salin_grid_climb, temp_grid_climb, grid_p, pr=0)
     
     # create dataframes where each column is a profile 
     t_data_d = pd.DataFrame(theta_grid_dive,index=grid,columns=[glid_num*1000 + dive_num])
@@ -168,6 +172,9 @@ for i in dg_list[10:]:
         df_lat = pd.concat([df_lat,lat_data_d,lat_data_c],axis=1)
  
     count = count+1
+
+head_low = 100
+head_high = 200  
 # plan view plot     
 if plot_bath > 0:
     levels = [ -5250, -5000, -4750, -4500, -4250, -4000, -3500, -3000, -2500, -2000, -1500, -1000, -500 , 0]
@@ -179,8 +186,8 @@ if plot_bath > 0:
     ml = [(-65,31.5),(-64.4, 32.435)]
     ax0.clabel(bcl,manual = ml, inline_spacing=-3, fmt='%1.0f',colors='k')  
     
-    heading_mask = np.where( (heading_rec>200) & (heading_rec <300) ) 
-    heading_mask_out = np.where( (heading_rec<200) | (heading_rec >300) ) 
+    heading_mask = np.where( (heading_rec > head_low) & (heading_rec < head_high) ) 
+    heading_mask_out = np.where( (heading_rec < head_low) | (heading_rec > head_high) ) 
     ax0.plot(df_lon.iloc[:,heading_mask_out[0]],df_lat.iloc[:,heading_mask_out[0]],color='k',linewidth=1) 
     ax0.plot(df_lon.iloc[:,heading_mask[0]],df_lat.iloc[:,heading_mask[0]],color='r',linewidth=1) 
     ax0.scatter(np.nanmean(df_lon.iloc[:,heading_mask[0]],0),np.nanmean(df_lat.iloc[:,heading_mask[0]],0),s=20,color='g')  
@@ -197,132 +204,202 @@ if plot_bath > 0:
     t_e = datetime.date.fromordinal(np.int( np.max(time_rec) ))
     ax0.set_title('Select BATS Transects (DG35): ' + np.str(t_s.month) + '/' + np.str(t_s.day) + '/' + np.str(t_s.year) + ' - ' + np.str(t_e.month) + '/' + np.str(t_e.day) + '/' + np.str(t_e.year))
     plt.tight_layout()
+    plt.show()
     fig0.savefig('/Users/jake/Desktop/bats/plan_view.png',dpi = 200)
 
 
-############ compute vertical displacements for both station and glider profiles 
+############ SELECT ALL TRANSECTS ALONG A HEADING AND COMPUTE VERTICAL DISPLACEMENT AND HORIZONTAL VELOCITY 
 # select only dives along desired heading
-heading_mask = np.where( (heading_rec>200) & (heading_rec <300) ) 
+heading_mask = np.where( (heading_rec > head_low) & (heading_rec < head_high) ) 
 df_den_in = df_den.iloc[:,heading_mask[0]]
+df_t_in = df_t.iloc[:,heading_mask[0]]
+df_s_in = df_s.iloc[:,heading_mask[0]]
 df_lon_in = df_lon.iloc[:,heading_mask[0]]
 df_lat_in = df_lat.iloc[:,heading_mask[0]]
-# average properties of profiles along these transects 
-sigma_theta_avg = np.array(np.nanmean(df_den_in,1))
-ddz_avg_sigma = np.gradient(sigma_theta_avg,z)
+time_in = time_rec[heading_mask[0]]
 
+# average background properties of profiles along these transects 
+sigma_theta_avg = np.array(np.nanmean(df_den_in,1))
+theta_avg = np.array(np.nanmean(df_t_in,1))
+salin_avg = np.array(np.nanmean(df_s_in,1))
+z = -1*grid
+ddz_avg_sigma = np.gradient(sigma_theta_avg,z)
+N2 = np.nan*np.zeros(np.size(sigma_theta_avg))
+N2[1:] = np.squeeze(sw.bfrq(salin_avg, theta_avg, grid_p, lat=ref_lat)[0])  
+lz = np.where(N2 < 0)   
+lnan = np.isnan(N2)
+N2[lz] = 0 
+N2[lnan] = 0
+N = np.sqrt(N2)   
+
+# computer vertical mode shapes 
+omega = 0  # frequency zeroed for geostrophic modes
+mmax = 60  # highest baroclinic mode to be calculated
+nmodes = mmax + 1  
+G, Gz, c = vertical_modes(N2,grid,omega,mmax)
+
+# PREPARE FOR TRANSECT ANALYSIS 
 # dive list to consider
 dives = np.array(df_den_in.columns) - 35000
 
-# section out dives into continuous transects 
+# section out dives into continuous transect groups 
+to_consider = 13
 dive_iter = np.array(dives[0])
+time_iter = np.array(dives[0])
 dive_out = {}
-for i in range(5):
+time_out = {}
+for i in range(to_consider):
     if i < 1:
         this_dive = dives[0]
+        this_time = time_in[0]
     else:
-        this_dive = dive_iter[i] 
-        
-    dive_group = this_dive    
+        this_dive = dive_iter[i]   
+        this_time = time_iter[i]              
+    
+    time_group = this_time    
+    up_o_t = np.where(time_in==this_time)[0]
+    for j in time_in[up_o_t[0]+1:]:
+        if j - this_time < 8:
+            time_group = np.append(time_group,j)
+    
+    dive_group = this_dive 
     up_o = np.where(dives==this_dive)[0]
     for j in dives[up_o[0]+1:]:
-        if j - this_dive < 3:
-            dive_group = np.append(dive_group,j)
-    
+        if j - this_dive < 7:
+            dive_group = np.append(dive_group,j)  
+             
     dive_out[i] = dive_group
+    time_out[i] = time_group
     up_n = np.where(dives==dive_group[-1])[0]
-    dive_iter = np.array(np.append(dive_iter,dives[up_n[0]+1]))    
+    dive_iter = np.array(np.append(dive_iter,dives[up_n[0]+1]))
+    time_iter = np.array(np.append(time_iter,time_in[up_n[0]+1]))    
     
 # loop over each dive_group
-i = 3
-this_set = dive_out[i] + 35000
-df_den_set = df_den_in[this_set] 
-df_lon_set = df_lon_in[this_set]
-df_lat_set = df_lat_in[this_set]  
-
-# total number of dive cycles
-dive_cycs = np.unique(np.floor(this_set))
-# pair dac_u,v with each M/W center
-dive_list = np.array(df_den_in.columns)
-inn = np.where( (dive_list >= this_set[0]) & (dive_list <= this_set[-1]) )
-dac_u_inn = dac_u[inn]
-dac_v_inn = dac_v[inn]
+ndives_in_trans = np.nan*np.zeros(to_consider)
+for l in range(to_consider):
+    ndives_in_trans[l] = np.size(dive_out[l])/2
+# choose only transects that have three dives     
+good = np.where(ndives_in_trans > 2)
 
 # parameters 
-g = 9.81
-rho0 = 1027
 deep_shr_max = 0.1 # maximum allowed deep shear [m/s/km]
 deep_shr_max_dep = 3500 # minimum depth for which shear is limited [m]
 
+######### MAIN LOOP OVER EACH TRANSECT (EACH TRANSECT CONTAINS 3 DIVE CYCLES)
+Eta = []
+V = []
+Time = []
+for master in range(np.size(good)): 
+    ii = good[0][master]
+    this_set = dive_out[ii] + 35000
+    this_set_time = time_out[ii]
+    df_den_set = df_den_in[this_set] 
+    df_lon_set = df_lon_in[this_set]
+    df_lat_set = df_lat_in[this_set]  
 
+    # total number of dive cycles within this transect 
+    dive_cycs = np.unique(np.floor(this_set))
+    # pair dac_u,v with each M/W center
+    dive_list = np.array(df_den_in.columns)
+    inn = np.where( (dive_list >= this_set[0]) & (dive_list <= this_set[-1]) )
+    dac_u_inn = dac_u[inn]
+    dac_v_inn = dac_v[inn]
 
-shear = np.nan*np.zeros( (np.size(grid),np.size(this_set)-1))
-eta = np.nan*np.zeros( (np.size(grid),np.size(this_set)-1))
-# loop over dive-cycles in this group to carry out M/W sampling and produce shear and eta profiles 
-order_set = [0,2,4] # go from 0,2,4
-for i in order_set:
-    # M 
-    lon_start = df_lon_set.iloc[0,i]
-    lat_start = df_lat_set.iloc[0,i]
-    lon_finish = df_lon_set.iloc[0,i+1]
-    lat_finish = df_lat_set.iloc[0,i+1]
-    lat_ref = 0.5*(lat_start + lat_finish);
-    f = np.pi*np.sin(np.deg2rad(lat_ref))/(12*1800);    # Coriolis parameter [s^-1]
-    dxs_m = 1.852*60*np.cos(np.deg2rad(lat_ref))*(lon_finish - lon_start);	# zonal sfc disp [km]
-    dys_m = 1.852*60*(lat_finish - lat_start);    # meridional sfc disp [km]
-    ds, ang_sfc_m = cart2pol(dxs_m, dys_m) 
-    DACe = dac_u_inn[i] # zonal depth averaged current [m/s]
-    DACn = dac_v_inn[i] # meridional depth averaged current [m/s]
-    mag_DAC, ang_DAC = cart2pol(DACe, DACn);
-    DACat, DACpot = pol2cart(mag_DAC,ang_DAC - ang_sfc_m);
-    Vbt_m = DACpot; # across-track barotropic current comp (>0 to left)
-
-    # W 
-    lon_start = df_lon_set.iloc[0,i]
-    lat_start = df_lat_set.iloc[0,i]
-    if i >= 4:
-        lon_finish = df_lon_set.iloc[0,-1]
-        lat_finish = df_lat_set.iloc[0,-1]
-        DACe = np.nanmean( [[dac_u_inn[i]], [dac_u_inn[-1]]] ) # zonal depth averaged current [m/s]
-        DACn = np.nanmean( [[dac_v_inn[i]], [dac_v_inn[-1]]] ) # meridional depth averaged current [m/s]
+    shear = np.nan*np.zeros( (np.size(grid),np.size(this_set)-1))
+    eta = np.nan*np.zeros( (np.size(grid),np.size(this_set)-1))
+    sigth_levels = np.concatenate([ np.arange(23,27.5,0.5), np.arange(27.2,27.8,0.2), np.arange(27.7,27.9,0.02)])
+    isopycdep = np.nan*np.zeros( (np.size(sigth_levels), np.size(this_set)))
+    isopycx = np.nan*np.zeros( (np.size(sigth_levels), np.size(this_set)))
+    Vbt = np.nan*np.zeros( np.size(this_set) )
+    Ds = np.nan*np.zeros( np.size(this_set) )
+    dist = np.nan*np.zeros( np.shape(df_lon_set) )
+    dist_st = 0
+    distance = 0 
+    #### LOOP OVER EACH DIVE CYCLE PROFILE AND COMPUTE SHEAR AND ETA (M/W PROFILING)  
+    if np.size(this_set) <= 6:
+        order_set = [0,2,4] # go from 0,2,4 (because each transect only has 3 dives)
     else:
-        lon_finish = df_lon_set.iloc[0,i+3]
-        lat_finish = df_lat_set.iloc[0,i+3]
-        DACe = np.nanmean( [[dac_u_inn[i]], [dac_u_inn[i+2]]] ) # zonal depth averaged current [m/s]
-        DACn = np.nanmean( [[dac_v_inn[i]], [dac_v_inn[i+2]]] ) # meridional depth averaged current [m/s]
-    lat_ref = 0.5*(lat_start + lat_finish);
-    f = np.pi*np.sin(np.deg2rad(lat_ref))/(12*1800);    # Coriolis parameter [s^-1]
-    dxs = 1.852*60*np.cos(np.deg2rad(lat_ref))*(lon_finish - lon_start);	# zonal sfc disp [km]
-    dys = 1.852*60*(lat_finish - lat_start)   # meridional sfc disp [km]
-    ds, ang_sfc_w = cart2pol(dxs, dys)
-    mag_DAC, ang_DAC = cart2pol(DACe, DACn)
-    DACat, DACpot = pol2cart(mag_DAC,ang_DAC - ang_sfc_w)
-    Vbt_w = DACpot; # across-track barotropic current comp (>0 to left)
+        order_set = [0,2,4,6] # go from 0,2,4 (because each transect only has 3 dives)    
+        
+    for i in order_set:
+        # M 
+        lon_start = df_lon_set.iloc[0,i]
+        lat_start = df_lat_set.iloc[0,i]
+        lon_finish = df_lon_set.iloc[0,i+1]
+        lat_finish = df_lat_set.iloc[0,i+1]
+        lat_ref = 0.5*(lat_start + lat_finish);
+        f = np.pi*np.sin(np.deg2rad(lat_ref))/(12*1800);    # Coriolis parameter [s^-1]
+        dxs_m = 1.852*60*np.cos(np.deg2rad(lat_ref))*(lon_finish - lon_start);	# zonal sfc disp [km]
+        dys_m = 1.852*60*(lat_finish - lat_start);    # meridional sfc disp [km]    
+        ds, ang_sfc_m = cart2pol(dxs_m, dys_m) 
+    
+        dx = 1.852*60*np.cos(np.deg2rad(lat_ref))*( np.concatenate([np.array(df_lon_set.iloc[:,i]),np.flipud(np.array(df_lon_set.iloc[:,i+1]))]) - df_lon_set.iloc[0,i] )
+        dy = 1.852*60*(np.concatenate([np.array(df_lat_set.iloc[:,i]),np.flipud(np.array(df_lat_set.iloc[:,i+1]))]) - df_lat_set.iloc[0,i] )
+        ss,ang = cart2pol(dx, dy)
+        xx, yy = pol2cart(ss,ang - ang_sfc_m)
+        length1 = np.size(np.array(df_lon_set.iloc[:,i]))
+        dist[:,i] = dist_st + xx[0:length1]
+        dist[:,i+1] = dist_st + np.flipud(xx[length1:])
+        dist_st = dist_st + ds
+    
+        distance = distance + np.nanmedian(xx) # 0.5*ds # distance for each velocity estimate    # np.nanmedian(xx) #
+        Ds[i] = distance 
+        DACe = dac_u_inn[i] # zonal depth averaged current [m/s]
+        DACn = dac_v_inn[i] # meridional depth averaged current [m/s]
+        mag_DAC, ang_DAC = cart2pol(DACe, DACn);
+        DACat, DACpot = pol2cart(mag_DAC,ang_DAC - ang_sfc_m);
+        Vbt[i] = DACpot; # across-track barotropic current comp (>0 to left)
 
-    # loop over all bin_depths 
-    shearM = np.nan*np.zeros(np.size(grid))
-    shearW = np.nan*np.zeros(np.size(grid))
-    etaM = np.nan*np.zeros(np.size(grid))
-    etaW = np.nan*np.zeros(np.size(grid))
-    for j in range(np.size(grid)):
-        # find array of indices for M / W sampling 
-        if i < 2:      
-            c_i_m = np.arange(i,i+3) 
-            # im = []; % omit partial "M" estimate
-            c_i_w = np.arange(i,i+4) 
-        elif (i >= 2) and (i < this_set.size-2):
-            c_i_m = np.arange(i-1,i+3) 
-            c_i_w = np.arange(i,i+4) 
-        elif i >= this_set.size-2:
-            c_i_m = np.arange(i-1,this_set.size) 
-            c_i_w = []
-            # im = []; % omit partial "M" estimate
-        nm = np.size(c_i_m); nw = np.size(c_i_w)
+        # W 
+        lon_start = df_lon_set.iloc[0,i]
+        lat_start = df_lat_set.iloc[0,i]
+        if i >= order_set[-1]:
+            lon_finish = df_lon_set.iloc[0,-1]
+            lat_finish = df_lat_set.iloc[0,-1]
+            DACe = np.nanmean( [[dac_u_inn[i]], [dac_u_inn[-1]]] ) # zonal depth averaged current [m/s]
+            DACn = np.nanmean( [[dac_v_inn[i]], [dac_v_inn[-1]]] ) # meridional depth averaged current [m/s]
+        else:
+            lon_finish = df_lon_set.iloc[0,i+3]
+            lat_finish = df_lat_set.iloc[0,i+3]
+            DACe = np.nanmean( [[dac_u_inn[i]], [dac_u_inn[i+2]]] ) # zonal depth averaged current [m/s]
+            DACn = np.nanmean( [[dac_v_inn[i]], [dac_v_inn[i+2]]] ) # meridional depth averaged current [m/s]
+        lat_ref = 0.5*(lat_start + lat_finish);
+        f = np.pi*np.sin(np.deg2rad(lat_ref))/(12*1800);    # Coriolis parameter [s^-1]
+        dxs = 1.852*60*np.cos(np.deg2rad(lat_ref))*(lon_finish - lon_start);	# zonal sfc disp [km]
+        dys = 1.852*60*(lat_finish - lat_start)   # meridional sfc disp [km]
+        ds_w, ang_sfc_w = cart2pol(dxs, dys)
+        distance = distance + (ds-np.nanmedian(xx)) # distance for each velocity estimate 
+        Ds[i+1] = distance
+        mag_DAC, ang_DAC = cart2pol(DACe, DACn)
+        DACat, DACpot = pol2cart(mag_DAC,ang_DAC - ang_sfc_w)
+        Vbt[i+1] = DACpot; # across-track barotropic current comp (>0 to left)
 
-        # for M profile compute shear and eta 
-        if nm > 2 and np.size(df_den_set.iloc[j,c_i_m]) > 2:
-            sigmathetaM = df_den_set.iloc[j,c_i_m]
-            imv = ~np.isnan(np.array(df_den_set.iloc[j,c_i_m]))
-            c_i_m_in = c_i_m[imv]
+        
+        shearM = np.nan*np.zeros(np.size(grid))
+        shearW = np.nan*np.zeros(np.size(grid))
+        etaM = np.nan*np.zeros(np.size(grid))
+        etaW = np.nan*np.zeros(np.size(grid))
+        # LOOP OVER EACH BIN_DEPTH
+        for j in range(np.size(grid)):
+            # find array of indices for M / W sampling 
+            if i < 2:      
+                c_i_m = np.arange(i,i+3) 
+                # im = []; % omit partial "M" estimate
+                c_i_w = np.arange(i,i+4) 
+            elif (i >= 2) and (i < this_set.size-2):
+                c_i_m = np.arange(i-1,i+3) 
+                c_i_w = np.arange(i,i+4) 
+            elif i >= this_set.size-2:
+                c_i_m = np.arange(i-1,this_set.size) 
+                c_i_w = []
+                # im = []; % omit partial "M" estimate
+            nm = np.size(c_i_m); nw = np.size(c_i_w)
+
+            # for M profile compute shear and eta 
+            if nm > 2 and np.size(df_den_set.iloc[j,c_i_m]) > 2:
+                sigmathetaM = df_den_set.iloc[j,c_i_m]
+                imv = ~np.isnan(np.array(df_den_set.iloc[j,c_i_m]))
+                c_i_m_in = c_i_m[imv]
         
             if np.size(c_i_m_in) > 1:
                 xM = 1.852*60*np.cos(np.deg2rad(lat_ref))*( df_lon_set.iloc[j,c_i_m_in] - df_lon_set.iloc[ j,c_i_m_in[0] ] ) # E loc [km]
@@ -339,11 +416,11 @@ for i in order_set:
                     shearM[j] = np.sign(shearM[j])*deep_shr_max
                 etaM[j] = (sigma_theta_avg[j] - np.nanmean(sigmathetaM[imv]) )/ddz_avg_sigma[j]   
         
-        # for W profile compute shear and eta 
-        if nw > 2 and np.size(df_den_set.iloc[j,c_i_w]) > 2:
-            sigmathetaW = df_den_set.iloc[j,c_i_w]
-            iwv = ~np.isnan(np.array(df_den_set.iloc[j,c_i_w]))
-            c_i_w_in = c_i_w[iwv]
+            # for W profile compute shear and eta 
+            if nw > 2 and np.size(df_den_set.iloc[j,c_i_w]) > 2:
+                sigmathetaW = df_den_set.iloc[j,c_i_w]
+                iwv = ~np.isnan(np.array(df_den_set.iloc[j,c_i_w]))
+                c_i_w_in = c_i_w[iwv]
         
             if np.sum(c_i_w_in) > 1:
                 xW = 1.852*60*np.cos(np.deg2rad(lat_ref))*( df_lon_set.iloc[j,c_i_w_in] - df_lon_set.iloc[ j,c_i_w_in[0] ] ) # E loc [km]
@@ -360,30 +437,83 @@ for i in order_set:
                     shearW[j] = np.sign(shearW[j])*deep_shr_max
                 etaW[j] = (sigma_theta_avg[j] - np.nanmean(sigmathetaW[iwv]) )/ddz_avg_sigma[j]          
 
-        # end looping on each bin
+        # END LOOP OVER EACH BIN_DEPTH 
                 
-    # output
-    shear[:,i] = shearM
-    shear[:,i+1] = shearW
-    eta[:,i] = etaM
-    eta[:,i+1] = etaW
+        # OUTPUT FOR EACH TRANSECT (3 DIVES)
+        shear[:,i] = shearM
+        eta[:,i] = etaM
+        if i < np.size(this_set)-2:
+            shear[:,i+1] = shearW
+            eta[:,i+1] = etaW
+            
+        # ISOPYCNAL DEPTHS ON PROFILES ALONG EACH TRANSECT
+        sigthmin = np.nanmin( df_den_set.iloc[:,i] )
+        sigthmax = np.nanmax( df_den_set.iloc[:,i] )
+        isigth = np.where( (sigth_levels > sigthmin) & (sigth_levels < sigthmax) )
+        isopycdep[isigth,i] = np.interp( sigth_levels[isigth], np.array(df_den_set.iloc[:,i]), grid)
+        isopycx[isigth,i] = np.interp( sigth_levels[isigth], np.array(df_den_set.iloc[:,i]), dist[:,i])
+        
+        sigthmin = np.nanmin( df_den_set.iloc[:,i+1] )
+        sigthmax = np.nanmax( df_den_set.iloc[:,i+1] )
+        isigth = np.where( (sigth_levels > sigthmin) & (sigth_levels < sigthmax) )
+        isopycdep[isigth,i+1] = np.interp( sigth_levels[isigth], np.array(df_den_set.iloc[:,i+1]), grid)
+        isopycx[isigth,i+1] = np.interp( sigth_levels[isigth], np.array(df_den_set.iloc[:,i+1]), dist[:,i+1])
+        
+    # END LOOP OVER EACH DIVE IN TRANSECT 
+    
+    # FOR EACH TRANSECT COMPUTE GEOSTROPHIC VELOCITY 
+    Vbc_g = np.nan*np.zeros(np.shape(shear))
+    V_g = np.nan*np.zeros( (np.size(grid),np.size(this_set)) )
+    for m in range(np.size(this_set)-1):
+        iq = np.where( ~np.isnan(shear[:,m]) ) 
+        if np.size(iq) > 10:
+            z = -grid[iq]
+            vrel = cumtrapz(0.001*shear[iq,m],x=z,initial=0)
+            vrel_av = np.trapz(vrel/(z[-1] - z[0]), x=z)
+            vbc = vrel - vrel_av
+            Vbc_g[iq,m] = vbc
+            V_g[iq,m] = Vbt[m] + vbc
+        else:
+            Vbc_g[iq,m] = np.nan
+            V_g[iq,m] = np.nan
 
-for m in range(np.size(this_set)-1):
-    iq = np.where( ~np.isnan(shear[:,m]) ) 
-    if np.size(iq) > 10:
-        z = -grid[iq]
-        vrel = cumtrapz(0.001*shear[iq,m],x=z )
-        vrel_av = trapz(z, vrel)/(z(end) - z(1));
-        vbc = vrel - vrel_av;
-        Vbc_g(iq,ip) = vbc;
-        V_g(iq,ip) = Vbt(ip) + vbc;
-    else
-        Vbc(:,ip) = NaN;
-        V_g(:,ip) = NaN;
-    end
-end
+    if plot_cross > 0:        
+        fig0, ax0 = plt.subplots()
+        levels = np.arange(-.26,.26,.02)
+        vc = ax0.contourf(Ds,grid,V_g,levels=levels)
+        vcc = ax0.contour(Ds,grid,V_g,levels=levels,colors='k',linewidth=1)
+        for p in range(np.size(this_set)):
+            ax0.scatter(dist[:,p],grid,s=.75,color='k') 
+        sig_good = np.where(~np.isnan(isopycdep[:,0]) )   
+        for p in range(np.size(sig_good[0])):
+            ax0.plot(isopycx[sig_good[0][p],:],isopycdep[sig_good[0][p],:],color='#708090',linewidth=.75)              
+            ax0.text(np.nanmax(isopycx[sig_good[0][p],:])+2, np.nanmean(isopycdep[sig_good[0][p],:]), str(sigth_levels[sig_good[0][p]]),fontsize=6)    
+        ax0.clabel(vcc,inline=1,fontsize=8,fmt='%1.2f',color='k')
+        ax0.grid()
+        ax0.axis([0, np.max(Ds)+4, 0, 4750]) 
+        ax0.invert_yaxis()
+        ax0.set_xlabel('Distance along transect [km]')
+        ax0.set_ylabel('Depth [m]')
+        ax0.set_title('DG35 BATS 2014: Select transects 2')
+        plt.tight_layout()
+        fig0.savefig( ('/Users/jake/Desktop/BATS/dg035_BATS_14_' + str(ii) + '.png'),dpi = 300)
+        plt.close()    
+    
+    # OUTPUT V_g AND Eta from each transect collection so that it PE and KE can be computed 
+    if np.size(Eta) < 1:
+        Eta = eta
+        V = V_g
+        Time = this_set_time[0:-1]
+    else:
+        Eta = np.concatenate( (Eta, eta), axis=1 )
+        V = np.concatenate( (V, V_g), axis=1 )
+        Time = np.concatenate( (Time, this_set_time[0:-1]) )
+        
 
-for l in range(6):
-    plt.scatter(df_lon_set.iloc[:,l],grid)
-plt.grid()
-plt.show()    
+fig0, ax0 = plt.subplots()
+for j in range(np.size(Time)):
+    ax0.plot(Eta[:,j],grid)  
+ax0.axis([-400, 400, 0, 4750]) 
+ax0.invert_yaxis() 
+ax0.grid()    
+plt.show()            
