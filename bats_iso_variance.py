@@ -13,7 +13,7 @@ import scipy.io as si
 from scipy.io import netcdf
 from scipy.integrate import cumtrapz
 # functions I've written 
-from grids import make_bin
+from grids import make_bin, collect_dives
 from mode_decompositions import vertical_modes, PE_Tide_GM
 
 def cart2pol(x, y):
@@ -47,131 +47,13 @@ lat_in = 31.7
 lon_in = 64.2
 grid = bin_depth[1:-1]
 grid_p = sw.pres(grid,lat_in)
-secs_per_day = 86400.0
-datenum_start = 719163 # jan 1 1970 
 
+# PLOTTING SWITCHES 
 plot_bath = 0
-plot_cross = 1
-# initial arrays and dataframes 
-df_t = pd.DataFrame()
-df_s = pd.DataFrame()
-df_den = pd.DataFrame()
-df_lon = pd.DataFrame()
-df_lat = pd.DataFrame()
-heading_rec = []
-time_rec = []
-dac_u = []
-dac_v = []
-time_rec_2 = np.zeros([np.size(dg_list), 2])
+plot_cross = 0
 
-## loop over each dive 
-count = 0
-for i in dg_list[10:]:
-    dive_nc_file = netcdf.netcdf_file(i,'r',mmap=False if sys.platform == 'darwin' else mmap, version=1)
-    # initial dive information 
-    glid_num = dive_nc_file.glider 
-    dive_num = dive_nc_file.dive_number 
-    heading_ind = dive_nc_file.variables['log_MHEAD_RNG_PITCHd_Wd']   
-    
-    # extract heading 
-    h1 = heading_ind.data[0]
-    h_test_0 = heading_ind.data[1]
-    h_test_1 = heading_ind.data[2]
-    if h_test_0.isdigit() == True:
-        if h_test_1.isdigit() == True:
-            h2 = h_test_0
-            h3 = h_test_1
-            h = int(h1+h2+h3)
-        else:
-            h = int(h1+h2) 
-    else:
-        h = int(h1)   
-        
-    if np.sum(heading_rec) < 1:
-        heading_rec = np.concatenate([ [h], [h] ])
-    else:
-        heading_rec = np.concatenate([ heading_rec, [h], [h] ])                  
-    
-    # dive position                                       
-    lat = dive_nc_file.variables['latitude'][:]
-    lon = dive_nc_file.variables['longitude'][:] 
-    
-    # eng     
-    ctd_epoch_time = dive_nc_file.variables['ctd_time'][:]
-    pitch_ang = dive_nc_file.variables['eng_pitchAng'][:]
-    
-    # science 
-    press = dive_nc_file.variables['ctd_pressure'][:]
-    temp = dive_nc_file.variables['temperature'][:]
-    salin = dive_nc_file.variables['salinity'][:]    
-    theta = sw.ptmp(salin, temp, press, 0)
-    depth = sw.dpth(press,ref_lat)
-    
-    # time conversion 
-    dive_start_time = dive_nc_file.start_time
-    ctd_time = ctd_epoch_time - dive_start_time    
-    
-    # put on vertical grid (1 column per profile)
-    max_d = np.where(depth == depth.max())
-    max_d_ind = max_d[0]
-    pitch_ang_sub1 = pitch_ang[0:max_d_ind[0]]
-    pitch_ang_sub2 = pitch_ang[max_d_ind[0]:]
-    dive_mask_i= np.where(pitch_ang_sub1 < 0)
-    dive_mask = dive_mask_i[0][:]
-    climb_mask_i = np.where(pitch_ang_sub2 > 0)
-    climb_mask = climb_mask_i[0][:] + max_d_ind[0] - 1      
-    
-    # dive/climb time midpoints
-    time_dive = ctd_time[dive_mask]
-    time_climb = ctd_time[climb_mask]
-    
-    serial_date_time_dive = datenum_start + dive_start_time/(60*60*24) + np.median(time_dive)/secs_per_day
-    serial_date_time_climb = datenum_start + dive_start_time/(60*60*24) + np.median(time_climb)/secs_per_day
-    time_rec_2[count,:] = np.array([ serial_date_time_dive, serial_date_time_climb ])
-    if np.sum(time_rec) < 1:
-        time_rec = np.concatenate([ [serial_date_time_dive], [serial_date_time_climb] ])
-        dac_u = np.concatenate([ [dive_nc_file.variables['depth_avg_curr_east'].data], [dive_nc_file.variables['depth_avg_curr_east'].data] ])
-        dac_v = np.concatenate([ [dive_nc_file.variables['depth_avg_curr_north'].data], [dive_nc_file.variables['depth_avg_curr_north'].data] ])
-    else:
-        time_rec = np.concatenate([ time_rec, [serial_date_time_dive], [serial_date_time_climb] ])
-        dac_u = np.concatenate([ dac_u,[dive_nc_file.variables['depth_avg_curr_east'].data],[dive_nc_file.variables['depth_avg_curr_east'].data] ])
-        dac_v = np.concatenate([ dac_v,[dive_nc_file.variables['depth_avg_curr_north'].data],[dive_nc_file.variables['depth_avg_curr_north'].data] ])
-                
-    # interpolate (bin_average) to smooth and place T/S on vertical depth grid 
-    temp_grid_dive, temp_grid_climb, salin_grid_dive, salin_grid_climb, lon_grid_dive, lon_grid_climb, lat_grid_dive, lat_grid_climb = make_bin(bin_depth,depth[dive_mask],
-        depth[climb_mask],temp[dive_mask],temp[climb_mask],salin[dive_mask],salin[climb_mask], lon[dive_mask]*1000,lon[climb_mask]*1000,lat[dive_mask]*1000,lat[climb_mask]*1000)
-    
-    den_grid_dive = sw.pden(salin_grid_dive, temp_grid_dive, grid_p, pr=0) - 1000
-    den_grid_climb = sw.pden(salin_grid_climb, temp_grid_climb, grid_p, pr=0) - 1000
-    theta_grid_dive = sw.ptmp(salin_grid_dive, temp_grid_dive, grid_p, pr=0)
-    theta_grid_climb = sw.ptmp(salin_grid_climb, temp_grid_climb, grid_p, pr=0)
-    
-    # create dataframes where each column is a profile 
-    t_data_d = pd.DataFrame(theta_grid_dive,index=grid,columns=[glid_num*1000 + dive_num])
-    t_data_c = pd.DataFrame(theta_grid_climb,index=grid,columns=[glid_num*1000 + dive_num+.5])
-    s_data_d = pd.DataFrame(salin_grid_dive,index=grid,columns=[glid_num*1000 + dive_num])
-    s_data_c = pd.DataFrame(salin_grid_climb,index=grid,columns=[glid_num*1000 + dive_num+.5])
-    den_data_d = pd.DataFrame(den_grid_dive,index=grid,columns=[glid_num*1000 + dive_num])
-    den_data_c = pd.DataFrame(den_grid_climb,index=grid,columns=[glid_num*1000 + dive_num+.5])
-    lon_data_d = pd.DataFrame(lon_grid_dive,index=grid,columns=[glid_num*1000 + dive_num])
-    lon_data_c = pd.DataFrame(lon_grid_climb,index=grid,columns=[glid_num*1000 + dive_num+.5])
-    lat_data_d = pd.DataFrame(lat_grid_dive,index=grid,columns=[glid_num*1000 + dive_num])
-    lat_data_c = pd.DataFrame(lat_grid_climb,index=grid,columns=[glid_num*1000 + dive_num+.5])
-    
-    if df_t.size < 1:
-        df_t = pd.concat([t_data_d,t_data_c],axis=1)
-        df_s = pd.concat([s_data_d,s_data_c],axis=1)
-        df_den = pd.concat([den_data_d,den_data_c],axis=1)
-        df_lon = pd.concat([lon_data_d,lon_data_c],axis=1)
-        df_lat = pd.concat([lat_data_d,lat_data_c],axis=1)
-    else:
-        df_t = pd.concat([df_t,t_data_d,t_data_c],axis=1)
-        df_s = pd.concat([df_s,s_data_d,s_data_c],axis=1)
-        df_den = pd.concat([df_den,den_data_d,den_data_c],axis=1)
-        df_lon = pd.concat([df_lon,lon_data_d,lon_data_c],axis=1)
-        df_lat = pd.concat([df_lat,lat_data_d,lat_data_c],axis=1)
- 
-    count = count+1
+# LOAD EACH DIVE AND COLLECT IN MAIN DATAFRAME 
+df_t, df_s, df_den, df_lon, df_lat, dac_u, dac_v, time_rec, time_sta_sto, heading_rec = collect_dives(dg_list, bin_depth, grid, grid_p, ref_lat)
 
 head_low = 100
 head_high = 200  
@@ -205,7 +87,7 @@ if plot_bath > 0:
     ax0.set_title('Select BATS Transects (DG35): ' + np.str(t_s.month) + '/' + np.str(t_s.day) + '/' + np.str(t_s.year) + ' - ' + np.str(t_e.month) + '/' + np.str(t_e.day) + '/' + np.str(t_e.year))
     plt.tight_layout()
     plt.show()
-    fig0.savefig('/Users/jake/Desktop/bats/plan_view.png',dpi = 200)
+    # fig0.savefig('/Users/jake/Desktop/bats/plan_view.png',dpi = 200)
 
 
 ############ SELECT ALL TRANSECTS ALONG A HEADING AND COMPUTE VERTICAL DISPLACEMENT AND HORIZONTAL VELOCITY 
@@ -216,7 +98,8 @@ df_t_in = df_t.iloc[:,heading_mask[0]]
 df_s_in = df_s.iloc[:,heading_mask[0]]
 df_lon_in = df_lon.iloc[:,heading_mask[0]]
 df_lat_in = df_lat.iloc[:,heading_mask[0]]
-time_in = time_rec[heading_mask[0]]
+# time_in = time_rec[heading_mask[0]]
+time_in = time_sta_sto[heading_mask[0]]
 
 # average background properties of profiles along these transects 
 sigma_theta_avg = np.array(np.nanmean(df_den_in,1))
@@ -224,6 +107,7 @@ theta_avg = np.array(np.nanmean(df_t_in,1))
 salin_avg = np.array(np.nanmean(df_s_in,1))
 z = -1*grid
 ddz_avg_sigma = np.gradient(sigma_theta_avg,z)
+ddz_avg_theta = np.gradient(theta_avg,z)
 N2 = np.nan*np.zeros(np.size(sigma_theta_avg))
 N2[1:] = np.squeeze(sw.bfrq(salin_avg, theta_avg, grid_p, lat=ref_lat)[0])  
 lz = np.where(N2 < 0)   
@@ -245,7 +129,7 @@ dives = np.array(df_den_in.columns) - 35000
 # section out dives into continuous transect groups 
 to_consider = 13
 dive_iter = np.array(dives[0])
-time_iter = np.array(dives[0])
+time_iter = np.array(time_in[0])
 dive_out = {}
 time_out = {}
 for i in range(to_consider):
@@ -256,17 +140,14 @@ for i in range(to_consider):
         this_dive = dive_iter[i]   
         this_time = time_iter[i]              
     
-    time_group = this_time    
-    up_o_t = np.where(time_in==this_time)[0]
-    for j in time_in[up_o_t[0]+1:]:
-        if j - this_time < 8:
-            time_group = np.append(time_group,j)
-    
-    dive_group = this_dive 
+    dive_group = np.array([this_dive]) 
+    time_group = np.array([this_time]) 
     up_o = np.where(dives==this_dive)[0]
     for j in dives[up_o[0]+1:]:
-        if j - this_dive < 7:
+        if j - dive_group[-1] < 1:
             dive_group = np.append(dive_group,j)  
+            t_coor = np.where(dives==j)[0][0]
+            time_group = np.append(time_group,time_in[t_coor])    
              
     dive_out[i] = dive_group
     time_out[i] = time_group
@@ -287,6 +168,7 @@ deep_shr_max_dep = 3500 # minimum depth for which shear is limited [m]
 
 ######### MAIN LOOP OVER EACH TRANSECT (EACH TRANSECT CONTAINS 3 DIVE CYCLES)
 Eta = []
+Eta_theta = []
 V = []
 Time = []
 for master in range(np.size(good)): 
@@ -294,6 +176,7 @@ for master in range(np.size(good)):
     this_set = dive_out[ii] + 35000
     this_set_time = time_out[ii]
     df_den_set = df_den_in[this_set] 
+    df_theta_set = df_t_in[this_set] 
     df_lon_set = df_lon_in[this_set]
     df_lat_set = df_lat_in[this_set]  
 
@@ -307,6 +190,7 @@ for master in range(np.size(good)):
 
     shear = np.nan*np.zeros( (np.size(grid),np.size(this_set)-1))
     eta = np.nan*np.zeros( (np.size(grid),np.size(this_set)-1))
+    eta_theta = np.nan*np.zeros( (np.size(grid),np.size(this_set)-1) )
     sigth_levels = np.concatenate([ np.arange(23,27.5,0.5), np.arange(27.2,27.8,0.2), np.arange(27.7,27.9,0.02)])
     isopycdep = np.nan*np.zeros( (np.size(sigth_levels), np.size(this_set)))
     isopycx = np.nan*np.zeros( (np.size(sigth_levels), np.size(this_set)))
@@ -379,25 +263,28 @@ for master in range(np.size(good)):
         shearW = np.nan*np.zeros(np.size(grid))
         etaM = np.nan*np.zeros(np.size(grid))
         etaW = np.nan*np.zeros(np.size(grid))
+        eta_thetaM = np.nan*np.zeros(np.size(grid))
+        eta_thetaW = np.nan*np.zeros(np.size(grid))
         # LOOP OVER EACH BIN_DEPTH
         for j in range(np.size(grid)):
             # find array of indices for M / W sampling 
             if i < 2:      
                 c_i_m = np.arange(i,i+3) 
-                # im = []; % omit partial "M" estimate
+                # c_i_m = []; % omit partial "M" estimate
                 c_i_w = np.arange(i,i+4) 
             elif (i >= 2) and (i < this_set.size-2):
                 c_i_m = np.arange(i-1,i+3) 
                 c_i_w = np.arange(i,i+4) 
             elif i >= this_set.size-2:
                 c_i_m = np.arange(i-1,this_set.size) 
+                # c_i_m = []; % omit partial "M" estimate
                 c_i_w = []
-                # im = []; % omit partial "M" estimate
             nm = np.size(c_i_m); nw = np.size(c_i_w)
 
             # for M profile compute shear and eta 
             if nm > 2 and np.size(df_den_set.iloc[j,c_i_m]) > 2:
                 sigmathetaM = df_den_set.iloc[j,c_i_m]
+                thetaM = df_theta_set.iloc[j,c_i_m]
                 imv = ~np.isnan(np.array(df_den_set.iloc[j,c_i_m]))
                 c_i_m_in = c_i_m[imv]
         
@@ -414,11 +301,13 @@ for master in range(np.size(good)):
                 shearM[j] = -g*drhodatM/(rho0*f) # shear to port of track [m/s/km]
                 if (np.abs(shearM[j]) > deep_shr_max) and grid[j] >= deep_shr_max_dep: 
                     shearM[j] = np.sign(shearM[j])*deep_shr_max
-                etaM[j] = (sigma_theta_avg[j] - np.nanmean(sigmathetaM[imv]) )/ddz_avg_sigma[j]   
+                etaM[j] = (sigma_theta_avg[j] - np.nanmean(sigmathetaM[imv]) )/ddz_avg_sigma[j] 
+                eta_thetaM[j] = (theta_avg[j] - np.nanmean(thetaM[imv]) )/ddz_avg_theta[j]   
         
             # for W profile compute shear and eta 
             if nw > 2 and np.size(df_den_set.iloc[j,c_i_w]) > 2:
                 sigmathetaW = df_den_set.iloc[j,c_i_w]
+                thetaW = df_theta_set.iloc[j,c_i_w]
                 iwv = ~np.isnan(np.array(df_den_set.iloc[j,c_i_w]))
                 c_i_w_in = c_i_w[iwv]
         
@@ -435,16 +324,19 @@ for master in range(np.size(good)):
                 shearW[j] = -g*drhodatW/(rho0*f) # shear to port of track [m/s/km]
                 if (np.abs(shearW[j]) > deep_shr_max) and grid[j] >= deep_shr_max_dep: 
                     shearW[j] = np.sign(shearW[j])*deep_shr_max
-                etaW[j] = (sigma_theta_avg[j] - np.nanmean(sigmathetaW[iwv]) )/ddz_avg_sigma[j]          
+                etaW[j] = (sigma_theta_avg[j] - np.nanmean(sigmathetaW[iwv]) )/ddz_avg_sigma[j]
+                eta_thetaW[j] = (theta_avg[j] - np.nanmean(thetaW[iwv]) )/ddz_avg_theta[j]          
 
         # END LOOP OVER EACH BIN_DEPTH 
                 
         # OUTPUT FOR EACH TRANSECT (3 DIVES)
         shear[:,i] = shearM
         eta[:,i] = etaM
+        eta_theta[:,i] = eta_thetaM
         if i < np.size(this_set)-2:
             shear[:,i+1] = shearW
             eta[:,i+1] = etaW
+            eta_theta[:,i+1] = eta_thetaW
             
         # ISOPYCNAL DEPTHS ON PROFILES ALONG EACH TRANSECT
         sigthmin = np.nanmin( df_den_set.iloc[:,i] )
@@ -479,11 +371,16 @@ for master in range(np.size(good)):
 
     if plot_cross > 0:        
         fig0, ax0 = plt.subplots()
-        levels = np.arange(-.26,.26,.02)
-        vc = ax0.contourf(Ds,grid,V_g,levels=levels)
+        matplotlib.rcParams['contour.negative_linestyle'] = 'solid'
+        levels = np.arange(-.32,.34,.02)
+        vc = ax0.contourf(Ds,grid,V_g,levels=levels,cmap=plt.cm.coolwarm)
         vcc = ax0.contour(Ds,grid,V_g,levels=levels,colors='k',linewidth=1)
         for p in range(np.size(this_set)):
             ax0.scatter(dist[:,p],grid,s=.75,color='k') 
+        dive_label = np.arange(0,np.size(this_set),2)    
+        for pp in range(np.size(dive_label)):
+            p = dive_label[pp]
+            ax0.text(np.nanmax(dist[:,p])-1,np.max(grid[~np.isnan(dist[:,p])])+200, str(int(this_set[p]-35000)))   
         sig_good = np.where(~np.isnan(isopycdep[:,0]) )   
         for p in range(np.size(sig_good[0])):
             ax0.plot(isopycx[sig_good[0][p],:],isopycdep[sig_good[0][p],:],color='#708090',linewidth=.75)              
@@ -494,26 +391,235 @@ for master in range(np.size(good)):
         ax0.invert_yaxis()
         ax0.set_xlabel('Distance along transect [km]')
         ax0.set_ylabel('Depth [m]')
-        ax0.set_title('DG35 BATS 2014: Select transects 2')
+        t_s = datetime.date.fromordinal(np.int( this_set_time[0] ))
+        t_e = datetime.date.fromordinal(np.int( this_set_time[-1] ))
+        ax0.set_title('DG35 BATS Transects 2015: ' + np.str(t_s.month) + '/' + np.str(t_s.day) + ' - ' + np.str(t_e.month) + '/' + np.str(t_e.day))        
+        # cax = divider.append_axes("right", size="5%", pad=0.05)
+        plt.colorbar(vc, label='[m/s]')
         plt.tight_layout()
-        fig0.savefig( ('/Users/jake/Desktop/BATS/dg035_BATS_14_' + str(ii) + '.png'),dpi = 300)
+        fig0.savefig( ('/Users/jake/Desktop/BATS/dg035_BATS_15a_' + str(ii) + '.png'),dpi = 300)
         plt.close()    
     
     # OUTPUT V_g AND Eta from each transect collection so that it PE and KE can be computed 
     if np.size(Eta) < 1:
         Eta = eta
-        V = V_g
+        Eta_theta = eta_theta
+        V = V_g[:,:-1]
         Time = this_set_time[0:-1]
     else:
         Eta = np.concatenate( (Eta, eta), axis=1 )
-        V = np.concatenate( (V, V_g), axis=1 )
+        Eta_theta = np.concatenate( (Eta_theta, eta_theta), axis=1 )
+        V = np.concatenate( (V, V_g[:,:-1]), axis=1 )
         Time = np.concatenate( (Time, this_set_time[0:-1]) )
-        
+                
 
-fig0, ax0 = plt.subplots()
+# first taper fit above and below min/max limits
+# Project modes onto each eta (find fitted eta)
+# Compute PE 
+sz = np.shape(Eta)
+num_profs = sz[1]
+eta_fit_depth_min = 50
+eta_fit_depth_max = 3800
+eta_theta_fit_depth_max = 4200
+AG = np.zeros([nmodes, num_profs])
+AGz = np.zeros([nmodes, num_profs])
+AG_theta = np.zeros([nmodes, num_profs])
+Eta_m = np.nan*np.zeros([np.size(grid), num_profs])
+V_m = np.nan*np.zeros([np.size(grid), num_profs])
+Neta = np.nan*np.zeros([np.size(grid), num_profs])
+NEta_m = np.nan*np.zeros([np.size(grid), num_profs])
+Eta_theta_m = np.nan*np.zeros([np.size(grid), num_profs])
+PE_per_mass = np.nan*np.zeros([nmodes, num_profs])
+HKE_per_mass = np.nan*np.zeros([nmodes, num_profs])
+PE_theta_per_mass = np.nan*np.zeros([nmodes, num_profs])
+modest = np.arange(11,nmodes)
+good_prof = np.ones(num_profs)
+HKE_noise_threshold = 1e-5
+for i in range(num_profs):
+    
+    # fit to velocity profiles
+    this_V = V[:,i].copy()
+    iv = np.where( ~np.isnan(this_V) )
+    if iv[0].size > 1:
+        AGz[:,i] =  np.squeeze(np.linalg.lstsq( np.squeeze(Gz[iv,:]),np.transpose(np.atleast_2d(this_V[iv])))[0]) # Gz(iv,:)\V_g(iv,ip)                
+        V_m[:,i] =  np.squeeze(np.matrix(Gz)*np.transpose(np.matrix(AGz[:,i])))  #Gz*AGz[:,i];
+        HKE_per_mass[:,i] = AGz[:,i]*AGz[:,i]
+        ival = np.where( HKE_per_mass[modest,i] >= HKE_noise_threshold )
+        if np.size(ival) > 0:
+            good_prof[i] = 0 # flag profile as noisy
+    else:
+        good_prof[i] = 0 # flag empty profile as noisy as well
+  
+    # fit to eta profiles
+    this_eta = Eta[:,i].copy()
+    # obtain matrix of NEta
+    Neta[:,i] = N*this_eta
+    this_eta_theta = Eta_theta[:,i].copy()
+    iw = np.where((grid>=eta_fit_depth_min) & (grid<=eta_fit_depth_max))
+    iw_theta = np.where((grid>=eta_fit_depth_min) & (grid<=eta_theta_fit_depth_max))
+    if iw[0].size > 1:
+        eta_fs = Eta[:,i].copy() # ETA
+        eta_theta_fs = Eta_theta[:,i].copy() # ETA THETA
+    
+        i_sh = np.where( (grid < eta_fit_depth_min))
+        eta_fs[i_sh[0]] = grid[i_sh]*this_eta[iw[0][0]]/grid[iw[0][0]]
+        eta_theta_fs[i_sh[0]] = grid[i_sh]*this_eta_theta[iw[0][0]]/grid[iw[0][0]]
+    
+        i_dp = np.where( (grid > eta_fit_depth_max) )
+        eta_fs[i_dp[0]] = (grid[i_dp] - grid[-1])*this_eta[iw[0][-1]]/(grid[iw[0][-1]]-grid[-1])
+        
+        i_dp_theta = np.where( (grid > eta_theta_fit_depth_max) )
+        eta_theta_fs[i_dp_theta[0]] = (grid[i_dp_theta] - grid[-1])*this_eta_theta[iw_theta[0][-1]]/(grid[iw_theta[0][-1]]-grid[-1])
+        
+        AG[1:,i] = np.squeeze(np.linalg.lstsq(G[:,1:],np.transpose(np.atleast_2d(eta_fs)))[0])
+        AG_theta[1:,i] = np.squeeze(np.linalg.lstsq(G[:,1:],np.transpose(np.atleast_2d(eta_theta_fs)))[0])
+        Eta_m[:,i] = np.squeeze(np.matrix(G)*np.transpose(np.matrix(AG[:,i])))
+        NEta_m[:,i] = N*np.array(np.squeeze(np.matrix(G)*np.transpose(np.matrix(AG[:,i]))))
+        Eta_theta_m[:,i] = np.squeeze(np.matrix(G)*np.transpose(np.matrix(AG_theta[:,i])))
+        PE_per_mass[:,i] = (1/2)*AG[:,i]*AG[:,i]*c*c
+        PE_theta_per_mass[:,i] = (1/2)*AG_theta[:,i]*AG_theta[:,i]*c*c 
+
+### COMPUTE EOF SHAPES AND COMPARE TO ASSUMED STRUCTURE 
+
+f, (ax0,ax1) = plt.subplots(1, 2, sharey=True)
 for j in range(np.size(Time)):
-    ax0.plot(Eta[:,j],grid)  
-ax0.axis([-400, 400, 0, 4750]) 
+    ax1.plot(Eta[:,j],grid,color='#B22222')  
+    ax1.plot(Eta_m[:,j],grid,color='k',linestyle='--',linewidth=.75)
+    
+    ax0.plot(Eta_theta[:,j],grid,color='#B22222') 
+    ax0.plot(Eta_theta_m[:,j],grid,color='k',linestyle='--',linewidth=.75)
+ax1.axis([-600, 600, 0, 4800]) 
+ax1.set_xlabel(r'$\eta_{\sigma_{\theta}}$ [m]')
+ax0.set_ylabel('Depth [m]')
+ax1.set_title(r'$\eta$ Vertical Isopycnal Disp.') # + '(' + str(Time[0]) + '-' )
+ax0.set_title(r'BATS 2015 Vertical $\theta$ Disp.') # + '(' + str(Time[0]) + '-' )
+ax0.axis([-600, 600, 0, 4800]) 
+ax0.set_xlabel(r'$\eta_{\theta}$ [m]')
+ax1.grid()  
 ax0.invert_yaxis() 
 ax0.grid()    
-plt.show()            
+f.savefig('/Users/jake/Desktop/bats/dg035_15_Eta_a.png',dpi = 300)
+# plt.show()    
+
+# f, ax0 = plt.subplots()
+# for j in range(np.size(Time)):
+#     ax0.plot(V[:,j],grid,color='#B22222')  
+#     ax0.plot(V_m[:,j],grid,color='k',linestyle='--',linewidth=.75)
+# ax0.axis([-.5, .5, 0, 4800]) 
+# ax0.invert_yaxis() 
+# ax0.grid()       
+# plt.show()
+
+avg_PE = np.nanmean(PE_per_mass,1)
+good_prof_i = np.where(good_prof > 0)
+avg_KE = np.nanmean(HKE_per_mass[:,good_prof_i[0]],1)
+# avg_PE_theta = np.nanmean(PE_theta_per_mass,1)
+f_ref = np.pi*np.sin(np.deg2rad(ref_lat))/(12*1800)
+rho0 = 1025
+dk = f_ref/c[1]
+sc_x = (1000)*f_ref/c[1:]
+    
+PE_SD, PE_GM = PE_Tide_GM(rho0,grid,nmodes,np.transpose(np.atleast_2d(N2)),f_ref)
+
+# KE parameters
+dk_ke = 1000*f_ref/c[1]   
+k_h = 1e3*(f_ref/c[1:])*np.sqrt( avg_KE[1:]/avg_PE[1:])
+
+plot_eng = 1
+if plot_eng > 0:
+    fig0, ax0 = plt.subplots()
+    PE_p = ax0.plot(sc_x,avg_PE[1:]/dk,'r',label='PE')
+    KE_p = ax0.plot(sc_x,avg_KE[1:]/dk,'b',label='KE')
+    ax0.plot( [10**-1, 10**0], [1.5*10**1, 1.5*10**-2],color='k',linestyle='--',linewidth=0.8)
+    ax0.text(0.8*10**-1,1.3*10**1,'-3',fontsize=8)
+    ax0.scatter(sc_x,avg_PE[1:]/dk,color='r',s=6)
+    ax0.plot(sc_x,0.5*PE_GM/dk,linestyle='--',color='#DAA520')
+    ax0.text(sc_x[0]-.009,PE_GM[0]/dk,r'$PE_{GM}$')
+    # KE_p = ax0.plot(1000*ke_data['f_ref'][0][0][0]/ke_data['c'][0][0][1:],ke[1:]/(dk_ke/1000),color='b',label='KE')
+    # ax0.scatter(1000*ke_data['f_ref'][0][0][0]/ke_data['c'][0][0][1:],ke[1:]/(dk_ke/1000),color='b',s=6)
+    ax0.plot( [1000*f_ref/c[1], 1000*f_ref/c[-2]],[1000*f_ref/c[1], 1000*f_ref/c[-2]],linestyle='--',color='k',linewidth=0.8)
+    ax0.text( 1000*f_ref/c[-2]+.1, 1000*f_ref/c[-2], r'f/c$_m$',fontsize=8)
+    ax0.plot(sc_x,k_h,color='k')
+    ax0.text(sc_x[0]-.008,k_h[0]-.008,r'$k_{h}$ [km$^{-1}$]',fontsize=8)        
+    ax0.set_yscale('log')
+    ax0.set_xscale('log')
+    ax0.axis([10**-2, 1.5*10**1, 10**(-4), 10**(3)])
+    ax0.grid()
+    ax0.set_xlabel(r'Vertical Wavenumber = Inverse Rossby Radius = $\frac{f}{c}$ [$km^{-1}$]',fontsize=13)
+    ax0.set_ylabel('Spectral Density (and Hor. Wavenumber)')
+    ax0.set_title('BATS')
+    handles, labels = ax0.get_legend_handles_labels()
+    ax0.legend([handles[0],handles[-1]],[labels[0], labels[-1]],fontsize=10)
+    fig0.savefig('/Users/jake/Desktop/bats/dg035_15_PEa.png',dpi = 300)
+    plt.close()
+
+    ############## ABACO BATS COMPARISON ################
+    # load ABACO spectra
+    AB_f_pe = np.load('/Users/jake/Desktop/abaco/f_ref_pe.npy')
+    AB_c_pe = np.load('/Users/jake/Desktop/abaco/c_pe.npy')
+    AB_f = np.load('/Users/jake/Desktop/abaco/f_ref.npy')
+    AB_c = np.load('/Users/jake/Desktop/abaco/c.npy')
+    AB_avg_PE = np.load('/Users/jake/Desktop/abaco/avg_PE.npy')
+    AB_avg_KE = np.load('/Users/jake/Desktop/abaco/avg_KE.npy')
+    AB_sc_x = (1000)*AB_f_pe/AB_c_pe[1:]
+    AB_dk = AB_f_pe/AB_c_pe[1]
+    AB_dk_ke = AB_f/AB_c[1]
+
+    # PLOT ABACO AND BATS 
+    fig0, (ax0,ax1) = plt.subplots(1, 2, sharey=True)
+    PE_p = ax0.plot(sc_x,avg_PE[1:]/dk,'r',label='PE')
+    KE_p = ax0.plot(sc_x,avg_KE[1:]/dk,'b',label='KE')
+    ax0.plot( [10**-1, 10**0], [1.5*10**1, 1.5*10**-2],color='k',linestyle='--',linewidth=0.8)
+    ax0.text(0.8*10**-1,1.3*10**1,'-3',fontsize=8)
+    ax0.scatter(sc_x,avg_PE[1:]/dk,color='r',s=6)
+    ax0.plot(sc_x,0.5*PE_GM/dk,linestyle='--',color='#DAA520')
+    ax0.text(sc_x[0]-.009,PE_GM[0]/dk,r'$PE_{GM}$')
+    ax0.plot( [1000*f_ref/c[1], 1000*f_ref/c[-2]],[1000*f_ref/c[1], 1000*f_ref/c[-2]],linestyle='--',color='k',linewidth=0.8)
+    ax0.text( 1000*f_ref/c[-2]+.1, 1000*f_ref/c[-2], r'f/c$_m$',fontsize=8)
+    ax0.plot(sc_x,k_h,color='k')
+    ax0.text(sc_x[0]-.008,k_h[0]-.008,r'$k_{h}$ [km$^{-1}$]',fontsize=8)        
+    ax0.set_yscale('log')
+    ax0.set_xscale('log')
+    ax0.axis([10**-2, 1.5*10**1, 10**(-4), 10**(3)])
+    ax0.grid()
+    ax0.set_xlabel(r'Scaled Vert. Wavenumber = $\frac{f}{c}$ [$km^{-1}$]',fontsize=10)
+    ax0.set_ylabel('Spectral Density (and Hor. Wavenumber)')
+    ax0.set_title('BATS (2015) 42 Profiles')
+    handles, labels = ax0.get_legend_handles_labels()
+    ax0.legend([handles[0],handles[-1]],[labels[0], labels[-1]],fontsize=10)
+        
+    PE_p = ax1.plot(AB_sc_x,AB_avg_PE[1:]/AB_dk,'r',label='PE')
+    ax1.scatter(AB_sc_x,AB_avg_PE[1:]/AB_dk,color='r',s=6)
+    KE_p = ax1.plot(AB_sc_x,AB_avg_KE[1:]/AB_dk_ke,'b',label='KE')    
+    AB_k_h = AB_sc_x*np.sqrt( np.squeeze(AB_avg_KE[1:])/AB_avg_PE[1:])     
+    ax1.plot( [1000*AB_f_pe/AB_c_pe[1], 1000*AB_f_pe/AB_c_pe[-2]], [1000*AB_f_pe/AB_c_pe[1], 1000*AB_f_pe/AB_c_pe[-2]],linestyle='--',color='k',linewidth=0.8)
+    ax1.text( 1000*AB_f_pe/AB_c_pe[-2]+.1, 1000*AB_f_pe/AB_c_pe[-2], r'f/c$_m$',fontsize=8)
+    ax1.plot(AB_sc_x,AB_k_h,color='k')
+    ax1.plot( [10**-1, 10**0], [1.5*10**1, 1.5*10**-2],color='k',linestyle='--',linewidth=0.8)
+    ax1.plot(AB_sc_x,PE_GM/AB_dk,linestyle='--',color='#DAA520')
+    ax1.text(AB_sc_x[0]-.009,PE_GM[0]/AB_dk,r'$PE_{GM}$')
+    ax1.text(0.8*10**-1,1.3*10**1,'-3',fontsize=8)
+    ax1.set_yscale('log')
+    ax1.set_xscale('log')
+    ax1.axis([10**-2, 1.5*10**1, 10**(-4), 10**(3)])
+    ax1.set_xlabel(r'Scaled Vert. Wavenumber = $\frac{f}{c}$ [$km^{-1}$]',fontsize=10)
+    ax1.set_title('ABACO (2017) 57 Profiles')
+    ax1.grid()        
+    fig0.savefig('/Users/jake/Desktop/bats/dg035_15_PE_comp_a.png',dpi = 300)   
+    plt.close()
+    
+    # PLOT ON SAME X AXIS 
+    fig0, ax0 = plt.subplots()
+    PE_BATS = ax0.plot(np.arange(0,60),avg_PE[1:]/dk,'r',label='BATS PE')    
+    PE_ABACO = ax0.plot(np.arange(0,60),AB_avg_PE[1:]/AB_dk,'b',label='ABACO PE')
+    handles, labels = ax0.get_legend_handles_labels()
+    ax0.legend([handles[0],handles[-1]],[labels[0], labels[-1]],fontsize=10)
+    ax0.set_yscale('log')
+    ax0.set_xlabel('Vertical Mode Number')
+    ax0.set_ylabel('Energy (variance per vert. wave number)')
+    ax0.set_title('PE Comparison')
+    ax0.grid()  
+    fig0.savefig('/Users/jake/Desktop/bats/dg035_15_PE_mode_comp_a.png',dpi = 300)
+    plt.close()
+    
+

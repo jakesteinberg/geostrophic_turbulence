@@ -21,7 +21,7 @@ def vertical_modes(N2_0,Depth,omega,mmax):
     z = -1*Depth
     
     if np.size(np.shape(N2_0)) > 1: 
-        N2 = np.nanmean(N2,axis=1)
+        N2 = np.nanmean(N2_0,axis=1)
     else:
         N2 = N2_0
         

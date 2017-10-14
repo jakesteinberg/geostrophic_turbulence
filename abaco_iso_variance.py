@@ -24,8 +24,8 @@ bath_z = bath_fid['ROSE'][:]
 #### gliders 
 dg037_list = glob.glob('/Users/jake/Documents/baroclinic_modes/DG/ABACO_2017/sg037/p*.nc')
 dg038_list = glob.glob('/Users/jake/Documents/baroclinic_modes/DG/ABACO_2017/sg038/p*.nc') # 50-72
-dg_list = np.concatenate([dg037_list[45:],dg038_list[50:72]])
-# dg_list = np.array(dg037_list[45:])
+# dg_list = np.concatenate([dg037_list[45:],dg038_list[50:72]])
+dg_list = np.array(dg037_list[45:])
 # dg_list = dg038_list[50:72]
 
 #### Deep Argo (nearby)
@@ -56,7 +56,7 @@ plot_plan = 0
 plot_cross = 0
 p_eta = 1
 plot_eta = 1
-plot_eng = 0
+plot_eng = 1
 
 ####################################################################
 ##### iterate for each dive cycle ######
@@ -129,7 +129,12 @@ for i in dg_list:
         time_rec = np.concatenate([ time_rec, [serial_date_time_dive], [serial_date_time_climb] ])
                 
     # interpolate (bin_average) to smooth and place T/S on vertical depth grid 
-    theta_grid_dive, theta_grid_climb, salin_grid_dive, salin_grid_climb, x_grid_dive, x_grid_climb, y_grid_dive, y_grid_climb = make_bin(bin_depth,depth[dive_mask],depth[climb_mask],theta[dive_mask],theta[climb_mask],salin[dive_mask],salin[climb_mask], x[dive_mask],x[climb_mask],y[dive_mask],y[climb_mask])
+    temp_grid_dive, temp_grid_climb, salin_grid_dive, salin_grid_climb, x_grid_dive, x_grid_climb, y_grid_dive, y_grid_climb = make_bin(bin_depth,
+        depth[dive_mask],depth[climb_mask],temp[dive_mask],temp[climb_mask],salin[dive_mask],salin[climb_mask],
+        x[dive_mask],x[climb_mask],y[dive_mask],y[climb_mask])
+    
+    theta_grid_dive = sw.ptmp(salin_grid_dive, temp_grid_dive, grid_p, pr=0)
+    theta_grid_climb = sw.ptmp(salin_grid_climb, temp_grid_climb, grid_p, pr=0)
     
     # compute distance to closest point on transect
     dist_dive = np.zeros(np.size(x_grid_dive))
@@ -169,8 +174,8 @@ for i in dg_list:
         
     # if interpolating on a depth grid, interpolate density 
     if grid[10]-grid[9] > 1: 
-        den_grid_dive = sw.pden(salin_grid_dive, theta_grid_dive, grid_p) - 1000
-        den_grid_climb = sw.pden(salin_grid_climb, theta_grid_climb, grid_p) - 1000
+        den_grid_dive = sw.pden(salin_grid_dive, temp_grid_dive, grid_p) - 1000
+        den_grid_climb = sw.pden(salin_grid_climb, temp_grid_climb, grid_p) - 1000
         den_data_d = pd.DataFrame(den_grid_dive,index=grid,columns=[glid_num*1000 + dive_num])
         den_data_c = pd.DataFrame(den_grid_climb,index=grid,columns=[glid_num*1000 + dive_num+.5])
         if df_t.size < 1:
@@ -365,7 +370,7 @@ if p_eta > 0:
     # Project modes onto each eta (find fitted eta)
     # Compute PE 
     eta_fit_depth_min = 50
-    eta_fit_depth_max = 4250
+    eta_fit_depth_max = 3800
     AG = np.zeros([nmodes, num_profs])
     AG_theta = np.zeros([nmodes, num_profs])
     Eta_m = np.nan*np.zeros([np.size(grid), num_profs])
@@ -375,10 +380,10 @@ if p_eta > 0:
     PE_per_mass = np.nan*np.zeros([nmodes, num_profs])
     PE_theta_per_mass = np.nan*np.zeros([nmodes, num_profs])
     for i in range(num_profs):
-        this_eta = df_eta.iloc[:,i][:]
+        this_eta = df_eta.iloc[:,i][:].copy()
         # obtain matrix of NEta
         Neta[:,i] = N[:,np.int(closest_rec[i])]*this_eta
-        this_eta_theta = df_eta_theta.iloc[:,i][:]
+        this_eta_theta = df_eta_theta.iloc[:,i][:].copy()
         iw = np.where((grid>=eta_fit_depth_min) & (grid<=eta_fit_depth_max))
         if iw[0].size > 1:
             eta_fs = df_eta.iloc[:,i][:] # ETA
@@ -491,19 +496,19 @@ if p_eta > 0:
         ######### Analysis
         
         # avgerage displacements as a function of distance and/or time
-        fig0, ax0 = plt.subplots()
-        time_wins = np.linspace(np.floor(time_min),np.floor(time_max),5)
-        dist_wins = np.linspace(dist_grid[0],dist_grid[-1],5)
-        c3s = plt.cm.jet(np.linspace(0,1,4)) 
-        for i in range(np.size(time_wins)-1):
-            # in_win = np.where((time_rec < time_wins[i+1]) & (time_rec > time_wins[i]) )
-            in_win = np.where((mean_dist < dist_wins[i+1]) & (mean_dist > dist_wins[i]) )
-            avg_prof = np.nanmean(df_eta.iloc[:,in_win[0]],1)
-            plt.plot(avg_prof,grid,color=c3s[i,:])
+        # fig0, ax0 = plt.subplots()
+        # time_wins = np.linspace(np.floor(time_min),np.floor(time_max),5)
+        # dist_wins = np.linspace(dist_grid[0],dist_grid[-1],5)
+        # c3s = plt.cm.jet(np.linspace(0,1,4)) 
+        # for i in range(np.size(time_wins)-1):
+        #     # in_win = np.where((time_rec < time_wins[i+1]) & (time_rec > time_wins[i]) )
+        #     in_win = np.where((mean_dist < dist_wins[i+1]) & (mean_dist > dist_wins[i]) )
+        #     avg_prof = np.nanmean(df_eta.iloc[:,in_win[0]],1)
+        #     plt.plot(avg_prof,grid,color=c3s[i,:])
             
-        ax0.axis([-100, 100, 0, 5000])
-        ax0.invert_yaxis()
-        plt.show()
+        # ax0.axis([-100, 100, 0, 5000])
+        # ax0.invert_yaxis()
+        # rplt.show()
         
         # dynamic mode amplitude with time
         time_ord = np.argsort(time_rec)
@@ -523,5 +528,8 @@ if p_eta > 0:
         ax0.legend(handles,labels,fontsize=10)
         ax0.grid()
         fig0.savefig('/Users/jake/Desktop/abaco/dg037_8_mode_amp.png',dpi = 300)
-            
+        
+        # np.save('/Users/jake/Desktop/abaco/f_ref_pe.npy',f_ref)
+        # np.save('/Users/jake/Desktop/abaco/c_pe.npy',c)
+        # np.save('/Users/jake/Desktop/abaco/avg_PE.npy',avg_PE)          
         
