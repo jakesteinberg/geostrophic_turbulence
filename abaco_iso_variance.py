@@ -15,17 +15,22 @@ from grids import make_bin
 from mode_decompositions import vertical_modes, PE_Tide_GM
 
 #### bathymetry 
-bath = '/Users/jake/Documents/baroclinic_modes/DG/ABACO_2017/OceanWatch_smith_sandwell.nc'
+# bath = '/Users/jake/Documents/baroclinic_modes/DG/ABACO_2017/OceanWatch_smith_sandwell.nc'
+# bath_fid = Dataset(bath,'r')
+# bath_lon = bath_fid['longitude'][:] - 360
+# bath_lat = bath_fid['latitude'][:]
+# bath_z = bath_fid['ROSE'][:]
+bath = '/Users/jake/Desktop/abaco/abaco_bathymetry/GEBCO_2014_2D_-79.275_22.25_-67.975_29.1.nc'
 bath_fid = Dataset(bath,'r')
-bath_lon = bath_fid['longitude'][:] - 360
-bath_lat = bath_fid['latitude'][:]
-bath_z = bath_fid['ROSE'][:]
+bath_lon = bath_fid['lon'][:] 
+bath_lat = bath_fid['lat'][:]
+bath_z = bath_fid['elevation'][:]
 
 #### gliders 
 dg037_list = glob.glob('/Users/jake/Documents/baroclinic_modes/DG/ABACO_2017/sg037/p*.nc')
 dg038_list = glob.glob('/Users/jake/Documents/baroclinic_modes/DG/ABACO_2017/sg038/p*.nc') # 50-72
-# dg_list = np.concatenate([dg037_list[45:],dg038_list[50:72]])
-dg_list = np.array(dg037_list[45:])
+dg_list = np.concatenate([dg037_list[45:],dg038_list[50:72]])
+# dg_list = np.array(dg037_list[45:])
 # dg_list = dg038_list[50:72]
 
 #### Deep Argo (nearby)
@@ -52,11 +57,11 @@ time_rec = []
 time_rec_2 = np.zeros([dg_list.shape[0], 2])
 
 # plot controls 
-plot_plan = 0 
+plot_plan = 1 
 plot_cross = 0
-p_eta = 1
-plot_eta = 1
-plot_eng = 1
+p_eta = 0
+plot_eta = 0
+plot_eng = 0
 
 ####################################################################
 ##### iterate for each dive cycle ######
@@ -64,11 +69,13 @@ plot_eng = 1
 # prep plan view plot of dive locations 
 if plot_plan > 0: 
     levels = [ -5250, -5000, -4750, -4500, -4250, -4000, -3500, -3000, -2500, -2000, -1500, -1000, -500 , 0]
-    fig0, ax0 = plt.subplots(figsize=(7.5,4))
-    bc = ax0.contourf(bath_lon,bath_lat,bath_z,levels,cmap='PuBu_r')
-    ax0.contourf(bath_lon,bath_lat,bath_z,[0, 100, 200], cmap = 'YlGn_r')
+    fig0, ax0 = plt.subplots()
+    cmap = plt.cm.get_cmap("Blues_r")
+    cmap.set_over('#808000') # ('#E6E6E6')
+    bc = ax0.contourf(bath_lon,bath_lat,bath_z,levels,cmap='Blues_r',extend='both',zorder=0)
+    # ax0.contourf(bath_lon,bath_lat,bath_z,[0, 100, 200], cmap = 'YlGn_r')
     matplotlib.rcParams['contour.negative_linestyle'] = 'solid'
-    bcl = ax0.contour(bath_lon,bath_lat,bath_z,[-4500, -1000],colors='k')
+    bcl = ax0.contour(bath_lon,bath_lat,bath_z,[-4500, -1000],colors='k',zorder=0)
     ml = [(-76.75,26.9),(-77.4, 26.8)]
     ax0.clabel(bcl,manual = ml, inline_spacing=-3, fmt='%1.0f',colors='k')
     w = 1/np.cos(np.deg2rad(26.5))
@@ -186,11 +193,11 @@ for i in dg_list:
     # plot plan view action if needed     
     if plot_plan > 0:
         if glid_num > 37:
-            ax0.scatter(1000*x_grid_dive/(1852*60*np.cos(np.deg2rad(26.5)))+lon_in, 1000*y_grid_dive/(1852*60)+lat_in, s=2, color='#FFD700')
-            ax0.scatter(1000*x_grid_climb/(1852*60*np.cos(np.deg2rad(26.5)))+lon_in, 1000*y_grid_climb/(1852*60)+lat_in ,s=2, color='#FFD700')
+            ax0.scatter(1000*x_grid_dive/(1852*60*np.cos(np.deg2rad(26.5)))+lon_in, 1000*y_grid_dive/(1852*60)+lat_in, s=2, color='#FFD700',zorder=1,label='DG38')
+            ax0.scatter(1000*x_grid_climb/(1852*60*np.cos(np.deg2rad(26.5)))+lon_in, 1000*y_grid_climb/(1852*60)+lat_in ,s=2, color='#FFD700',zorder=1)
         else:
-            ax0.scatter(1000*x_grid_dive/(1852*60*np.cos(np.deg2rad(26.5)))+lon_in, 1000*y_grid_dive/(1852*60)+lat_in,s=2,color='#B22222')
-            ax0.scatter(1000*x_grid_climb/(1852*60*np.cos(np.deg2rad(26.5)))+lon_in, 1000*y_grid_climb/(1852*60)+lat_in,s=2,color='#B22222')
+            ax0.scatter(1000*x_grid_dive/(1852*60*np.cos(np.deg2rad(26.5)))+lon_in, 1000*y_grid_dive/(1852*60)+lat_in,s=2,color='#B22222',zorder=1,label='DG37')
+            ax0.scatter(1000*x_grid_climb/(1852*60*np.cos(np.deg2rad(26.5)))+lon_in, 1000*y_grid_climb/(1852*60)+lat_in,s=2,color='#B22222',zorder=1)
         
         ax0.scatter(1000*dist_dive/(1852*60*np.cos(np.deg2rad(26.5)))+lon_in, np.zeros(np.size(dist_dive))+lat_in,s=0.75,color='k')
         ax0.scatter(1000*dist_climb/(1852*60*np.cos(np.deg2rad(26.5)))+lon_in, np.zeros(np.size(dist_climb))+lat_in,s=0.75,color='k')
@@ -200,10 +207,13 @@ for i in dg_list:
 
 ##### end of for loop running over each dive 
 if plot_plan > 0:
-    t_s = datetime.date.fromordinal(np.int( np.min(time_rec[:,0]) ))
-    t_e = datetime.date.fromordinal(np.int( np.max(time_rec[:,1]) ))
+    t_s = datetime.date.fromordinal(np.int( np.min(time_rec[0]) ))
+    t_e = datetime.date.fromordinal(np.int( np.max(time_rec[-1]) ))
     ax0.set_title('Nine ABACO Transects (DG37,38 - 57 dive-cycles): ' + np.str(t_s.month) + '/' + np.str(t_s.day) + ' - ' + np.str(t_e.month) + '/' + np.str(t_e.day))
-    fig0.savefig('/Users/jake/Desktop/abaco/plan_view.png',dpi = 300)
+    handles, labels = ax0.get_legend_handles_labels()
+    ax0.legend([handles[0],handles[-1]],[labels[0], labels[-1]],fontsize=10)
+    plt.tight_layout()
+    fig0.savefig('/Users/jake/Desktop/abaco/plan.png',dpi = 200)
     plt.close()
         
 

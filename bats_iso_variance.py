@@ -12,6 +12,7 @@ import pandas as pd
 import scipy.io as si
 from scipy.io import netcdf
 from scipy.integrate import cumtrapz
+import seaborn as sns
 # functions I've written 
 from grids import make_bin, collect_dives
 from mode_decompositions import vertical_modes, PE_Tide_GM
@@ -29,11 +30,16 @@ def pol2cart(rho, phi):
 ############ Plot plan view of station BATS and glider sampling pattern for 2015
 
 ## bathymetry 
-bath = '/Users/jake/Documents/baroclinic_modes/DG/sg035_BATS_2014/OceanWatch_smith_sandwell.nc'
+# bath = '/Users/jake/Documents/baroclinic_modes/DG/sg035_BATS_2014/OceanWatch_smith_sandwell.nc'
+# bath_fid = netcdf.netcdf_file(bath,'r',mmap=False if sys.platform == 'darwin' else mmap, version=1)
+# bath_lon = bath_fid.variables['longitude'][:] - 360
+# bath_lat = bath_fid.variables['latitude'][:]
+# bath_z = bath_fid.variables['ROSE'][:]
+bath = '/Users/jake/Desktop/bats/bats_bathymetry/GEBCO_2014_2D_-67.7_29.8_-59.9_34.8.nc'
 bath_fid = netcdf.netcdf_file(bath,'r',mmap=False if sys.platform == 'darwin' else mmap, version=1)
-bath_lon = bath_fid.variables['longitude'][:] - 360
-bath_lat = bath_fid.variables['latitude'][:]
-bath_z = bath_fid.variables['ROSE'][:]
+bath_lon = bath_fid.variables['lon'][:]
+bath_lat = bath_fid.variables['lat'][:]
+bath_z = bath_fid.variables['elevation'][:]
 
 ## gliders 
 dg_list = glob.glob('/Users/jake/Documents/baroclinic_modes/DG/sg035_BATS_2015/p*.nc')
@@ -49,31 +55,80 @@ grid = bin_depth[1:-1]
 grid_p = sw.pres(grid,lat_in)
 
 # PLOTTING SWITCHES 
-plot_bath = 0
+plot_bath = 1
 plot_cross = 0
+plot_eta = 0
 
-# LOAD EACH DIVE AND COLLECT IN MAIN DATAFRAME 
-df_t, df_s, df_den, df_lon, df_lat, dac_u, dac_v, time_rec, time_sta_sto, heading_rec = collect_dives(dg_list, bin_depth, grid, grid_p, ref_lat)
+# LOAD EACH DIVE AND COLLECT IN MAIN DATAFRAME ###### GRIDDING! -- ONLY DO ONCE 
+# df_t, df_s, df_den, df_lon, df_lat, dac_u, dac_v, time_rec, time_sta_sto, heading_rec = collect_dives(dg_list, bin_depth, grid, grid_p, ref_lat)
+# dive_list = np.array(df_t.columns)
+# f = netcdf.netcdf_file('BATs_2015_gridded.nc', 'w')    
+# f.history = 'DG 2015 dives; have been gridded vertically and separated into dive and climb cycles'
+# f.createDimension('grid',np.size(grid))
+# f.createDimension('dive_list',np.size(dive_list))
+# b_d = f.createVariable('grid',  np.float64, ('grid',) )
+# b_d[:] = grid
+# b_l = f.createVariable('dive_list',  np.float64, ('dive_list',) )
+# b_l[:] = dive_list
+# b_t = f.createVariable('Temperature',  np.float64, ('grid','dive_list') )
+# b_t[:] = df_t
+# b_s = f.createVariable('Salinity',  np.float64, ('grid','dive_list') )
+# b_s[:] = df_s
+# b_den = f.createVariable('Density',  np.float64, ('grid','dive_list') )
+# b_den[:] = df_den
+# b_lon = f.createVariable('Longitude',  np.float64, ('grid','dive_list') )
+# b_lon[:] = df_lon
+# b_lat = f.createVariable('Latitude',  np.float64, ('grid','dive_list') )
+# b_lat[:] = df_lat
+# b_u = f.createVariable('DAC_u',  np.float64, ('dive_list',) )
+# b_u[:] = dac_u
+# b_v = f.createVariable('DAC_v',  np.float64, ('dive_list',) )
+# b_v[:] = dac_v
+# b_time = f.createVariable('time_rec',  np.float64, ('dive_list',) )
+# b_time[:] = time_rec
+# b_t_ss = f.createVariable('time_start_stop',  np.float64, ('dive_list',) )
+# b_t_ss[:] = time_sta_sto
+# b_h = f.createVariable('heading_record',  np.float64, ('dive_list',) )
+# b_h[:] = heading_rec
+# f.close()
 
-head_low = 100
-head_high = 200  
+# LOAD DATA 
+GD = netcdf.netcdf_file('BATs_2015_gridded.nc','r')
+df_den = pd.DataFrame(np.float64(GD.variables['Density'][:]),index=np.float64(GD.variables['grid'][:]),columns=np.float64(GD.variables['dive_list'][:]))
+df_t = pd.DataFrame(np.float64(GD.variables['Temperature'][:]),index=np.float64(GD.variables['grid'][:]),columns=np.float64(GD.variables['dive_list'][:]))
+df_s = pd.DataFrame(np.float64(GD.variables['Salinity'][:]),index=np.float64(GD.variables['grid'][:]),columns=np.float64(GD.variables['dive_list'][:]))
+df_lon = pd.DataFrame(np.float64(GD.variables['Longitude'][:]),index=np.float64(GD.variables['grid'][:]),columns=np.float64(GD.variables['dive_list'][:]))
+df_lat = pd.DataFrame(np.float64(GD.variables['Latitude'][:]),index=np.float64(GD.variables['grid'][:]),columns=np.float64(GD.variables['dive_list'][:]))
+dac_u = GD.variables['DAC_u'][:]
+dac_v = GD.variables['DAC_v'][:]
+time_rec = GD.variables['time_rec'][:]
+time_sta_sto = GD.variables['time_start_stop'][:]
+heading_rec = GD.variables['heading_record'][:]
+profile_list = np.float64(GD.variables['dive_list'][:]) - 35000
+
+# HEADING CHOICE AND BEGIN 
+head_low = 200
+head_high = 300  
 # plan view plot     
 if plot_bath > 0:
     levels = [ -5250, -5000, -4750, -4500, -4250, -4000, -3500, -3000, -2500, -2000, -1500, -1000, -500 , 0]
     fig0, ax0 = plt.subplots()
-    bc = ax0.contourf(bath_lon,bath_lat,bath_z,levels,cmap='PuBu_r')
+    cmap = plt.cm.get_cmap("Blues_r")
+    cmap.set_over('#808000') # ('#E6E6E6')
+    bc = ax0.contourf(bath_lon,bath_lat,bath_z,levels,cmap='Blues_r',extend='both',zorder=0)
     # ax0.contourf(bath_lon,bath_lat,bath_z,[-5, -4, -3, -2, -1, 0, 100, 1000], cmap = 'YlGn_r')
     matplotlib.rcParams['contour.negative_linestyle'] = 'solid'
-    bcl = ax0.contour(bath_lon,bath_lat,bath_z,[-4500, -4000],colors='k')
+    bcl = ax0.contour(bath_lon,bath_lat,bath_z,[-4500, -4000],colors='k',zorder=0)
     ml = [(-65,31.5),(-64.4, 32.435)]
-    ax0.clabel(bcl,manual = ml, inline_spacing=-3, fmt='%1.0f',colors='k')  
-    
+    ax0.clabel(bcl,manual = ml, inline_spacing=-3, fmt='%1.0f',colors='k')      
     heading_mask = np.where( (heading_rec > head_low) & (heading_rec < head_high) ) 
     heading_mask_out = np.where( (heading_rec < head_low) | (heading_rec > head_high) ) 
-    ax0.plot(df_lon.iloc[:,heading_mask_out[0]],df_lat.iloc[:,heading_mask_out[0]],color='k',linewidth=1) 
-    ax0.plot(df_lon.iloc[:,heading_mask[0]],df_lat.iloc[:,heading_mask[0]],color='r',linewidth=1) 
-    ax0.scatter(np.nanmean(df_lon.iloc[:,heading_mask[0]],0),np.nanmean(df_lat.iloc[:,heading_mask[0]],0),s=20,color='g')  
-     
+    dg_a = ax0.plot(df_lon.iloc[:,heading_mask_out[0]],df_lat.iloc[:,heading_mask_out[0]],color='#8B0000',linewidth=1.5,
+        label='All Dives (' + str(int(profile_list[0])) + '-' + str(int(profile_list[-2])) + ')',zorder=1) 
+    dg_s = ax0.plot(df_lon.iloc[:,heading_mask[0]],df_lat.iloc[:,heading_mask[0]],color='#FF4500',linewidth=2, label = 'Dives Along Select Heading',zorder=1) 
+    sta_b = ax0.scatter(-(64+(10/60)), 31 + (40/60),s=40,color='#E6E6FA',zorder=2,edgecolors='w')
+    ax0.text(-(64+(10/60)) + .1, 31 + (40/60)-.07,'BATS',color='w')
+    # ax0.scatter(np.nanmean(df_lon.iloc[:,heading_mask[0]],0),np.nanmean(df_lat.iloc[:,heading_mask[0]],0),s=20,color='g')       
     w = 1/np.cos(np.deg2rad(ref_lat))
     ax0.axis([-65.6, -63.25, 31.2, 32.8])
     ax0.set_aspect(w)
@@ -84,10 +139,12 @@ if plot_bath > 0:
     ax0.set_ylabel('Latitude')   
     t_s = datetime.date.fromordinal(np.int( np.min(time_rec) ))
     t_e = datetime.date.fromordinal(np.int( np.max(time_rec) ))
+    handles, labels = ax0.get_legend_handles_labels()
+    ax0.legend([handles[0],handles[-1]],[labels[0], labels[-1]],fontsize=10)
     ax0.set_title('Select BATS Transects (DG35): ' + np.str(t_s.month) + '/' + np.str(t_s.day) + '/' + np.str(t_s.year) + ' - ' + np.str(t_e.month) + '/' + np.str(t_e.day) + '/' + np.str(t_e.year))
     plt.tight_layout()
     plt.show()
-    # fig0.savefig('/Users/jake/Desktop/bats/plan_view.png',dpi = 200)
+    # fig0.savefig('/Users/jake/Desktop/bats/plan_b.png',dpi = 200)
 
 
 ############ SELECT ALL TRANSECTS ALONG A HEADING AND COMPUTE VERTICAL DISPLACEMENT AND HORIZONTAL VELOCITY 
@@ -369,10 +426,14 @@ for master in range(np.size(good)):
             Vbc_g[iq,m] = np.nan
             V_g[iq,m] = np.nan
 
-    if plot_cross > 0:        
+    if plot_cross > 0: 
+        # sns.set(style="darkgrid")
+        sns.set(context="notebook", style="whitegrid", rc={"axes.axisbelow": False})
+        # sns.set_color_codes(palette='muted')        
+               
         fig0, ax0 = plt.subplots()
         matplotlib.rcParams['contour.negative_linestyle'] = 'solid'
-        levels = np.arange(-.32,.34,.02)
+        levels = np.arange(-.26,.26,.02)
         vc = ax0.contourf(Ds,grid,V_g,levels=levels,cmap=plt.cm.coolwarm)
         vcc = ax0.contour(Ds,grid,V_g,levels=levels,colors='k',linewidth=1)
         for p in range(np.size(this_set)):
@@ -397,8 +458,9 @@ for master in range(np.size(good)):
         # cax = divider.append_axes("right", size="5%", pad=0.05)
         plt.colorbar(vc, label='[m/s]')
         plt.tight_layout()
-        fig0.savefig( ('/Users/jake/Desktop/BATS/dg035_BATS_15a_' + str(ii) + '.png'),dpi = 300)
-        plt.close()    
+        plt.show()
+        # fig0.savefig( ('/Users/jake/Desktop/BATS/dg035_BATS_15b_' + str(ii) + '_test.png'),dpi = 300)
+        # plt.close()    
     
     # OUTPUT V_g AND Eta from each transect collection so that it PE and KE can be computed 
     if np.size(Eta) < 1:
@@ -434,9 +496,8 @@ HKE_per_mass = np.nan*np.zeros([nmodes, num_profs])
 PE_theta_per_mass = np.nan*np.zeros([nmodes, num_profs])
 modest = np.arange(11,nmodes)
 good_prof = np.ones(num_profs)
-HKE_noise_threshold = 1e-5
-for i in range(num_profs):
-    
+HKE_noise_threshold = 1e-4 # 1e-5
+for i in range(num_profs):    
     # fit to velocity profiles
     this_V = V[:,i].copy()
     iv = np.where( ~np.isnan(this_V) )
@@ -480,26 +541,26 @@ for i in range(num_profs):
         PE_theta_per_mass[:,i] = (1/2)*AG_theta[:,i]*AG_theta[:,i]*c*c 
 
 ### COMPUTE EOF SHAPES AND COMPARE TO ASSUMED STRUCTURE 
-
-f, (ax0,ax1) = plt.subplots(1, 2, sharey=True)
-for j in range(np.size(Time)):
-    ax1.plot(Eta[:,j],grid,color='#B22222')  
-    ax1.plot(Eta_m[:,j],grid,color='k',linestyle='--',linewidth=.75)
+if plot_eta > 0: 
+    f, (ax0,ax1) = plt.subplots(1, 2, sharey=True)
+    for j in range(np.size(Time)):
+        ax1.plot(Eta[:,j],grid,color='#B22222')  
+        ax1.plot(Eta_m[:,j],grid,color='k',linestyle='--',linewidth=.75)
     
-    ax0.plot(Eta_theta[:,j],grid,color='#B22222') 
-    ax0.plot(Eta_theta_m[:,j],grid,color='k',linestyle='--',linewidth=.75)
-ax1.axis([-600, 600, 0, 4800]) 
-ax1.set_xlabel(r'$\eta_{\sigma_{\theta}}$ [m]')
-ax0.set_ylabel('Depth [m]')
-ax1.set_title(r'$\eta$ Vertical Isopycnal Disp.') # + '(' + str(Time[0]) + '-' )
-ax0.set_title(r'BATS 2015 Vertical $\theta$ Disp.') # + '(' + str(Time[0]) + '-' )
-ax0.axis([-600, 600, 0, 4800]) 
-ax0.set_xlabel(r'$\eta_{\theta}$ [m]')
-ax1.grid()  
-ax0.invert_yaxis() 
-ax0.grid()    
-f.savefig('/Users/jake/Desktop/bats/dg035_15_Eta_a.png',dpi = 300)
-# plt.show()    
+        ax0.plot(Eta_theta[:,j],grid,color='#B22222') 
+        ax0.plot(Eta_theta_m[:,j],grid,color='k',linestyle='--',linewidth=.75)
+    ax1.axis([-600, 600, 0, 4800]) 
+    ax1.set_xlabel(r'$\eta_{\sigma_{\theta}}$ [m]')
+    ax0.set_ylabel('Depth [m]')
+    ax1.set_title(r'$\eta$ Vertical Isopycnal Disp.') # + '(' + str(Time[0]) + '-' )
+    ax0.set_title(r'BATS 2015 Vertical $\theta$ Disp.') # + '(' + str(Time[0]) + '-' )
+    ax0.axis([-600, 600, 0, 4800]) 
+    ax0.set_xlabel(r'$\eta_{\theta}$ [m]')
+    ax1.grid()  
+    ax0.invert_yaxis() 
+    ax0.grid()    
+    f.savefig('/Users/jake/Desktop/bats/dg035_15_Eta_a.png',dpi = 300)
+    # plt.show()    
 
 # f, ax0 = plt.subplots()
 # for j in range(np.size(Time)):
@@ -525,101 +586,103 @@ PE_SD, PE_GM = PE_Tide_GM(rho0,grid,nmodes,np.transpose(np.atleast_2d(N2)),f_ref
 dk_ke = 1000*f_ref/c[1]   
 k_h = 1e3*(f_ref/c[1:])*np.sqrt( avg_KE[1:]/avg_PE[1:])
 
-plot_eng = 1
-if plot_eng > 0:
-    fig0, ax0 = plt.subplots()
-    PE_p = ax0.plot(sc_x,avg_PE[1:]/dk,'r',label='PE')
-    KE_p = ax0.plot(sc_x,avg_KE[1:]/dk,'b',label='KE')
-    ax0.plot( [10**-1, 10**0], [1.5*10**1, 1.5*10**-2],color='k',linestyle='--',linewidth=0.8)
-    ax0.text(0.8*10**-1,1.3*10**1,'-3',fontsize=8)
-    ax0.scatter(sc_x,avg_PE[1:]/dk,color='r',s=6)
-    ax0.plot(sc_x,0.5*PE_GM/dk,linestyle='--',color='#DAA520')
-    ax0.text(sc_x[0]-.009,PE_GM[0]/dk,r'$PE_{GM}$')
-    # KE_p = ax0.plot(1000*ke_data['f_ref'][0][0][0]/ke_data['c'][0][0][1:],ke[1:]/(dk_ke/1000),color='b',label='KE')
-    # ax0.scatter(1000*ke_data['f_ref'][0][0][0]/ke_data['c'][0][0][1:],ke[1:]/(dk_ke/1000),color='b',s=6)
-    ax0.plot( [1000*f_ref/c[1], 1000*f_ref/c[-2]],[1000*f_ref/c[1], 1000*f_ref/c[-2]],linestyle='--',color='k',linewidth=0.8)
-    ax0.text( 1000*f_ref/c[-2]+.1, 1000*f_ref/c[-2], r'f/c$_m$',fontsize=8)
-    ax0.plot(sc_x,k_h,color='k')
-    ax0.text(sc_x[0]-.008,k_h[0]-.008,r'$k_{h}$ [km$^{-1}$]',fontsize=8)        
-    ax0.set_yscale('log')
-    ax0.set_xscale('log')
-    ax0.axis([10**-2, 1.5*10**1, 10**(-4), 10**(3)])
-    ax0.grid()
-    ax0.set_xlabel(r'Vertical Wavenumber = Inverse Rossby Radius = $\frac{f}{c}$ [$km^{-1}$]',fontsize=13)
-    ax0.set_ylabel('Spectral Density (and Hor. Wavenumber)')
-    ax0.set_title('BATS')
-    handles, labels = ax0.get_legend_handles_labels()
-    ax0.legend([handles[0],handles[-1]],[labels[0], labels[-1]],fontsize=10)
-    fig0.savefig('/Users/jake/Desktop/bats/dg035_15_PEa.png',dpi = 300)
-    plt.close()
+plot_eng = 0
+plot_spec = 0
+plot_comp = 0
+if plot_eng > 0:    
+    if plot_spec > 0:
+        fig0, ax0 = plt.subplots()
+        PE_p = ax0.plot(sc_x,avg_PE[1:]/dk,'r',label='PE')
+        KE_p = ax0.plot(sc_x,avg_KE[1:]/dk,'b',label='KE')
+        ax0.plot( [10**-1, 10**0], [1.5*10**1, 1.5*10**-2],color='k',linestyle='--',linewidth=0.8)
+        ax0.text(0.8*10**-1,1.3*10**1,'-3',fontsize=8)
+        ax0.scatter(sc_x,avg_PE[1:]/dk,color='r',s=6)
+        ax0.plot(sc_x,0.5*PE_GM/dk,linestyle='--',color='#DAA520')
+        ax0.text(sc_x[0]-.009,PE_GM[0]/dk,r'$PE_{GM}$')
+        ax0.plot( [1000*f_ref/c[1], 1000*f_ref/c[-2]],[1000*f_ref/c[1], 1000*f_ref/c[-2]],linestyle='--',color='k',linewidth=0.8)
+        ax0.text( 1000*f_ref/c[-2]+.1, 1000*f_ref/c[-2], r'f/c$_m$',fontsize=8)
+        ax0.plot(sc_x,k_h,color='k')
+        ax0.text(sc_x[0]-.008,k_h[0]-.008,r'$k_{h}$ [km$^{-1}$]',fontsize=8)        
+        ax0.set_yscale('log')
+        ax0.set_xscale('log')
+        ax0.axis([10**-2, 1.5*10**1, 10**(-4), 10**(3)])
+        ax0.grid()
+        ax0.set_xlabel(r'Vertical Wavenumber = Inverse Rossby Radius = $\frac{f}{c}$ [$km^{-1}$]',fontsize=13)
+        ax0.set_ylabel('Spectral Density (and Hor. Wavenumber)')
+        ax0.set_title('BATS')
+        handles, labels = ax0.get_legend_handles_labels()
+        ax0.legend([handles[0],handles[-1]],[labels[0], labels[-1]],fontsize=10)
+        fig0.savefig('/Users/jake/Desktop/bats/dg035_15_PE_b_test.png',dpi = 300)
+        plt.close()
 
-    ############## ABACO BATS COMPARISON ################
-    # load ABACO spectra
-    AB_f_pe = np.load('/Users/jake/Desktop/abaco/f_ref_pe.npy')
-    AB_c_pe = np.load('/Users/jake/Desktop/abaco/c_pe.npy')
-    AB_f = np.load('/Users/jake/Desktop/abaco/f_ref.npy')
-    AB_c = np.load('/Users/jake/Desktop/abaco/c.npy')
-    AB_avg_PE = np.load('/Users/jake/Desktop/abaco/avg_PE.npy')
-    AB_avg_KE = np.load('/Users/jake/Desktop/abaco/avg_KE.npy')
-    AB_sc_x = (1000)*AB_f_pe/AB_c_pe[1:]
-    AB_dk = AB_f_pe/AB_c_pe[1]
-    AB_dk_ke = AB_f/AB_c[1]
+    if plot_comp > 0: 
+        ############## ABACO BATS COMPARISON ################
+        # load ABACO spectra
+        AB_f_pe = np.load('/Users/jake/Desktop/abaco/f_ref_pe.npy')
+        AB_c_pe = np.load('/Users/jake/Desktop/abaco/c_pe.npy')
+        AB_f = np.load('/Users/jake/Desktop/abaco/f_ref.npy')
+        AB_c = np.load('/Users/jake/Desktop/abaco/c.npy')
+        AB_avg_PE = np.load('/Users/jake/Desktop/abaco/avg_PE.npy')
+        AB_avg_KE = np.load('/Users/jake/Desktop/abaco/avg_KE.npy')
+        AB_sc_x = (1000)*AB_f_pe/AB_c_pe[1:]
+        AB_dk = AB_f_pe/AB_c_pe[1]
+        AB_dk_ke = AB_f/AB_c[1]
 
-    # PLOT ABACO AND BATS 
-    fig0, (ax0,ax1) = plt.subplots(1, 2, sharey=True)
-    PE_p = ax0.plot(sc_x,avg_PE[1:]/dk,'r',label='PE')
-    KE_p = ax0.plot(sc_x,avg_KE[1:]/dk,'b',label='KE')
-    ax0.plot( [10**-1, 10**0], [1.5*10**1, 1.5*10**-2],color='k',linestyle='--',linewidth=0.8)
-    ax0.text(0.8*10**-1,1.3*10**1,'-3',fontsize=8)
-    ax0.scatter(sc_x,avg_PE[1:]/dk,color='r',s=6)
-    ax0.plot(sc_x,0.5*PE_GM/dk,linestyle='--',color='#DAA520')
-    ax0.text(sc_x[0]-.009,PE_GM[0]/dk,r'$PE_{GM}$')
-    ax0.plot( [1000*f_ref/c[1], 1000*f_ref/c[-2]],[1000*f_ref/c[1], 1000*f_ref/c[-2]],linestyle='--',color='k',linewidth=0.8)
-    ax0.text( 1000*f_ref/c[-2]+.1, 1000*f_ref/c[-2], r'f/c$_m$',fontsize=8)
-    ax0.plot(sc_x,k_h,color='k')
-    ax0.text(sc_x[0]-.008,k_h[0]-.008,r'$k_{h}$ [km$^{-1}$]',fontsize=8)        
-    ax0.set_yscale('log')
-    ax0.set_xscale('log')
-    ax0.axis([10**-2, 1.5*10**1, 10**(-4), 10**(3)])
-    ax0.grid()
-    ax0.set_xlabel(r'Scaled Vert. Wavenumber = $\frac{f}{c}$ [$km^{-1}$]',fontsize=10)
-    ax0.set_ylabel('Spectral Density (and Hor. Wavenumber)')
-    ax0.set_title('BATS (2015) 42 Profiles')
-    handles, labels = ax0.get_legend_handles_labels()
-    ax0.legend([handles[0],handles[-1]],[labels[0], labels[-1]],fontsize=10)
+        # PLOT ABACO AND BATS 
+        fig0, (ax0,ax1) = plt.subplots(1, 2, sharey=True)
+        PE_p = ax0.plot(sc_x,avg_PE[1:]/dk,'r',label='PE')
+        KE_p = ax0.plot(sc_x,avg_KE[1:]/dk,'b',label='KE')
+        ax0.plot( [10**-1, 10**0], [1.5*10**1, 1.5*10**-2],color='k',linestyle='--',linewidth=0.8)
+        ax0.text(0.8*10**-1,1.3*10**1,'-3',fontsize=8)
+        ax0.scatter(sc_x,avg_PE[1:]/dk,color='r',s=6)
+        ax0.plot(sc_x,0.5*PE_GM/dk,linestyle='--',color='#DAA520')
+        ax0.text(sc_x[0]-.009,PE_GM[0]/dk,r'$PE_{GM}$')
+        ax0.plot( [1000*f_ref/c[1], 1000*f_ref/c[-2]],[1000*f_ref/c[1], 1000*f_ref/c[-2]],linestyle='--',color='k',linewidth=0.8)
+        ax0.text( 1000*f_ref/c[-2]+.1, 1000*f_ref/c[-2], r'f/c$_m$',fontsize=8)
+        ax0.plot(sc_x,k_h,color='k')
+        ax0.text(sc_x[0]-.008,k_h[0]-.008,r'$k_{h}$ [km$^{-1}$]',fontsize=8)        
+        ax0.set_yscale('log')
+        ax0.set_xscale('log')
+        ax0.axis([10**-2, 1.5*10**1, 10**(-4), 10**(3)])
+        ax0.grid()
+        ax0.set_xlabel(r'Scaled Vert. Wavenumber = $\frac{f}{c}$ [$km^{-1}$]',fontsize=10)
+        ax0.set_ylabel('Spectral Density (and Hor. Wavenumber)')
+        ax0.set_title('BATS (2015) 42 Profiles')
+        handles, labels = ax0.get_legend_handles_labels()
+        ax0.legend([handles[0],handles[-1]],[labels[0], labels[-1]],fontsize=10)
         
-    PE_p = ax1.plot(AB_sc_x,AB_avg_PE[1:]/AB_dk,'r',label='PE')
-    ax1.scatter(AB_sc_x,AB_avg_PE[1:]/AB_dk,color='r',s=6)
-    KE_p = ax1.plot(AB_sc_x,AB_avg_KE[1:]/AB_dk_ke,'b',label='KE')    
-    AB_k_h = AB_sc_x*np.sqrt( np.squeeze(AB_avg_KE[1:])/AB_avg_PE[1:])     
-    ax1.plot( [1000*AB_f_pe/AB_c_pe[1], 1000*AB_f_pe/AB_c_pe[-2]], [1000*AB_f_pe/AB_c_pe[1], 1000*AB_f_pe/AB_c_pe[-2]],linestyle='--',color='k',linewidth=0.8)
-    ax1.text( 1000*AB_f_pe/AB_c_pe[-2]+.1, 1000*AB_f_pe/AB_c_pe[-2], r'f/c$_m$',fontsize=8)
-    ax1.plot(AB_sc_x,AB_k_h,color='k')
-    ax1.plot( [10**-1, 10**0], [1.5*10**1, 1.5*10**-2],color='k',linestyle='--',linewidth=0.8)
-    ax1.plot(AB_sc_x,PE_GM/AB_dk,linestyle='--',color='#DAA520')
-    ax1.text(AB_sc_x[0]-.009,PE_GM[0]/AB_dk,r'$PE_{GM}$')
-    ax1.text(0.8*10**-1,1.3*10**1,'-3',fontsize=8)
-    ax1.set_yscale('log')
-    ax1.set_xscale('log')
-    ax1.axis([10**-2, 1.5*10**1, 10**(-4), 10**(3)])
-    ax1.set_xlabel(r'Scaled Vert. Wavenumber = $\frac{f}{c}$ [$km^{-1}$]',fontsize=10)
-    ax1.set_title('ABACO (2017) 57 Profiles')
-    ax1.grid()        
-    fig0.savefig('/Users/jake/Desktop/bats/dg035_15_PE_comp_a.png',dpi = 300)   
-    plt.close()
+        PE_p = ax1.plot(AB_sc_x,AB_avg_PE[1:]/AB_dk,'r',label='PE')
+        ax1.scatter(AB_sc_x,AB_avg_PE[1:]/AB_dk,color='r',s=6)
+        KE_p = ax1.plot(AB_sc_x,AB_avg_KE[1:]/AB_dk_ke,'b',label='KE')    
+        AB_k_h = AB_sc_x*np.sqrt( np.squeeze(AB_avg_KE[1:])/AB_avg_PE[1:])     
+        ax1.plot( [1000*AB_f_pe/AB_c_pe[1], 1000*AB_f_pe/AB_c_pe[-2]], [1000*AB_f_pe/AB_c_pe[1], 1000*AB_f_pe/AB_c_pe[-2]],linestyle='--',color='k',linewidth=0.8)
+        ax1.text( 1000*AB_f_pe/AB_c_pe[-2]+.1, 1000*AB_f_pe/AB_c_pe[-2], r'f/c$_m$',fontsize=8)
+        ax1.plot(AB_sc_x,AB_k_h,color='k')
+        ax1.plot( [10**-1, 10**0], [1.5*10**1, 1.5*10**-2],color='k',linestyle='--',linewidth=0.8)
+        ax1.plot(AB_sc_x,PE_GM/AB_dk,linestyle='--',color='#DAA520')
+        ax1.text(AB_sc_x[0]-.009,PE_GM[0]/AB_dk,r'$PE_{GM}$')
+        ax1.text(0.8*10**-1,1.3*10**1,'-3',fontsize=8)
+        ax1.set_yscale('log')
+        ax1.set_xscale('log')
+        ax1.axis([10**-2, 1.5*10**1, 10**(-4), 10**(3)])
+        ax1.set_xlabel(r'Scaled Vert. Wavenumber = $\frac{f}{c}$ [$km^{-1}$]',fontsize=10)
+        ax1.set_title('ABACO (2017) 57 Profiles')
+        ax1.grid()        
+        fig0.savefig('/Users/jake/Desktop/bats/dg035_15_PE_comp_b_test.png',dpi = 300)   
+        plt.close()
     
-    # PLOT ON SAME X AXIS 
-    fig0, ax0 = plt.subplots()
-    PE_BATS = ax0.plot(np.arange(0,60),avg_PE[1:]/dk,'r',label='BATS PE')    
-    PE_ABACO = ax0.plot(np.arange(0,60),AB_avg_PE[1:]/AB_dk,'b',label='ABACO PE')
-    handles, labels = ax0.get_legend_handles_labels()
-    ax0.legend([handles[0],handles[-1]],[labels[0], labels[-1]],fontsize=10)
-    ax0.set_yscale('log')
-    ax0.set_xlabel('Vertical Mode Number')
-    ax0.set_ylabel('Energy (variance per vert. wave number)')
-    ax0.set_title('PE Comparison')
-    ax0.grid()  
-    fig0.savefig('/Users/jake/Desktop/bats/dg035_15_PE_mode_comp_a.png',dpi = 300)
-    plt.close()
+        # PLOT ON SAME X AXIS 
+        fig0, ax0 = plt.subplots()
+        PE_BATS = ax0.plot(np.arange(0,60),avg_PE[1:]/dk,'r',label='BATS PE')    
+        PE_ABACO = ax0.plot(np.arange(0,60),AB_avg_PE[1:]/AB_dk,'b',label='ABACO PE')
+        handles, labels = ax0.get_legend_handles_labels()
+        ax0.legend([handles[0],handles[-1]],[labels[0], labels[-1]],fontsize=10)
+        ax0.set_yscale('log')
+        ax0.set_xlabel('Vertical Mode Number')
+        ax0.set_ylabel('Energy (variance per vert. wave number)')
+        ax0.set_title('PE Comparison')
+        ax0.grid()  
+        fig0.savefig('/Users/jake/Desktop/bats/dg035_15_PE_mode_comp_b_test.png',dpi = 300)
+        plt.close()
     
 
