@@ -20,8 +20,7 @@ from mode_decompositions import vertical_modes, PE_Tide_GM
 def cart2pol(x, y):
     rho = np.sqrt(x**2 + y**2)
     phi = np.arctan2(y, x)
-    return(rho, phi)
-    
+    return(rho, phi)    
 def pol2cart(rho, phi):
     x = rho * np.cos(phi)
     y = rho * np.sin(phi)
@@ -30,11 +29,6 @@ def pol2cart(rho, phi):
 ############ Plot plan view of station BATS and glider sampling pattern for 2015
 
 ## bathymetry 
-# bath = '/Users/jake/Documents/baroclinic_modes/DG/sg035_BATS_2014/OceanWatch_smith_sandwell.nc'
-# bath_fid = netcdf.netcdf_file(bath,'r',mmap=False if sys.platform == 'darwin' else mmap, version=1)
-# bath_lon = bath_fid.variables['longitude'][:] - 360
-# bath_lat = bath_fid.variables['latitude'][:]
-# bath_z = bath_fid.variables['ROSE'][:]
 bath = '/Users/jake/Desktop/bats/bats_bathymetry/GEBCO_2014_2D_-67.7_29.8_-59.9_34.8.nc'
 bath_fid = netcdf.netcdf_file(bath,'r',mmap=False if sys.platform == 'darwin' else mmap, version=1)
 bath_lon = bath_fid.variables['lon'][:]
@@ -53,9 +47,12 @@ lat_in = 31.7
 lon_in = 64.2
 grid = bin_depth[1:-1]
 grid_p = sw.pres(grid,lat_in)
+# mode parameters 
+deep_shr_max = 0.1 # maximum allowed deep shear [m/s/km]
+deep_shr_max_dep = 3500 # minimum depth for which shear is limited [m]
 
 # PLOTTING SWITCHES 
-plot_bath = 1
+plot_bath = 0
 plot_cross = 0
 plot_eta = 0
 
@@ -143,8 +140,8 @@ if plot_bath > 0:
     ax0.legend([handles[0],handles[-1]],[labels[0], labels[-1]],fontsize=10)
     ax0.set_title('Select BATS Transects (DG35): ' + np.str(t_s.month) + '/' + np.str(t_s.day) + '/' + np.str(t_s.year) + ' - ' + np.str(t_e.month) + '/' + np.str(t_e.day) + '/' + np.str(t_e.year))
     plt.tight_layout()
-    plt.show()
-    # fig0.savefig('/Users/jake/Desktop/bats/plan_b.png',dpi = 200)
+    # plt.show()
+    fig0.savefig('/Users/jake/Desktop/bats/plan_b.png',dpi = 200)
 
 
 ############ SELECT ALL TRANSECTS ALONG A HEADING AND COMPUTE VERTICAL DISPLACEMENT AND HORIZONTAL VELOCITY 
@@ -219,11 +216,7 @@ for l in range(to_consider):
 # choose only transects that have three dives     
 good = np.where(ndives_in_trans > 2)
 
-# parameters 
-deep_shr_max = 0.1 # maximum allowed deep shear [m/s/km]
-deep_shr_max_dep = 3500 # minimum depth for which shear is limited [m]
-
-######### MAIN LOOP OVER EACH TRANSECT (EACH TRANSECT CONTAINS 3 DIVE CYCLES)
+######### MAIN LOOP OVER EACH TRANSECT (EACH TRANSECT CONTAINS AT LEAST 3 DIVE CYCLES)
 Eta = []
 Eta_theta = []
 V = []
@@ -474,6 +467,7 @@ for master in range(np.size(good)):
         V = np.concatenate( (V, V_g[:,:-1]), axis=1 )
         Time = np.concatenate( (Time, this_set_time[0:-1]) )
                 
+# END LOOPING OVER ALL TRANSECTS 
 
 # first taper fit above and below min/max limits
 # Project modes onto each eta (find fitted eta)
@@ -545,8 +539,7 @@ if plot_eta > 0:
     f, (ax0,ax1) = plt.subplots(1, 2, sharey=True)
     for j in range(np.size(Time)):
         ax1.plot(Eta[:,j],grid,color='#B22222')  
-        ax1.plot(Eta_m[:,j],grid,color='k',linestyle='--',linewidth=.75)
-    
+        ax1.plot(Eta_m[:,j],grid,color='k',linestyle='--',linewidth=.75)    
         ax0.plot(Eta_theta[:,j],grid,color='#B22222') 
         ax0.plot(Eta_theta_m[:,j],grid,color='k',linestyle='--',linewidth=.75)
     ax1.axis([-600, 600, 0, 4800]) 
@@ -586,34 +579,47 @@ PE_SD, PE_GM = PE_Tide_GM(rho0,grid,nmodes,np.transpose(np.atleast_2d(N2)),f_ref
 dk_ke = 1000*f_ref/c[1]   
 k_h = 1e3*(f_ref/c[1:])*np.sqrt( avg_KE[1:]/avg_PE[1:])
 
-plot_eng = 0
-plot_spec = 0
+# load in Station BATs PE Comparison
+SB = si.loadmat('/Users/jake/Desktop/bats/station_bats_pe.mat')
+sta_bats_pe = SB['out'][0][0][0]
+sta_bats_c = SB['out'][0][0][3]
+sta_bats_f = SB['out'][0][0][2]
+sta_bats_dk = SB['out'][0][0][1]
+
+plot_eng = 1
+plot_spec = 1
 plot_comp = 0
 if plot_eng > 0:    
     if plot_spec > 0:
         fig0, ax0 = plt.subplots()
-        PE_p = ax0.plot(sc_x,avg_PE[1:]/dk,'r',label='PE')
+        PE_p = ax0.plot(sc_x,avg_PE[1:]/dk,color='#B22222',label='PE')
+        PE_sta_p = ax0.plot((1000)*sta_bats_f/sta_bats_c[1:],sta_bats_pe[1:]/sta_bats_dk,color='#FF8C00',label='$PE_{bats}$')
         KE_p = ax0.plot(sc_x,avg_KE[1:]/dk,'b',label='KE')
         ax0.plot( [10**-1, 10**0], [1.5*10**1, 1.5*10**-2],color='k',linestyle='--',linewidth=0.8)
-        ax0.text(0.8*10**-1,1.3*10**1,'-3',fontsize=8)
-        ax0.scatter(sc_x,avg_PE[1:]/dk,color='r',s=6)
-        ax0.plot(sc_x,0.5*PE_GM/dk,linestyle='--',color='#DAA520')
-        ax0.text(sc_x[0]-.009,PE_GM[0]/dk,r'$PE_{GM}$')
+        ax0.text(0.8*10**-1,1.3*10**1,'-3',fontsize=10)
+        
+        ax0.scatter(sc_x,avg_PE[1:]/dk,color='#B22222',s=6) # DG PE
+        ax0.scatter((1000)*sta_bats_f/sta_bats_c[1:],sta_bats_pe[1:]/sta_bats_dk,color='#FF8C00',s=6) # BATS PE
+        
+        ax0.plot(sc_x,0.5*PE_GM/dk,linestyle='--',color='#6B8E23')
+        ax0.text(sc_x[0]-.009,PE_GM[1]/dk,r'$PE_{GM}$')
         ax0.plot( [1000*f_ref/c[1], 1000*f_ref/c[-2]],[1000*f_ref/c[1], 1000*f_ref/c[-2]],linestyle='--',color='k',linewidth=0.8)
-        ax0.text( 1000*f_ref/c[-2]+.1, 1000*f_ref/c[-2], r'f/c$_m$',fontsize=8)
+        ax0.text( 1000*f_ref/c[-2]+.1, 1000*f_ref/c[-2], r'f/c$_m$',fontsize=10)
         ax0.plot(sc_x,k_h,color='k')
-        ax0.text(sc_x[0]-.008,k_h[0]-.008,r'$k_{h}$ [km$^{-1}$]',fontsize=8)        
+        ax0.text(sc_x[0]-.008,k_h[0]-.008,r'$k_{h}$ [km$^{-1}$]',fontsize=10)        
         ax0.set_yscale('log')
         ax0.set_xscale('log')
-        ax0.axis([10**-2, 1.5*10**1, 10**(-4), 10**(3)])
+        ax0.axis([10**-2, 10**1, 10**(-3), 10**(3)])
         ax0.grid()
         ax0.set_xlabel(r'Vertical Wavenumber = Inverse Rossby Radius = $\frac{f}{c}$ [$km^{-1}$]',fontsize=13)
         ax0.set_ylabel('Spectral Density (and Hor. Wavenumber)')
-        ax0.set_title('BATS')
+        ax0.set_title('DG 2015 BATS Deployment (Energy Spectra)')
         handles, labels = ax0.get_legend_handles_labels()
-        ax0.legend([handles[0],handles[-1]],[labels[0], labels[-1]],fontsize=10)
-        fig0.savefig('/Users/jake/Desktop/bats/dg035_15_PE_b_test.png',dpi = 300)
+        ax0.legend([handles[0],handles[1],handles[-1]],[labels[0], labels[1], labels[-1]],fontsize=12)
+        plt.tight_layout()
+        fig0.savefig('/Users/jake/Desktop/bats/dg035_15_PE_b.png',dpi = 300)
         plt.close()
+        # plt.show()
 
     if plot_comp > 0: 
         ############## ABACO BATS COMPARISON ################
