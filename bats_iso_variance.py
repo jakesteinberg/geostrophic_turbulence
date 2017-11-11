@@ -307,7 +307,6 @@ for master in range(np.size(good)):
         mag_DAC, ang_DAC = cart2pol(DACe, DACn)
         DACat, DACpot = pol2cart(mag_DAC,ang_DAC - ang_sfc_w)
         Vbt[i+1] = DACpot; # across-track barotropic current comp (>0 to left)
-
         
         shearM = np.nan*np.zeros(np.size(grid))
         shearW = np.nan*np.zeros(np.size(grid))

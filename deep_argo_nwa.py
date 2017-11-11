@@ -15,9 +15,12 @@ from scipy.io import netcdf
 from scipy.integrate import cumtrapz
 from scipy.signal import savgol_filter
 import seaborn as sns
+import pickle
 # functions I've written 
 from grids import make_bin, collect_dives
 from mode_decompositions import vertical_modes, PE_Tide_GM
+
+plott = 0
 
 
 DA = '/Users/jake/Documents/baroclinic_modes/Deep_Argo/da_nwa_4902322_prof.nc'
@@ -31,7 +34,8 @@ T = DA_fid.variables['TEMP_ADJUSTED'][:]
 S = DA_fid.variables['PSAL_ADJUSTED'][:]
 P = DA_fid.variables['PRES_ADJUSTED'][:]
 depth = sw.dpth(P,np.nanmean(lat))
-bin_depth = np.concatenate([np.arange(0,500,5), np.arange(500,3000,15), np.arange(3000,5800,30)])
+# bin_depth = np.concatenate([np.arange(0,500,5), np.arange(500,3000,15), np.arange(3000,5800,30)])
+bin_depth = np.concatenate([np.arange(0,150,10), np.arange(150,300,10), np.arange(300,5000,20)])
 bin_press = sw.pres(bin_depth,np.nanmean(lat))
 ref_lat = np.nanmean(lat)
 
@@ -98,9 +102,14 @@ salin_avg = np.array(np.nanmean(S_g,1))
 z = -1*bin_depth
 ddz_avg_sigma_0 = np.gradient(sigma_theta_avg,z)
 ddz_avg_theta = np.gradient(theta_avg,z)
+test = np.where(ddz_avg_sigma_0 > 0)
+ddz_avg_sigma_0[test[0]] = np.nanmean(ddz_avg_sigma_0[260:])
 
 window_size, poly_order = 41, 3
 ddz_avg_sigma = savgol_filter(ddz_avg_sigma_0, window_size, poly_order)
+
+plt.plot(ddz_avg_sigma,bin_press)  
+plt.show()
 
 N2 = np.nan*np.zeros(np.size(sigma_theta_avg))
 N2[1:] = np.squeeze(sw.bfrq(salin_avg, theta_avg, bin_press, lat=ref_lat)[0])  
@@ -122,6 +131,18 @@ salin_anom = S_g - np.transpose(np.tile(salin_avg,[number_profiles,1]))
 sigma_anom = sigma_theta - np.transpose(np.tile(sigma_theta_avg,[number_profiles,1]))
 eta = sigma_anom/np.transpose(np.tile(ddz_avg_sigma,[number_profiles,1]))
 eta_theta = theta_anom/np.transpose(np.tile(ddz_avg_theta,[number_profiles,1]))
+
+# alternate eta attempt
+delta_z = np.zeros(np.shape(sigma_theta))
+for i in range(number_profiles):
+    for j in range(np.size(bin_press)):
+        this_sigma_theta = sigma_theta[j,i]
+        sigma_theta_diff = this_sigma_theta - sigma_theta_avg 
+        closest = np.where(np.abs(sigma_theta_diff) == np.nanmin(np.abs(sigma_theta_diff)))
+        avg_dep = bin_press[closest[0]]
+        this_dep = bin_press[j]
+        delta_z[j,i] = this_dep - avg_dep
+        
 
 # first taper fit above and below min/max limits
 # Project modes onto each eta (find fitted eta)
@@ -163,20 +184,24 @@ for i in range(number_profiles):
         PE_theta_per_mass[:,i] = (1/2)*AG_theta[:,i]*AG_theta[:,i]*c*c 
 
 
-fig0, ax0 = plt.subplots()
-for i in range(number_profiles):
-     ax0.plot(theta_anom[:,i],z)
-# ax0.axis([-600, 600, -5800, 0])  
-plt.axis([-1, 1, -5800, 0])    
-fig0.savefig('/Users/jake/Desktop/argo/nwa_theta_anom.png',dpi = 300)    
+if plott > 0:
+    fig0, ax0 = plt.subplots()
+    for i in range(number_profiles):
+         ax0.plot(theta_anom[:,i],z)
+         # ax0.axis([-600, 600, -5800, 0])  
+    plt.axis([-1, 1, -5800, 0])    
+    plt.show()
+    # fig0.savefig('/Users/jake/Desktop/argo/nwa_theta_anom.png',dpi = 300)    
 
-fig0, ax0 = plt.subplots()
-for i in range(number_profiles):
-     ax0.plot(eta[:,i],z)
-     ax0.plot(Eta_m[:,i],z,color='k',linestyle='--')
-ax0.axis([-600, 600, -5800, 0])  
-# plt.axis([-1, 1, -5800, 0])    
-fig0.savefig('/Users/jake/Desktop/argo/nwa_eta.png',dpi = 300)     
+if plott > 0:
+    fig0, ax0 = plt.subplots()
+    for i in range(number_profiles):
+         ax0.plot(eta[:,i],z)
+         ax0.plot(Eta_m[:,i],z,color='k',linestyle='--')
+    ax0.axis([-600, 600, -5800, 0])  
+    # plt.axis([-1, 1, -5800, 0])
+    # plt.show()
+    fig0.savefig('/Users/jake/Desktop/argo/nwa_eta.png',dpi = 300)     
 
 
 avg_PE = np.nanmean(PE_per_mass,1)
@@ -188,13 +213,22 @@ sc_x = (1000)*f_ref/c[1:]
 
 PE_SD, PE_GM = PE_Tide_GM(1025,bin_depth,nmodes,np.transpose(np.atleast_2d(N2)),f_ref)
 
-fig0, ax0 = plt.subplots()
-ax0.plot(sc_x,avg_PE[1:]/dk,color='r',linewidth=2)
-ax0.scatter(sc_x,avg_PE[1:]/dk,color='r',s=10)
-ax0.plot(sc_x,PE_GM/dk,linestyle='--',color='#DAA520')
-ax0.axis([10**-2, 1.5*10**1, 10**(-4), 10**(3)])
-ax0.set_yscale('log')
-ax0.set_xscale('log')
-ax0.grid()
-fig0.savefig('/Users/jake/Desktop/argo/nwa_pe.png',dpi = 300)
+if plott > 0:
+    fig0, ax0 = plt.subplots()
+    ax0.plot(sc_x,avg_PE[1:]/dk,color='r',linewidth=2)
+    ax0.scatter(sc_x,avg_PE[1:]/dk,color='r',s=10)
+    ax0.plot(sc_x,PE_GM/dk,linestyle='--',color='#DAA520')
+    ax0.axis([10**-2, 1.5*10**1, 10**(-4), 10**(3)])
+    ax0.set_yscale('log')
+    ax0.set_xscale('log')
+    ax0.grid()
+    # plt.show()
+    fig0.savefig('/Users/jake/Desktop/argo/nwa_pe.png',dpi = 300)
  
+ 
+### SAVE 
+# write python dict to a file
+mydict = {'bin_press': bin_press, 'sigma_theta': sigma_theta, 'theta': theta, 'eta': eta, 'eta_m': Eta_m, 'avg_PE': avg_PE, 'f_ref': f_ref, 'c': c, 'G': G, 'lat': lat, 'lon': lon}
+output = open('/Users/jake/Desktop/argo/deep_argo_nwa.pkl', 'wb')
+pickle.dump(mydict, output)
+output.close() 
