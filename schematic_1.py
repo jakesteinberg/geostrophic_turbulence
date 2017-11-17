@@ -98,7 +98,8 @@ ax.set_ylim(0, 60)
 ax.set_zlim(-5000, 100)
 
 ax.set_xlabel('X [km]')
-ax.set_ylabel('Y [km]')
+# ax.set_ylabel('Y [km]')
+ax.set_yticks([])
 ax.set_zlabel('Z [m]')
 ax.set_title('Data Collection Method and Vertical Structure')
 

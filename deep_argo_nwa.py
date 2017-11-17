@@ -19,6 +19,7 @@ import pickle
 # functions I've written 
 from grids import make_bin, collect_dives
 from mode_decompositions import vertical_modes, PE_Tide_GM
+from toolkit import plot_pro
 
 plott = 0
 
@@ -108,9 +109,6 @@ ddz_avg_sigma_0[test[0]] = np.nanmean(ddz_avg_sigma_0[260:])
 window_size, poly_order = 41, 3
 ddz_avg_sigma = savgol_filter(ddz_avg_sigma_0, window_size, poly_order)
 
-plt.plot(ddz_avg_sigma,bin_press)  
-plt.show()
-
 N2 = np.nan*np.zeros(np.size(sigma_theta_avg))
 N2[1:] = np.squeeze(sw.bfrq(salin_avg, theta_avg, bin_press, lat=ref_lat)[0])  
 lz = np.where(N2 < 0)   
@@ -123,8 +121,8 @@ N = np.sqrt(N2)
 omega = 0  # frequency zeroed for geostrophic modes
 mmax = 60  # highest baroclinic mode to be calculated
 nmodes = mmax + 1  
-G, Gz, c = vertical_modes(N2,bin_depth,omega,mmax)     
-
+G, Gz, c = vertical_modes(N2,bin_depth,omega,mmax)   
+    
 # eta 
 theta_anom = theta - np.transpose(np.tile(theta_avg,[number_profiles,1]))
 salin_anom = S_g - np.transpose(np.tile(salin_avg,[number_profiles,1]))
@@ -193,7 +191,6 @@ if plott > 0:
     plt.show()
     # fig0.savefig('/Users/jake/Desktop/argo/nwa_theta_anom.png',dpi = 300)    
 
-if plott > 0:
     fig0, ax0 = plt.subplots()
     for i in range(number_profiles):
          ax0.plot(eta[:,i],z)
@@ -228,7 +225,9 @@ if plott > 0:
  
 ### SAVE 
 # write python dict to a file
-mydict = {'bin_press': bin_press, 'sigma_theta': sigma_theta, 'theta': theta, 'eta': eta, 'eta_m': Eta_m, 'avg_PE': avg_PE, 'f_ref': f_ref, 'c': c, 'G': G, 'lat': lat, 'lon': lon}
-output = open('/Users/jake/Desktop/argo/deep_argo_nwa.pkl', 'wb')
-pickle.dump(mydict, output)
-output.close() 
+savee = 0
+if savee > 0:
+    mydict = {'bin_press': bin_press, 'sigma_theta': sigma_theta, 'theta': theta, 'eta': eta, 'eta_m': Eta_m, 'avg_PE': avg_PE, 'f_ref': f_ref, 'c': c, 'G': G, 'lat': lat, 'lon': lon}
+    output = open('/Users/jake/Desktop/argo/deep_argo_nwa.pkl', 'wb')
+    pickle.dump(mydict, output)
+    output.close() 

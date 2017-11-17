@@ -22,3 +22,12 @@ def unq_searchsorted(A,B):
     # Map back to all non-unique indices to get equivalent of np.in1d(A,B), 
     # np.in1d(B,A) results for non-unique elements
     return mask1[idx1],mask2[idx2]    
+
+def cart2pol(x, y):
+    rho = np.sqrt(x**2 + y**2)
+    phi = np.arctan2(y, x)
+    return(rho, phi)    
+def pol2cart(rho, phi):
+    x = rho * np.cos(phi)
+    y = rho * np.sin(phi)
+    return(x, y)       

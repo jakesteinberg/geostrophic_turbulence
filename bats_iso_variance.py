@@ -16,15 +16,7 @@ import seaborn as sns
 # functions I've written 
 from grids import make_bin, collect_dives
 from mode_decompositions import vertical_modes, PE_Tide_GM
-
-def cart2pol(x, y):
-    rho = np.sqrt(x**2 + y**2)
-    phi = np.arctan2(y, x)
-    return(rho, phi)    
-def pol2cart(rho, phi):
-    x = rho * np.cos(phi)
-    y = rho * np.sin(phi)
-    return(x, y)    
+from toolkit import cart2pol, pol2cart 
 
 ############ Plot plan view of station BATS and glider sampling pattern for 2015
 
@@ -450,9 +442,9 @@ for master in range(np.size(good)):
         # cax = divider.append_axes("right", size="5%", pad=0.05)
         plt.colorbar(vc, label='[m/s]')
         plt.tight_layout()
-        plt.show()
+        # plt.show()
         # fig0.savefig( ('/Users/jake/Desktop/BATS/dg035_BATS_15b_' + str(ii) + '_test.png'),dpi = 300)
-        # plt.close()    
+        plt.close()    
     
     # OUTPUT V_g AND Eta from each transect collection so that it PE and KE can be computed 
     if np.size(Eta) < 1:
@@ -465,7 +457,9 @@ for master in range(np.size(good)):
         Eta_theta = np.concatenate( (Eta_theta, eta_theta), axis=1 )
         V = np.concatenate( (V, V_g[:,:-1]), axis=1 )
         Time = np.concatenate( (Time, this_set_time[0:-1]) )
-                
+
+# END LOOPING OVER ALL TRANSECTS                 
+# END LOOPING OVER ALL TRANSECTS 
 # END LOOPING OVER ALL TRANSECTS 
 
 # first taper fit above and below min/max limits
@@ -585,39 +579,44 @@ sta_bats_c = SB['out'][0][0][3]
 sta_bats_f = SB['out'][0][0][2]
 sta_bats_dk = SB['out'][0][0][1]
 
-plot_eng = 1
-plot_spec = 1
+plot_eng = 0
+plot_spec = 0
 plot_comp = 0
 if plot_eng > 0:    
     if plot_spec > 0:
         fig0, ax0 = plt.subplots()
         PE_p = ax0.plot(sc_x,avg_PE[1:]/dk,color='#B22222',label='PE')
-        PE_sta_p = ax0.plot((1000)*sta_bats_f/sta_bats_c[1:],sta_bats_pe[1:]/sta_bats_dk,color='#FF8C00',label='$PE_{bats}$')
-        KE_p = ax0.plot(sc_x,avg_KE[1:]/dk,'b',label='KE')
-        ax0.plot( [10**-1, 10**0], [1.5*10**1, 1.5*10**-2],color='k',linestyle='--',linewidth=0.8)
-        ax0.text(0.8*10**-1,1.3*10**1,'-3',fontsize=10)
-        
+        PE_sta_p = ax0.plot((1000)*sta_bats_f/sta_bats_c[1:],sta_bats_pe[1:]/sta_bats_dk,color='#FF8C00',label='$PE_{ship}$')
+        KE_p = ax0.plot(sc_x,avg_KE[1:]/dk,'g',label='KE')        
         ax0.scatter(sc_x,avg_PE[1:]/dk,color='#B22222',s=6) # DG PE
         ax0.scatter((1000)*sta_bats_f/sta_bats_c[1:],sta_bats_pe[1:]/sta_bats_dk,color='#FF8C00',s=6) # BATS PE
         
         ax0.plot(sc_x,0.5*PE_GM/dk,linestyle='--',color='#6B8E23')
         ax0.text(sc_x[0]-.009,PE_GM[1]/dk,r'$PE_{GM}$')
-        ax0.plot( [1000*f_ref/c[1], 1000*f_ref/c[-2]],[1000*f_ref/c[1], 1000*f_ref/c[-2]],linestyle='--',color='k',linewidth=0.8)
+        # ax0.plot( [1000*f_ref/c[1], 1000*f_ref/c[-2]],[1000*f_ref/c[1], 1000*f_ref/c[-2]],linestyle='--',color='k',linewidth=0.8)
         ax0.text( 1000*f_ref/c[-2]+.1, 1000*f_ref/c[-2], r'f/c$_m$',fontsize=10)
         ax0.plot(sc_x,k_h,color='k')
-        ax0.text(sc_x[0]-.008,k_h[0]-.008,r'$k_{h}$ [km$^{-1}$]',fontsize=10)        
+        ax0.text(sc_x[0]-.008,k_h[0]-.008,r'$k_{h}$ [km$^{-1}$]',fontsize=10)       
+        
+        # limits/scales 
+        ax0.plot( [3*10**-1, 3*10**0], [1.5*10**1, 1.5*10**-2],color='k',linewidth=0.75)
+        ax0.plot([3*10**-2, 3*10**-1],[7*10**2, ((5/3)*(np.log10(2*10**-1) - np.log10(2*10**-2) ) +  np.log10(7*10**2) )] ,color='k',linewidth=0.75)
+        ax0.text(3.3*10**-1,1.3*10**1,'-3',fontsize=8)
+        ax0.text(3.3*10**-2,6*10**2,'-5/3',fontsize=8)
+        ax0.plot( [1000*f_ref/c[1], 1000*f_ref/c[-2]],[1000*f_ref/c[1], 1000*f_ref/c[-2]],linestyle='--',color='k',linewidth=0.8)
+         
         ax0.set_yscale('log')
         ax0.set_xscale('log')
         ax0.axis([10**-2, 10**1, 10**(-3), 10**(3)])
-        ax0.grid()
         ax0.set_xlabel(r'Vertical Wavenumber = Inverse Rossby Radius = $\frac{f}{c}$ [$km^{-1}$]',fontsize=13)
         ax0.set_ylabel('Spectral Density (and Hor. Wavenumber)')
         ax0.set_title('DG 2015 BATS Deployment (Energy Spectra)')
         handles, labels = ax0.get_legend_handles_labels()
         ax0.legend([handles[0],handles[1],handles[-1]],[labels[0], labels[1], labels[-1]],fontsize=12)
         plt.tight_layout()
-        fig0.savefig('/Users/jake/Desktop/bats/dg035_15_PE_b.png',dpi = 300)
-        plt.close()
+        plot_pro(ax0)
+        # fig0.savefig('/Users/jake/Desktop/bats/dg035_15_PE_b.png',dpi = 300)
+        # plt.close()
         # plt.show()
 
     if plot_comp > 0: 
@@ -690,4 +689,30 @@ if plot_eng > 0:
         fig0.savefig('/Users/jake/Desktop/bats/dg035_15_PE_mode_comp_b_test.png',dpi = 300)
         plt.close()
     
+####### 
+# PE COMPARISON BETWEEN HOTS, BATS_SHIP, AND BATS_DG
+# load in Station BATs PE Comparison
+SH = si.loadmat('/Users/jake/Desktop/bats/station_hots_pe.mat')
+sta_hots_pe = SH['out'][0][0][0]
+sta_hots_c = SH['out'][0][0][3]
+sta_hots_f = SH['out'][0][0][2]
+sta_hots_dk = SH['out'][0][0][1]
 
+fig0, ax0 = plt.subplots()
+ax0.plot( [3*10**-1, 3*10**0], [1.5*10**1, 1.5*10**-2],color='k',linewidth=0.75)
+ax0.plot([3*10**-2, 3*10**-1],[7*10**2, ((5/3)*(np.log10(2*10**-1) - np.log10(2*10**-2) ) +  np.log10(7*10**2) )] ,color='k',linewidth=0.75)
+ax0.text(3.3*10**-1,1.3*10**1,'-3',fontsize=8)
+ax0.text(3.3*10**-2,6*10**2,'-5/3',fontsize=8)
+ax0.plot(sc_x,PE_GM/dk,linestyle='--',color='k')
+ax0.text(sc_x[0]-.009,PE_GM[1]/dk,r'$PE_{GM}$')
+PE_p = ax0.plot(sc_x,avg_PE[1:]/dk,color='#B22222',label=r'$PE_{BATS_{DG}}$')
+PE_sta_p = ax0.plot((1000)*sta_bats_f/sta_bats_c[1:],sta_bats_pe[1:]/sta_bats_dk,color='#FF8C00',label=r'$PE_{BATS_{ship}}$')
+PE_sta_hots = ax0.plot((1000)*sta_hots_f/sta_hots_c[1:],sta_hots_pe[1:]/sta_hots_dk,color='g',label=r'$PE_{HOTS_{ship}}$')
+ax0.set_yscale('log')
+ax0.set_xscale('log')
+ax0.set_xlabel(r'Vertical Wavenumber = Inverse Rossby Radius = $\frac{f}{c}$ [$km^{-1}$]',fontsize=13)
+ax0.set_ylabel('Spectral Density (and Hor. Wavenumber)')
+ax0.set_title('Potential Energy Spectra (Site/Platform Comparison)')
+handles, labels = ax0.get_legend_handles_labels()
+ax0.legend(handles,labels,fontsize=12)
+plot_pro(ax0)

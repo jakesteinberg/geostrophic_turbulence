@@ -149,6 +149,7 @@ V = v[:,adcp_in[0]]
 # closest pos on line to adcp site 
 adcp_x = (lon_uv[adcp_in] - lon_in)*(1852*60*np.cos(np.deg2rad(26.5)))
 adcp_y = (lat_uv[adcp_in] - lat_in)*(1852*60)
+adcp_dist=np.zeros(np.size(adcp_x))
 for i in range(np.size(adcp_in[0])):
     all_dist = np.sqrt( ( adcp_x[i]/1000 - dist_grid_s )**2 + ( adcp_y[i]/1000 - 0 )**2 )
     if np.isnan(adcp_x[i]):
@@ -157,11 +158,11 @@ for i in range(np.size(adcp_in[0])):
         closest_dist_dive_i = np.where(all_dist == all_dist.min())
         adcp_dist[i] = dist_grid_s[closest_dist_dive_i[0]]
 
-fig,ax = plt.subplots()
+# fig,ax = plt.subplots()
 # ax.scatter(lon_uv[adcp_in],lat_uv[adcp_in])
-ax.scatter(adcp_x/1000,adcp_y/1000)
-ax.scatter(adcp_dist,np.zeros(np.size(adcp_dist)))
-plot_pro(ax)
+# ax.scatter(adcp_x/1000,adcp_y/1000)
+# ax.scatter(adcp_dist,np.zeros(np.size(adcp_dist)))
+# plot_pro(ax)
 
 matlab_datenum = 731965.04835648148
 t_s = datetime.date.fromordinal(int( np.min(time_uv) )) + datetime.timedelta(days=matlab_datenum%1) - datetime.timedelta(days = 366)
@@ -189,7 +190,7 @@ plot_pro(ax2)
 
 ### SAVE 
 # write python dict to a file
-sa = 1
+sa = 0
 if sa > 0:
     mydict = {'bin_depth': bin_depth,'adcp_depth': dac_bin_dep, 'adcp_v': V,
         'adcp_lon': lon_uv[adcp_in], 'adcp_lat': lat_uv[adcp_in], 'adcp_dist': adcp_dist,
