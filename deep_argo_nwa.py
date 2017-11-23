@@ -225,9 +225,9 @@ if plott > 0:
  
 ### SAVE 
 # write python dict to a file
-savee = 0
+savee = 1
 if savee > 0:
-    mydict = {'bin_press': bin_press, 'sigma_theta': sigma_theta, 'theta': theta, 'eta': eta, 'eta_m': Eta_m, 'avg_PE': avg_PE, 'f_ref': f_ref, 'c': c, 'G': G, 'lat': lat, 'lon': lon}
+    mydict = {'bin_press': bin_press, 'sigma_theta': sigma_theta,'salin': S_g, 'theta': theta, 'eta': eta, 'eta_m': Eta_m, 'avg_PE': avg_PE, 'f_ref': f_ref, 'c': c, 'G': G, 'lat': lat, 'lon': lon}
     output = open('/Users/jake/Desktop/argo/deep_argo_nwa.pkl', 'wb')
     pickle.dump(mydict, output)
     output.close() 

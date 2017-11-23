@@ -146,6 +146,7 @@ ctd_x = (cast_lon - lon_in)*(1852*60*np.cos(np.deg2rad(26.5)))
 ctd_y = (cast_lat - lat_in)*(1852*60)
 adcp_in = np.where(lat_uv>26.45)
 V = v[:,adcp_in[0]]
+U = u[:,adcp_in[0]]
 # closest pos on line to adcp site 
 adcp_x = (lon_uv[adcp_in] - lon_in)*(1852*60*np.cos(np.deg2rad(26.5)))
 adcp_y = (lat_uv[adcp_in] - lat_in)*(1852*60)
@@ -190,12 +191,12 @@ plot_pro(ax2)
 
 ### SAVE 
 # write python dict to a file
-sa = 0
+sa = 1
 if sa > 0:
-    mydict = {'bin_depth': bin_depth,'adcp_depth': dac_bin_dep, 'adcp_v': V,
+    mydict = {'bin_depth': bin_depth,'adcp_depth': dac_bin_dep,'adcp_u': U,'adcp_v': V,
         'adcp_lon': lon_uv[adcp_in], 'adcp_lat': lat_uv[adcp_in], 'adcp_dist': adcp_dist,
         'den_grid': den_grid, 'den_grid_2': den_grid_2, 'den_dist': dist_dive, 
-        'theta_grid': theta_grid, 'theta_grid_2': theta_grid_2,
+        'salin_grid': S1,'salin_grid_2': S2,'theta_grid': theta_grid, 'theta_grid_2': theta_grid_2,
         'adcp_lon': lon_uv[adcp_in], 'adcp_lat': lat_uv[adcp_in], 'cast_lon': cast_lon, 'cast_lat': cast_lat }
     output = open('/Users/jake/Desktop/abaco/ship_adcp.pkl', 'wb')
     pickle.dump(mydict, output)
