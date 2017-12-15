@@ -61,7 +61,7 @@ ax.plot3D(-10*np.ones(5),np.linspace(y_pos-10,y_pos+10,5),np.zeros(5),color='k',
 sample_v = 120
 # ax.plot3D(x_g[sample_v]*np.ones(5),y_pos*np.ones(5),np.linspace(-5000,0,5),color='r',zdir='z',linestyle='--',linewidth=1,zorder=3)
 ax.plot3D(-10*np.ones(np.size(z_g[1:-1])),y_pos + V[1:-1,sample_v],np.flipud(np.linspace(-5000,0,np.size(z_g[1:-1]))),color='#800000',zdir='z')
-ax.text(-10,y_pos+10,20,r'$v_i (z)$')
+ax.text(-10,y_pos+10,20,r'$u_i (z)$')
 
 # G'
 GD = netcdf.netcdf_file('BATs_2015_gridded.nc','r')

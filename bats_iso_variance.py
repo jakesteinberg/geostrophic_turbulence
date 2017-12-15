@@ -13,6 +13,7 @@ import scipy.io as si
 from scipy.io import netcdf
 from scipy.integrate import cumtrapz
 import seaborn as sns
+import pickle
 # functions I've written 
 from grids import make_bin, collect_dives
 from mode_decompositions import vertical_modes, PE_Tide_GM
@@ -132,7 +133,7 @@ for main in range(2):
         ax0.text(-(64+(10/60)) + .1, 31 + (40/60)-.07,'BATS',color='w')
         # ax0.scatter(np.nanmean(df_lon.iloc[:,heading_mask[0]],0),np.nanmean(df_lat.iloc[:,heading_mask[0]],0),s=20,color='g')       
         w = 1/np.cos(np.deg2rad(ref_lat))
-        ax0.axis([-65.6, -63.25, 31.2, 32.8])
+        ax0.axis([-65.5, -63.35, 31.2, 32.7])
         ax0.set_aspect(w)
         divider = make_axes_locatable(ax0)
         cax = divider.append_axes("right", size="5%", pad=0.05)
@@ -145,8 +146,10 @@ for main in range(2):
         ax0.legend([handles[0],handles[-1]],[labels[0], labels[-1]],fontsize=10)
         ax0.set_title('Select BATS Transects (DG35): ' + np.str(t_s.month) + '/' + np.str(t_s.day) + '/' + np.str(t_s.year) + ' - ' + np.str(t_e.month) + '/' + np.str(t_e.day) + '/' + np.str(t_e.year))
         plt.tight_layout()
+        # ax0.grid()
+        # plot_pro(ax0)
         # plt.show()
-        fig0.savefig('/Users/jake/Desktop/bats/plan_b.png',dpi = 200)
+        fig0.savefig('/Users/jake/Desktop/bats/plan_200_300.png',dpi = 200)
 
 
     ############ SELECT ALL TRANSECTS ALONG A HEADING AND COMPUTE VERTICAL DISPLACEMENT AND HORIZONTAL VELOCITY 
@@ -552,6 +555,14 @@ for i in range(num_profs):
         PE_per_mass[:,i] = (1/2)*AG[:,i]*AG[:,i]*c*c
         PE_theta_per_mass[:,i] = (1/2)*AG_theta[:,i]*AG_theta[:,i]*c*c 
 
+# output density structure for comparison 
+sa = 0
+if sa > 0:
+    mydict = {'bin_depth': grid,'eta': Eta2,'dg_v': V2}
+    output = open('/Users/jake/Desktop/bats/den_v_profs.pkl', 'wb')
+    pickle.dump(mydict, output)
+    output.close()        
+
 ### COMPUTE EOF SHAPES AND COMPARE TO ASSUMED STRUCTURE 
 ### EOF SHAPES 
 ## find EOFs of dynamic horizontal current (v) mode amplitudes _____ADCP_____
@@ -572,9 +583,9 @@ EOFshape2_BTpBC1 = np.matrix(Gz[:,0:2])*V_AGzqa[0:2,1] # truncated 2 mode shape 
 
 ## find EOFs of dynamic vertical displacement (eta) mode amplitudes
 # extract noisy/bad profiles 
-good_prof = np.where(~np.isnan(AG[2,:]))
-num_profs_2 = np.size(good_prof)
-AG2 = AG[:,good_prof[0]]
+good_prof_eof = np.where(~np.isnan(AG[2,:]))
+num_profs_2 = np.size(good_prof_eof)
+AG2 = AG[:,good_prof_eof[0]]
 C = np.transpose(np.tile(c,(num_profs_2,1)))
 AGs = C*AG2
 AGq = AGs[1:,:] # ignores barotropic mode
@@ -596,18 +607,20 @@ EOFetashape2_BTpBC1 = G[:,1:3]*V_AGqa[0:2,1] # truncated 2 mode shape of EOF#2
 if plot_eta > 0: 
     f, (ax0,ax1) = plt.subplots(1, 2, sharey=True)
     for j in range(num_profs):
-        ax1.plot(Eta2[:,j],grid,color='#CD853F',linewidth=.65)  
+        ax1.plot(Eta2[:,j],grid,color='#CD853F',linewidth=1.25)  
         ax1.plot(Eta_m[:,j],grid,color='k',linestyle='--',linewidth=.75)    
-        ax0.plot(Eta_theta2[:,j],grid,color='#CD853F',linewidth=.65) 
-        ax0.plot(Eta_theta_m[:,j],grid,color='k',linestyle='--',linewidth=.75)
-    ax1.axis([-600, 600, 0, 4800]) 
+        # ax0.plot(Eta_theta2[:,j],grid,color='#CD853F',linewidth=.65) 
+        # ax0.plot(Eta_theta_m[:,j],grid,color='k',linestyle='--',linewidth=.75)
+        ax0.plot(V2[:,j],grid,color='#CD853F',linewidth=1.25)  
+        ax0.plot(V_m[:,j],grid,color='k',linestyle='--',linewidth=.75)
+    ax1.axis([-600, 600, 0, 5000]) 
     ax0.text(190,800,str(num_profs)+' Profiles')
-    ax1.set_xlabel(r'$\eta_{\sigma_{\theta}}$ [m]')
-    ax0.set_ylabel('Depth [m]')
-    ax1.set_title(r'$\eta$ Vertical Isopycnal Disp.') # + '(' + str(Time[0]) + '-' )
-    ax0.set_title(r'BATS 2015 Vertical $\theta$ Disp.') # + '(' + str(Time[0]) + '-' )
-    ax0.axis([-600, 600, 0, 4800]) 
-    ax0.set_xlabel(r'$\eta_{\theta}$ [m]')
+    ax1.set_xlabel(r'$\xi_{\sigma_{\theta}}$ [m]')
+    ax1.set_title(r'$\xi$ Vertical Isopycnal Disp.') # + '(' + str(Time[0]) + '-' )
+    ax0.axis([-.4, .4, 0, 5000]) 
+    ax0.set_title("BATS '15 DG Cross-track u")
+    ax0.set_ylabel('Depth [m]',fontsize=14)
+    ax0.set_xlabel('u [m/s]',fontsize=14)
     ax0.invert_yaxis() 
     ax0.grid()    
     plot_pro(ax1)
@@ -640,25 +653,22 @@ if plot_eta > 0:
     ax2.invert_yaxis()    
     plot_pro(ax2)
 
-    f, ax0 = plt.subplots()
-    for j in range(num_profs):
-        ax0.plot(V2[:,j],grid,color='#B22222')  
-        ax0.plot(V_m[:,j],grid,color='k',linestyle='--',linewidth=.75)
-    ax0.axis([-.5, .5, 0, 4800]) 
-    ax0.set_title('BATS 2015 EOF Hor. Vel. (DG)')
-    ax0.set_ylabel('Depth [m]')
-    ax0.set_xlabel('V [m/s]')
-    ax0.invert_yaxis() 
-    plot_pro(ax0)
-
 avg_PE = np.nanmean(PE_per_mass,1)
 good_prof_i = good_prof #np.where(good_prof > 0)
-avg_KE = np.nanmean(HKE_per_mass[:,good_prof_i[0]],1)
+avg_KE = np.nanmean(HKE_per_mass[:,np.where(good_prof>0)[0]],1)
+fig0, ax0 = plt.subplots()
+for i in range(np.size(good_prof)):
+    if good_prof[i] > 0:
+        ax0.plot(np.arange(0,61,1),HKE_per_mass[:,i])
+ax0.set_xscale('log')      
+ax0.set_yscale('log')    
+plot_pro(ax0)    
 # avg_PE_theta = np.nanmean(PE_theta_per_mass,1)
 f_ref = np.pi*np.sin(np.deg2rad(ref_lat))/(12*1800)
 rho0 = 1025
 dk = f_ref/c[1]
 sc_x = (1000)*f_ref/c[1:]
+vert_wavenumber = f_ref/c[1:]
     
 PE_SD, PE_GM = PE_Tide_GM(rho0,grid,nmodes,np.transpose(np.atleast_2d(N2)),f_ref)
 
@@ -679,34 +689,37 @@ plot_comp = 0
 if plot_eng > 0:    
     if plot_spec > 0:
         fig0, ax0 = plt.subplots()
-        PE_p = ax0.plot(sc_x,avg_PE[1:]/dk,color='#B22222',label='PE')
-        PE_sta_p = ax0.plot((1000)*sta_bats_f/sta_bats_c[1:],sta_bats_pe[1:]/sta_bats_dk,color='#FF8C00',label='$PE_{ship}$')
-        KE_p = ax0.plot(sc_x,avg_KE[1:]/dk,'g',label='KE')        
-        ax0.scatter(sc_x,avg_PE[1:]/dk,color='#B22222',s=6) # DG PE
-        ax0.scatter((1000)*sta_bats_f/sta_bats_c[1:],sta_bats_pe[1:]/sta_bats_dk,color='#FF8C00',s=6) # BATS PE
+        PE_p = ax0.plot(sc_x,avg_PE[1:]/dk,color='#B22222',label='PE',linewidth=1.5)
+        # PE_sta_p = ax0.plot((1000)*sta_bats_f/sta_bats_c[1:],sta_bats_pe[1:]/sta_bats_dk,color='#FF8C00',label='$PE_{ship}$',linewidth=1.5)
+        KE_p = ax0.plot(sc_x,avg_KE[1:]/dk,'g',label='KE',linewidth=1.5)        
+        ax0.scatter(sc_x,avg_PE[1:]/dk,color='#B22222',s=10) # DG PE
+        # ax0.scatter((1000)*sta_bats_f/sta_bats_c[1:],sta_bats_pe[1:]/sta_bats_dk,color='#FF8C00',s=10) # BATS PE
+        ax0.scatter(sc_x,avg_KE[1:]/dk,color='g',s=10) # DG KE
         
-        ax0.plot(sc_x,0.5*PE_GM/dk,linestyle='--',color='#6B8E23')
-        ax0.text(sc_x[0]-.009,PE_GM[1]/dk,r'$PE_{GM}$')
-        # ax0.plot( [1000*f_ref/c[1], 1000*f_ref/c[-2]],[1000*f_ref/c[1], 1000*f_ref/c[-2]],linestyle='--',color='k',linewidth=0.8)
+        ax0.plot(sc_x,0.25*PE_GM/dk,linestyle='--',color='#B22222',linewidth=0.75)
+        # ax0.plot(sc_x,PE_GM/dk,linestyle='--',color='#FF8C00',linewidth=0.75)
+        ax0.text(sc_x[0]-.014,.25*PE_GM[1]/dk,r'$\frac{1}{4}PE_{GM}$',fontsize=12)
+        # ax0.text(sc_x[0]-.011,PE_GM[1]/dk,r'$PE_{GM}$')
+        ## ax0.plot( [1000*f_ref/c[1], 1000*f_ref/c[-2]],[1000*f_ref/c[1], 1000*f_ref/c[-2]],linestyle='--',color='k',linewidth=0.8)
         ax0.text( 1000*f_ref/c[-2]+.1, 1000*f_ref/c[-2], r'f/c$_m$',fontsize=10)
-        ax0.plot(sc_x,k_h,color='k')
-        ax0.text(sc_x[0]-.008,k_h[0]-.008,r'$k_{h}$ [km$^{-1}$]',fontsize=10)       
+        ax0.plot(sc_x,k_h,color='k',linewidth=.9,label=r'$k_h$')
+        ax0.text(sc_x[0]-.008,k_h[0]-.011,r'$k_{h}$ [km$^{-1}$]',fontsize=10)       
         
         # limits/scales 
         ax0.plot( [3*10**-1, 3*10**0], [1.5*10**1, 1.5*10**-2],color='k',linewidth=0.75)
         ax0.plot([3*10**-2, 3*10**-1],[7*10**2, ((5/3)*(np.log10(2*10**-1) - np.log10(2*10**-2) ) +  np.log10(7*10**2) )] ,color='k',linewidth=0.75)
-        ax0.text(3.3*10**-1,1.3*10**1,'-3',fontsize=8)
-        ax0.text(3.3*10**-2,6*10**2,'-5/3',fontsize=8)
+        ax0.text(3.3*10**-1,1.3*10**1,'-3',fontsize=10)
+        ax0.text(3.3*10**-2,6*10**2,'-5/3',fontsize=10)
         ax0.plot( [1000*f_ref/c[1], 1000*f_ref/c[-2]],[1000*f_ref/c[1], 1000*f_ref/c[-2]],linestyle='--',color='k',linewidth=0.8)
          
         ax0.set_yscale('log')
         ax0.set_xscale('log')
-        ax0.axis([10**-2, 10**1, 10**(-3), 10**(3)])
-        ax0.set_xlabel(r'Vertical Wavenumber = Inverse Rossby Radius = $\frac{f}{c}$ [$km^{-1}$]',fontsize=13)
-        ax0.set_ylabel('Spectral Density (and Hor. Wavenumber)')
-        ax0.set_title('DG 2015 BATS Deployment (Energy Spectra)')
+        ax0.axis([10**-2, 10**1, 3*10**(-4), 2*10**(3)])
+        ax0.set_xlabel(r'Scaled Vertical Wavenumber = (Rossby Radius)$^{-1}$ = $\frac{f}{c_m}$ [$km^{-1}$]',fontsize=14)
+        ax0.set_ylabel('Spectral Density, Hor. Wavenumber',fontsize=14) # ' (and Hor. Wavenumber)')
+        ax0.set_title('DG 2015 BATS Deployment (Energy Spectra)',fontsize=14)
         handles, labels = ax0.get_legend_handles_labels()
-        ax0.legend([handles[0],handles[1],handles[-1]],[labels[0], labels[1], labels[-1]],fontsize=12)
+        ax0.legend([handles[0],handles[1],handles[2]],[labels[0], labels[1], labels[2]],fontsize=12)
         plt.tight_layout()
         plot_pro(ax0)
         # fig0.savefig('/Users/jake/Desktop/bats/dg035_15_PE_b.png',dpi = 300)
@@ -801,12 +814,34 @@ ax0.plot(sc_x,PE_GM/dk,linestyle='--',color='k')
 ax0.text(sc_x[0]-.009,PE_GM[1]/dk,r'$PE_{GM}$')
 PE_p = ax0.plot(sc_x,avg_PE[1:]/dk,color='#B22222',label=r'$PE_{BATS_{DG}}$')
 PE_sta_p = ax0.plot((1000)*sta_bats_f/sta_bats_c[1:],sta_bats_pe[1:]/sta_bats_dk,color='#FF8C00',label=r'$PE_{BATS_{ship}}$')
-PE_sta_hots = ax0.plot((1000)*sta_hots_f/sta_hots_c[1:],sta_hots_pe[1:]/sta_hots_dk,color='g',label=r'$PE_{HOTS_{ship}}$')
+# PE_sta_hots = ax0.plot((1000)*sta_hots_f/sta_hots_c[1:],sta_hots_pe[1:]/sta_hots_dk,color='g',label=r'$PE_{HOTS_{ship}}$')
 ax0.set_yscale('log')
 ax0.set_xscale('log')
 ax0.set_xlabel(r'Vertical Wavenumber = Inverse Rossby Radius = $\frac{f}{c}$ [$km^{-1}$]',fontsize=13)
 ax0.set_ylabel('Spectral Density (and Hor. Wavenumber)')
 ax0.set_title('Potential Energy Spectra (Site/Platform Comparison)')
+handles, labels = ax0.get_legend_handles_labels()
+ax0.legend(handles,labels,fontsize=12)
+plot_pro(ax0)
+
+
+# LOAD NEARBY ABACO 
+pkl_file = open('/Users/jake/Desktop/abaco/abaco_outputs.pkl', 'rb')
+abaco_energies = pickle.load(pkl_file)
+pkl_file.close()   
+
+fig0, ax0 = plt.subplots()
+mode_num = np.arange(1,61,1)
+PE_p = ax0.plot(mode_num,avg_PE[1:]/dk,label=r'$BATS_{DG}$')
+PE_sta_p = ax0.plot(mode_num,sta_bats_pe[1:]/sta_bats_dk,label=r'$BATS_{ship}$')
+PE_ab = ax0.plot(mode_num,abaco_energies['avg_PE'][1:]/(abaco_energies['f_ref']/abaco_energies['c'][1]),label=r'$ABACO_{DG}$')
+# PE_sta_hots = ax0.plot(mode_num,sta_hots_pe[1:]/sta_hots_dk,label=r'$HOTS_{ship}$')
+ax0.set_xlabel('Mode Number',fontsize=13)
+ax0.set_ylabel('Spectral Density',fontsize=13)
+ax0.set_title('Potential Energy Spectra (Site/Platform Comparison)',fontsize=14)
+ax0.set_yscale('log')
+ax0.set_xscale('log')
+ax0.axis([8*10**-1, 10**2, 3*10**(-4), 2*10**(3)])
 handles, labels = ax0.get_legend_handles_labels()
 ax0.legend(handles,labels,fontsize=12)
 plot_pro(ax0)

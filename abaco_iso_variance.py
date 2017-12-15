@@ -63,7 +63,7 @@ time_rec_2 = np.zeros([dg_list.shape[0], 2])
 
 # plot controls 
 plot_plan = 0
-plot_cross = 0
+plot_cross = 1
 plot_eta = 0
 plot_eng = 0
 
@@ -288,19 +288,19 @@ if plot_cross > 0:
     import_dg = si.loadmat('/Users/jake/Documents/geostrophic_turbulence/ABACO_dg_transect_9.mat')
     dg_data = import_dg['out_t']
     ax1.plot(dg_data['dac_lon'][0][0],dg_data['dac_lat'][0][0],color='y',linewidth=2) 
-    ax1.text(-75.28,26.66,'DG38: 67-77',fontsize=8,color='y')
+    ax1.text(-75.3,26.66,'DG38: 67-77',fontsize=12,color='y')
     ax1.scatter(dg_data['dac_lon'][0][0],dg_data['dac_lat'][0][0],s=15,color='y')  
     ax1.quiver(dg_data['dac_lon'][0][0],dg_data['dac_lat'][0][0],dg_data['dac_u'][0][0],dg_data['dac_v'][0][0],color='y',scale=2,headwidth=2,headlength=3,width=.005) 
-    ax1.scatter(abaco_ship['adcp_lon'],abaco_ship['adcp_lat'],s=10,color='#7CFC00')   
+    ax1.scatter(abaco_ship['adcp_lon'],abaco_ship['adcp_lat'],s=25,color='#7CFC00')   
     ax1.quiver(abaco_ship['adcp_lon'],abaco_ship['adcp_lat'],np.nanmean(abaco_ship['adcp_u']/100,axis=0),np.nanmean(abaco_ship['adcp_v']/100,axis=0),color='#7CFC00',scale=2,headwidth=2,headlength=3,width=.005)  
-    ax1.scatter(abaco_ship['cast_lon'],abaco_ship['cast_lat'],s=10,color='r') 
+    ax1.scatter(abaco_ship['cast_lon'],abaco_ship['cast_lat'],s=25,color='r') 
     ax1.quiver(-74.5,26.29,0.1,0,color='w',scale=2,headwidth=2,headlength=3,width=.005)
     ax1.text(-74.3,26.29,'0.1 m/s',color='w',fontsize=8)
-    ax1.text(-74.2,26.66,'ADCP',fontsize=8,color='#7CFC00')
-    ax1.text(-74.2,26.58,'RV CTD',fontsize=8,color='r')
+    ax1.text(-74.27,26.66,'ADCP',fontsize=12,color='#7CFC00')
+    ax1.text(-74.27,26.58,'RV CTD',fontsize=12,color='r')
     ax1.scatter(-77,26.5,s=15,color='m')
     ax1.text(-77,26.44,'Trans. St.',fontsize=6)
-    ax1.set_title('RV Endeavour (5/8 - 5/15) CTD/ADCP and DG (5/9 - 5/25)')
+    ax1.set_title('RV Endeavour (5/8 - 5/15) CTD/ADCP and DG (5/9 - 5/25)',fontsize=18)
     
     lv = np.arange(-.6,.6,.05)
     lv2 = np.arange(-.6,.6,.1)
@@ -309,9 +309,9 @@ if plot_cross > 0:
     ax2.plot(35*np.ones(10),np.linspace(0,5000,10),color='r',linewidth=.75,linestyle='--')
     ax2.plot(265*np.ones(10),np.linspace(0,5000,10),color='r',linewidth=.75,linestyle='--')
     ax2.clabel(va, fontsize=6, inline=1,spacing=10,fmt='%1.2g') 
-    ax2.set_ylabel('Depth [m]')
-    ax2.set_xlabel('Distance Offshore [km]')
-    ax2.text(225,4800,'ADCP',fontsize=12)
+    ax2.set_ylabel('Depth [m]',fontsize=16)
+    ax2.set_xlabel('Distance Offshore [km]',fontsize=16)
+    ax2.text(225,4800,'ADCP',fontsize=14)
     ax2.axis([0,300,0,5000])
     ax2.invert_yaxis()
     
@@ -322,8 +322,8 @@ if plot_cross > 0:
     ax3.contourf(np.squeeze(dg_Ds)+35,np.squeeze(dg_bin),dg_V,levels=lv) # shift transect to match inshore distance point with adcp 
     vc = ax3.contour(np.squeeze(dg_Ds)+35,np.squeeze(dg_bin),dg_V,levels=lv2,colors='k')
     ax3.clabel(vc, fontsize=6, inline=1,spacing=10,fmt='%1.2g') 
-    ax3.set_xlabel('Distance Offshore [km]')
-    ax3.text(225,4800,'DG',fontsize=12)
+    ax3.set_xlabel('Distance Offshore [km]',fontsize=16)
+    ax3.text(225,4800,'DG',fontsize=14)
     ax3.axis([0,300,0,5000])
     ax3.invert_yaxis()
     ax3.axes.get_yaxis().set_visible(False)
@@ -544,14 +544,14 @@ if sam_pl > 0:
     n2p = ax1.plot((np.sqrt(np.nanmean(N2,axis=1))*(1800/np.pi))/10,grid,color='k',label='N(z) [10 cph]')    
     ax1.grid()
     ax1.axis([-1, 1, 0, 5000])
-    ax1.set_ylabel('Depth [m]')
-    ax1.set_xlabel('Vert. Displacement Stucture')
-    ax1.set_title(r"G(z) Vert. Displacement $\eta$ Mode Shapes")
+    ax1.set_ylabel('Depth [m]',fontsize=14)
+    ax1.set_xlabel('Vert. Displacement Stucture',fontsize=14)
+    ax1.set_title(r"$G_m$(z) Modes Shapes ($\sim \xi$)",fontsize=18)
     handles, labels = ax1.get_legend_handles_labels()
-    ax1.legend([handles[-1],handles[0],handles[1],handles[2],handles[3],handles[4]],[labels[-1],labels[0],labels[1],labels[2],labels[3],labels[4]],fontsize=10)
+    ax1.legend([handles[-1],handles[0],handles[1],handles[2],handles[3],handles[4]],[labels[-1],labels[0],labels[1],labels[2],labels[3],labels[4]],fontsize=12)
     ax2.axis([-4, 4, 0, 5000])
-    ax2.set_xlabel('Vert. Structure of Hor. Velocity')
-    ax2.set_title("G'(z) Horizontal Velocity Mode Shapes")
+    ax2.set_xlabel('Vert. Structure of Hor. Velocity',fontsize=14)
+    ax2.set_title(r"$G_m$'(z) Mode Shapes ($\sim u$)",fontsize=18)
     ax2.invert_yaxis()    
     plot_pro(ax2)
 
@@ -655,7 +655,7 @@ dg_dep = ke_data['Depth'][0][0]
 # dg_quiet = ke_data['quiet_prof'][0][0]
 dg_np = np.shape(dg_v)[1]
 
-HKE_noise_threshold = 1e-4 # 1e-5
+HKE_noise_threshold = 1e-4
 ### DG V - HKE est.
 dg_AGz = np.zeros([nmodes, dg_np])
 dg_v_m_2 = np.nan*np.zeros([np.size(grid), dg_np])
@@ -676,7 +676,7 @@ for i in range(dg_np):
     else: 
         dg_good_prof[i] = 1 # flag empty profile as noisy as well
         
-HKE_noise_threshold_strict = 1e-5 # 1e-5
+HKE_noise_threshold_strict = 1e-4 # 1e-5
 ### DG V - HKE est.
 dg_AGz_s = np.zeros([nmodes, dg_np])
 dg_v_m_2_s = np.nan*np.zeros([np.size(grid), dg_np])
@@ -729,34 +729,48 @@ for i in range(adcp_np):
     else:
         good_prof[i] = 1 # flag empty profile as noisy as well
 
-##### ______ PLOT VELOCITY PROFILES AND COMPARE _________
-f, (ax1,ax2) = plt.subplots(1,2)
+##### ______ PLOT VELOCITY PROFILES AND COMPARE _________ also plot eta 
+f, (ax1,ax2,ax3) = plt.subplots(1,3)
 for i in range(adcp_np):    
-    if good_prof[i] < 1:
+    if good_prof[i] < 2:
         ad1 = ax1.plot(V[:,i],adcp_depth,color='#CD853F')
         ax1.plot(V_m[:,i],grid,color='k',linewidth=0.75)
     else:
         ax1.plot(V[:,i],adcp_depth,color='r')  
 for i in range(dg_np):
-    if dg_good_prof_s[i] < 1:    # dg_quiet[0][i] < 1:
-        ad1 = ax2.plot(dg_v[:,i],dg_bin,color='#008080')
+    if dg_good_prof_s[i] < 2:    # dg_quiet[0][i] < 1:
+        ad1 = ax2.plot(dg_v[:,i],dg_bin,color='#CD853F')
         ax2.plot(dg_v_m_2[:,i],grid,color='k',linestyle='--',linewidth=0.75)   
     else:
         ax2.plot(dg_v[:,i],dg_bin,color='r')     
 ax1.axis([-.6,.6,0,5500])
-ax1.set_xlabel('Meridional Velocity [m/s]')
-ax1.set_ylabel('Depth [m]')
+ax1.set_xlabel('Meridional Velocity [m/s]',fontsize=14)
+ax1.set_ylabel('Depth [m]',fontsize=14)
 ax1.set_title('Shipboard ADCP (' + str(adcp_np) + ' profiles)')
 ax1.text(.25,5300,'Noisy = '+ str(np.sum(good_prof)),fontsize=8)         
 ax1.invert_yaxis()
 ax1.grid()
 ax2.axis([-.6,.6,0,5500])
-ax2.set_xlabel('Meridional Velocity [m/s]')
+ax2.set_xlabel('Meridional Velocity [m/s]',fontsize=14)
 ax2.set_title('DG Geostrophic Vel. (' + str(dg_np) + ' profiles)')
 ax2.text(-.25,5150,'Noise Thresh. = '+ str(HKE_noise_threshold_strict),fontsize=8) 
 ax2.text(-.25,5300,'Noisy = '+ str(np.sum(dg_good_prof_s)),fontsize=8)         
 ax2.invert_yaxis()
-plot_pro(ax2)
+ax2.grid()
+
+for i in range(np.size(mean_dist)): # range(np.size(subset[0])): #
+    if df_eta.columns[i] > 38000:        
+        p38_2 = ax3.plot(df_eta.iloc[:,i],grid,color='#CD853F',linewidth=1,label='DG038')
+        p38_f = ax3.plot(Eta_m[:,i],grid,'k--',linewidth=.75)
+    else:
+        p37_2 = ax3.plot(df_eta.iloc[:,i],grid,color='#CD853F',linewidth=1,label='DG037')
+        p37_f = ax3.plot(Eta_m[:,i],grid,'k--',linewidth=.75)
+ax3.plot([0, 0],[0, 5500],'--k')
+ax3.set_title('DG37 Vertical Disp. (' + str(num_profs) + ' profiles)')
+ax3.set_xlabel('Vertical Isopycal Displacement [m]',fontsize=14)
+ax3.axis([-500, 500, 0, 5500])
+ax3.invert_yaxis()    
+plot_pro(ax3)
        
 ################### ENERGY SPECTRA             
 avg_PE = np.nanmean(PE_per_mass,1)
@@ -804,38 +818,42 @@ plot_pro(ax)
     
 if plot_eng > 0:
     fig0, ax0 = plt.subplots()
-    PE_p = ax0.plot(sc_x,avg_PE[1:]/dk,color='#FF8C00',label=r'PE$_{dg}$')
-    ax0.scatter(sc_x,avg_PE[1:]/dk,color='#FF8C00',s=6)
+    PE_p = ax0.plot(sc_x,avg_PE[1:]/dk,color='#B22222',label=r'PE$_{dg}$',linewidth=1.5)
+    ax0.scatter(sc_x,avg_PE[1:]/dk,color='#B22222',s=15)
     # limits/scales 
     ax0.plot( [3*10**-1, 3*10**0], [1.5*10**1, 1.5*10**-2],color='k',linewidth=0.75)
     ax0.plot([3*10**-2, 3*10**-1],[7*10**2, ((5/3)*(np.log10(2*10**-1) - np.log10(2*10**-2) ) +  np.log10(7*10**2) )] ,color='k',linewidth=0.75)
-    ax0.text(3.3*10**-1,1.3*10**1,'-3',fontsize=8)
-    ax0.text(3.3*10**-2,6*10**2,'-5/3',fontsize=8)
+    ax0.text(3.3*10**-1,1.3*10**1,'-3',fontsize=12)
+    ax0.text(3.3*10**-2,6*10**2,'-5/3',fontsize=12)
     ax0.plot( [1000*f_ref/c[1], 1000*f_ref/c[-2]],[1000*f_ref/c[1], 1000*f_ref/c[-2]],linestyle='--',color='k',linewidth=0.8)
-    ax0.text( 1000*f_ref/c[1]-.001, 1000*f_ref/c[1]-0.01, r'f/c$_m$',fontsize=10)
-    ax0.plot(sc_x,PE_GM/dk,linestyle='--',color='#808000')
-    ax0.text(sc_x[0]-.009,PE_GM[0]/dk,r'$PE_{GM}$')
+    ## ax0.text( 1000*f_ref/c[1]-.001, 1000*f_ref/c[1]-0.01, r'f/c$_m$',fontsize=10)
+    ax0.text( 1000*f_ref/c[-2]+.1, 1000*f_ref/c[-2], r'f/c$_m$',fontsize=10)
+    ax0.plot(sc_x,PE_GM/dk,linestyle='--',color='#B22222',linewidth=1)
+    ax0.text(sc_x[0]-.009,PE_GM[0]/dk,r'$PE_{GM}$',fontsize=12)
     # KE 
     # KE_p = ax0.plot(1000*ke_data['f_ref'][0][0][0]/ke_data['c'][0][0][1:],ke[1:]/(dk_ke/1000),color='#483D8B',label='KE')
     # ax0.scatter(1000*ke_data['f_ref'][0][0][0]/ke_data['c'][0][0][1:],ke[1:]/(dk_ke/1000),color='#483D8B',s=6)
-    KE_dg = ax0.plot(sc_x,avg_KE_dg[1:]/dk,color='#8B0000',label=r'KE$_{dg}$')
-    KE_adcp = ax0.plot(sc_x,avg_KE_adcp[1:]/dk,color='g',label=r'KE$_{adcp}$')
-    # ke/pe ratio 
+    KE_dg = ax0.plot(sc_x,avg_KE_dg[1:]/dk,color='g',label=r'KE$_{dg}$',linewidth=1.75)
+    ax0.scatter(sc_x,avg_KE_dg[1:]/dk,color='g',s=15)
+    # KE_adcp = ax0.plot(sc_x,avg_KE_adcp[1:]/dk,color='m',label=r'KE$_{adcp}$',linewidth=1.75)
+    ## ke/pe ratio 
     k_h_p = ax0.plot(sc_x,k_h,color='k',label=r'DG$_{k_h}$')
     ax0.text(sc_x[0]-.008,k_h[0]+.01,r'$k_{h}$',fontsize=10)
-    # plot tailoring    
+    ## plot tailoring    
     ax0.set_yscale('log')
     ax0.set_xscale('log')
-    ax0.axis([10**-2, 1.5*10**1, 10**(-4), 10**(3)])
-    ax0.set_xlabel(r'Vertical Wavenumber = Inverse Rossby Radius = $\frac{f}{c}$ [$km^{-1}$]',fontsize=13)
-    ax0.set_ylabel('Spectral Density (and Hor. Wavenumber)')
-    ax0.set_title('ABACO')
+    # ax0.axis([10**-2, 1.5*10**1, 10**(-4), 10**(3)])
+    ax0.axis([10**-2, 10**1, 3*10**(-4), 2*10**(3)])
+    ax0.set_xlabel(r'Scaled Vertical Wavenumber = (Rossby Radius)$^{-1}$ = $\frac{f}{c}$ [$km^{-1}$]',fontsize=13)
+    ax0.set_ylabel('Spectral Density',fontsize=13) # '(and Hor. Wavenumber)',fontsize=13)
+    ax0.set_title('ABACO Energy Spectra')
     handles, labels = ax0.get_legend_handles_labels()
-    ax0.legend([handles[0],handles[1],handles[-2],handles[-1]],[labels[0],labels[1],labels[-2],labels[-1]],fontsize=10)
+    ax0.legend([handles[0],handles[1],handles[-1]],[labels[0],labels[1],labels[-1]],fontsize=13)
     plot_pro(ax0)
     # ax0.grid()
     # fig0.savefig('/Users/jake/Desktop/abaco/abaco_energy_all.png',dpi = 200)
-    # plt.close()        
+    # plt.close()   
+   
         
     # dynamic mode amplitude with time
     time_ord = np.argsort(time_rec)
@@ -951,3 +969,59 @@ ax3.set_title('EOF Mode Shapes (DG)')
 ax3.set_xlabel('Vert. Disp. Mode Shapes')
 ax3.invert_yaxis()
 plot_pro(ax3)
+
+### SAVE 
+# write python dict to a file
+savee = 0
+if savee > 0:
+    mydict = {'bin_depth': bin_depth, 'sigma_theta': df_den,'salin': df_s, 'theta': df_t, 'eta': df_eta, 'eta_m': Eta_m, 'avg_PE': avg_PE, 'f_ref': f_ref, 'c': c, 'G': G}
+    output = open('/Users/jake/Desktop/abaco/abaco_outputs.pkl', 'wb')
+    pickle.dump(mydict, output)
+    output.close() 
+
+#### comparisons of average density displacement profiles 
+# load in Station HOTs eta Comparison
+SH = si.loadmat('/Users/jake/Desktop/bats/station_hots_pe.mat')
+sta_hots_depth = SH['out'][0][0][0]
+sta_hots_eta = SH['out'][0][0][1]
+
+# load bats eta
+pkl_file = open('/Users/jake/Desktop/bats/den_v_profs.pkl', 'rb')
+bats_eta_prof = pickle.load(pkl_file)
+pkl_file.close()   
+
+from scipy.signal import savgol_filter
+window_size, poly_order = 31, 5
+eta_filt = np.zeros(np.shape(df_eta))
+for i in range(num_profs):
+    eta_filt[:,i] = savgol_filter(df_eta.iloc[:,i],window_size,poly_order)
+bats_eta_filt = np.zeros(np.shape(bats_eta_prof['eta']))
+for i in range(bats_eta_prof['eta'].shape[1]):
+    bats_eta_filt[:,i] = savgol_filter(bats_eta_prof['eta'][:,i],window_size,poly_order)    
+    
+abaco_avg_eta = np.nanmean(np.abs(eta_filt),axis=1)
+bats_avg_eta = np.nanmean(np.abs(bats_eta_filt),axis=1)
+hots_avg_eta = np.nanmean(np.abs(sta_hots_eta),axis=1)
+
+abaco_std_eta = np.nanstd(eta_filt,axis=1)
+bats_std_eta = np.nanstd(bats_eta_filt,axis=1)
+hots_std_eta = np.nanstd(sta_hots_eta,axis=1)
+
+a_a_e_2 = savgol_filter(abaco_avg_eta, window_size, poly_order)
+b_a_e_2 = savgol_filter(bats_avg_eta, window_size, poly_order)
+h_a_e_2 = savgol_filter(hots_avg_eta, window_size, poly_order)
+a_a_std_2 = savgol_filter(abaco_std_eta, window_size, poly_order)
+b_a_std_2 = savgol_filter(bats_std_eta, window_size, poly_order)
+h_a_std_2 = savgol_filter(hots_std_eta, window_size, poly_order)
+
+f,ax = plt.subplots()
+plt.plot(a_a_e_2,grid,color='k')
+plt.plot(b_a_e_2,bats_eta_prof['bin_depth'],color='b')
+plt.plot(h_a_e_2,sta_hots_depth,color='r') 
+
+plt.plot(a_a_e_2 + a_a_std_2,grid,color='k',linestyle='--')
+plt.plot(b_a_e_2+ b_a_std_2,bats_eta_prof['bin_depth'],color='b',linestyle='--')
+plt.plot(h_a_e_2 + h_a_std_2,sta_hots_depth,color='r',linestyle='--') 
+ax.axis([0,600,0,4000])  
+ax.invert_yaxis()
+plot_pro(ax)
