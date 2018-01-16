@@ -4,6 +4,7 @@ import matplotlib.pyplot as plt
 from matplotlib import cm
 from mpl_toolkits.axes_grid1 import make_axes_locatable, axes_size
 from mode_decompositions import vertical_modes
+from toolkit import cart2pol, pol2cart, plot_pro
 import pandas as pd
 import seawater as sw
 from scipy.io import netcdf
@@ -106,5 +107,7 @@ ax.set_title('Data Collection Method and Vertical Structure')
 ax.view_init(30,-50)
 # ax.grid('off')
 
-fig.savefig('/Users/jake/Documents/baroclinic_modes/generals/final_figures/schematic_v.png',dpi = 200)
-plt.close()
+# fig.savefig('/Users/jake/Documents/baroclinic_modes/generals/final_figures/schematic_v.png',dpi = 200)
+# plt.close()
+ax.grid()
+plot_pro(ax)

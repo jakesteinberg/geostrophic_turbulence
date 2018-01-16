@@ -173,4 +173,39 @@ def collect_dives(dg_list, bin_depth, grid, grid_p, ref_lat):
     
     
     
-    return(df_t, df_s, df_den, df_lon, df_lat, dac_u, dac_v, time_rec, time_rec_2, heading_rec)        
+    return(df_t, df_s, df_den, df_lon, df_lat, dac_u, dac_v, time_rec, time_rec_2, heading_rec)     
+    
+
+# procedure for take BATS dives and processing each to account for heading and vertical bin averaging (uses collect_dives and make_bin)    
+# LOAD EACH DIVE AND COLLECT IN MAIN DATAFRAME ###### GRIDDING! -- ONLY DO ONCE 
+# df_t, df_s, df_den, df_lon, df_lat, dac_u, dac_v, time_rec, time_sta_sto, heading_rec = collect_dives(dg_list, bin_depth, grid, grid_p, ref_lat)
+# dive_list = np.array(df_t.columns)
+# f = netcdf.netcdf_file('BATs_2015_gridded.nc', 'w')    
+# f.history = 'DG 2015 dives; have been gridded vertically and separated into dive and climb cycles'
+# f.createDimension('grid',np.size(grid))
+# f.createDimension('dive_list',np.size(dive_list))
+# b_d = f.createVariable('grid',  np.float64, ('grid',) )
+# b_d[:] = grid
+# b_l = f.createVariable('dive_list',  np.float64, ('dive_list',) )
+# b_l[:] = dive_list
+# b_t = f.createVariable('Temperature',  np.float64, ('grid','dive_list') )
+# b_t[:] = df_t
+# b_s = f.createVariable('Salinity',  np.float64, ('grid','dive_list') )
+# b_s[:] = df_s
+# b_den = f.createVariable('Density',  np.float64, ('grid','dive_list') )
+# b_den[:] = df_den
+# b_lon = f.createVariable('Longitude',  np.float64, ('grid','dive_list') )
+# b_lon[:] = df_lon
+# b_lat = f.createVariable('Latitude',  np.float64, ('grid','dive_list') )
+# b_lat[:] = df_lat
+# b_u = f.createVariable('DAC_u',  np.float64, ('dive_list',) )
+# b_u[:] = dac_u
+# b_v = f.createVariable('DAC_v',  np.float64, ('dive_list',) )
+# b_v[:] = dac_v
+# b_time = f.createVariable('time_rec',  np.float64, ('dive_list',) )
+# b_time[:] = time_rec
+# b_t_ss = f.createVariable('time_start_stop',  np.float64, ('dive_list',) )
+# b_t_ss[:] = time_sta_sto
+# b_h = f.createVariable('heading_record',  np.float64, ('dive_list',) )
+# b_h[:] = heading_rec
+# f.close()       
