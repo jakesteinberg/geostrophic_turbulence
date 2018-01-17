@@ -53,18 +53,36 @@ plot_bath = 0
 plot_cross = 0
 
 # LOAD DATA 
-GD = netcdf.netcdf_file('BATs_2015_gridded.nc','r')
+GD = netcdf.netcdf_file('BATs_2015_gridded_2.nc','r')
 df_den = pd.DataFrame(np.float64(GD.variables['Density'][:]),index=np.float64(GD.variables['grid'][:]),columns=np.float64(GD.variables['dive_list'][:]))
 df_t = pd.DataFrame(np.float64(GD.variables['Temperature'][:]),index=np.float64(GD.variables['grid'][:]),columns=np.float64(GD.variables['dive_list'][:]))
 df_s = pd.DataFrame(np.float64(GD.variables['Salinity'][:]),index=np.float64(GD.variables['grid'][:]),columns=np.float64(GD.variables['dive_list'][:]))
 df_lon = pd.DataFrame(np.float64(GD.variables['Longitude'][:]),index=np.float64(GD.variables['grid'][:]),columns=np.float64(GD.variables['dive_list'][:]))
 df_lat = pd.DataFrame(np.float64(GD.variables['Latitude'][:]),index=np.float64(GD.variables['grid'][:]),columns=np.float64(GD.variables['dive_list'][:]))
+df_avg_lon = np.nanmean(df_lon,axis=0)
+df_avg_lat = np.nanmean(df_lat,axis=0)
 dac_u = GD.variables['DAC_u'][:]
 dac_v = GD.variables['DAC_v'][:]
 time_rec = GD.variables['time_rec'][:]
 time_sta_sto = GD.variables['time_start_stop'][:]
 heading_rec = GD.variables['heading_record'][:]
+target_rec = GD.variables['target_record'][:]
 profile_list = np.float64(GD.variables['dive_list'][:]) - 35000
+
+##################################      
+##################################
+
+# look at headings per each arm of the bowtie pattern 
+heading_test1 = np.where( (target_rec > 7) & (target_rec < 9) ) 
+heading_test2 = np.where( (target_rec > 11) & (target_rec < 13) )
+heading_test3 = np.where( (target_rec > 5) & (target_rec < 7) )  
+fig0, ax0 = plt.subplots()
+ax0.plot(df_avg_lon[heading_test1],df_avg_lat[heading_test1])
+ax0.plot(df_avg_lon[heading_test2],df_avg_lat[heading_test2])
+ax0.plot(df_avg_lon[heading_test3],df_avg_lat[heading_test3])
+ax0.grid()
+plt.gca().set_aspect('equal')
+plot_pro(ax0)
 
 # HEADING CHOICE AND BEGIN 
 heading = np.array([[200,300],[100,200]])
@@ -468,7 +486,7 @@ for main in range(2):
 
 ### SAVE 
 # write python dict to a file
-sa = 1
+sa = 0
 if sa > 0:
     mydict = {'bin_depth': grid,'Sigma_Theta': Sigma_Theta_f, 'Eta': Eta, 'Eta_theta': Eta_theta, 'V': V, 'Time': Time, 'Heading': heading_out, 'Info': Info }
     output = open('/Users/jake/Desktop/bats/transect_profiles.pkl', 'wb')
