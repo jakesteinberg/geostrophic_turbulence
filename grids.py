@@ -46,6 +46,7 @@ def collect_dives(dg_list, bin_depth, grid, grid_p, ref_lat):
     df_lat = pd.DataFrame()
     heading_rec = []
     target_rec = []
+    gps_rec = []
     time_rec = []
     time_rec_2 = []
     dac_u = []
@@ -64,9 +65,11 @@ def collect_dives(dg_list, bin_depth, grid, grid_p, ref_lat):
         glid_num = dive_nc_file.glider 
         dive_num = dive_nc_file.dive_number 
         heading_ind = dive_nc_file.variables['log_MHEAD_RNG_PITCHd_Wd']   
-        target_ind = dive_nc_file.variables['log_TGT_NAME']   
+        target_ind = dive_nc_file.variables['log_TGT_NAME'] 
+        GPS1_ind = dive_nc_file.variables['log_GPS1'].data   
+        GPS2_ind = dive_nc_file.variables['log_GPS2'].data  
     
-        # extract target
+        ################### extract target
         t_it = target_ind.shape[0]
         ii = []
         for j in range(t_it):
@@ -86,8 +89,54 @@ def collect_dives(dg_list, bin_depth, grid, grid_p, ref_lat):
                 target_rec = np.concatenate([ [np.nan], [np.nan] ])   
             else:
                 target_rec = np.concatenate([ target_rec, [np.nan], [np.nan] ])
+                
+        ################### GPS 1,2
+        GPS1 = '$$'
+        for l in range(np.size(GPS1_ind)):
+            GPS1 = GPS1 + (str(GPS1_ind[l])[2])
+        GPS1_1 = GPS1[6:]  
+        count_g = 0  
+        m = 0
+        GPS1_out = np.nan*np.zeros(13)
+        for l in range(len(GPS1_1)):
+            if ((GPS1_1[l].isdigit()) | (GPS1_1[l] == '.') | (GPS1_1[l] == '-')):       
+                if m < 1:
+                    numb = GPS1_1[l]
+                else:
+                    numb = numb+GPS1_1[l]
+                m = m+1   
+            else:
+                m = 0
+                GPS1_out[count_g] = numb
+                count_g = count_g+1   
+        GPS1_out[count_g] = numb              
+  
+        GPS2 = '$$'            
+        for l in range(np.size(GPS2_ind)):
+            GPS2 = GPS2 + (str(GPS2_ind[l])[2]) 
+        GPS2_1 = GPS2[6:]  
+        count_g = 0  
+        m = 0
+        GPS2_out = np.nan*np.zeros(13)
+        for l in range(len(GPS2_1)):
+            if ((GPS2_1[l].isdigit()) | (GPS2_1[l] == '.') | (GPS2_1[l] == '-')):       
+                if m < 1:
+                    numb = GPS2_1[l]
+                else:
+                    numb = numb+GPS2_1[l]
+                m = m+1   
+            else:
+                m = 0
+                GPS2_out[count_g] = numb
+                count_g = count_g+1   
+        GPS2_out[count_g] = numb       
+        
+        if count < count_st + 1:
+            gps_rec = np.array( [ [GPS1_out[3],GPS1_out[4],GPS2_out[3],GPS2_out[4]] , [GPS1_out[3],GPS1_out[4],GPS2_out[3],GPS2_out[4]] ] )   
+        else:
+            gps_rec = np.concatenate([ gps_rec, np.array( [ [GPS1_out[3],GPS1_out[4],GPS2_out[3],GPS2_out[4]] , [GPS1_out[3],GPS1_out[4],GPS2_out[3],GPS2_out[4]] ] )  ]) 
     
-        # extract heading 
+        ################ extract heading 
         h1 = heading_ind.data[0]
         h_test_0 = heading_ind.data[1]
         h_test_1 = heading_ind.data[2]
@@ -196,7 +245,7 @@ def collect_dives(dg_list, bin_depth, grid, grid_p, ref_lat):
     
     
     
-    return(df_t, df_s, df_den, df_lon, df_lat, dac_u, dac_v, time_rec, time_rec_2, heading_rec, target_rec)     
+    return(df_t, df_s, df_den, df_lon, df_lat, dac_u, dac_v, time_rec, time_rec_2, heading_rec, target_rec, gps_rec)     
     
 
 # procedure for take BATS dives and processing each to account for heading and vertical bin averaging (uses collect_dives and make_bin)    
@@ -238,6 +287,7 @@ def collect_dives(dg_list, bin_depth, grid, grid_p, ref_lat):
 # f = netcdf.netcdf_file('BATs_2015_gridded_2.nc', 'w')    
 # f.history = 'DG 2015 dives; have been gridded vertically and separated into dive and climb cycles'
 # f.createDimension('grid',np.size(grid))
+# f.createDimension('lat_lon',4)
 # f.createDimension('dive_list',np.size(dive_list))
 # b_d = f.createVariable('grid',  np.float64, ('grid',) )
 # b_d[:] = grid
@@ -265,4 +315,6 @@ def collect_dives(dg_list, bin_depth, grid, grid_p, ref_lat):
 # b_h[:] = heading_rec
 # b_targ = f.createVariable('target_record',  np.float64, ('dive_list',) )
 # b_targ[:] = target_rec
+# b_gps = f.createVariable('gps_record',  np.float64, ('dive_list','lat_lon') )
+# b_gps[:] = gps_rec
 # f.close()  
