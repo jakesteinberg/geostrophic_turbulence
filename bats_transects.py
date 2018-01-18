@@ -50,7 +50,8 @@ deep_shr_max_dep = 3500 # minimum depth for which shear is limited [m]
 
 # PLOTTING SWITCHES 
 plot_bath = 0
-plot_cross = 0
+plot_cross = 1
+plot_check = 0
 
 # LOAD DATA 
 GD = netcdf.netcdf_file('BATs_2015_gridded_2.nc','r')
@@ -79,14 +80,14 @@ heading_test2 = np.where( (target_rec > 11) & (target_rec < 13) ) # 12
 heading_test3 = np.where( (target_rec > 5) & (target_rec < 7) )  # 6
 heading_test4 = np.where( (target_rec > 1) & (target_rec < 3) )  # 2
 # the nan's in the target_rec represent times when the glider target was station BATS (the center of the sample pattern)
-fig0, ax0 = plt.subplots()
-ax0.plot(df_avg_lon[heading_test1],df_avg_lat[heading_test1])
-ax0.plot(df_avg_lon[heading_test2],df_avg_lat[heading_test2])
-ax0.plot(df_avg_lon[heading_test3],df_avg_lat[heading_test3])
-ax0.plot(df_avg_lon[heading_test4],df_avg_lat[heading_test4])
-ax0.grid()
-plt.gca().set_aspect('equal')
-plot_pro(ax0)
+# fig0, ax0 = plt.subplots()
+# ax0.plot(df_avg_lon[heading_test1],df_avg_lat[heading_test1])
+# ax0.plot(df_avg_lon[heading_test2],df_avg_lat[heading_test2])
+# ax0.plot(df_avg_lon[heading_test3],df_avg_lat[heading_test3])
+# ax0.plot(df_avg_lon[heading_test4],df_avg_lat[heading_test4])
+# ax0.grid()
+# plt.gca().set_aspect('equal')
+# plot_pro(ax0)
 
 # compute heading for each profile (or really dive)
 heading_rec = np.nan*np.zeros(len(profile_list))
@@ -124,36 +125,40 @@ heading_rec[np.where(heading_rec == 0)] = np.nan
 # ax0.set_aspect(w)
 # plot_pro(ax0)
 
-fig0, ax0 = plt.subplots()
+# fig0, ax0 = plt.subplots()
 # ax0.scatter(df_lon.iloc[:,0:23],df_lat.iloc[:,0:23])
 # ax0.scatter(df_lon.iloc[:,24:30],df_lat.iloc[:,24:30],color='r')
-ax0.scatter(df_lon.iloc[:,128:134],df_lat.iloc[:,128:134])
-w = 1/np.cos(np.deg2rad(ref_lat))
-ax0.axis([-65.5, -63.35, 31.2, 32.7])
-ax0.set_aspect(w)
-plot_pro(ax0)
+# ax0.scatter(df_lon.iloc[:,128:134],df_lat.iloc[:,128:134])
+# w = 1/np.cos(np.deg2rad(ref_lat))
+# ax0.axis([-65.5, -63.35, 31.2, 32.7])
+# ax0.set_aspect(w)
+# plot_pro(ax0)
 
 # need to loop over each of the 4 arms of the sampling pattern. 
 # once cross track velocity is found, need to reference this to the heading associated with each profile (sample heading for two profiles in a dive-cycle)
-target = np.array([ [5,7], [1,2], [11,13], [7,9] ]) 
+target = np.array([ [5,7], [1,3], [11,13], [7,9] ]) 
 heading = np.array([[200,300],[100,200]])
 # outputs from all loops 
 N2_out = np.ones((np.size(grid),2))
 Eta = []
 Eta_theta = []
 V = [] 
+UU = []
+VV = []
+vel_lon = []
+vel_lat = []
 Time = []
 heading_out = []
 target_out = []
-for main in range(2):
-    head_low = heading[main,0]
-    head_high = heading[main,1]
+for main in range(4):
+    # head_low = heading[main,0]
+    # head_high = heading[main,1]
     targ_low = target[main,0]
     targ_high = target[main,1]
     # plan view plot (for select heading)   
     if plot_bath > 0:
-        heading_mask = np.where( (heading_rec > head_low) & (heading_rec < head_high) ) 
-        heading_mask_out = np.where( (heading_rec < head_low) | (heading_rec > head_high) )
+        # heading_mask = np.where( (heading_rec > head_low) & (heading_rec < head_high) ) 
+        # heading_mask_out = np.where( (heading_rec < head_low) | (heading_rec > head_high) )
         target_mask = np.where( (target_rec > targ_low) & (target_rec < targ_high) )
         target_mask_out = np.where( (target_rec < targ_low) | (target_rec > targ_high) )
         
@@ -195,7 +200,7 @@ for main in range(2):
 
     ############ SELECT ALL TRANSECTS ALONG A HEADING (or heading for the same target) AND COMPUTE VERTICAL DISPLACEMENT AND HORIZONTAL VELOCITY 
     # select only dives along desired heading
-    heading_mask = np.where( (heading_rec > head_low) & (heading_rec < head_high) ) 
+    # heading_mask = np.where( (heading_rec > head_low) & (heading_rec < head_high) ) 
     target_mask = np.where( (target_rec > targ_low) & (target_rec < targ_high) )
     df_den_in = df_den.iloc[:,target_mask[0]]
     df_t_in = df_t.iloc[:,target_mask[0]]
@@ -204,7 +209,7 @@ for main in range(2):
     df_lat_in = df_lat.iloc[:,target_mask[0]]
     time_in = time_sta_sto[target_mask[0]]
     head_in = heading_rec[target_mask[0]]
-
+    
     # average background properties of profiles along these transects (average for all dives along this transect )
     sigma_theta_avg = np.array(np.nanmean(df_den_in,1))
     theta_avg = np.array(np.nanmean(df_t_in,1))
@@ -230,8 +235,12 @@ for main in range(2):
     # section out dives into continuous transect groups 
     if main < 1:
         to_consider = 14
+    elif (main > 0) & (main < 2):
+        to_consider = 13
+    elif (main > 1) & (main < 3):
+        to_consider = 14    
     else:
-        to_consider = 16
+        to_consider = 14
     dive_iter = np.array(dives[0])
     time_iter = np.array(time_in[0])
     head_iter = np.array(head_in[0])
@@ -314,8 +323,10 @@ for main in range(2):
             order_set = [0,2] # go from 0,2 (because each transect only has 2 dives)
         elif (np.size(this_set) > 5) & (np.size(this_set) < 7):
             order_set = [0,2,4] # go from 0,2,4 (because each transect only has 3 dives)
-        else:
-            order_set = [0,2,4,6] # go from 0,2,4,6 (because each transect only has 4 dives)    
+        elif (np.size(this_set) > 7) & (np.size(this_set) < 9):
+            order_set = [0,2,4,6] # go from 0,2,4,6 (because each transect only has 4 dives)  
+        else: 
+            order_set = [0,2,4,6,8]      
         
         for i in order_set:
             # M 
@@ -501,6 +512,18 @@ for main in range(2):
                 Vbc_g[iq,m] = np.nan
                 V_g[iq,m] = np.nan
                
+        # M/W position in lat/lon (to locate a velocity and eta profile in space)
+        mwe_lon = np.nan*np.zeros(len(Vbt))
+        mwe_lat = np.nan*np.zeros(len(Vbt))
+        for m in order_set:
+            if m < order_set[-1]:
+                mwe_lon[m] = df_lon_set.iloc[np.where(np.isfinite(df_lon_set.iloc[:,m]))[0],m].iloc[-1]
+                mwe_lat[m] = df_lat_set.iloc[np.where(np.isfinite(df_lat_set.iloc[:,m]))[0],m].iloc[-1]
+                mwe_lon[m+1] = df_lon_set.iloc[0,m+1]
+                mwe_lat[m+1] = df_lat_set.iloc[0,m+1]
+            else:
+                mwe_lon[m] = df_lon_set.iloc[np.where(np.isfinite(df_lon_set.iloc[:,m]))[0],m].iloc[-1]
+                mwe_lat[m] = df_lat_set.iloc[np.where(np.isfinite(df_lat_set.iloc[:,m]))[0],m].iloc[-1]
         
         # AVERAGE HEADING FOR EACH DIVE (from difference of GPS points)
         # shear is to port of track (90 deg to the left of the glider heading)    
@@ -508,36 +531,55 @@ for main in range(2):
         v_head = 0 
         u_g = np.nan*np.zeros(np.shape(V_g))
         v_g = np.nan*np.zeros(np.shape(V_g))
+        # for profiles positions that are where one dive ends and the next begins, average the headings of the bounding dives
+        this_set_head_adj = this_set_head.copy()
+        for l in range(1,order_set[-1],2):
+            this_set_head_adj[l] = np.nanmean( [this_set_head_adj[l-1], this_set_head_adj[l+1] ] )
         for m in range(np.size(this_set)-1):
             this_V_g = V_g[:,m]
-            this_heading = this_set_head[m]
+            this_heading = this_set_head_adj[m]
             pos_v = np.where(this_V_g > 0)
             neg_v = np.where(this_V_g < 0) 
             pos_head = this_heading-90
             neg_head = this_heading+90
             # consider 0-90, 90-180, 180-270, 270-360
             if (pos_head > 0) & (pos_head < 180):    
-                u_g[pos_v,m] = np.cos(np.deg2rad(90-pos_head))*this_V_g[pos_v] 
-                v_g[pos_v,m] = np.sin(np.deg2rad(90-pos_head))*this_V_g[pos_v]   
+                u_g[pos_v,m] = np.cos(np.deg2rad(90-pos_head))*np.abs(this_V_g[pos_v])
+                v_g[pos_v,m] = np.sin(np.deg2rad(90-pos_head))*np.abs(this_V_g[pos_v])  
             else:
-                u_g[pos_v,m] = np.cos(np.deg2rad(360+90-pos_head))*this_V_g[pos_v]
-                v_g[pos_v,m] = np.sin(np.deg2rad(360+90-pos_head))*this_V_g[pos_v]  
+                u_g[pos_v,m] = np.cos(np.deg2rad(360+90-pos_head))*np.abs(this_V_g[pos_v])
+                v_g[pos_v,m] = np.sin(np.deg2rad(360+90-pos_head))*np.abs(this_V_g[pos_v]) 
             if (neg_head > 0) & (neg_head < 180):    
-                u_g[neg_v,m] = np.cos(np.deg2rad(90-neg_head))*this_V_g[neg_v] 
-                v_g[neg_v,m] = np.sin(np.deg2rad(90-neg_head))*this_V_g[neg_v]   
+                u_g[neg_v,m] = np.cos(np.deg2rad(90-neg_head))*np.abs(this_V_g[neg_v])
+                v_g[neg_v,m] = np.sin(np.deg2rad(90-neg_head))*np.abs(this_V_g[neg_v])  
             else:
-                u_g[neg_v,m] = np.cos(np.deg2rad(360+90-neg_head))*this_V_g[neg_v]
-                v_g[neg_v,m] = np.sin(np.deg2rad(360+90-neg_head))*this_V_g[neg_v]     
+                # u_g[neg_v,m] = np.cos(np.deg2rad(360+90-neg_head))*np.abs(this_V_g[neg_v])
+                u_g[neg_v,m] = np.cos(np.deg2rad(-(neg_head-90)))*np.abs(this_V_g[neg_v])
+                v_g[neg_v,m] = np.sin(np.deg2rad(-(neg_head-90)))*np.abs(this_V_g[neg_v])   
+         
+        if plot_check > 0:     
+            fig0, ax0 = plt.subplots()
+            ax0.scatter(df_lon_set.iloc[:,0:2],df_lat_set.iloc[:,0:2],color='b')
+            ax0.scatter(df_lon_set.iloc[:,2:4],df_lat_set.iloc[:,2:4],color='g')
+            if len(order_set) > 2:
+                ax0.scatter(df_lon_set.iloc[:,4:6],df_lat_set.iloc[:,4:6],color='y')
+            elif len(order_set) > 3:
+                ax0.scatter(df_lon_set.iloc[:,6:8],df_lat_set.iloc[:,6:8],color='m')
+            ax0.scatter(mwe_lon,mwe_lat,color='r')
         
-        # fig0, ax0 = plt.subplots()
-        # ax0.scatter(df_lon_set.iloc[:,m],df_lat_set.iloc[:,m],color='b')
-        # ax0.scatter(df_lon_set.iloc[:,m+1],df_lat_set.iloc[:,m+1],color='r')
-        # ax0.quiver(np.nanmean(df_lon_set.iloc[:,m]),np.nanmean(df_lat_set.iloc[:,m]),dac_u_inn[m],dac_v_inn[m],color='b')
-        # ax0.quiver(np.nanmean(df_lon_set.iloc[:,m+1]),np.nanmean(df_lat_set.iloc[:,m+1]),dac_u_inn[m+1],dac_v_inn[m+1],color='r')
-        # ax0.quiver(np.nanmean(df_lon_set.iloc[:,m]),np.nanmean(df_lat_set.iloc[:,m]),np.nanmean(u_g[:,m]),np.nanmean(v_g[:,m]))
-        # ax0.quiver(np.nanmean(df_lon_set.iloc[:,m+1]),np.nanmean(df_lat_set.iloc[:,m+1]),np.nanmean(u_g[:,m]),np.nanmean(v_g[:,m]))
-        # plot_pro(ax0)         
-
+            for n in order_set:
+                ax0.quiver(mwe_lon[n],mwe_lat[n],dac_u_inn[n],dac_v_inn[n],color='k',angles='xy', scale_units='xy', scale=.5)  
+                if (n < order_set[-1]):
+                    ax0.quiver(mwe_lon[n],mwe_lat[n],np.nanmean(u_g[:,n]),np.nanmean(v_g[:,n]),color='#FF8C00',angles='xy', scale_units='xy', scale=.5)
+                    ax0.quiver(mwe_lon[n+1],mwe_lat[n+1],np.nanmean(u_g[:,n+1]),np.nanmean(v_g[:,n+1]),color='#FF8C00',angles='xy', scale_units='xy', scale=.5)
+                else:
+                    ax0.quiver(mwe_lon[n],mwe_lat[n],np.nanmean(u_g[:,n]),np.nanmean(v_g[:,n]),color='#FF8C00',angles='xy', scale_units='xy', scale=.5)
+                w = 1/np.cos(np.deg2rad(ref_lat))
+                ax0.set_aspect(w)
+                # ax0.axis([-64.5, -63.5, 31, 32])
+                # plt.gca().set_aspect('equal')        
+                plot_pro(ax0)    
+        
         if plot_cross > 0: 
             sns.set(context="notebook", style="whitegrid", rc={"axes.axisbelow": False})
                
@@ -545,7 +587,8 @@ for main in range(2):
             matplotlib.rcParams['contour.negative_linestyle'] = 'solid'
             levels = np.arange(-.26,.26,.02)
             vc = ax0.contourf(Ds,grid,V_g,levels=levels,cmap=plt.cm.coolwarm)
-            vcc = ax0.contour(Ds,grid,V_g,levels=levels,colors='k',linewidth=1)
+            vcc = ax0.contour(Ds,grid,V_g,levels=levels,colors='k',linewidth=.75)
+            vcc2 = ax0.contour(Ds,grid,V_g,levels=[0],colors='k',linewidth=1.25)
             for p in range(np.size(this_set)):
                 ax0.scatter(dist[:,p],grid,s=.75,color='k') 
             dive_label = np.arange(0,np.size(this_set),2)    
@@ -569,7 +612,7 @@ for main in range(2):
             plt.tight_layout()
             ax0.grid()
             # plot_pro(ax0)
-            fig0.savefig( ('/Users/jake/Desktop/BATS/bats_transects/dg035_BATS_H' + str(main) + '_T' + str(ii) + '.png'),dpi = 300)
+            fig0.savefig( ('/Users/jake/Desktop/BATS/bats_transects/dg035_BATS_TG' + str(int(np.mean([targ_low,targ_high])))+ '_T' + str(ii) + '.png'),dpi = 300)
             plt.close()    
     
         # OUTPUT V_g AND Eta from each transect collection so that it PE and KE can be computed 
@@ -580,8 +623,10 @@ for main in range(2):
             V = V_g[:,:-1]
             UU = u_g[:,:-1]
             VV = v_g[:,:-1]
+            vel_lon = mwe_lon[0:-1]
+            vel_lat = mwe_lat[0:-1]
             Time = this_set_time[0:-1]
-            heading_out = np.array( [ np.nanmean( heading_rec[heading_mask]) ] ) # average heading of said transect 
+            heading_out = this_set_head # np.array( [ np.nanmean( heading_rec[heading_mask]) ] ) # average heading of said transect 
             Info = info # need dive number and lat/lon 
             Sigma_Theta_f = sigma_theta_out
         else:
@@ -590,8 +635,10 @@ for main in range(2):
             V = np.concatenate( (V, V_g[:,:-1]), axis=1 )
             UU = np.concatenate( (UU, u_g[:,:-1]), axis=1 )
             VV = np.concatenate( (VV, v_g[:,:-1]), axis=1 )
+            vel_lon = np.concatenate( (vel_lon, mwe_lon[0:-1]))
+            vel_lat = np.concatenate( (vel_lat, mwe_lat[0:-1]))
             Time = np.concatenate( (Time, this_set_time[0:-1]) )
-            heading_out = np.concatenate( (heading_out, np.array([ np.nanmean( heading_rec[heading_mask]) ])) )
+            heading_out = np.concatenate( (heading_out, this_set_head) )
             Info = np.concatenate( (Info, info), axis=1 )
             Sigma_Theta_f = np.concatenate( (Sigma_Theta_f, sigma_theta_out), axis=1 )
 
@@ -600,9 +647,13 @@ for main in range(2):
 
 ### SAVE 
 # write python dict to a file
-sa = 0
+sa = 1
 if sa > 0:
-    mydict = {'bin_depth': grid,'Sigma_Theta': Sigma_Theta_f, 'Eta': Eta, 'Eta_theta': Eta_theta, 'V': V, 'Time': Time, 'Heading': heading_out, 'Info': Info }
-    output = open('/Users/jake/Desktop/bats/transect_profiles.pkl', 'wb')
+    mydict = {'bin_depth': grid,'Sigma_Theta': Sigma_Theta_f, 'Eta': Eta, 'Eta_theta': Eta_theta, 'V': V,  'UU': UU,  'VV': VV,  'V_lon': vel_lon,  'V_lat': vel_lat, 'Time': Time, 'Heading': heading_out, 'Info': Info }
+    output = open('/Users/jake/Desktop/bats/transect_profiles_jan18.pkl', 'wb')
     pickle.dump(mydict, output)
     output.close()
+    
+    
+# calculation of head
+# http://mathforum.org/library/drmath/view/55417.html    

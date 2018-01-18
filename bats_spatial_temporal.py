@@ -16,11 +16,10 @@ bath_fid = netcdf.netcdf_file(bath,'r') # , mmap=False if sys.platform == 'darwi
 bath_lon = bath_fid.variables['lon'][:]
 bath_lat = bath_fid.variables['lat'][:]
 bath_z = bath_fid.variables['elevation'][:]
-levels = [ -5250, -5000, -4750, -4500, -4250, -4000, -3500, -3000, -2500, -2000, -1500, -1000, -500 , 0]
+levels_b = [ -5250, -5000, -4750, -4500, -4250, -4000, -3500, -3000, -2500, -2000, -1500, -1000, -500 , 0]
 
-
-# LOAD DATA 
-GD = netcdf.netcdf_file('BATs_2015_gridded.nc','r')
+# LOAD DATA (gridded dives)
+GD = netcdf.netcdf_file('BATs_2015_gridded_2.nc','r')
 df_den = pd.DataFrame(np.float64(GD.variables['Density'][:]),index=np.float64(GD.variables['grid'][:]),columns=np.float64(GD.variables['dive_list'][:]))
 df_t = pd.DataFrame(np.float64(GD.variables['Temperature'][:]),index=np.float64(GD.variables['grid'][:]),columns=np.float64(GD.variables['dive_list'][:]))
 df_s = pd.DataFrame(np.float64(GD.variables['Salinity'][:]),index=np.float64(GD.variables['grid'][:]),columns=np.float64(GD.variables['dive_list'][:]))
@@ -28,10 +27,26 @@ df_lon = pd.DataFrame(np.float64(GD.variables['Longitude'][:]),index=np.float64(
 df_lat = pd.DataFrame(np.float64(GD.variables['Latitude'][:]),index=np.float64(GD.variables['grid'][:]),columns=np.float64(GD.variables['dive_list'][:]))
 dac_u = GD.variables['DAC_u'][:]
 dac_v = GD.variables['DAC_v'][:]
-time_rec = GD.variables['time_rec'][:]
-time_sta_sto = GD.variables['time_start_stop'][:]
+# time_rec = GD.variables['time_rec'][:]
+time_rec = GD.variables['time_start_stop'][:]
 heading_rec = GD.variables['heading_record'][:]
 profile_list = np.float64(GD.variables['dive_list'][:]) - 35000
+
+# LOAD TRANSECT TO PROFILE DATA COMPILED IN BATS_TRANSECTS.PY
+pkl_file = open('/Users/jake/Desktop/bats/transect_profiles_jan18.pkl', 'rb')
+bats_trans = pickle.load(pkl_file)
+pkl_file.close() 
+Time = bats_trans['Time']
+Info = bats_trans['Info']
+Sigma_Theta = bats_trans['Sigma_Theta']
+Eta = bats_trans['Eta']
+Eta_theta = bats_trans['Eta_theta']
+V = bats_trans['V']
+U_g = bats_trans['UU']
+V_g = bats_trans['VV']
+UV_lon = bats_trans['V_lon']
+UV_lat = bats_trans['V_lat']
+Heading = bats_trans['Heading']
 
 # physical parameters 
 g = 9.81
@@ -47,10 +62,10 @@ z = -1*grid
 # goal: look at spatial variability of T/S fields on varied time scales at various depths 
 # goal: look at temporal variability of DAC field 
 
-
+### TIME WINDOWS 
 lon_per_prof = np.nanmean(df_lon,axis=0)
 lat_per_prof = np.nanmean(df_lat,axis=0)
-t_win = (time_rec[-1] - time_rec[0])/14 # is just shy of 20 days ... this is the amount of time it took to execute one butterfly pattern
+t_win = (time_rec[-1] - time_rec[0])/12 # is just shy of 20 days ... this is the amount of time it took to execute one butterfly pattern
 t_windows = np.arange(time_rec[0],time_rec[-1],20)
 avg_u = np.zeros(np.size(t_windows)-1)
 avg_v = np.zeros(np.size(t_windows)-1)
@@ -61,16 +76,48 @@ t_s = datetime.date.fromordinal(np.int( np.min(time_rec[0]) ))
 t_e = datetime.date.fromordinal(np.int( np.max(time_rec[-1]) ))
 
 
+### U/V ON DEPTH LAYERS 
+dp = 50
+k = 3
+time_in = np.where( (Time > t_windows[k]) & (Time < t_windows[k+1]) )
+track_in = np.where( (time_rec > t_windows[k]) & (time_rec < t_windows[k+1]) )[0]
 ### plotting 
 fig0, ax0 = plt.subplots()
 matplotlib.rcParams['contour.negative_linestyle'] = 'solid'
-ax0.contour(bath_lon,bath_lat,bath_z,levels,colors='k',zorder=0)
-ax0.scatter(lon_per_prof[0:27],lat_per_prof[0:27],s=15,color='r')
+ax0.contour(bath_lon,bath_lat,bath_z,levels=levels_b,colors='k',linewidths=0.5,zorder=0)
+ax0.scatter(df_lon.iloc[:,track_in],df_lat.iloc[:,track_in],s=2,color='r')
+ax0.quiver(UV_lon[time_in],UV_lat[time_in],U_g[dp,time_in],V_g[dp,time_in],color='b',angles='xy', scale_units='xy', scale=.8, width=0.004)
 ax0.axis([-65.5, -63.35, 31.2, 32.7])
 plt.tight_layout()
 ax0.grid()
 plot_pro(ax0)
 
+### U/V AVERAGE PROFILES
+# presort V 
+good_u = np.zeros(np.size(Time))
+good_v = np.zeros(np.size(Time))
+for i in range(np.size(Time)):
+    u_dz = np.gradient(U_g[10:,i])
+    v_dz = np.gradient(V_g[10:,i])
+    if np.nanmax(np.abs(u_dz)) < 0.075: 
+        good_u[i] = 1     
+    if np.nanmax(np.abs(v_dz)) < 0.075: 
+        good_v[i] = 1  
+good0 = np.intersect1d(np.where((np.abs(V[-45,:]) < 0.2))[0],np.where((np.abs(V[10,:]) < 0.4))[0])
+good = np.intersect1d(np.where(good_u > 0),np.where(good_v > 0)) #,good0)
+U_g_2 = U_g[:,good]
+V_g_2 = V_g[:,good]
+
+num_prof = np.size(good)
+fig0, ax0 = plt.subplots()
+for i in range(5,10):
+    ax0.plot(U_g_2[:,i],grid,color='r')
+    ax0.plot(V_g_2[:,i],grid,color='b')
+ax0.plot(np.nanmean(U_g_2,axis=1),grid,color='k',linewidth=2) 
+ax0.plot(np.nanmean(V_g_2,axis=1),grid,color='k',linewidth=2)    
+plot_pro(ax0)
+
+### DAC AND ITS AVERAGE 
 fig0, ax0 = plt.subplots()
 ax0.quiver(np.zeros(np.size(dac_u)),np.zeros(np.size(dac_u)),dac_u,dac_v,color='r',angles='xy', scale_units='xy', scale=1)
 ax0.quiver(0,0,np.nanmean(dac_u),np.nanmean(dac_v),color='b',angles='xy', scale_units='xy', scale=1)
@@ -81,7 +128,7 @@ plt.tight_layout()
 plt.gca().set_aspect('equal')
 plot_pro(ax0)
 
-### temperature on depth surfaces with time 
+### TEMPERATURE on depth surfaces with time 
 # depth = 3000
 # t_map = np.linspace(2.2,2.5,30)
 # depth = 1000
