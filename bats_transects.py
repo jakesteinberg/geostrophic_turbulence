@@ -655,5 +655,5 @@ if sa > 0:
     output.close()
     
     
-# calculation of head
+# calculation of heading
 # http://mathforum.org/library/drmath/view/55417.html    
