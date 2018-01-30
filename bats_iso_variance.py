@@ -282,6 +282,15 @@ sta_bats_c = SB['out'][0][0][3]
 sta_bats_f = SB['out'][0][0][2]
 sta_bats_dk = SB['out'][0][0][1]
 
+# load in HKE estimates from Obj. Map 
+pkl_file = open('/Users/jake/Documents/geostrophic_turbulence/BATS_OM_KE.pkl', 'rb')
+bats_map = pickle.load(pkl_file)
+pkl_file.close() 
+sx_c_om = bats_map['sc_x']
+ke_om_u = bats_map['avg_ke_u']
+ke_om_v = bats_map['avg_ke_v']
+dk_om = bats_map['dk']
+
 plot_eng = 0
 plot_spec = 0
 plot_comp = 0
@@ -294,6 +303,12 @@ if plot_eng > 0:
         ax0.scatter(sc_x,avg_PE[1:]/dk,color='#B22222',s=10) # DG PE
         # ax0.scatter((1000)*sta_bats_f/sta_bats_c[1:],sta_bats_pe[1:]/sta_bats_dk,color='#FF8C00',s=10) # BATS PE
         ax0.scatter(sc_x,avg_KE[1:]/dk,color='g',s=10) # DG KE
+        
+        # Obj. Map 
+        KE_om_u = ax0.plot(sx_c_om,ke_om_u[1:]/dk_om,'b',label='KE_u',linewidth=1.5)        
+        ax0.scatter(sx_c_om,ke_om_u[1:]/dk_om,color='b',s=10) # DG KE
+        KE_om_u = ax0.plot(sx_c_om,ke_om_v[1:]/dk_om,'c',label='KE_v',linewidth=1.5)        
+        ax0.scatter(sx_c_om,ke_om_v[1:]/dk_om,color='c',s=10) # DG KE
         
         ax0.plot(sc_x,0.25*PE_GM/dk,linestyle='--',color='#B22222',linewidth=0.75)
         # ax0.plot(sc_x,PE_GM/dk,linestyle='--',color='#FF8C00',linewidth=0.75)
