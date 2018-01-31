@@ -22,13 +22,16 @@ from toolkit import cart2pol, pol2cart, plot_pro
 # physical parameters 
 g = 9.81
 rho0 = 1027
-bin_depth = np.concatenate([np.arange(0,150,10), np.arange(150,300,10), np.arange(300,5000,20)])
+# bin_depth = np.concatenate([np.arange(0,150,10), np.arange(150,300,10), np.arange(300,5000,20)])
+# limit bin depth to 4500 (to prevent fitting of velocity profiles past points at whih we have data)
+bin_depth = np.concatenate([np.arange(0,150,10), np.arange(150,300,10), np.arange(300,4500,20)])
 ref_lat = 31.8
 lat_in = 31.7
 lon_in = 64.2
 grid = bin_depth[1:-1]
 grid_p = sw.pres(grid,lat_in)
 z = -1*grid
+sz_g = grid.shape[0]
 # mode parameters 
 omega = 0  # frequency zeroed for geostrophic modes
 mmax = 60  # highest baroclinic mode to be calculated
@@ -41,23 +44,23 @@ plot_eta = 0
 
 #### LOAD ALL DIVES (GRIDDED USING MAKE_BIN)
 GD = netcdf.netcdf_file('BATs_2015_gridded.nc','r')
-df_den = pd.DataFrame(np.float64(GD.variables['Density'][:]),index=np.float64(GD.variables['grid'][:]),columns=np.float64(GD.variables['dive_list'][:]))
-df_t = pd.DataFrame(np.float64(GD.variables['Temperature'][:]),index=np.float64(GD.variables['grid'][:]),columns=np.float64(GD.variables['dive_list'][:]))
-df_s = pd.DataFrame(np.float64(GD.variables['Salinity'][:]),index=np.float64(GD.variables['grid'][:]),columns=np.float64(GD.variables['dive_list'][:]))
-df_lon = pd.DataFrame(np.float64(GD.variables['Longitude'][:]),index=np.float64(GD.variables['grid'][:]),columns=np.float64(GD.variables['dive_list'][:]))
-df_lat = pd.DataFrame(np.float64(GD.variables['Latitude'][:]),index=np.float64(GD.variables['grid'][:]),columns=np.float64(GD.variables['dive_list'][:]))
+df_den = pd.DataFrame(np.float64(GD.variables['Density'][0:sz_g,:]),index=np.float64(GD.variables['grid'][0:sz_g]),columns=np.float64(GD.variables['dive_list'][:]))
+df_t = pd.DataFrame(np.float64(GD.variables['Temperature'][0:sz_g,:]),index=np.float64(GD.variables['grid'][0:sz_g]),columns=np.float64(GD.variables['dive_list'][:]))
+df_s = pd.DataFrame(np.float64(GD.variables['Salinity'][0:sz_g,:]),index=np.float64(GD.variables['grid'][0:sz_g]),columns=np.float64(GD.variables['dive_list'][:]))
+df_lon = pd.DataFrame(np.float64(GD.variables['Longitude'][0:sz_g,:]),index=np.float64(GD.variables['grid'][0:sz_g]),columns=np.float64(GD.variables['dive_list'][:]))
+df_lat = pd.DataFrame(np.float64(GD.variables['Latitude'][0:sz_g,:]),index=np.float64(GD.variables['grid'][0:sz_g]),columns=np.float64(GD.variables['dive_list'][:]))
 
 #### LOAD IN TRANSECT TO PROFILE DATA COMPILED IN BATS_TRANSECTS.PY
-pkl_file = open('/Users/jake/Desktop/bats/transect_profiles.pkl', 'rb')
+pkl_file = open('/Users/jake/Desktop/bats/transect_profiles_jan18.pkl', 'rb')
 bats_trans = pickle.load(pkl_file)
 pkl_file.close() 
 Time = bats_trans['Time']
 Info = bats_trans['Info']
-Sigma_Theta = bats_trans['Sigma_Theta']
-Eta = bats_trans['Eta']
-Eta_theta = bats_trans['Eta_theta']
-V = bats_trans['V']
-Heading = bats_trans['Heading']
+Sigma_Theta = bats_trans['Sigma_Theta'][0:sz_g,:]
+Eta = bats_trans['Eta'][0:sz_g,:]
+Eta_theta = bats_trans['Eta_theta'][0:sz_g,:]
+V = bats_trans['V'][0:sz_g,:]
+# Heading = bats_trans['Heading']
 
 # average background properties of profiles along these transects 
 sigma_theta_avg = np.array(np.nanmean(df_den,1))
@@ -83,7 +86,7 @@ G, Gz, c = vertical_modes(N2,grid,omega,mmax)
 # presort V 
 good_v = np.zeros(np.size(Time))
 for i in range(np.size(Time)):
-    v_dz = np.gradient(V[10:,i])
+    v_dz = np.gradient(V[:,i])
     if np.nanmax(np.abs(v_dz)) < 0.075:
         good_v[i] = 1        
 good0 = np.intersect1d(np.where((np.abs(V[-45,:]) < 0.2))[0],np.where((np.abs(V[10,:]) < 0.4))[0])
@@ -212,12 +215,12 @@ if plot_eta > 0:
         # ax0.plot(Eta_theta_m[:,j],grid,color='k',linestyle='--',linewidth=.75)
         ax0.plot(V2[:,j],grid,color='#CD853F',linewidth=1.25)  
         ax0.plot(V_m[:,j],grid,color='k',linestyle='--',linewidth=.75)
-    ax1.axis([-600, 600, 0, 5000]) 
+    ax1.axis([-500, 500, 0, 4750]) 
     ax0.text(190,800,str(num_profs)+' Profiles')
     ax1.set_xlabel(r'$\xi_{\sigma_{\theta}}$ [m]')
     ax1.set_title(r'$\xi$ Vertical Isopycnal Disp.') # + '(' + str(Time[0]) + '-' )
-    ax0.axis([-.4, .4, 0, 5000]) 
-    ax0.set_title("BATS '15 DG Cross-track u")
+    ax0.axis([-.4, .4, 0, 4750]) 
+    ax0.set_title("BATS15 Cross-track u (" + str(num_profs) + 'profiles)' )
     ax0.set_ylabel('Depth [m]',fontsize=14)
     ax0.set_xlabel('u [m/s]',fontsize=14)
     ax0.invert_yaxis() 
@@ -305,9 +308,9 @@ if plot_eng > 0:
         ax0.scatter(sc_x,avg_KE[1:]/dk,color='g',s=10) # DG KE
         
         # Obj. Map 
-        KE_om_u = ax0.plot(sx_c_om,ke_om_u[1:]/dk_om,'b',label='KE_u',linewidth=1.5)        
+        KE_om_u = ax0.plot(sx_c_om,ke_om_u[1:]/dk_om,'b',label='$KE_u$',linewidth=1.5)        
         ax0.scatter(sx_c_om,ke_om_u[1:]/dk_om,color='b',s=10) # DG KE
-        KE_om_u = ax0.plot(sx_c_om,ke_om_v[1:]/dk_om,'c',label='KE_v',linewidth=1.5)        
+        KE_om_u = ax0.plot(sx_c_om,ke_om_v[1:]/dk_om,'c',label='$KE_v$',linewidth=1.5)        
         ax0.scatter(sx_c_om,ke_om_v[1:]/dk_om,color='c',s=10) # DG KE
         
         ax0.plot(sc_x,0.25*PE_GM/dk,linestyle='--',color='#B22222',linewidth=0.75)
@@ -333,7 +336,7 @@ if plot_eng > 0:
         ax0.set_ylabel('Spectral Density, Hor. Wavenumber',fontsize=14) # ' (and Hor. Wavenumber)')
         ax0.set_title('DG 2015 BATS Deployment (Energy Spectra)',fontsize=14)
         handles, labels = ax0.get_legend_handles_labels()
-        ax0.legend([handles[0],handles[1],handles[2]],[labels[0], labels[1], labels[2]],fontsize=12)
+        ax0.legend([handles[0],handles[1],handles[2],handles[3]],[labels[0], labels[1], labels[2], labels[3]],fontsize=12)
         plt.tight_layout()
         plot_pro(ax0)
         # fig0.savefig('/Users/jake/Desktop/bats/dg035_15_PE_b.png',dpi = 300)
@@ -459,3 +462,70 @@ ax0.axis([8*10**-1, 10**2, 3*10**(-4), 2*10**(3)])
 handles, labels = ax0.get_legend_handles_labels()
 ax0.legend(handles,labels,fontsize=12)
 plot_pro(ax0)
+
+# WORK ON CURVE FITTING TO FIND BREAK IN SLOPES 
+xx = np.log10(sc_x.copy())
+yy = np.log10(avg_PE[1:]/dk)
+
+# try 3
+def two_lines(x, a, b, c, d):
+    one = a*x + b
+    two = c*x + d
+    return np.maximum(one, two)
+pw0 = (-1, .5, -4, 10) # a guess for slope, intercept, slope, intercept
+pw, cov = curve_fit(two_lines, xx, yy, pw0)
+crossover = (pw[3] - pw[1]) / (pw[0] - pw[2])
+
+fig, ax = plt.subplots()
+ax.plot(xx, yy, 'o', xx, two_lines(xx, *pw), '-')
+plot_pro(ax)
+
+# try 2 
+tck = interpolate.splrep(xx, yy, k=2, s=0)
+fig, axes = plt.subplots()
+axes.plot(xx, yy, 'x', label = 'data')
+axes.plot(xx, interpolate.splev(xx, tck, der=0), label = 'Fit')
+plot_pro(axes)
+
+# try 1
+def piecewise_linear(x, x0, y0, k1, k2):
+    return np.piecewise(x, [x < x0], [lambda x:k1*x + y0-k1*x0, lambda x:k2*x + y0-k2*x0])
+p , e = curve_fit(piecewise_linear, xx, yy)
+f, ax = plt.subplots()
+ax.plot(xx, yy, "o")
+ax.plot(xx, piecewise_linear(xx, *p))
+plot_pro(ax0)
+
+# try 4 
+import lmfit
+dfseg = pd.read_csv('segreg.csv')
+def err(w):
+    th0 = w['th0'].value
+    th1 = w['th1'].value
+    th2 = w['th2'].value
+    gamma = w['gamma'].value
+    fit = th0 + th1*dfseg.Temp + th2*np.maximum(0,dfseg.Temp-gamma)
+    return fit-dfseg.C
+
+p = lmfit.Parameters()
+p.add_many(('th0', 0.), ('th1', 0.0),('th2', 0.0),('gamma', 40.))
+mi = lmfit.minimize(err, p)
+lmfit.printfuncs.report_fit(mi.params)
+
+b0 = mi.params['th0']; b1=mi.params['th1'];b2=mi.params['th2']
+gamma = int(mi.params['gamma'].value)
+
+import statsmodels.formula.api as smf
+reslin = smf.ols('C ~ 1 + Temp + I((Temp-%d)*(Temp>%d))' % (gamma,gamma), data=dfseg).fit()
+print reslin.summary()
+
+x0 = np.array(range(0,gamma,1))
+x1 = np.array(range(0,80-gamma,1))
+y0 = b0 + b1*x0
+y1 = (b0 + b1 * float(gamma) + (b1 + b2)* x1)
+plt.scatter(dfseg.Temp, dfseg.C)
+plt.hold(True)
+plt.plot(x0,y0)
+plt.plot(x1+gamma,y1)
+
+plt.show()
