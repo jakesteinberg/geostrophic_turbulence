@@ -43,10 +43,11 @@ plot_eta = 0
 pkl_file = open('/Users/jake/Documents/geostrophic_turbulence/BATS_obj_map.pkl', 'rb')
 bats_trans = pickle.load(pkl_file)
 pkl_file.close() 
-Time = bats_trans['time'][0]
-Sigma_Theta = np.transpose(bats_trans['Sigma_Theta'][0])
-U = np.transpose(bats_trans['U_g'][0])
-V = np.transpose(bats_trans['V_g'][0])
+iter = 3
+Time = bats_trans['time'][iter]
+Sigma_Theta = np.transpose(bats_trans['Sigma_Theta'][iter])
+U = np.transpose(bats_trans['U_g'][iter])
+V = np.transpose(bats_trans['V_g'][iter])
 
 # average background properties of profiles along these transects 
 sigma_theta_avg = np.nanmean(Sigma_Theta,axis=1)
@@ -111,8 +112,8 @@ for i in range(num_profs):
     
     if iu[0].size > 1:
         AGz_U[:,i] =  np.squeeze(np.linalg.lstsq( np.squeeze(Gz[iv,:]),np.transpose(np.atleast_2d(this_U[iu])))[0]) # Gz(iv,:)\V_g(iv,ip)                
-        U_m[:,i] =  np.squeeze(np.matrix(Gz)*np.transpose(np.matrix(AGz[:,i])))  #Gz*AGz[:,i];
-        HKE_U_per_mass[:,i] = AGz[:,i]*AGz[:,i]
+        U_m[:,i] =  np.squeeze(np.matrix(Gz)*np.transpose(np.matrix(AGz_U[:,i])))  #Gz*AGz[:,i];
+        HKE_U_per_mass[:,i] = AGz_U[:,i]*AGz_U[:,i]
         ival = np.where( HKE_U_per_mass[modest,i] >= HKE_noise_threshold )
         if np.size(ival) > 0:
             good_prof[i] = 0 # flag profile as noisy
@@ -121,8 +122,8 @@ for i in range(num_profs):
     
     if iv[0].size > 1:
         AGz_V[:,i] =  np.squeeze(np.linalg.lstsq( np.squeeze(Gz[iv,:]),np.transpose(np.atleast_2d(this_V[iv])))[0]) # Gz(iv,:)\V_g(iv,ip)                
-        V_m[:,i] =  np.squeeze(np.matrix(Gz)*np.transpose(np.matrix(AGz[:,i])))  #Gz*AGz[:,i];
-        HKE_V_per_mass[:,i] = AGz[:,i]*AGz[:,i]
+        V_m[:,i] =  np.squeeze(np.matrix(Gz)*np.transpose(np.matrix(AGz_V[:,i])))  #Gz*AGz[:,i];
+        HKE_V_per_mass[:,i] = AGz_V[:,i]*AGz_V[:,i]
         ival = np.where( HKE_V_per_mass[modest,i] >= HKE_noise_threshold )
         if np.size(ival) > 0:
             good_prof[i] = 0 # flag profile as noisy
@@ -242,7 +243,8 @@ PE_SD, PE_GM = PE_Tide_GM(rho0,grid,nmodes,np.transpose(np.atleast_2d(N2)),f_ref
 
 # KE parameters
 dk_ke = 1000*f_ref/c[1]   
-k_h = 1e3*(f_ref/c[1:])*np.sqrt( avg_KE[1:]/avg_PE[1:])
+# k_h = 1e3*(f_ref/c[1:])*np.sqrt( avg_KE_U[1:]/avg_PE[1:])
+# k_h_v = 1e3*(f_ref/c[1:])*np.sqrt( avg_KE_V[1:]/avg_PE[1:])
 
 # load in Station BATs PE Comparison
 SB = si.loadmat('/Users/jake/Desktop/bats/station_bats_pe.mat')
@@ -251,43 +253,40 @@ sta_bats_c = SB['out'][0][0][3]
 sta_bats_f = SB['out'][0][0][2]
 sta_bats_dk = SB['out'][0][0][1]
 
-plot_eng = 0
-plot_spec = 0
-plot_comp = 0
+plot_eng = 1
 if plot_eng > 0:    
-    if plot_spec > 0:
-        fig0, ax0 = plt.subplots()
-        # PE_p = ax0.plot(sc_x,avg_PE[1:]/dk,color='#B22222',label='PE',linewidth=1.5)
-        KE_p = ax0.plot(sc_x,avg_KE_U[1:]/dk,'g',label='KE_u',linewidth=1.5)        
-        ax0.scatter(sc_x,avg_KE_U[1:]/dk,color='g',s=10) # DG KE
-        KE_p = ax0.plot(sc_x,avg_KE_V[1:]/dk,'r',label='KE_v',linewidth=1.5)        
-        ax0.scatter(sc_x,avg_KE_V[1:]/dk,color='r',s=10) # DG KE
-        ax0.text( 1000*f_ref/c[-2]+.1, 1000*f_ref/c[-2], r'f/c$_m$',fontsize=10)  
-        
-        # limits/scales 
-        ax0.plot( [3*10**-1, 3*10**0], [1.5*10**1, 1.5*10**-2],color='k',linewidth=0.75)
-        ax0.plot([3*10**-2, 3*10**-1],[7*10**2, ((5/3)*(np.log10(2*10**-1) - np.log10(2*10**-2) ) +  np.log10(7*10**2) )] ,color='k',linewidth=0.75)
-        ax0.text(3.3*10**-1,1.3*10**1,'-3',fontsize=10)
-        ax0.text(3.3*10**-2,6*10**2,'-5/3',fontsize=10)
-        ax0.plot( [1000*f_ref/c[1], 1000*f_ref/c[-2]],[1000*f_ref/c[1], 1000*f_ref/c[-2]],linestyle='--',color='k',linewidth=0.8)
+    fig0, ax0 = plt.subplots()
+    # PE_p = ax0.plot(sc_x,avg_PE[1:]/dk,color='#B22222',label='PE',linewidth=1.5)
+    KE_p = ax0.plot(sc_x,avg_KE_U[1:]/dk,'g',label='KE_u',linewidth=1.5)        
+    ax0.scatter(sc_x,avg_KE_U[1:]/dk,color='g',s=10) # DG KE
+    KE_p = ax0.plot(sc_x,avg_KE_V[1:]/dk,'r',label='KE_v',linewidth=1.5)        
+    ax0.scatter(sc_x,avg_KE_V[1:]/dk,color='r',s=10) # DG KE
+    ax0.text( 1000*f_ref/c[-2]+.1, 1000*f_ref/c[-2], r'f/c$_m$',fontsize=10)  
+    
+    # limits/scales 
+    ax0.plot( [3*10**-1, 3*10**0], [1.5*10**1, 1.5*10**-2],color='k',linewidth=0.75)
+    ax0.plot([3*10**-2, 3*10**-1],[7*10**2, ((5/3)*(np.log10(2*10**-1) - np.log10(2*10**-2) ) +  np.log10(7*10**2) )] ,color='k',linewidth=0.75)
+    ax0.text(3.3*10**-1,1.3*10**1,'-3',fontsize=10)
+    ax0.text(3.3*10**-2,6*10**2,'-5/3',fontsize=10)
+    ax0.plot( [1000*f_ref/c[1], 1000*f_ref/c[-2]],[1000*f_ref/c[1], 1000*f_ref/c[-2]],linestyle='--',color='k',linewidth=0.8)
          
-        ax0.set_yscale('log')
-        ax0.set_xscale('log')
-        ax0.axis([10**-2, 10**1, 3*10**(-4), 2*10**(3)])
-        ax0.set_xlabel(r'Scaled Vertical Wavenumber = (Rossby Radius)$^{-1}$ = $\frac{f}{c_m}$ [$km^{-1}$]',fontsize=14)
-        ax0.set_ylabel('Spectral Density, Hor. Wavenumber',fontsize=14) # ' (and Hor. Wavenumber)')
-        ax0.set_title('DG 2015 BATS Deployment (Energy Spectra)',fontsize=14)
-        # handles, labels = ax0.get_legend_handles_labels()
-        # ax0.legend([handles[0],handles[1],handles[2]],[labels[0], labels[1], labels[2]],fontsize=12)
-        plt.tight_layout()
-        plot_pro(ax0)
-        # fig0.savefig('/Users/jake/Desktop/bats/dg035_15_PE_b.png',dpi = 300)
-        # plt.close()
-        # plt.show()
+    ax0.set_yscale('log')
+    ax0.set_xscale('log')
+    ax0.axis([10**-2, 10**1, 3*10**(-4), 2*10**(3)])
+    ax0.set_xlabel(r'Scaled Vertical Wavenumber = (Rossby Radius)$^{-1}$ = $\frac{f}{c_m}$ [$km^{-1}$]',fontsize=14)
+    ax0.set_ylabel('Spectral Density, Hor. Wavenumber',fontsize=14) # ' (and Hor. Wavenumber)')
+    ax0.set_title('DG 2015 BATS Deployment (Energy Spectra)',fontsize=14)
+    # handles, labels = ax0.get_legend_handles_labels()
+    # ax0.legend([handles[0],handles[1],handles[2]],[labels[0], labels[1], labels[2]],fontsize=12)
+    plt.tight_layout()
+    plot_pro(ax0)
+    # fig0.savefig('/Users/jake/Desktop/bats/dg035_15_PE_b.png',dpi = 300)
+    # plt.close()
+    # plt.show()
         
 ### SAVE 
 # write python dict to a file
-sa = 1
+sa = 0
 if sa > 0:
     mydict = {'sc_x': sc_x,'avg_ke_u': avg_KE_U,'avg_ke_v': avg_KE_V, 'dk': dk}
     output = open('/Users/jake/Documents/geostrophic_turbulence/BATS_OM_KE.pkl', 'wb')

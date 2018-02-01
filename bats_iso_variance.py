@@ -258,33 +258,64 @@ if plot_eta > 0:
 avg_PE = np.nanmean(PE_per_mass,1)
 good_prof_i = good_prof #np.where(good_prof > 0)
 avg_KE = np.nanmean(HKE_per_mass[:,np.where(good_prof>0)[0]],1)
-fig0, ax0 = plt.subplots()
-for i in range(np.size(good_prof)):
-    if good_prof[i] > 0:
-        ax0.plot(np.arange(0,61,1),HKE_per_mass[:,i])
-ax0.set_xscale('log')      
-ax0.set_yscale('log')    
-plot_pro(ax0)    
+# PLOT each KE profile
+# fig0, ax0 = plt.subplots()
+# for i in range(np.size(good_prof)):
+#     if good_prof[i] > 0:
+#         ax0.plot(np.arange(0,61,1),HKE_per_mass[:,i])
+# ax0.set_xscale('log')      
+# ax0.set_yscale('log')    
+# plot_pro(ax0)    
 # avg_PE_theta = np.nanmean(PE_theta_per_mass,1)
+
+#### ENERGY parameters 
 f_ref = np.pi*np.sin(np.deg2rad(ref_lat))/(12*1800)
 rho0 = 1025
 dk = f_ref/c[1]
 sc_x = (1000)*f_ref/c[1:]
 vert_wavenumber = f_ref/c[1:]
-    
-PE_SD, PE_GM = PE_Tide_GM(rho0,grid,nmodes,np.transpose(np.atleast_2d(N2)),f_ref)
-
-# KE parameters
 dk_ke = 1000*f_ref/c[1]   
 k_h = 1e3*(f_ref/c[1:])*np.sqrt( avg_KE[1:]/avg_PE[1:])
+PE_SD, PE_GM = PE_Tide_GM(rho0,grid,nmodes,np.transpose(np.atleast_2d(N2)),f_ref)
 
+#### CURVE FITTING TO FIND BREAK IN SLOPES 
+xx = sc_x
+yy = avg_PE[1:]/dk
+# export to use findchangepts in matlab 
+# np.savetxt('test_line_fit_x',xx)
+# np.savetxt('test_line_fit_y',yy)
+### index 11 is the point where the break in slope occurs 
+ipoint = 6 # 11 
+x_53 = np.log10(xx[0:ipoint])
+y_53 = np.log10(yy[0:ipoint])
+slope1 = np.polyfit(x_53,y_53,1)
+x_3 = np.log10(xx[ipoint:])
+y_3 = np.log10(yy[ipoint:])
+slope2 = np.polyfit(x_3,y_3,1)
+y_g_53 = np.polyval(slope1,x_53)
+y_g_3 = np.polyval(slope2,x_3)
+
+vert_wave = sc_x/1000
+alpha = 10
+ak0 = xx[ipoint]/1000
+E0 = np.mean(yy[ipoint-3:ipoint+4])
+ak = vert_wave/ak0
+one = E0*( (ak**(5*alpha/3))*(1 + ak**(4*alpha/3) ) )**(-1/alpha)
+##  enstrophy/energy transfers 
+mu = (1.88e-3)/(1 + 0.03222*theta_avg + 0.002377*theta_avg*theta_avg)
+nu = mu/sw.dens(salin_avg, theta_avg, grid_p)
+avg_nu = np.nanmean(nu)
+enst_xfer = (E0*ak0**3)**(3/2)
+ener_xfer = (E0*ak0**(5/3))**(3/2)
+enst_diss = np.sqrt(avg_nu)/((enst_xfer)**(1/6))
+
+##### LOAD in other data 
 # load in Station BATs PE Comparison
 SB = si.loadmat('/Users/jake/Desktop/bats/station_bats_pe.mat')
 sta_bats_pe = SB['out'][0][0][0]
 sta_bats_c = SB['out'][0][0][3]
 sta_bats_f = SB['out'][0][0][2]
 sta_bats_dk = SB['out'][0][0][1]
-
 # load in HKE estimates from Obj. Map 
 pkl_file = open('/Users/jake/Documents/geostrophic_turbulence/BATS_OM_KE.pkl', 'rb')
 bats_map = pickle.load(pkl_file)
@@ -313,21 +344,28 @@ if plot_eng > 0:
         KE_om_u = ax0.plot(sx_c_om,ke_om_v[1:]/dk_om,'c',label='$KE_v$',linewidth=1.5)        
         ax0.scatter(sx_c_om,ke_om_v[1:]/dk_om,color='c',s=10) # DG KE
         
+        # Slope fits 
+        ax0.plot(vert_wave*1000,one,color='b',linewidth=0.75)
+        ax0.plot(10**x_53, 10**y_g_53,color='r',linewidth=0.5,linestyle='--')
+        ax0.plot(10**x_3, 10**y_g_3,color='r',linewidth=0.5,linestyle='--')
+        ax0.text(10**x_53[0]-.01, 10**y_g_53[0],str(float("{0:.2f}".format(slope1[0]))),fontsize=8)
+        ax0.text(10**x_3[0]+.075, 10**y_g_3[0],str(float("{0:.2f}".format(slope2[0]))),fontsize=8)
+        ax0.plot([xx[ipoint], xx[ipoint]],[3*10**(-4), 2*10**(-3)],color='k',linewidth=2)
+        ax0.text(xx[ipoint+1], 2*10**(-3), str('=') + str(float("{0:.2f}".format(xx[ipoint])))+'km')
+        
+        # GM 
         ax0.plot(sc_x,0.25*PE_GM/dk,linestyle='--',color='#B22222',linewidth=0.75)
-        # ax0.plot(sc_x,PE_GM/dk,linestyle='--',color='#FF8C00',linewidth=0.75)
-        ax0.text(sc_x[0]-.014,.25*PE_GM[1]/dk,r'$\frac{1}{4}PE_{GM}$',fontsize=12)
-        # ax0.text(sc_x[0]-.011,PE_GM[1]/dk,r'$PE_{GM}$')
-        ## ax0.plot( [1000*f_ref/c[1], 1000*f_ref/c[-2]],[1000*f_ref/c[1], 1000*f_ref/c[-2]],linestyle='--',color='k',linewidth=0.8)
+        ax0.text(sc_x[0]-.014,.25*PE_GM[1]/dk,r'$\frac{1}{4}PE_{GM}$',fontsize=12)   
+        
+        # Limits/scales 
+        # ax0.plot( [3*10**-1, 3*10**0], [1.5*10**1, 1.5*10**-2],color='k',linewidth=0.75)
+        # ax0.plot([3*10**-2, 3*10**-1],[7*10**2, ((5/3)*(np.log10(2*10**-1) - np.log10(2*10**-2) ) +  np.log10(7*10**2) )] ,color='k',linewidth=0.75)
+        # ax0.text(3.3*10**-1,1.3*10**1,'-3',fontsize=10)
+        # ax0.text(3.3*10**-2,6*10**2,'-5/3',fontsize=10)
+        ax0.plot( [1000*f_ref/c[1], 1000*f_ref/c[-2]],[1000*f_ref/c[1], 1000*f_ref/c[-2]],linestyle='--',color='k',linewidth=0.8)
         ax0.text( 1000*f_ref/c[-2]+.1, 1000*f_ref/c[-2], r'f/c$_m$',fontsize=10)
         ax0.plot(sc_x,k_h,color='k',linewidth=.9,label=r'$k_h$')
-        ax0.text(sc_x[0]-.008,k_h[0]-.011,r'$k_{h}$ [km$^{-1}$]',fontsize=10)       
-        
-        # limits/scales 
-        ax0.plot( [3*10**-1, 3*10**0], [1.5*10**1, 1.5*10**-2],color='k',linewidth=0.75)
-        ax0.plot([3*10**-2, 3*10**-1],[7*10**2, ((5/3)*(np.log10(2*10**-1) - np.log10(2*10**-2) ) +  np.log10(7*10**2) )] ,color='k',linewidth=0.75)
-        ax0.text(3.3*10**-1,1.3*10**1,'-3',fontsize=10)
-        ax0.text(3.3*10**-2,6*10**2,'-5/3',fontsize=10)
-        ax0.plot( [1000*f_ref/c[1], 1000*f_ref/c[-2]],[1000*f_ref/c[1], 1000*f_ref/c[-2]],linestyle='--',color='k',linewidth=0.8)
+        ax0.text(sc_x[0]-.008,k_h[0]-.011,r'$k_{h}$ [km$^{-1}$]',fontsize=10)
          
         ax0.set_yscale('log')
         ax0.set_xscale('log')
@@ -443,89 +481,100 @@ plot_pro(ax0)
 
 
 # LOAD NEARBY ABACO 
-pkl_file = open('/Users/jake/Desktop/abaco/abaco_outputs.pkl', 'rb')
-abaco_energies = pickle.load(pkl_file)
-pkl_file.close()   
+# pkl_file = open('/Users/jake/Desktop/abaco/abaco_outputs.pkl', 'rb')
+# abaco_energies = pickle.load(pkl_file)
+# pkl_file.close()   
 
-fig0, ax0 = plt.subplots()
-mode_num = np.arange(1,61,1)
-PE_p = ax0.plot(mode_num,avg_PE[1:]/dk,label=r'$BATS_{DG}$')
-PE_sta_p = ax0.plot(mode_num,sta_bats_pe[1:]/sta_bats_dk,label=r'$BATS_{ship}$')
-PE_ab = ax0.plot(mode_num,abaco_energies['avg_PE'][1:]/(abaco_energies['f_ref']/abaco_energies['c'][1]),label=r'$ABACO_{DG}$')
-# PE_sta_hots = ax0.plot(mode_num,sta_hots_pe[1:]/sta_hots_dk,label=r'$HOTS_{ship}$')
-ax0.set_xlabel('Mode Number',fontsize=13)
-ax0.set_ylabel('Spectral Density',fontsize=13)
-ax0.set_title('Potential Energy Spectra (Site/Platform Comparison)',fontsize=14)
-ax0.set_yscale('log')
-ax0.set_xscale('log')
-ax0.axis([8*10**-1, 10**2, 3*10**(-4), 2*10**(3)])
-handles, labels = ax0.get_legend_handles_labels()
-ax0.legend(handles,labels,fontsize=12)
-plot_pro(ax0)
+# fig0, ax0 = plt.subplots()
+# mode_num = np.arange(1,61,1)
+# PE_p = ax0.plot(mode_num,avg_PE[1:]/dk,label=r'$BATS_{DG}$')
+# PE_sta_p = ax0.plot(mode_num,sta_bats_pe[1:]/sta_bats_dk,label=r'$BATS_{ship}$')
+# PE_ab = ax0.plot(mode_num,abaco_energies['avg_PE'][1:]/(abaco_energies['f_ref']/abaco_energies['c'][1]),label=r'$ABACO_{DG}$')
+### PE_sta_hots = ax0.plot(mode_num,sta_hots_pe[1:]/sta_hots_dk,label=r'$HOTS_{ship}$')
+# ax0.set_xlabel('Mode Number',fontsize=13)
+# ax0.set_ylabel('Spectral Density',fontsize=13)
+# ax0.set_title('Potential Energy Spectra (Site/Platform Comparison)',fontsize=14)
+# ax0.set_yscale('log')
+# ax0.set_xscale('log')
+# ax0.axis([8*10**-1, 10**2, 3*10**(-4), 2*10**(3)])
+# handles, labels = ax0.get_legend_handles_labels()
+# ax0.legend(handles,labels,fontsize=12)
+# plot_pro(ax0)
 
 # WORK ON CURVE FITTING TO FIND BREAK IN SLOPES 
-xx = np.log10(sc_x.copy())
-yy = np.log10(avg_PE[1:]/dk)
+# xx = sc_x
+# yy = avg_PE[1:]/dk
+# export to use findchangepts in matlab 
+# np.savetxt('test_line_fit_x',xx)
+# np.savetxt('test_line_fit_y',yy)
+### index 11 is the point where the break in slope occurs 
+# ipoint = 6 # 11 
+# x_53 = np.log10(xx[0:ipoint])
+# y_53 = np.log10(yy[0:ipoint])
+# slope1 = np.polyfit(x_53,y_53,1)
+# x_3 = np.log10(xx[ipoint:])
+# y_3 = np.log10(yy[ipoint:])
+# slope2 = np.polyfit(x_3,y_3,1)
+# y_g_53 = np.polyval(slope1,x_53)
+# y_g_3 = np.polyval(slope2,x_3)
 
+# vert_wave = sc_x/1000
+# alpha = 10
+# ak0 = xx[ipoint]/1000
+# E0 = np.mean(yy[ipoint-3:ipoint+4])
+# ak = vert_wave/ak0
+# one = E0*( (ak**(5*alpha/3))*(1 + ak**(4*alpha/3) ) )**(-1/alpha)
+# # enstrophy/energy transfers 
+# mu = (1.88e-3)/(1 + 0.03222*theta_avg + 0.002377*theta_avg*theta_avg)
+# nu = mu/sw.dens(salin_avg, theta_avg, grid_p)
+# avg_nu = np.nanmean(nu)
+# enst_xfer = (E0*ak0**3)**(3/2)
+# ener_xfer = (E0*ak0**(5/3))**(3/2)
+# enst_diss = np.sqrt(avg_nu)/((enst_xfer)**(1/6))
+
+# figure
+# fig,ax = plt.subplots()
+# ax.plot(sc_x,avg_PE[1:]/dk,color='k')
+# ax.plot(vert_wave*1000,one,color='b',linewidth=0.75)
+# ax.plot(10**x_53, 10**y_g_53,color='r',linewidth=0.5,linestyle='--')
+# ax.plot(10**x_3, 10**y_g_3,color='r',linewidth=0.5,linestyle='--')
+# ax.text(10**x_53[0]-.01, 10**y_g_53[0],str(float("{0:.2f}".format(slope1[0]))),fontsize=8)
+# ax.text(10**x_3[0]+.075, 10**y_g_3[0],str(float("{0:.2f}".format(slope2[0]))),fontsize=8)
+# ax.plot([xx[ipoint], xx[ipoint]],[3*10**(-4), 2*10**(-3)],color='k',linewidth=2)
+# ax.text(xx[ipoint+1], 2*10**(-3), str('=') + str(float("{0:.2f}".format(xx[ipoint])))+'km')
+# ax.axis([10**-2, 10**1, 3*10**(-4), 2*10**(3)])
+# ax.set_yscale('log')
+# ax.set_xscale('log')
+# plot_pro(ax)
+
+################################
 # try 3
-def two_lines(x, a, b, c, d):
-    one = a*x + b
-    two = c*x + d
-    return np.maximum(one, two)
-pw0 = (-1, .5, -4, 10) # a guess for slope, intercept, slope, intercept
-pw, cov = curve_fit(two_lines, xx, yy, pw0)
-crossover = (pw[3] - pw[1]) / (pw[0] - pw[2])
+# from scipy.optimize import curve_fit
+# xx1 = np.log10(sc_x)
+# yy1 = np.log10(avg_PE[1:]/dk)
+# xx1 = np.log10(np.array([2*10**-2, 7*10**-2, 10**-1, 1.5*10**-1, 2.5*10**-1, 4*10**-1]) )
+# yy1 = np.log10(np.array([7*10**1, 3*10**1, 10**1, 10**0, 5*10**-2, 10**-3]) )
 
-fig, ax = plt.subplots()
-ax.plot(xx, yy, 'o', xx, two_lines(xx, *pw), '-')
-plot_pro(ax)
+# def two_lines(x,a,b):
+      # one = (-.75)*x + b
+      # two = (-5)*x + d
+      # return np.maximum(one, two)
+# pw0 = (10, .5) # a guess for slope, intercept, slope, intercept
+# pw, cov = curve_fit(two_lines, xx1, yy1, pw0, sigma=0.01*np.ones(len(xx1)))
+# crossover = 10**( (pw[1] - pw[0]) / ( (-5/3) - (-3)) )
 
 # try 2 
-tck = interpolate.splrep(xx, yy, k=2, s=0)
-fig, axes = plt.subplots()
-axes.plot(xx, yy, 'x', label = 'data')
-axes.plot(xx, interpolate.splev(xx, tck, der=0), label = 'Fit')
-plot_pro(axes)
+# tck = interpolate.splrep(xx, yy, k=2, s=0)
+# fig, axes = plt.subplots()
+# axes.plot(xx, yy, 'x', label = 'data')
+# axes.plot(xx, interpolate.splev(xx, tck, der=0), label = 'Fit')
+# plot_pro(axes)
 
 # try 1
-def piecewise_linear(x, x0, y0, k1, k2):
-    return np.piecewise(x, [x < x0], [lambda x:k1*x + y0-k1*x0, lambda x:k2*x + y0-k2*x0])
-p , e = curve_fit(piecewise_linear, xx, yy)
-f, ax = plt.subplots()
-ax.plot(xx, yy, "o")
-ax.plot(xx, piecewise_linear(xx, *p))
-plot_pro(ax0)
-
-# try 4 
-import lmfit
-dfseg = pd.read_csv('segreg.csv')
-def err(w):
-    th0 = w['th0'].value
-    th1 = w['th1'].value
-    th2 = w['th2'].value
-    gamma = w['gamma'].value
-    fit = th0 + th1*dfseg.Temp + th2*np.maximum(0,dfseg.Temp-gamma)
-    return fit-dfseg.C
-
-p = lmfit.Parameters()
-p.add_many(('th0', 0.), ('th1', 0.0),('th2', 0.0),('gamma', 40.))
-mi = lmfit.minimize(err, p)
-lmfit.printfuncs.report_fit(mi.params)
-
-b0 = mi.params['th0']; b1=mi.params['th1'];b2=mi.params['th2']
-gamma = int(mi.params['gamma'].value)
-
-import statsmodels.formula.api as smf
-reslin = smf.ols('C ~ 1 + Temp + I((Temp-%d)*(Temp>%d))' % (gamma,gamma), data=dfseg).fit()
-print reslin.summary()
-
-x0 = np.array(range(0,gamma,1))
-x1 = np.array(range(0,80-gamma,1))
-y0 = b0 + b1*x0
-y1 = (b0 + b1 * float(gamma) + (b1 + b2)* x1)
-plt.scatter(dfseg.Temp, dfseg.C)
-plt.hold(True)
-plt.plot(x0,y0)
-plt.plot(x1+gamma,y1)
-
-plt.show()
+# def piecewise_linear(x, x0, y0, k1, k2):
+#     return np.piecewise(x, [x < x0], [lambda x:k1*x + y0-k1*x0, lambda x:k2*x + y0-k2*x0])
+# p , e = curve_fit(piecewise_linear, xx, yy)
+# f, ax = plt.subplots()
+# ax.plot(xx, yy, "o")
+# ax.plot(xx, piecewise_linear(xx, *p))
+# plot_pro(ax0)

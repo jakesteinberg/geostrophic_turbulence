@@ -169,7 +169,7 @@ sigma_theta_out = []
 lon_out = []
 lat_out = []
 time_out = []
-for k in range(10,20,1):
+for k in range(10,60,1):
     # k = 24
     k_out = k
     time_in = np.where( (time_rec > t_bin[k,0]) & (time_rec < t_bin[k,1]) )[0] # data
@@ -473,6 +473,6 @@ for k in range(10,20,1):
 sa = 1
 if sa > 0:
     mydict = {'depth': grid,'Sigma_Theta': sigma_theta_out,'U_g': U_out, 'V_g': V_out, 'lon_grid': lon_out, 'lat_grid': lat_out, 'time': time_out}
-    output = open('/Users/jake/Documents/geostrophic_turbulence/BATS_obj_map.pkl', 'wb')
+    output = open('/Users/jake/Documents/geostrophic_turbulence/BATS_obj_map_2.pkl', 'wb')
     pickle.dump(mydict, output)
     output.close()
