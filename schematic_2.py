@@ -7,6 +7,7 @@ from mode_decompositions import vertical_modes
 import pandas as pd
 import seawater as sw
 from scipy.io import netcdf
+from toolkit import plot_pro
 
 fig = plt.figure()
 ax = fig.gca(projection='3d')
@@ -33,34 +34,35 @@ v_q = np.array([0, -5, 12, 8])
 ax.plot3D(x_s, y_s, z_s,color='k',zorder=1,zdir='z',linewidth=0.75) 
 ax.plot3D(x_s, y_s, np.zeros(np.size(x_s)),color='#696969',linestyle='--',zorder=1,zdir='z',linewidth=0.75) 
 
+col_d = '#B22222'
 #### plot density contours
 z_in = np.where( (z_s > -3100) & (z_s < -2900) ) 
-ax.plot(x_s[z_in], y_s[z_in], z_s[z_in], color='r',linestyle='--',linewidth=0.75)
+ax.plot(x_s[z_in], y_s[z_in], z_s[z_in], color=col_d,linestyle='--',linewidth=0.75)
 z_shift = [0, 500, 1000, 500, 0, 0, -500, 0]
 x_shift = [x_s[z_in[0][0]], x_s[z_in[0][1]+1], x_s[z_in[0][2]-2], x_s[z_in[0][3]+1], x_s[z_in[0][4]], x_s[z_in[0][5]], x_s[z_in[0][6]+1], x_s[z_in[0][7]] ]  
 z_d1 = z_s[z_in]+z_shift
-ax.plot(x_shift, y_s[z_in], z_d1, color='r')
+ax.plot(x_shift, y_s[z_in], z_d1, color=col_d)
 
 z_in2 = np.where( (z_s > -2100) & (z_s < -1900) ) 
-ax.plot(x_s[z_in2], y_s[z_in2], z_s[z_in2], color='r',linestyle='--',linewidth=0.75)
+ax.plot(x_s[z_in2], y_s[z_in2], z_s[z_in2], color=col_d,linestyle='--',linewidth=0.75)
 z_shift = [0, 0, 500, 0, 0, 0, -500, 0]
 x_shift = [x_s[z_in2[0][0]], x_s[z_in2[0][1]], x_s[z_in2[0][2]-1], x_s[z_in2[0][3]], x_s[z_in2[0][4]], x_s[z_in2[0][5]], x_s[z_in2[0][6]+1], x_s[z_in2[0][7]] ]  
 z_d1 = z_s[z_in2]+z_shift
-ax.plot(x_shift, y_s[z_in2], z_d1, color='r')
+ax.plot(x_shift, y_s[z_in2], z_d1, color=col_d)
 
 z_in2 = np.where( (z_s > -3600) & (z_s < -3400) ) 
-ax.plot(x_s[z_in2], y_s[z_in2], z_s[z_in2], color='r',linestyle='--',linewidth=0.75)
+ax.plot(x_s[z_in2], y_s[z_in2], z_s[z_in2], color=col_d,linestyle='--',linewidth=0.75)
 z_shift = [0, 0, -500, 0, 0, 0, -500, 0]
 x_shift = [x_s[z_in2[0][0]], x_s[z_in2[0][1]], x_s[z_in2[0][2]+1], x_s[z_in2[0][3]], x_s[z_in2[0][4]], x_s[z_in2[0][5]], x_s[z_in2[0][6]+1], x_s[z_in2[0][7]] ]  
 z_d1 = z_s[z_in2]+z_shift
-ax.plot(x_shift, y_s[z_in2], z_d1, color='r')
+ax.plot(x_shift, y_s[z_in2], z_d1, color=col_d)
 
 z_in3 = np.where( (z_s > -1100) & (z_s < -900) ) 
-ax.plot(x_s[z_in3], y_s[z_in3], z_s[z_in3], color='r',linestyle='--',linewidth=0.75)
+ax.plot(x_s[z_in3], y_s[z_in3], z_s[z_in3], color=col_d,linestyle='--',linewidth=0.75)
 z_shift = [0, 0, 0, 0, 0, 0, -500, 0]
 x_shift = [x_s[z_in3[0][0]], x_s[z_in3[0][1]], x_s[z_in3[0][2]], x_s[z_in3[0][3]], x_s[z_in3[0][4]], x_s[z_in3[0][5]], x_s[z_in3[0][6]+1], x_s[z_in3[0][7]] ]  
 z_d1 = z_s[z_in3]+z_shift
-ax.plot(x_shift, y_s[z_in3], z_d1, color='r')
+ax.plot(x_shift, y_s[z_in3], z_d1, color=col_d)
 
 # eta
 z_g = np.flipud(np.linspace(-5000,0,200))
@@ -98,25 +100,26 @@ ax.plot3D(-10*np.ones(np.size(grid[1:])),y_pos2 + .005*G[:,1],np.flipud(np.linsp
 ax.plot3D(-10*np.ones(np.size(grid[1:])),y_pos2 + .005*G[:,2],np.flipud(np.linspace(-5000,0,np.size(grid[1:]))),color='#6A5ACD',zdir='z',linewidth=0.75)
 ax.plot3D(-10*np.ones(np.size(grid[1:])),y_pos2 + .005*G[:,3],np.flipud(np.linspace(-5000,0,np.size(grid[1:]))),color='#6A5ACD',zdir='z',linewidth=0.75)
 # ax.plot3D(-10*np.ones(np.size(grid[1:])),y_pos2 + 3*Gz[:,3],np.flipud(np.linspace(-5000,0,np.size(grid[1:]))),color='b',zdir='z',linewidth=0.75)
-ax.text(-10,y_pos2-20,0," G(z) ")
-ax.text(-5,y_pos2-15,-5000," Decomposition ")
-ax.text(10,y_pos2-15,-5000,"into Vertical Modes")
+ax.text(-20,y_pos2-7,100," G(z) ")
+# ax.text(-5,y_pos2-15,-5000," Decomposition ")
+ax.text(0,y_pos2-15,-5000,"Vertical Modes")
 
-ax.text(-10,y_pos+12,0,r'$\xi_i$ (z)')
-ax.text(np.max(x_s)-13,y_pos+10,-2000,r'$\rho$ (z)')
+ax.text(-30,y_pos-5,-100,r'$\xi_{x=30}$ (z)',fontsize=12)
+ax.text(np.max(x_s)-14,y_pos+10,-1900,r'$\rho = \rho_i$ ',fontsize=10)
 
 ax.set_xlim(-10, 90)
 ax.set_ylim(0, 60)
 ax.set_zlim(-5000, 100)
 
-ax.set_xlabel('X [km]')
+# ax.set_xlabel('X [km]')
 # ax.set_ylabel('Y [km]')
 ax.set_yticks([])
-ax.set_zlabel('Z [m]')
-ax.set_title('Data Collection Method and Vertical Structure')
+# ax.set_zlabel('Z [m]')
+ax.set_title('Glider Transect, Isopycnal Depth, Vertical Structure')
 
 ax.view_init(30,-50)
 # ax.grid('off')
 
-fig.savefig('/Users/jake/Documents/baroclinic_modes/generals/final_figures/schematic_eta.png',dpi = 200)
-plt.close()
+plot_pro(ax)
+# fig.savefig('/Users/jake/Documents/baroclinic_modes/generals/final_figures/schematic_eta.png',dpi = 200)
+# plt.close()

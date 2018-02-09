@@ -169,8 +169,9 @@ sigma_theta_out = []
 lon_out = []
 lat_out = []
 time_out = []
-for k in range(10,60,1):
-    # k = 24
+sample_win = np.array([15])
+for k0 in range(np.size(sample_win)):
+    k = sample_win[k0]
     k_out = k
     time_in = np.where( (time_rec > t_bin[k,0]) & (time_rec < t_bin[k,1]) )[0] # data
     time_in_2 = np.where( (d_time > t_bin[k,0]) & (d_time < t_bin[k,1]) )[0] # DAC 
@@ -362,10 +363,10 @@ for k in range(10,60,1):
         ax1.set_title('Meridional Cross Section (density,velocity)')
         ax1.invert_xaxis() 
         ax1.invert_yaxis() 
-        ax1.grid()
-        # plot_pro(ax1)
-        fig.savefig( ('/Users/jake/Desktop/BATS/bats_mapping/cross_map_' + str(k_out) + '.png'),dpi = 300)
-        plt.close()
+        plot_pro(ax1)
+        # ax1.grid()
+        # fig.savefig( ('/Users/jake/Desktop/BATS/bats_mapping/cross_map_' + str(k_out) + '.png'),dpi = 300)
+        # plt.close()
 
         # PLAN VIEW 
         k1 = 50
@@ -433,9 +434,9 @@ for k in range(10,60,1):
         ax_ar[1,2].set_title('Error Map')
         ax_ar[1,2].axis([-lim,lim,-lim,lim])
         ax_ar[1,2].grid()
-        # plot_pro(ax_ar[1,2])
-        fig.savefig( ('/Users/jake/Desktop/BATS/bats_mapping/map_' + str(k_out) + '.png'),dpi = 300)
-        plt.close()
+        plot_pro(ax_ar[1,2])
+        # fig.savefig( ('/Users/jake/Desktop/BATS/bats_mapping/map_' + str(k_out) + '.png'),dpi = 300)
+        # plt.close()
 
         ### plot U,V 
         fig, (ax0,ax1) = plt.subplots(1,2,sharey=True)
@@ -452,9 +453,46 @@ for k in range(10,60,1):
         ax1.grid()
         ax0.grid()
         ax0.invert_yaxis() 
-        # plot_pro(ax1)
-        fig.savefig( ('/Users/jake/Desktop/BATS/bats_mapping/u_v_' + str(k_out) + '.png'),dpi = 300)
-        plt.close()
+        plot_pro(ax1)
+        # fig.savefig( ('/Users/jake/Desktop/BATS/bats_mapping/u_v_' + str(k_out) + '.png'),dpi = 300)
+        # plt.close()
+        
+        ### try 3-D plot of den and vel
+        from mpl_toolkits.mplot3d import axes3d
+        from matplotlib import cm
+        k1 = 35
+        lvls = np.linspace(np.nanmin(sigma_theta[:,:,k1]),np.nanmax(sigma_theta[:,:,k1]),20)
+        lvls2 = np.linspace(np.nanmin(sigma_theta[:,:,k2]),np.nanmax(sigma_theta[:,:,k2]),20)
+        k3 = 126
+        lvls3 = np.linspace(np.nanmin(sigma_theta[:,:,k3]),np.nanmax(sigma_theta[:,:,k3]),20)
+        k4 = 210
+        lvls4 = np.linspace(np.nanmin(sigma_theta[:,:,k4]),np.nanmax(sigma_theta[:,:,k4]),20)
+        
+        fig = plt.figure()
+        ax = fig.add_subplot(111, projection="3d")
+        
+        ax.plot_surface(x1/1000, y1/1000, grid[k1] + sigma_theta[:,:,k1], cmap="autumn_r", lw=0.5, rstride=1, cstride=1, alpha=0.5)
+        ax.contour(x1/1000, y1/1000, grid[k1] + sigma_theta[:,:,k1], zdir='z',cmap=cm.RdBu_r,levels=grid[k1]+lvls, zorder=1,linewidth=2)
+        ax.scatter(x1/1000, y1/1000, grid[k1]*np.ones(np.shape(x1)), s=1.5, color='k')
+        ax.quiver(x1/1000, y1/1000, grid[k1]*np.ones(np.shape(x1)), U_g[:,:,k1], V_g[:,:,k1], np.zeros(np.shape(x1)), color='k',length=60) # normalize=True, arrow_length_ratio=8)
+        # ax.quiver(d_x/1000,d_y/1000, grid[k1]*np.ones(np.shape(d_x)), d_u_in, d_v_in, np.zeros(np.shape(d_u_in)), color='k',normalize=True, arrow_length_ratio=10)
+    
+        
+        ax.plot_surface(x1/1000, y1/1000, grid[k3] + sigma_theta[:,:,k3], cmap="autumn_r", lw=0.5, rstride=1, cstride=1, alpha=0.5)
+        ax.contour(x1/1000, y1/1000, grid[k3] + sigma_theta[:,:,k3], zdir='z',cmap=cm.RdBu_r,levels=grid[k3]+lvls3, zorder=0,linewidth=2)
+        ax.scatter(x1/1000, y1/1000, grid[k3]*np.ones(np.shape(x1)), s=1.5, color='k')
+        ax.quiver(x1/1000, y1/1000, grid[k3]*np.ones(np.shape(x1)), U_g[:,:,k3], V_g[:,:,k3], np.zeros(np.shape(x1)), color='k',length=60) # normalize=True, arrow_length_ratio=8)
+        
+        # ax.plot_surface(x1/1000, y1/1000, grid[k4] + sigma_theta[:,:,k4], cmap="autumn_r", lw=0.5, rstride=1, cstride=1, alpha=0.5)
+        # ax.contour(x1/1000, y1/1000, grid[k4] + sigma_theta[:,:,k4], zdir='z',cmap=cm.RdBu_r,levels=grid[k4]+lvls4, zorder=0,linewidth=2)
+        
+        ax.set_xlim([x_grid[0]/1000,x_grid[-1]/1000]) 
+        ax.set_ylim([y_grid[0]/1000,y_grid[-1]/1000])
+        ax.set_zlim([0,4500])
+        # axx=ax.get_axes()
+        ax.view_init(elev=15, azim=-60)
+        ax.invert_zaxis() 
+        plot_pro(ax)
         
     ### OUTPUT
     # indices (profile,z_grid,)
@@ -470,7 +508,7 @@ for k in range(10,60,1):
 
 ### SAVE 
 # write python dict to a file
-sa = 1
+sa = 0
 if sa > 0:
     mydict = {'depth': grid,'Sigma_Theta': sigma_theta_out,'U_g': U_out, 'V_g': V_out, 'lon_grid': lon_out, 'lat_grid': lat_out, 'time': time_out}
     output = open('/Users/jake/Documents/geostrophic_turbulence/BATS_obj_map_2.pkl', 'wb')

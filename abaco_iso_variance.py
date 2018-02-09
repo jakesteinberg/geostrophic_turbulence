@@ -46,7 +46,8 @@ pkl_file.close()
 ##### grid parameters  
 lat_in = 26.5
 lon_in = -77
-bin_depth = np.concatenate([np.arange(0,150,10), np.arange(150,300,10), np.arange(300,5000,20)])
+# bin_depth = np.concatenate([np.arange(0,150,10), np.arange(150,300,10), np.arange(300,5000,20)])
+bin_depth = np.concatenate([np.arange(0,150,10), np.arange(150,300,10), np.arange(300,4750,20)])
 grid = bin_depth[1:-1]
 grid_p = sw.pres(grid,lat_in)
 den_grid = np.arange(24.5, 28 , 0.02)
@@ -537,21 +538,22 @@ G, Gz, c = vertical_modes(N2,grid,omega,mmax)
 sam_pl = 0
 if sam_pl > 0:
     f, (ax1,ax2) = plt.subplots(1,2,sharey=True)
-    colors = plt.cm.tab10(np.arange(0,5,1))
-    for i in range(5):
-        gp = ax1.plot(G[:,i]/np.max(grid),grid,label='Mode # = ' + str(i),color=colors[i,:])
-        ax2.plot(Gz[:,i],grid)
+    # colors = plt.cm.tab10(np.arange(0,5,1))
+    colors = '#C24704', '#D9CC3C', '#A0E0BA','#00ADA7'
+    for i in range(4):
+        gp = ax1.plot(G[:,i]/np.max(grid),grid,label='Mode ' + str(i),color=colors[i],linewidth=3)
+        ax2.plot(Gz[:,i],grid,color=colors[i],linewidth=3)
     n2p = ax1.plot((np.sqrt(np.nanmean(N2,axis=1))*(1800/np.pi))/10,grid,color='k',label='N(z) [10 cph]')    
     ax1.grid()
     ax1.axis([-1, 1, 0, 5000])
-    ax1.set_ylabel('Depth [m]',fontsize=14)
+    ax1.set_ylabel('Depth [m]',fontsize=16)
     ax1.set_xlabel('Vert. Displacement Stucture',fontsize=14)
-    ax1.set_title(r"$G_m$(z) Modes Shapes ($\sim \xi$)",fontsize=18)
+    ax1.set_title(r"$G_n$(z) Modes Shapes ($\sim \xi$)",fontsize=20)
     handles, labels = ax1.get_legend_handles_labels()
-    ax1.legend([handles[-1],handles[0],handles[1],handles[2],handles[3],handles[4]],[labels[-1],labels[0],labels[1],labels[2],labels[3],labels[4]],fontsize=12)
+    ax1.legend([handles[-1],handles[0],handles[1],handles[2],handles[3]],[labels[-1],labels[0],labels[1],labels[2],labels[3]],fontsize=12)
     ax2.axis([-4, 4, 0, 5000])
     ax2.set_xlabel('Vert. Structure of Hor. Velocity',fontsize=14)
-    ax2.set_title(r"$G_m$'(z) Mode Shapes ($\sim u$)",fontsize=18)
+    ax2.set_title(r"$G_n$'(z) Mode Shapes ($\sim u$)",fontsize=20)
     ax2.invert_yaxis()    
     plot_pro(ax2)
 
@@ -730,31 +732,31 @@ for i in range(adcp_np):
         good_prof[i] = 1 # flag empty profile as noisy as well
 
 ##### ______ PLOT VELOCITY PROFILES AND COMPARE _________ also plot eta 
-f, (ax1,ax2,ax3) = plt.subplots(1,3)
-for i in range(adcp_np):    
-    if good_prof[i] < 2:
-        ad1 = ax1.plot(V[:,i],adcp_depth,color='#CD853F')
-        ax1.plot(V_m[:,i],grid,color='k',linewidth=0.75)
-    else:
-        ax1.plot(V[:,i],adcp_depth,color='r')  
+f, (ax2,ax3) = plt.subplots(1,2)
+# for i in range(adcp_np):    
+#     if good_prof[i] < 2:
+#         ad1 = ax1.plot(V[:,i],adcp_depth,color='#CD853F')
+#         ax1.plot(V_m[:,i],grid,color='k',linewidth=0.75)
+#     else:
+#         ax1.plot(V[:,i],adcp_depth,color='r')  
 for i in range(dg_np):
     if dg_good_prof_s[i] < 2:    # dg_quiet[0][i] < 1:
         ad1 = ax2.plot(dg_v[:,i],dg_bin,color='#CD853F')
         ax2.plot(dg_v_m_2[:,i],grid,color='k',linestyle='--',linewidth=0.75)   
     else:
         ax2.plot(dg_v[:,i],dg_bin,color='r')     
-ax1.axis([-.6,.6,0,5500])
+ax1.axis([-.6,.6,0,5000])
 ax1.set_xlabel('Meridional Velocity [m/s]',fontsize=14)
-ax1.set_ylabel('Depth [m]',fontsize=14)
+ax2.set_ylabel('Depth [m]',fontsize=14)
 ax1.set_title('Shipboard ADCP (' + str(adcp_np) + ' profiles)')
 ax1.text(.25,5300,'Noisy = '+ str(np.sum(good_prof)),fontsize=8)         
 ax1.invert_yaxis()
 ax1.grid()
-ax2.axis([-.6,.6,0,5500])
-ax2.set_xlabel('Meridional Velocity [m/s]',fontsize=14)
-ax2.set_title('DG Geostrophic Vel. (' + str(dg_np) + ' profiles)')
-ax2.text(-.25,5150,'Noise Thresh. = '+ str(HKE_noise_threshold_strict),fontsize=8) 
-ax2.text(-.25,5300,'Noisy = '+ str(np.sum(dg_good_prof_s)),fontsize=8)         
+ax2.axis([-.6,.6,0,5000])
+ax2.set_xlabel('Cross-Track Velocity [m/s]',fontsize=14)
+ax2.set_title('Geostrophic Velocity',fontsize=18) #  (' + str(dg_np) + ' profiles)')
+# ax2.text(-.25,5150,'Noise Thresh. = '+ str(HKE_noise_threshold_strict),fontsize=8) 
+# ax2.text(-.25,5300,'Noisy = '+ str(np.sum(dg_good_prof_s)),fontsize=8)         
 ax2.invert_yaxis()
 ax2.grid()
 
@@ -766,9 +768,9 @@ for i in range(np.size(mean_dist)): # range(np.size(subset[0])): #
         p37_2 = ax3.plot(df_eta.iloc[:,i],grid,color='#CD853F',linewidth=1,label='DG037')
         p37_f = ax3.plot(Eta_m[:,i],grid,'k--',linewidth=.75)
 ax3.plot([0, 0],[0, 5500],'--k')
-ax3.set_title('DG37 Vertical Disp. (' + str(num_profs) + ' profiles)')
+ax3.set_title('Vertical Displacement',fontsize=18) # (' + str(num_profs) + ' profiles)') # dg37 
 ax3.set_xlabel('Vertical Isopycal Displacement [m]',fontsize=14)
-ax3.axis([-500, 500, 0, 5500])
+ax3.axis([-400, 400, 0, 5000])
 ax3.invert_yaxis()    
 plot_pro(ax3)
        
@@ -974,8 +976,9 @@ plot_pro(ax3)
 # write python dict to a file
 savee = 0
 if savee > 0:
-    mydict = {'bin_depth': bin_depth, 'sigma_theta': df_den,'salin': df_s, 'theta': df_t, 'eta': df_eta, 'eta_m': Eta_m, 'avg_PE': avg_PE, 'f_ref': f_ref, 'c': c, 'G': G}
-    output = open('/Users/jake/Desktop/abaco/abaco_outputs.pkl', 'wb')
+    mydict = {'bin_depth': bin_depth, 'sigma_theta': df_den,'salin': df_s, 'theta': df_t, 'eta': df_eta, 'eta_m': Eta_m, 'avg_PE': avg_PE, 'avg_KE': avg_KE_dg,
+    'k_h': k_h, 'f_ref': f_ref, 'c': c, 'G': G}
+    output = open('/Users/jake/Desktop/abaco/abaco_outputs_2.pkl', 'wb')
     pickle.dump(mydict, output)
     output.close() 
 

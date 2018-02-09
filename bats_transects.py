@@ -172,11 +172,15 @@ for main in range(4):
         bcl = ax0.contour(bath_lon,bath_lat,bath_z,[-4500, -4000],colors='k',zorder=0)
         ml = [(-65,31.5),(-64.4, 32.435)]
         ax0.clabel(bcl,manual = ml, inline_spacing=-3, fmt='%1.0f',colors='k')      
-        dg_a = ax0.plot(df_lon.iloc[:,target_mask_out[0]],df_lat.iloc[:,target_mask_out[0]],color='#8B0000',linewidth=1.5,
-            label='All Dives (' + str(int(profile_list[0])) + '-' + str(int(profile_list[-2])) + ')',zorder=1) 
-        dg_s = ax0.plot(df_lon.iloc[:,target_mask[0]],df_lat.iloc[:,target_mask[0]],color='#FF4500',linewidth=2, label = 'Target:' + str(np.mean([targ_low,targ_high])),zorder=1) 
-        sta_b = ax0.scatter(-(64+(10/60)), 31 + (40/60),s=40,color='#E6E6FA',zorder=2,edgecolors='w')
-        ax0.text(-(64+(10/60)) + .1, 31 + (40/60)-.07,'BATS',color='w')
+        dg_a = ax0.plot(df_lon.iloc[:,target_mask_out[0]],df_lat.iloc[:,target_mask_out[0]],color='#DAA520',linewidth=2,
+            label='Dives (' + str(int(profile_list[0])) + '-' + str(int(profile_list[-2])) + ')',zorder=1)     
+        dg_aa = ax0.scatter(df_lon.iloc[0,target_mask_out[0]],df_lat.iloc[0,target_mask_out[0]],color='#DAA520',s=8,zorder=2)
+        
+        dg_s = ax0.plot(df_lon.iloc[:,target_mask[0]],df_lat.iloc[:,target_mask[0]],color='#FF4500',linewidth=2, label = 'Sample: (Tgt. ' + str(np.int(np.mean([targ_low,targ_high]))) + ')',zorder=1) 
+        dg_ss = ax0.scatter(df_lon.iloc[0,target_mask[0]],df_lat.iloc[0,target_mask[0]],color='#FF4500',s=8,zorder=2)
+        
+        sta_b = ax0.scatter(-(64+(10/60)), 31 + (40/60),s=50,color='#E6E6FA',zorder=2,edgecolors='w')
+        ax0.text(-(64+(10/60)) + .05, 31 + (40/60)-.07,'Sta. BATS',color='w',fontsize=10,fontweight='bold')
         # ax0.scatter(np.nanmean(df_lon.iloc[:,heading_mask[0]],0),np.nanmean(df_lat.iloc[:,heading_mask[0]],0),s=20,color='g')       
         w = 1/np.cos(np.deg2rad(ref_lat))
         ax0.axis([-65.5, -63.35, 31.2, 32.7])
@@ -184,13 +188,13 @@ for main in range(4):
         divider = make_axes_locatable(ax0)
         cax = divider.append_axes("right", size="5%", pad=0.05)
         fig0.colorbar(bc, cax=cax, label='[m]')
-        ax0.set_xlabel('Longitude')
-        ax0.set_ylabel('Latitude')   
+        ax0.set_xlabel('Longitude',fontsize=14)
+        ax0.set_ylabel('Latitude',fontsize=14)   
         t_s = datetime.date.fromordinal(np.int( np.min(time_rec) ))
         t_e = datetime.date.fromordinal(np.int( np.max(time_rec) ))
         handles, labels = ax0.get_legend_handles_labels()
-        ax0.legend([handles[0],handles[-1]],[labels[0], labels[-1]],fontsize=10)
-        ax0.set_title('Select BATS Transects (DG35): ' + np.str(t_s.month) + '/' + np.str(t_s.day) + '/' + np.str(t_s.year) + ' - ' + np.str(t_e.month) + '/' + np.str(t_e.day) + '/' + np.str(t_e.year))
+        ax0.legend([handles[0],handles[-5]],[labels[0], labels[-5]],fontsize=12)
+        ax0.set_title('Deepglider BATS Deployment: ' + np.str(t_s.month) + '/' + np.str(t_s.day) + '/' + np.str(t_s.year) + ' - ' + np.str(t_e.month) + '/' + np.str(t_e.day) + '/' + np.str(t_e.year),fontsize=14)
         plt.tight_layout()
         ax0.grid()
         plot_pro(ax0)
@@ -581,6 +585,12 @@ for main in range(4):
                 plot_pro(ax0)    
         
         if plot_cross > 0: 
+            # output data from one cross section so that it can be used in a schematic 
+            mydict = {'grid': grid, 'Ds': Ds, 'V_g': V_g, 'dive_dist': dist, 'isopyc_x': isopycx, 'isopyc_dep': isopycdep, 'sig_good': sig_good, 'DAC_to_port': Vbt}
+            output = open('/Users/jake/Desktop/bats/schematic_dive.pkl', 'wb')
+            pickle.dump(mydict, output)
+            output.close()
+            
             sns.set(context="notebook", style="whitegrid", rc={"axes.axisbelow": False})
                
             fig0, ax0 = plt.subplots()
@@ -610,10 +620,10 @@ for main in range(4):
             # cax = divider.append_axes("right", size="5%", pad=0.05)
             plt.colorbar(vc, label='[m/s]')
             plt.tight_layout()
+            plot_pro(ax0)
             ax0.grid()
-            # plot_pro(ax0)
-            fig0.savefig( ('/Users/jake/Desktop/BATS/bats_transects/dg035_BATS_TG' + str(int(np.mean([targ_low,targ_high])))+ '_T' + str(ii) + '.png'),dpi = 300)
-            plt.close()    
+            # fig0.savefig( ('/Users/jake/Desktop/BATS/bats_transects/dg035_BATS_TG' + str(int(np.mean([targ_low,targ_high])))+ '_T' + str(ii) + '.png'),dpi = 300)
+            # plt.close()    
     
         # OUTPUT V_g AND Eta from each transect collection so that it PE and KE can be computed 
         # size (m,n) is gridded depths and number of profiles 
@@ -647,7 +657,7 @@ for main in range(4):
 
 ### SAVE 
 # write python dict to a file
-sa = 1
+sa = 0
 if sa > 0:
     mydict = {'bin_depth': grid,'Sigma_Theta': Sigma_Theta_f, 'Eta': Eta, 'Eta_theta': Eta_theta, 'V': V,  'UU': UU,  'VV': VV,  'V_lon': vel_lon,  'V_lat': vel_lat, 'Time': Time, 'Heading': heading_out, 'Info': Info }
     output = open('/Users/jake/Desktop/bats/transect_profiles_jan18.pkl', 'wb')

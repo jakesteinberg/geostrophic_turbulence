@@ -209,20 +209,20 @@ EOFetashape2_BTpBC1 = G[:,1:3]*V_AGqa[0:2,1] # truncated 2 mode shape of EOF#2
 if plot_eta > 0: 
     f, (ax0,ax1) = plt.subplots(1, 2, sharey=True)
     for j in range(num_profs):
-        ax1.plot(Eta2[:,j],grid,color='#CD853F',linewidth=1.25)  
+        ax1.plot(Eta2[:,j],grid,color='#4682B4',linewidth=1.25)  
         ax1.plot(Eta_m[:,j],grid,color='k',linestyle='--',linewidth=.75)    
         # ax0.plot(Eta_theta2[:,j],grid,color='#CD853F',linewidth=.65) 
         # ax0.plot(Eta_theta_m[:,j],grid,color='k',linestyle='--',linewidth=.75)
-        ax0.plot(V2[:,j],grid,color='#CD853F',linewidth=1.25)  
+        ax0.plot(V2[:,j],grid,color='#4682B4',linewidth=1.25)  
         ax0.plot(V_m[:,j],grid,color='k',linestyle='--',linewidth=.75)
-    ax1.axis([-500, 500, 0, 4750]) 
+    ax1.axis([-400, 400, 0, 4750]) 
     ax0.text(190,800,str(num_profs)+' Profiles')
-    ax1.set_xlabel(r'$\xi_{\sigma_{\theta}}$ [m]')
-    ax1.set_title(r'$\xi$ Vertical Isopycnal Disp.') # + '(' + str(Time[0]) + '-' )
+    ax1.set_xlabel(r'Vertical Isopycnal Displacement, $\xi_{\sigma_{\theta}}$ [m]',fontsize=14)
+    ax1.set_title(r'Isopycnal Displacement',fontsize=18) # + '(' + str(Time[0]) + '-' )
     ax0.axis([-.4, .4, 0, 4750]) 
-    ax0.set_title("BATS15 Cross-track u (" + str(num_profs) + 'profiles)' )
-    ax0.set_ylabel('Depth [m]',fontsize=14)
-    ax0.set_xlabel('u [m/s]',fontsize=14)
+    ax0.set_title("Geostrophic Velocity",fontsize=18) # (" + str(num_profs) + 'profiles)' )
+    ax0.set_ylabel('Depth [m]',fontsize=16)
+    ax0.set_xlabel('Cross-Track Velocity, U [m/s]',fontsize=14)
     ax0.invert_yaxis() 
     ax0.grid()    
     plot_pro(ax1)
@@ -235,23 +235,23 @@ if plot_eta > 0:
     colors = plt.cm.Dark2(np.arange(0,4,1))
     for ii in range(max_plot):
         ax1.plot(Gz[:,ii], grid,color='#2F4F4F',linestyle='--')
-        p_eof=ax1.plot(-EOFshape[:,ii], grid,color=colors[ii,:],label='EOF # = ' + str(ii+1),linewidth=2)
+        p_eof=ax1.plot(-EOFshape[:,ii], grid,color=colors[ii,:],label='EOF # = ' + str(ii+1),linewidth=2.5)
     handles, labels = ax1.get_legend_handles_labels()    
     ax1.legend(handles,labels,fontsize=10)    
-    ax1.axis([-4,4,0,5000])    
+    ax1.axis([-4,4,0,4750])    
     ax1.invert_yaxis()
-    ax1.set_title('BATS DG EOF Mode Shapes (DG)')
-    ax1.set_ylabel('Depth [m]')
-    ax1.set_xlabel('Hor. Vel. Mode Shapes (DG)')
+    ax1.set_title('EOF Velocity Mode Shapes',fontsize=18)
+    ax1.set_ylabel('Depth [m]',fontsize=16)
+    ax1.set_xlabel('Normalized Mode Amp.',fontsize=14)
     ax1.grid()    
     for ii in range(max_plot):
         ax2.plot(G[:,ii+1]/np.max(grid),grid,color='#2F4F4F',linestyle='--')
-        p_eof_eta=ax2.plot(-EOFetashape[:,ii]/np.max(grid), grid,color=colors[ii,:],label='EOF # = ' + str(ii+1),linewidth=2)
+        p_eof_eta=ax2.plot(-EOFetashape[:,ii]/np.max(grid), grid,color=colors[ii,:],label='EOF # = ' + str(ii+1),linewidth=2.5)
     handles, labels = ax2.get_legend_handles_labels()    
     ax2.legend(handles,labels,fontsize=10)    
-    ax2.axis([-.7,.7,0,5000])    
-    ax2.set_title('EOF Mode Shapes (DG)')
-    ax2.set_xlabel('Vert. Disp. Mode Shapes')
+    ax2.axis([-.7,.7,0,4750])    
+    ax2.set_title('EOF Displacement Mode Shapes',fontsize=18)
+    ax2.set_xlabel('Normalized Mode Amp.',fontsize=14)
     ax2.invert_yaxis()    
     plot_pro(ax2)
 
@@ -285,7 +285,7 @@ yy = avg_PE[1:]/dk
 # np.savetxt('test_line_fit_x',xx)
 # np.savetxt('test_line_fit_y',yy)
 ### index 11 is the point where the break in slope occurs 
-ipoint = 6 # 11 
+ipoint = 8 # 11 
 x_53 = np.log10(xx[0:ipoint])
 y_53 = np.log10(yy[0:ipoint])
 slope1 = np.polyfit(x_53,y_53,1)
@@ -331,55 +331,88 @@ plot_comp = 0
 if plot_eng > 0:    
     if plot_spec > 0:
         fig0, ax0 = plt.subplots()
-        PE_p = ax0.plot(sc_x,avg_PE[1:]/dk,color='#B22222',label='PE',linewidth=1.5)
+        PE_p = ax0.plot(sc_x,avg_PE[1:]/dk,color='#B22222',label='APE',linewidth=2)
         # PE_sta_p = ax0.plot((1000)*sta_bats_f/sta_bats_c[1:],sta_bats_pe[1:]/sta_bats_dk,color='#FF8C00',label='$PE_{ship}$',linewidth=1.5)
-        KE_p = ax0.plot(sc_x,avg_KE[1:]/dk,'g',label='KE',linewidth=1.5)        
-        ax0.scatter(sc_x,avg_PE[1:]/dk,color='#B22222',s=10) # DG PE
+        KE_p = ax0.plot(sc_x,avg_KE[1:]/dk,'g',label='KE',linewidth=2)        
+        ax0.scatter(sc_x,avg_PE[1:]/dk,color='#B22222',s=12) # DG PE
         # ax0.scatter((1000)*sta_bats_f/sta_bats_c[1:],sta_bats_pe[1:]/sta_bats_dk,color='#FF8C00',s=10) # BATS PE
-        ax0.scatter(sc_x,avg_KE[1:]/dk,color='g',s=10) # DG KE
+        ax0.scatter(sc_x,avg_KE[1:]/dk,color='g',s=12) # DG KE
         
         # Obj. Map 
-        KE_om_u = ax0.plot(sx_c_om,ke_om_u[1:]/dk_om,'b',label='$KE_u$',linewidth=1.5)        
-        ax0.scatter(sx_c_om,ke_om_u[1:]/dk_om,color='b',s=10) # DG KE
-        KE_om_u = ax0.plot(sx_c_om,ke_om_v[1:]/dk_om,'c',label='$KE_v$',linewidth=1.5)        
-        ax0.scatter(sx_c_om,ke_om_v[1:]/dk_om,color='c',s=10) # DG KE
+        # KE_om_u = ax0.plot(sx_c_om,ke_om_u[1:]/dk_om,'b',label='$KE_u$',linewidth=1.5)        
+        # ax0.scatter(sx_c_om,ke_om_u[1:]/dk_om,color='b',s=10) # DG KE
+        # KE_om_u = ax0.plot(sx_c_om,ke_om_v[1:]/dk_om,'c',label='$KE_v$',linewidth=1.5)        
+        # ax0.scatter(sx_c_om,ke_om_v[1:]/dk_om,color='c',s=10) # DG KE
         
         # Slope fits 
-        ax0.plot(vert_wave*1000,one,color='b',linewidth=0.75)
-        ax0.plot(10**x_53, 10**y_g_53,color='r',linewidth=0.5,linestyle='--')
-        ax0.plot(10**x_3, 10**y_g_3,color='r',linewidth=0.5,linestyle='--')
-        ax0.text(10**x_53[0]-.01, 10**y_g_53[0],str(float("{0:.2f}".format(slope1[0]))),fontsize=8)
-        ax0.text(10**x_3[0]+.075, 10**y_g_3[0],str(float("{0:.2f}".format(slope2[0]))),fontsize=8)
-        ax0.plot([xx[ipoint], xx[ipoint]],[3*10**(-4), 2*10**(-3)],color='k',linewidth=2)
-        ax0.text(xx[ipoint+1], 2*10**(-3), str('=') + str(float("{0:.2f}".format(xx[ipoint])))+'km')
+        ax0.plot(vert_wave*1000,one,color='b',linewidth=1,label=r'APE$_{fit}$')
+        ax0.plot(10**x_53, 10**y_g_53,color='k',linewidth=1,linestyle='--')
+        ax0.plot(10**x_3, 10**y_g_3,color='k',linewidth=1,linestyle='--')
+        ax0.text(10**x_53[0]-.01, 10**y_g_53[0],str(float("{0:.2f}".format(slope1[0]))),fontsize=10)
+        ax0.text(10**x_3[0]+.065, 10**y_g_3[0],str(float("{0:.2f}".format(slope2[0]))),fontsize=10)
+        ax0.scatter(vert_wave[ipoint]*1000,one[ipoint],color='b',s=7)
+        ax0.plot([xx[ipoint], xx[ipoint]],[10**(-4), 4*10**(-4)],color='k',linewidth=2)
+        ax0.text(xx[ipoint+1], 2*10**(-4), str('Slope break at ') + str(float("{0:.1f}".format(1/xx[ipoint])))+'km')
+        
+        # Rossby Radii
+        ax0.plot([sc_x[0], sc_x[0]],[10**(-4), 4*10**(-4)],color='k',linewidth=2)
+        ax0.text(sc_x[0]+.2*10**-2, 4*10**(-4), str(r'$c_1/f$ = ') + str(float("{0:.1f}".format(1/sc_x[0])))+'km')
         
         # GM 
         ax0.plot(sc_x,0.25*PE_GM/dk,linestyle='--',color='#B22222',linewidth=0.75)
-        ax0.text(sc_x[0]-.014,.25*PE_GM[1]/dk,r'$\frac{1}{4}PE_{GM}$',fontsize=12)   
+        ax0.text(sc_x[0]-.01,.25*PE_GM[1]/dk,r'$\frac{1}{4}PE_{GM}$',fontsize=14)   
         
         # Limits/scales 
         # ax0.plot( [3*10**-1, 3*10**0], [1.5*10**1, 1.5*10**-2],color='k',linewidth=0.75)
         # ax0.plot([3*10**-2, 3*10**-1],[7*10**2, ((5/3)*(np.log10(2*10**-1) - np.log10(2*10**-2) ) +  np.log10(7*10**2) )] ,color='k',linewidth=0.75)
         # ax0.text(3.3*10**-1,1.3*10**1,'-3',fontsize=10)
         # ax0.text(3.3*10**-2,6*10**2,'-5/3',fontsize=10)
-        ax0.plot( [1000*f_ref/c[1], 1000*f_ref/c[-2]],[1000*f_ref/c[1], 1000*f_ref/c[-2]],linestyle='--',color='k',linewidth=0.8)
-        ax0.text( 1000*f_ref/c[-2]+.1, 1000*f_ref/c[-2], r'f/c$_m$',fontsize=10)
-        ax0.plot(sc_x,k_h,color='k',linewidth=.9,label=r'$k_h$')
-        ax0.text(sc_x[0]-.008,k_h[0]-.011,r'$k_{h}$ [km$^{-1}$]',fontsize=10)
+        # ax0.plot( [1000*f_ref/c[1], 1000*f_ref/c[-2]],[1000*f_ref/c[1], 1000*f_ref/c[-2]],linestyle='--',color='k',linewidth=0.8)
+        # ax0.text( 1000*f_ref/c[-2]+.1, 1000*f_ref/c[-2], r'f/c$_m$',fontsize=10)
+        # ax0.plot(sc_x,k_h,color='k',linewidth=.9,label=r'$k_h$')
+        # ax0.text(sc_x[0]-.008,k_h[0]-.011,r'$k_{h}$ [km$^{-1}$]',fontsize=10)
          
         ax0.set_yscale('log')
         ax0.set_xscale('log')
-        ax0.axis([10**-2, 10**1, 3*10**(-4), 2*10**(3)])
-        ax0.set_xlabel(r'Scaled Vertical Wavenumber = (Rossby Radius)$^{-1}$ = $\frac{f}{c_m}$ [$km^{-1}$]',fontsize=14)
-        ax0.set_ylabel('Spectral Density, Hor. Wavenumber',fontsize=14) # ' (and Hor. Wavenumber)')
-        ax0.set_title('DG 2015 BATS Deployment (Energy Spectra)',fontsize=14)
+        ax0.axis([10**-2, 10**1, 10**(-4), 2*10**(3)])
+        ax0.axis([10**-2, 10**1, 10**(-4), 10**(3)])
+        ax0.set_xlabel(r'Scaled Vertical Wavenumber = (Rossby Radius)$^{-1}$ = $\frac{f}{c_n}$ [$km^{-1}$]',fontsize=18)
+        ax0.set_ylabel('Spectral Density',fontsize=18) # ' (and Hor. Wavenumber)')
+        ax0.set_title('Energy Spectrum',fontsize=20)
         handles, labels = ax0.get_legend_handles_labels()
-        ax0.legend([handles[0],handles[1],handles[2],handles[3]],[labels[0], labels[1], labels[2], labels[3]],fontsize=12)
+        ax0.legend([handles[0],handles[1],handles[2]],[labels[0], labels[1], labels[2]],fontsize=14)
+        # ax0.legend([handles[0],handles[1],handles[2],handles[3]],[labels[0], labels[1], labels[2], labels[3]],fontsize=12)
         plt.tight_layout()
         plot_pro(ax0)
         # fig0.savefig('/Users/jake/Desktop/bats/dg035_15_PE_b.png',dpi = 300)
         # plt.close()
         # plt.show()
+        
+        # additional plot to highlight the ratio of KE to APE to predict the scale of motion
+        fig0, ax0 = plt.subplots()
+        # Limits/scales 
+        ax0.plot( [1000*f_ref/c[1], 1000*f_ref/c[-2]],[1000*f_ref/c[1], 1000*f_ref/c[-2]],linestyle='--',color='k',linewidth=1.5,zorder=2,label=r'$L_n^{-1}$')
+        ax0.text( 1000*f_ref/c[-2]+.1, 1000*f_ref/c[-2], r'f/c$_n$',fontsize=14)
+        ax0.plot(sc_x,k_h,color='k',label=r'$k_h$',linewidth=1.5)
+        # ax0.text(sc_x[0]-.008,k_h[0]-.011,r'$k_{h}$ [km$^{-1}$]',fontsize=14)
+        xx_fill = 1000*f_ref/c[1:]
+        yy_fill = 1000*f_ref/c[1:]
+        # ax0.fill_between(xx_fill, yy_fill, k_h, color='b',interpolate=True)
+        ax0.fill_between(xx_fill, yy_fill, k_h, where=yy_fill >= k_h, facecolor='#FAEBD7', interpolate=True,alpha=0.75)
+        ax0.fill_between(xx_fill, yy_fill, k_h, where=yy_fill <= k_h, facecolor='#6B8E23', interpolate=True,alpha=0.75)
+        
+        ax0.set_yscale('log')
+        ax0.set_xscale('log')
+        # ax0.axis([10**-2, 10**1, 3*10**(-4), 2*10**(3)])
+        ax0.axis([10**-2, 10**1, 10**(-3), 10**(3)])
+        ax0.set_title('Predicted Horizontal Length Scale',fontsize=18)
+        ax0.set_xlabel(r'Inverse Deformation Radius ($L_n$)$^{-1}$ = $\frac{f}{c_n}$ [$km^{-1}$]',fontsize=18)
+        ax0.set_ylabel(r'Horizontal Wavenumber [$km^{-1}$]',fontsize=18) 
+        handles, labels = ax0.get_legend_handles_labels()
+        ax0.legend([handles[0],handles[1]],[labels[0], labels[1]],fontsize=14)
+        ax0.set_aspect('equal')
+        plt.tight_layout()
+        plot_pro(ax0)
 
     if plot_comp > 0: 
         ############## ABACO BATS COMPARISON ################
@@ -447,18 +480,19 @@ if plot_eng > 0:
         ax0.set_xlabel('Vertical Mode Number')
         ax0.set_ylabel('Energy (variance per vert. wave number)')
         ax0.set_title('PE Comparison')
-        ax0.grid()  
-        fig0.savefig('/Users/jake/Desktop/bats/dg035_15_PE_mode_comp_b_test.png',dpi = 300)
-        plt.close()
+        plot_pro(ax0)
+        # ax0.grid()  
+        # fig0.savefig('/Users/jake/Desktop/bats/dg035_15_PE_mode_comp_b_test.png',dpi = 300)
+        # plt.close()
     
 ####### 
 # PE COMPARISON BETWEEN HOTS, BATS_SHIP, AND BATS_DG
 # load in Station BATs PE Comparison
 SH = si.loadmat('/Users/jake/Desktop/bats/station_hots_pe.mat')
-sta_hots_pe = SH['out'][0][0][0]
+sta_hots_pe = SH['out']['PE'][0][0]
 sta_hots_c = SH['out'][0][0][3]
 sta_hots_f = SH['out'][0][0][2]
-sta_hots_dk = SH['out'][0][0][1]
+sta_hots_dk = SH['out']['dk'][0][0]
 
 fig0, ax0 = plt.subplots()
 ax0.plot( [3*10**-1, 3*10**0], [1.5*10**1, 1.5*10**-2],color='k',linewidth=0.75)
@@ -481,25 +515,46 @@ plot_pro(ax0)
 
 
 # LOAD NEARBY ABACO 
-# pkl_file = open('/Users/jake/Desktop/abaco/abaco_outputs.pkl', 'rb')
-# abaco_energies = pickle.load(pkl_file)
-# pkl_file.close()   
+pkl_file = open('/Users/jake/Desktop/abaco/abaco_outputs_2.pkl', 'rb')
+abaco_energies = pickle.load(pkl_file)
+pkl_file.close()   
 
-# fig0, ax0 = plt.subplots()
-# mode_num = np.arange(1,61,1)
-# PE_p = ax0.plot(mode_num,avg_PE[1:]/dk,label=r'$BATS_{DG}$')
-# PE_sta_p = ax0.plot(mode_num,sta_bats_pe[1:]/sta_bats_dk,label=r'$BATS_{ship}$')
-# PE_ab = ax0.plot(mode_num,abaco_energies['avg_PE'][1:]/(abaco_energies['f_ref']/abaco_energies['c'][1]),label=r'$ABACO_{DG}$')
-### PE_sta_hots = ax0.plot(mode_num,sta_hots_pe[1:]/sta_hots_dk,label=r'$HOTS_{ship}$')
-# ax0.set_xlabel('Mode Number',fontsize=13)
-# ax0.set_ylabel('Spectral Density',fontsize=13)
-# ax0.set_title('Potential Energy Spectra (Site/Platform Comparison)',fontsize=14)
-# ax0.set_yscale('log')
-# ax0.set_xscale('log')
+# pe comp 
+fig0, ax0 = plt.subplots()
+mode_num = np.arange(1,61,1)
+PE_sta_p = ax0.plot(mode_num,sta_bats_pe[1:]/sta_bats_dk,label=r'BATS$_{ship}$',linewidth=2)
+## PE_ab = ax0.plot(mode_num,abaco_energies['avg_PE'][1:]/(abaco_energies['f_ref']/abaco_energies['c'][1]),label=r'$ABACO_{DG}$')
+PE_sta_hots = ax0.plot(mode_num,sta_hots_pe[1:]/sta_hots_dk,label=r'HOTS$_{ship}$',linewidth=2)
+PE_p = ax0.plot(mode_num,avg_PE[1:]/dk,label=r'BATS$_{DG}$',color='#708090',linewidth=1)
+ax0.set_xlabel('Mode Number',fontsize=16)
+ax0.set_ylabel('Spectral Density',fontsize=16)
+ax0.set_title('Potential Energy Spectra (Site Comparison)',fontsize=18)
+ax0.set_yscale('log')
+ax0.set_xscale('log')
 # ax0.axis([8*10**-1, 10**2, 3*10**(-4), 2*10**(3)])
-# handles, labels = ax0.get_legend_handles_labels()
-# ax0.legend(handles,labels,fontsize=12)
-# plot_pro(ax0)
+ax0.axis([8*10**-1, 10**2, 3*10**(-4), 10**(3)])
+handles, labels = ax0.get_legend_handles_labels()
+ax0.legend(handles,labels,fontsize=12)
+plot_pro(ax0)
+
+# abaco_bats_comp
+fig0, ax0 = plt.subplots()
+mode_num = np.arange(1,61,1)
+PE_ab = ax0.plot(mode_num,abaco_energies['avg_PE'][1:]/(abaco_energies['f_ref']/abaco_energies['c'][1]),label=r'APE ABACO$_{DG}$',linewidth=2,color='r')
+KE_ab = ax0.plot(mode_num,abaco_energies['avg_KE'][1:]/(abaco_energies['f_ref']/abaco_energies['c'][1]),label=r'KE ABACO$_{DG}$',linewidth=2,color='g')
+# PE_sta_hots = ax0.plot(mode_num,sta_hots_pe[1:]/sta_hots_dk,label=r'HOTS$_{ship}$',linewidth=2)
+PE_p = ax0.plot(mode_num,4*avg_PE[1:]/dk,label=r'APE BATS$_{DG}$',color='#F08080',linewidth=1)
+KE_p = ax0.plot(mode_num,avg_KE[1:]/dk,'g',label=r'KE BATS$_{DG}$',color='#90EE90',linewidth=1)   
+ax0.set_xlabel('Mode Number',fontsize=16)
+ax0.set_ylabel('Spectral Density',fontsize=16)
+ax0.set_title('ABACO / BATS Comparison',fontsize=18)
+ax0.set_yscale('log')
+ax0.set_xscale('log')
+# ax0.axis([8*10**-1, 10**2, 3*10**(-4), 2*10**(3)])
+ax0.axis([8*10**-1, 10**2, 3*10**(-4), 10**(3)])
+handles, labels = ax0.get_legend_handles_labels()
+ax0.legend(handles,labels,fontsize=12)
+plot_pro(ax0)
 
 # WORK ON CURVE FITTING TO FIND BREAK IN SLOPES 
 # xx = sc_x
