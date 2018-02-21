@@ -172,9 +172,9 @@ AGzq = AGz #(:,quiet_prof)
 nq = np.size(good_prof) # good_prof and dg_good_prof
 avg_AGzq = np.nanmean(np.transpose(AGzq),axis=0)
 AGzqa = AGzq - np.transpose(np.tile(avg_AGzq,[nq,1])) # mode amplitude anomaly matrix
-cov_AGzqa = (1/nq)*np.matrix(AGzqa)*np.matrix(np.transpose(AGzqa)) # nmodes X nmodes covariance matrix
-var_AGzqa = np.transpose(np.matrix(np.sqrt(np.diag(cov_AGzqa))))*np.matrix(np.sqrt(np.diag(cov_AGzqa)))
-cor_AGzqa = cov_AGzqa/var_AGzqa # nmodes X nmodes correlation matrix
+cov_AGzqa = (1/nq)*np.matrix(AGzqa)*np.matrix(np.transpose(AGzqa)) # nmodes X nmodes covariance matrix (squared mode amplitude anomaly / number of profiles) = covariance 
+var_AGzqa = np.transpose(np.matrix(np.sqrt(np.diag(cov_AGzqa))))*np.matrix(np.sqrt(np.diag(cov_AGzqa))) # sqrt(cov)*sqrt(cov) = varaince
+cor_AGzqa = cov_AGzqa/var_AGzqa # nmodes X nmodes correlation matrix (cov/var) = correlation (look at how mode amplitude anomalies are correlated) => to look at shape of eigenfunctions of the correlation matrix (project the shape of the eigenfunctions onto the vertical structure G, Gz )
 
 D_AGzqa,V_AGzqa = np.linalg.eig(cov_AGzqa) # columns of V_AGzqa are eigenvectors 
  

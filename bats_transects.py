@@ -28,6 +28,11 @@ bath_lon = bath_fid.variables['lon'][:]
 bath_lat = bath_fid.variables['lat'][:]
 bath_z = bath_fid.variables['elevation'][:]
 
+fig, ax = plt.subplots()
+ax.plot(bath_lon,bath_z[np.where( (bath_lat > 31.69) & (bath_lat < 31.7)  )[0][0],:])
+ax.axis([np.min(bath_lon),np.max(bath_lon),-5250,0])
+plot_pro(ax)
+
 ## gliders 
 dg_list = glob.glob('/Users/jake/Documents/baroclinic_modes/DG/sg035_BATS_2015/p*.nc')
 
