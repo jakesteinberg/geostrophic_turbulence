@@ -5,9 +5,6 @@ import seawater as sw
 import pandas as pd
 from scipy.io import netcdf
 import pickle
-from matplotlib import cm
-# functions I've written
-from toolkit import cart2pol, pol2cart, plot_pro
 
 # LOAD DATA (gridded dives)
 GD = netcdf.netcdf_file('BATs_2015_gridded_2.nc', 'r')
@@ -50,7 +47,7 @@ time_rec = GD.variables['time_start_stop'][good]
 heading_rec = GD.variables['heading_record'][good]
 profile_list = np.float64(GD.variables['dive_list'][good]) - 35000
 
-#### LOAD IN TRANSECT TO PROFILE DATA COMPILED IN BATS_TRANSECTS.PY
+# -------------- LOAD IN TRANSECT TO PROFILE DATA COMPILED IN BATS_TRANSECTS.PY
 pkl_file = open('/Users/jake/Documents/geostrophic_turbulence/BATS_obj_map_2.pkl', 'rb')
 bats_trans = pickle.load(pkl_file)
 pkl_file.close()
@@ -71,8 +68,8 @@ x_grid = 1852 * 60 * np.cos(np.deg2rad(ref_lat)) * (lon_grid_all - ref_lon)
 y_grid = 1852 * 60 * (lat_grid_all - ref_lat)
 x1, y1 = np.meshgrid(x_grid, y_grid)
 
-######################################## PLOTTING POSSIBILITIES 
-###### LOOK AT DENSITY CROSS-SECTIONS #######
+# ------------- PLOTTING POSSIBILITIES
+# --------LOOK AT DENSITY CROSS-SECTIONS
 # fixed_lat = 7
 # fixed_lon = 10
 # levels_rho = np.concatenate((np.array([26,26.2,26.4,26.8,27,27.2,27.6]), np.arange(27.68,28.2,0.02)))
@@ -98,50 +95,70 @@ x1, y1 = np.meshgrid(x_grid, y_grid)
 # fig.savefig( ('/Users/jake/Desktop/BATS/bats_mapping/cross_map_' + str(k_out) + '.png'),dpi = 300)
 # plt.close()
 
-###### PLAN VIEW #######
+# ------------ PLAN VIEW
 # k1 = 50
 # k2 = 100
 # k3 = 150
 # lim = 50
 # fig, ax_ar = plt.subplots(2,3,sharey=True,sharex=True)
 
-# cont_data = np.array(df_den.iloc[np.where(grid==grid[k1])[0][0],time_in])
-# this_x = 1852*60*np.cos(np.deg2rad(ref_lat))*( np.array(df_lon.iloc[np.where(grid==grid[k1])[0][0],time_in]) - ref_lon )
-# this_y = 1852*60*np.cos(np.deg2rad(ref_lat))*( np.array(df_lat.iloc[np.where(grid==grid[k1])[0][0],time_in]) - ref_lat )
-# ax_ar[0,0].scatter(this_x/1000,this_y/1000,c=np.array(df_den.iloc[np.where(grid==grid[k1])[0][0],time_in]),s=60,cmap=plt.cm.coolwarm,zorder=2,vmin=np.min(cont_data),vmax=np.max(cont_data)
-# im = ax_ar[0,0].pcolor(x1/1000, y1/1000, sigma_theta[:,:,k1], cmap=plt.cm.coolwarm,zorder=0,vmin=np.min(cont_data),vmax=np.max(cont_data))
-# ax_ar[0,0].quiver(d_x/1000,d_y/1000,d_u_in,d_v_in, color='k',angles='xy', scale_units='xy', scale=.005,zorder=1)
-# ax_ar[0,0].quiver(x1/1000, y1/1000, U_g[:,:,k1], V_g[:,:,k1], color='g',angles='xy', scale_units='xy', scale=.005,zorder=1)
-# ax_ar[0,0].plot( np.array([x_grid[0],x_grid[-1]])/1000,np.array([y_grid[fixed_lat],y_grid[fixed_lat]])/1000,color='k',linestyle='--',zorder=3,linewidth=0.5)
-# ax_ar[0,0].plot( np.array([x_grid[fixed_lon],x_grid[fixed_lon]])/1000,np.array([y_grid[0],y_grid[-1]])/1000,color='k',linestyle='--',zorder=3,linewidth=0.5)
-# ax_ar[0,0].set_title('Obj. map at ' + str(grid[k1]) + 'm')
-# ax_ar[0,0].axis([-lim,lim,-lim,lim])
-# ax_ar[0,0].grid()
-# plt.colorbar(im,ax=ax_ar[0,0],orientation='horizontal')
-
-# cont_data = np.array(df_den.iloc[np.where(grid==grid[k2])[0][0],time_in])
-# this_x = 1852*60*np.cos(np.deg2rad(ref_lat))*( np.array(df_lon.iloc[np.where(grid==grid[k2])[0][0],time_in]) - ref_lon )
-# this_y = 1852*60*np.cos(np.deg2rad(ref_lat))*( np.array(df_lat.iloc[np.where(grid==grid[k2])[0][0],time_in]) - ref_lat )
-# ax_ar[0,1].scatter(this_x/1000,this_y/1000,c=np.array(df_den.iloc[np.where(grid==grid[k2])[0][0],time_in]),s=60,cmap=plt.cm.coolwarm,zorder=2,vmin=np.min(cont_data),vmax=np.max(cont_data)
-# im = ax_ar[0,1].pcolor(x1/1000, y1/1000, sigma_theta[:,:,k2], cmap=plt.cm.coolwarm,zorder=0,vmin=np.min(cont_data),vmax=np.max(cont_data))
-# ax_ar[0,1].quiver(d_x/1000,d_y/1000,d_u_in,d_v_in, color='k',angles='xy', scale_units='xy', scale=.005,zorder=1)
-# ax_ar[0,1].quiver(x1/1000, y1/1000, U_g[:,:,k2], V_g[:,:,k2], color='g',angles='xy', scale_units='xy', scale=.005,zorder=1)
-# ax_ar[0,1].set_title('Obj. map at ' + str(grid[k2]) + 'm')
-# ax_ar[0,1].axis([-lim,lim,-lim,lim])
-# ax_ar[0,1].grid()
-# plt.colorbar(im,ax=ax_ar[0,1],orientation='horizontal')
-
-# cont_data = np.array(df_den.iloc[np.where(grid==grid[k3])[0][0],time_in])
-# this_x = 1852*60*np.cos(np.deg2rad(ref_lat))*( np.array(df_lon.iloc[np.where(grid==grid[k3])[0][0],time_in]) - ref_lon )
-# this_y = 1852*60*np.cos(np.deg2rad(ref_lat))*( np.array(df_lat.iloc[np.where(grid==grid[k3])[0][0],time_in]) - ref_lat )
-# ax_ar[0,2].scatter(this_x/1000,this_y/1000,c=np.array(df_den.iloc[np.where(grid==grid[k3])[0][0],time_in]),s=60,cmap=plt.cm.coolwarm,zorder=2,vmin=np.min(cont_data),vmax=np.max(cont_data)
-# im = ax_ar[0,2].pcolor(x1/1000, y1/1000, sigma_theta[:,:,k3], cmap=plt.cm.coolwarm,zorder=0,vmin=np.min(cont_data),vmax=np.max(cont_data))
-# ax_ar[0,2].quiver(d_x/1000,d_y/1000,d_u_in,d_v_in, color='k',angles='xy', scale_units='xy', scale=.005,zorder=1)
-# ax_ar[0,2].quiver(x1/1000, y1/1000, U_g[:,:,k3], V_g[:,:,k3], color='g',angles='xy', scale_units='xy', scale=.005,zorder=1)
-# ax_ar[0,2].set_title('Obj. map at ' + str(grid[k3]) + 'm')
-# ax_ar[0,2].axis([-lim,lim,-lim,lim])
-# ax_ar[0,2].grid()
-# plt.colorbar(im,ax=ax_ar[0,2],orientation='horizontal')
+# cont_data = np.array(df_den.iloc[np.where(grid == grid[k1])[0][0], time_in])
+# this_x = 1852 * 60 * np.cos(np.deg2rad(ref_lat)) * (
+#             np.array(df_lon.iloc[np.where(grid == grid[k1])[0][0], time_in]) - ref_lon)
+# this_y = 1852 * 60 * np.cos(np.deg2rad(ref_lat)) * (
+#             np.array(df_lat.iloc[np.where(grid == grid[k1])[0][0], time_in]) - ref_lat)
+# ax_ar[0, 0].scatter(this_x / 1000, this_y / 1000, c=np.array(df_den.iloc[np.where(grid == grid[k1])[0][0], time_in]),
+#                     s=60, cmap=plt.cm.coolwarm, zorder=2, vmin=np.min(cont_data), vmax=np.max(cont_data)
+# im = ax_ar[0, 0].pcolor(x1 / 1000, y1 / 1000, sigma_theta[:, :, k1], cmap=plt.cm.coolwarm, zorder=0,
+#                         vmin=np.min(cont_data), vmax=np.max(cont_data))
+# ax_ar[0, 0].quiver(d_x / 1000, d_y / 1000, d_u_in, d_v_in, color='k', angles='xy', scale_units='xy', scale=.005,
+#                    zorder=1)
+# ax_ar[0, 0].quiver(x1 / 1000, y1 / 1000, U_g[:, :, k1], V_g[:, :, k1], color='g', angles='xy', scale_units='xy',
+#                    scale=.005, zorder=1)
+# ax_ar[0, 0].plot(np.array([x_grid[0], x_grid[-1]]) / 1000, np.array([y_grid[fixed_lat], y_grid[fixed_lat]]) / 1000,
+#                  color='k', linestyle='--', zorder=3, linewidth=0.5)
+# ax_ar[0, 0].plot(np.array([x_grid[fixed_lon], x_grid[fixed_lon]]) / 1000, np.array([y_grid[0], y_grid[-1]]) / 1000,
+#                  color='k', linestyle='--', zorder=3, linewidth=0.5)
+# ax_ar[0, 0].set_title('Obj. map at ' + str(grid[k1]) + 'm')
+# ax_ar[0, 0].axis([-lim, lim, -lim, lim])
+# ax_ar[0, 0].grid()
+# plt.colorbar(im, ax=ax_ar[0, 0], orientation='horizontal')
+#
+# cont_data = np.array(df_den.iloc[np.where(grid == grid[k2])[0][0], time_in])
+# this_x = 1852 * 60 * np.cos(np.deg2rad(ref_lat)) * (
+#             np.array(df_lon.iloc[np.where(grid == grid[k2])[0][0], time_in]) - ref_lon)
+# this_y = 1852 * 60 * np.cos(np.deg2rad(ref_lat)) * (
+#             np.array(df_lat.iloc[np.where(grid == grid[k2])[0][0], time_in]) - ref_lat)
+# ax_ar[0, 1].scatter(this_x / 1000, this_y / 1000, c=np.array(df_den.iloc[np.where(grid == grid[k2])[0][0], time_in]),
+#                     s=60, cmap=plt.cm.coolwarm, zorder=2, vmin=np.min(cont_data), vmax=np.max(cont_data)
+# im = ax_ar[0, 1].pcolor(x1 / 1000, y1 / 1000, sigma_theta[:, :, k2], cmap=plt.cm.coolwarm, zorder=0,
+#                         vmin=np.min(cont_data), vmax=np.max(cont_data))
+# ax_ar[0, 1].quiver(d_x / 1000, d_y / 1000, d_u_in, d_v_in, color='k', angles='xy', scale_units='xy', scale=.005,
+#                    zorder=1)
+# ax_ar[0, 1].quiver(x1 / 1000, y1 / 1000, U_g[:, :, k2], V_g[:, :, k2], color='g', angles='xy', scale_units='xy',
+#                    scale=.005, zorder=1)
+# ax_ar[0, 1].set_title('Obj. map at ' + str(grid[k2]) + 'm')
+# ax_ar[0, 1].axis([-lim, lim, -lim, lim])
+# ax_ar[0, 1].grid()
+# plt.colorbar(im, ax=ax_ar[0, 1], orientation='horizontal')
+#
+# cont_data = np.array(df_den.iloc[np.where(grid == grid[k3])[0][0], time_in])
+# this_x = 1852 * 60 * np.cos(np.deg2rad(ref_lat)) * (
+#             np.array(df_lon.iloc[np.where(grid == grid[k3])[0][0], time_in]) - ref_lon)
+# this_y = 1852 * 60 * np.cos(np.deg2rad(ref_lat)) * (
+#             np.array(df_lat.iloc[np.where(grid == grid[k3])[0][0], time_in]) - ref_lat)
+# ax_ar[0, 2].scatter(this_x / 1000, this_y / 1000, c=np.array(df_den.iloc[np.where(grid == grid[k3])[0][0], time_in]),
+#                     s=60, cmap=plt.cm.coolwarm, zorder=2, vmin=np.min(cont_data), vmax=np.max(cont_data)
+# im = ax_ar[0, 2].pcolor(x1 / 1000, y1 / 1000, sigma_theta[:, :, k3], cmap=plt.cm.coolwarm, zorder=0,
+#                         vmin=np.min(cont_data), vmax=np.max(cont_data))
+# ax_ar[0, 2].quiver(d_x / 1000, d_y / 1000, d_u_in, d_v_in, color='k', angles='xy', scale_units='xy', scale=.005,
+#                    zorder=1)
+# ax_ar[0, 2].quiver(x1 / 1000, y1 / 1000, U_g[:, :, k3], V_g[:, :, k3], color='g', angles='xy', scale_units='xy',
+#                    scale=.005, zorder=1)
+# ax_ar[0, 2].set_title('Obj. map at ' + str(grid[k3]) + 'm')
+# ax_ar[0, 2].axis([-lim, lim, -lim, lim])
+# ax_ar[0, 2].grid()
+# plt.colorbar(im, ax=ax_ar[0, 2], orientation='horizontal')
 #
 # im = ax_ar[1,0].pcolor(x1/1000, y1/1000, error[:,:,k1], cmap=plt.cm.plasma,zorder=0) # ,vmin=0.0005,vmax=.02)
 # ax_ar[1,0].scatter(x1[good_prof[0],good_prof[1]]/1000,y1[good_prof[0],good_prof[1]]/1000,c='k',s=7,zorder=1)
@@ -167,7 +184,7 @@ x1, y1 = np.meshgrid(x_grid, y_grid)
 # fig.savefig( ('/Users/jake/Desktop/BATS/bats_mapping/map_' + str(k_out) + '.png'),dpi = 300)
 # plt.close()
 
-##### plot U,V #####
+# --------- PLOT U,V
 # fig, (ax0,ax1) = plt.subplots(1,2,sharey=True)
 # for i in range(len(good_prof[0])):
 #     ax0.plot(U_g[good_prof[0][i],good_prof[1][i],:],grid,color='r',linewidth=0.25)
@@ -186,7 +203,7 @@ x1, y1 = np.meshgrid(x_grid, y_grid)
 # fig.savefig( ('/Users/jake/Desktop/BATS/bats_mapping/u_v_' + str(k_out) + '.png'),dpi = 300)
 # plt.close()
 
-### 3-D PLOT AND DEN AND VELOCITY 
+# ------- 3-D PLOT AND DEN AND VELOCITY
 k1 = 30
 lvls = np.linspace(np.int(np.nanmin(sigma_theta_all[k1, :, :, iter])),
                    np.int(np.nanmax(sigma_theta_all[k1, :, :, iter])), 20)
@@ -200,38 +217,38 @@ lvls4 = np.linspace(np.int(np.nanmin(sigma_theta_all[k4, :, :, iter])),
 # LOOP OVER TIMES 
 # relevant glider dives 
 wins = [0, 1, 2, 3]
-for iter in wins:
-    t_s = datetime.date.fromordinal(np.int(Time[iter][0]))
-    t_e = datetime.date.fromordinal(np.int(Time[iter][1]))
-    time_in = np.where((time_rec > Time[iter][0]) & (time_rec < Time[iter][1]))[0]
+for time_i in wins:
+    t_s = datetime.date.fromordinal(np.int(Time[time_i][0]))
+    t_e = datetime.date.fromordinal(np.int(Time[time_i][1]))
+    time_in = np.where((time_rec > Time[time_i][0]) & (time_rec < Time[time_i][1]))[0]
 
     fig = plt.figure()
     ax = fig.add_subplot(111, projection="3d")
 
-    ax.plot_surface(x1 / 10000, y1 / 10000, (grid[k1] + np.transpose(sigma_theta_all[k1, :, :, iter])) / 1000,
-                    cmap="autumn_r", lw=0.5, rstride=1, cstride=1, alpha=0.5)
-    ax.contour(x1 / 10000, y1 / 10000, (grid[k1] + np.transpose(sigma_theta_all[k1, :, :, iter])) / 1000, zdir='z',
-               cmap=cm.RdBu_r, levels=(grid[k1] + lvls) / 1000, zorder=1, linewidth=1)
+    ax.plot_surface(x1 / 10000, y1 / 10000, (grid[k1] + np.transpose(sigma_theta_all[k1, :, :, time_i])) / 1000,
+                    cmap='autumn_r', lw=0.5, rstride=1, cstride=1, alpha=0.5)
+    ax.contour(x1 / 10000, y1 / 10000, (grid[k1] + np.transpose(sigma_theta_all[k1, :, :, time_i])) / 1000, zdir='z',
+               cmap='RdBu_r', levels=(grid[k1] + lvls) / 1000, zorder=1, linewidth=1)
     ax.quiver(x1[0:-1:2, 0:-1:2] / 10000, y1[0:-1:2, 0:-1:2] / 10000,
-              grid[k1] * np.ones(np.shape(x1[0:-1:2, 0:-1:2])) / 1000, np.transpose(U_all[k1, 0:-1:2, 0:-1:2, iter]),
-              np.transpose(V_all[k1, 0:-1:2, 0:-1:2, iter]), np.zeros(np.shape(x1[0:-1:2, 0:-1:2])), color='k',
+              grid[k1] * np.ones(np.shape(x1[0:-1:2, 0:-1:2])) / 1000, np.transpose(U_all[k1, 0:-1:2, 0:-1:2, time_i]),
+              np.transpose(V_all[k1, 0:-1:2, 0:-1:2, time_i]), np.zeros(np.shape(x1[0:-1:2, 0:-1:2])), color='k',
               length=10)
     ax.plot_surface((x1 / 1000) / 10, (y1 / 1000) / 10,
-                    (grid[k3] + np.transpose(sigma_theta_all[k3, :, :, iter])) / 1000, cmap="autumn_r",
+                    (grid[k3] + np.transpose(sigma_theta_all[k3, :, :, time_i])) / 1000, cmap="autumn_r",
                     alpha=0.5)  # , lw=0.5, rstride=1, cstride=1,
-    ax.contour((x1 / 1000) / 10, (y1 / 1000) / 10, (grid[k3] + np.transpose(sigma_theta_all[k3, :, :, iter])) / 1000,
-               zdir='z', cmap=cm.RdBu_r, levels=(grid[k3] + lvls3) / 1000, zorder=0, linewidth=1)
+    ax.contour((x1 / 1000) / 10, (y1 / 1000) / 10, (grid[k3] + np.transpose(sigma_theta_all[k3, :, :, time_i])) / 1000,
+               zdir='z', cmap='RdBu_r', levels=(grid[k3] + lvls3) / 1000, zorder=0, linewidth=1)
     ax.quiver((x1[0:-1:2, 0:-1:2] / 1000) / 10, (y1[0:-1:2, 0:-1:2] / 1000) / 10,
-              grid[k3] * np.ones(np.shape(x1[0:-1:2, 0:-1:2])) / 1000, np.transpose(U_all[k3, 0:-1:2, 0:-1:2, iter]),
-              np.transpose(V_all[k3, 0:-1:2, 0:-1:2, iter]), np.zeros(np.shape(x1[0:-1:2, 0:-1:2])), color='k',
+              grid[k3] * np.ones(np.shape(x1[0:-1:2, 0:-1:2])) / 1000, np.transpose(U_all[k3, 0:-1:2, 0:-1:2, time_i]),
+              np.transpose(V_all[k3, 0:-1:2, 0:-1:2, time_i]), np.zeros(np.shape(x1[0:-1:2, 0:-1:2])), color='k',
               length=10)
-    ax.plot_surface(x1 / 10000, y1 / 10000, (grid[k4] + np.transpose(sigma_theta_all[k4, :, :, iter])) / 1000,
+    ax.plot_surface(x1 / 10000, y1 / 10000, (grid[k4] + np.transpose(sigma_theta_all[k4, :, :, time_i])) / 1000,
                     cmap="autumn_r", lw=0.5, rstride=1, cstride=1, alpha=0.5)
-    ax.contour(x1 / 10000, y1 / 10000, (grid[k4] + np.transpose(sigma_theta_all[k4, :, :, iter])) / 1000, zdir='z',
-               cmap=cm.RdBu_r, levels=(grid[k4] + lvls4) / 1000, zorder=0, linewidth=1)
+    ax.contour(x1 / 10000, y1 / 10000, (grid[k4] + np.transpose(sigma_theta_all[k4, :, :, time_i])) / 1000, zdir='z',
+               cmap='RdBu_r', levels=(grid[k4] + lvls4) / 1000, zorder=0, linewidth=1)
     ax.quiver(x1[0:-1:2, 0:-1:2] / 10000, y1[0:-1:2, 0:-1:2] / 10000,
-              grid[k4] * np.ones(np.shape(x1[0:-1:2, 0:-1:2])) / 1000, np.transpose(U_all[k4, 0:-1:2, 0:-1:2, iter]),
-              np.transpose(V_all[k4, 0:-1:2, 0:-1:2, iter]), np.zeros(np.shape(x1[0:-1:2, 0:-1:2])), color='k',
+              grid[k4] * np.ones(np.shape(x1[0:-1:2, 0:-1:2])) / 1000, np.transpose(U_all[k4, 0:-1:2, 0:-1:2, time_i]),
+              np.transpose(V_all[k4, 0:-1:2, 0:-1:2, time_i]), np.zeros(np.shape(x1[0:-1:2, 0:-1:2])), color='k',
               length=10)
 
     # cont_data = np.array(df_den.iloc[np.where(grid == grid[k1])[0][0], time_in])
@@ -245,8 +262,8 @@ for iter in wins:
     this_x = 1852 * 60 * np.cos(np.deg2rad(ref_lat)) * (np.array(df_lon.iloc[:, time_in]) - ref_lon)
     this_y = 1852 * 60 * np.cos(np.deg2rad(ref_lat)) * (np.array(df_lat.iloc[:, time_in]) - ref_lat)
     ax.scatter(this_x / 10000, this_y / 10000, 5500 / 1000, s=7, color='k')
-    ax.scatter(x1[mask[iter][0], mask[iter][1]] / 10000, y1[mask[iter][0], mask[iter][1]] / 10000, 5500 / 1000, s=10,
-               color='b')
+    ax.scatter(x1[mask[time_i][0], mask[time_i][1]] / 10000, y1[mask[time_i][0], mask[time_i][1]] / 10000, 5500 / 1000,
+               s=10, color='b')
 
     ax.set_xlim([x_grid[0] / 10000, x_grid[-1] / 10000])
     ax.set_ylim([y_grid[0] / 10000, y_grid[-1] / 10000])
@@ -260,7 +277,7 @@ for iter in wins:
         'DG35 2015: ' + np.str(t_s.month) + '/' + np.str(t_s.day) + ' - ' + np.str(t_e.month) + '/' + np.str(t_e.day))
     ax.grid()
     # plot_pro(ax)
-    fig.savefig(('/Users/jake/Desktop/BATS/bats_mapping/3d/map3d_' + str(k_out) + '.png'), dpi=300)
+    fig.savefig(('/Users/jake/Desktop/BATS/bats_mapping/3d/map3d_' + str(time_i) + '.png'), dpi=300)
     plt.close()
 
 # in a directory with a bunch of png’s like plot_0000.png I did this:
