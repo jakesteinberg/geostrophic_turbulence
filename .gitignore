@@ -1,0 +1,8 @@
+*.mat
+*.nc
+*.pkl
+ObjMap_hautala_OG.py
+.ipynb_checkpoints
+avg_PE.npy
+.idea
+__pycache__
