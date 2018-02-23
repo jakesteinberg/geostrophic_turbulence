@@ -9,7 +9,7 @@ from scipy.io import netcdf
 import pickle
 # functions I've written 
 from mode_decompositions import vertical_modes, PE_Tide_GM
-from toolkit import cart2pol, pol2cart, plot_pro
+from toolkit import plot_pro
 
 # physical parameters 
 g = 9.81
@@ -33,9 +33,6 @@ nmodes = mmax + 1
 deep_shr_max = 0.1
 # minimum depth for which shear is limited [m]
 deep_shr_max_dep = 3500
-
-# PLOTTING SWITCHES 
-plot_eta = 0
 
 # ---- LOAD ALL DIVES (GRIDDED USING MAKE_BIN)
 GD = netcdf.netcdf_file('BATs_2015_gridded.nc', 'r')
@@ -90,6 +87,7 @@ good = np.intersect1d(np.where(good_v > 0), good0)
 V2 = V[:, good]
 Eta2 = Eta[:, good]
 Eta_theta2 = Eta_theta[:, good]
+Time2 = Time[good]
 
 sz = np.shape(Eta2)
 num_profs = sz[1]
@@ -208,8 +206,9 @@ EOFetashape1_BTpBC1 = G[:, 1:3] * V_AGqa[0:2, 0]  # truncated 2 mode shape of EO
 EOFetashape2_BTpBC1 = G[:, 1:3] * V_AGqa[0:2, 1]  # truncated 2 mode shape of EOF#2
 
 # --- PLOT ETA / EOF
+plot_eta = 0
 if plot_eta > 0:
-    f, (ax0, ax1) = plt.subplots(1, 2, sharey='True')
+    f, (ax0, ax1) = plt.subplots(1, 2, sharey=True)
     for j in range(num_profs):
         ax1.plot(Eta2[:, j], grid, color='#4682B4', linewidth=1.25)
         ax1.plot(Eta_m[:, j], grid, color='k', linestyle='--', linewidth=.75)
@@ -230,7 +229,7 @@ if plot_eta > 0:
     # plt.show()    
 
     max_plot = 3
-    f, (ax1, ax2) = plt.subplots(1, 2, sharey='True')
+    f, (ax1, ax2) = plt.subplots(1, 2, sharey=True)
     n2p = ax1.plot((np.sqrt(N2) * (1800 / np.pi)), grid, color='k', label='N(z) [cph]')
     colors = plt.cm.Dark2(np.arange(0, 4, 1))
     for ii in range(max_plot):
@@ -255,6 +254,18 @@ if plot_eta > 0:
     ax2.set_xlabel('Normalized Mode Amp.', fontsize=14)
     ax2.invert_yaxis()
     plot_pro(ax2)
+
+# --- MODE AMPLITUDE IN TIME AND SPACE
+plot_mode = 1
+if plot_mode > 0:
+    this_mode0 = 1
+    this_mode1 = 2
+    this_mode2 = 3
+    fm, ax = plt.subplots()
+    plt.scatter(Time2, AG[this_mode0, :], s=3, color='k')
+    plt.scatter(Time2, AG[this_mode1, :], s=3, color='r')
+    plt.scatter(Time2, AG[this_mode2, :], s=3, color='g')
+    plot_pro(ax)
 
 avg_PE = np.nanmean(PE_per_mass, 1)
 good_prof_i = good_prof  # np.where(good_prof > 0)
@@ -339,7 +350,8 @@ plot_eng = 0
 if plot_eng > 0:
     fig0, ax0 = plt.subplots()
     PE_p = ax0.plot(sc_x, avg_PE[1:] / dk, color='#B22222', label='APE', linewidth=2)
-    # PE_sta_p = ax0.plot((1000)*sta_bats_f/sta_bats_c[1:],sta_bats_pe[1:]/sta_bats_dk,color='#FF8C00',label='$PE_{ship}$',linewidth=1.5)
+    # PE_sta_p = ax0.plot((1000) * sta_bats_f / sta_bats_c[1:], sta_bats_pe[1:] / sta_bats_dk, color='#FF8C00',
+    #                     label='$PE_{ship}$', linewidth=1.5)
     KE_p = ax0.plot(sc_x, avg_KE[1:] / dk, 'g', label='KE', linewidth=2)
     ax0.scatter(sc_x, avg_PE[1:] / dk, color='#B22222', s=12)  # DG PE
     # ax0.scatter((1000)*sta_bats_f/sta_bats_c[1:],sta_bats_pe[1:]/sta_bats_dk,color='#FF8C00',s=10) # BATS PE
@@ -415,7 +427,7 @@ if plot_eng > 0:
     ax0.set_yscale('log')
     ax0.set_xscale('log')
     # ax0.axis([10**-2, 10**1, 3*10**(-4), 2*10**(3)])
-    ax0.axis([10 ** -2, 10 ** 1, 10 ** (-3), 10 ** (3)])
+    ax0.axis([10 ** -2, 10 ** 1, 10 ** (-3), 10 ** 3])
     ax0.set_title('Predicted Horizontal Length Scale', fontsize=18)
     ax0.set_xlabel(r'Inverse Deformation Radius ($L_n$)$^{-1}$ = $\frac{f}{c_n}$ [$km^{-1}$]', fontsize=18)
     ax0.set_ylabel(r'Horizontal Wavenumber [$km^{-1}$]', fontsize=18)
@@ -427,67 +439,70 @@ if plot_eng > 0:
 
 # -------------------------
 # PE COMPARISON BETWEEN HOTS, BATS_SHIP, AND BATS_DG
-fig0, ax0 = plt.subplots()
-ax0.plot([3 * 10 ** -1, 3 * 10 ** 0], [1.5 * 10 ** 1, 1.5 * 10 ** -2], color='k', linewidth=0.75)
-ax0.plot([3 * 10 ** -2, 3 * 10 ** -1],
-         [7 * 10 ** 2, ((5 / 3) * (np.log10(2 * 10 ** -1) - np.log10(2 * 10 ** -2)) + np.log10(7 * 10 ** 2))],
-         color='k', linewidth=0.75)
-ax0.text(3.3 * 10 ** -1, 1.3 * 10 ** 1, '-3', fontsize=8)
-ax0.text(3.3 * 10 ** -2, 6 * 10 ** 2, '-5/3', fontsize=8)
-ax0.plot(sc_x, PE_GM / dk, linestyle='--', color='k')
-ax0.text(sc_x[0] - .009, PE_GM[1] / dk, r'$PE_{GM}$')
-PE_p = ax0.plot(sc_x, avg_PE[1:] / dk, color='#B22222', label=r'$PE_{BATS_{DG}}$')
-PE_sta_p = ax0.plot((1000) * sta_bats_f / sta_bats_c[1:], sta_bats_pe[1:] / sta_bats_dk, color='#FF8C00',
-                    label=r'$PE_{BATS_{ship}}$')
-# PE_sta_hots = ax0.plot((1000)*sta_hots_f/sta_hots_c[1:],sta_hots_pe[1:]/sta_hots_dk,color='g',
-#   label=r'$PE_{HOTS_{ship}}$')
-ax0.set_yscale('log')
-ax0.set_xscale('log')
-ax0.set_xlabel(r'Vertical Wavenumber = Inverse Rossby Radius = $\frac{f}{c}$ [$km^{-1}$]', fontsize=13)
-ax0.set_ylabel('Spectral Density (and Hor. Wavenumber)')
-ax0.set_title('Potential Energy Spectra (Site/Platform Comparison)')
-handles, labels = ax0.get_legend_handles_labels()
-ax0.legend(handles, labels, fontsize=12)
-plot_pro(ax0)
+plot_comp = 0
+if plot_comp > 0:
+    fig00, ax0 = plt.subplots()
+    ax0.plot([3 * 10 ** -1, 3 * 10 ** 0], [1.5 * 10 ** 1, 1.5 * 10 ** -2], color='k', linewidth=0.75)
+    ax0.plot([3 * 10 ** -2, 3 * 10 ** -1],
+             [7 * 10 ** 2, ((5 / 3) * (np.log10(2 * 10 ** -1) - np.log10(2 * 10 ** -2)) + np.log10(7 * 10 ** 2))],
+             color='k', linewidth=0.75)
+    ax0.text(3.3 * 10 ** -1, 1.3 * 10 ** 1, '-3', fontsize=8)
+    ax0.text(3.3 * 10 ** -2, 6 * 10 ** 2, '-5/3', fontsize=8)
+    ax0.plot(sc_x, PE_GM / dk, linestyle='--', color='k')
+    ax0.text(sc_x[0] - .009, PE_GM[1] / dk, r'$PE_{GM}$')
+    PE_p0 = ax0.plot(sc_x, avg_PE[1:] / dk, color='#B22222', label=r'$PE_{BATS_{DG}}$')
+    PE_sta_p0 = ax0.plot(1000 * sta_bats_f / sta_bats_c[1:], sta_bats_pe[1:] / sta_bats_dk, color='#FF8C00',
+                         label=r'$PE_{BATS_{ship}}$')
+    # PE_sta_hots = ax0.plot((1000)*sta_hots_f/sta_hots_c[1:],sta_hots_pe[1:]/sta_hots_dk,color='g',
+    #   label=r'$PE_{HOTS_{ship}}$')
+    ax0.set_yscale('log')
+    ax0.set_xscale('log')
+    ax0.set_xlabel(r'Vertical Wavenumber = Inverse Rossby Radius = $\frac{f}{c}$ [$km^{-1}$]', fontsize=13)
+    ax0.set_ylabel('Spectral Density (and Hor. Wavenumber)')
+    ax0.set_title('Potential Energy Spectra (Site/Platform Comparison)')
+    handles, labels = ax0.get_legend_handles_labels()
+    ax0.legend(handles, labels, fontsize=12)
+    plot_pro(ax0)
 
-# PE (by mode number) COMPARISON BY SITE
-fig0, ax0 = plt.subplots()
-mode_num = np.arange(1, 61, 1)
-PE_sta_p = ax0.plot(mode_num, sta_bats_pe[1:] / sta_bats_dk, label=r'BATS$_{ship}$', linewidth=2)
-# PE_ab = ax0.plot(mode_num,abaco_energies['avg_PE'][1:]/(abaco_energies['f_ref']/abaco_energies['c'][1]),label=r'$ABACO_{DG}$')
-PE_sta_hots = ax0.plot(mode_num, sta_hots_pe[1:] / sta_hots_dk, label=r'HOTS$_{ship}$', linewidth=2)
-PE_p = ax0.plot(mode_num, avg_PE[1:] / dk, label=r'BATS$_{DG}$', color='#708090', linewidth=1)
-ax0.set_xlabel('Mode Number', fontsize=16)
-ax0.set_ylabel('Spectral Density', fontsize=16)
-ax0.set_title('Potential Energy Spectra (Site Comparison)', fontsize=18)
-ax0.set_yscale('log')
-ax0.set_xscale('log')
-# ax0.axis([8*10**-1, 10**2, 3*10**(-4), 2*10**(3)])
-ax0.axis([8 * 10 ** -1, 10 ** 2, 3 * 10 ** (-4), 10 ** (3)])
-handles, labels = ax0.get_legend_handles_labels()
-ax0.legend(handles, labels, fontsize=12)
-plot_pro(ax0)
+    # PE (by mode number) COMPARISON BY SITE
+    fig01, ax0 = plt.subplots()
+    mode_num = np.arange(1, 61, 1)
+    PE_sta_p1 = ax0.plot(mode_num, sta_bats_pe[1:] / sta_bats_dk, label=r'BATS$_{ship}$', linewidth=2)
+    # PE_ab = ax0.plot(mode_num, abaco_energies['avg_PE'][1:] / (abaco_energies['f_ref'] / abaco_energies['c'][1]),
+    #                  label=r'$ABACO_{DG}$')
+    PE_sta_hots = ax0.plot(mode_num, sta_hots_pe[1:] / sta_hots_dk, label=r'HOTS$_{ship}$', linewidth=2)
+    PE_p1 = ax0.plot(mode_num, avg_PE[1:] / dk, label=r'BATS$_{DG}$', color='#708090', linewidth=1)
+    ax0.set_xlabel('Mode Number', fontsize=16)
+    ax0.set_ylabel('Spectral Density', fontsize=16)
+    ax0.set_title('Potential Energy Spectra (Site Comparison)', fontsize=18)
+    ax0.set_yscale('log')
+    ax0.set_xscale('log')
+    # ax0.axis([8*10**-1, 10**2, 3*10**(-4), 2*10**(3)])
+    ax0.axis([8 * 10 ** -1, 10 ** 2, 3 * 10 ** (-4), 10 ** 3])
+    handles, labels = ax0.get_legend_handles_labels()
+    ax0.legend(handles, labels, fontsize=12)
+    plot_pro(ax0)
 
-# ABACO BATS PE/KE COMPARISONS
-fig0, ax0 = plt.subplots()
-mode_num = np.arange(1, 61, 1)
-PE_ab = ax0.plot(mode_num, abaco_energies['avg_PE'][1:] / (abaco_energies['f_ref'] / abaco_energies['c'][1]),
-                 label=r'APE ABACO$_{DG}$', linewidth=2, color='r')
-KE_ab = ax0.plot(mode_num, abaco_energies['avg_KE'][1:] / (abaco_energies['f_ref'] / abaco_energies['c'][1]),
-                 label=r'KE ABACO$_{DG}$', linewidth=2, color='g')
-# PE_sta_hots = ax0.plot(mode_num,sta_hots_pe[1:]/sta_hots_dk,label=r'HOTS$_{ship}$',linewidth=2)
-PE_p = ax0.plot(mode_num, 4 * avg_PE[1:] / dk, label=r'APE BATS$_{DG}$', color='#F08080', linewidth=1)
-KE_p = ax0.plot(mode_num, avg_KE[1:] / dk, 'g', label=r'KE BATS$_{DG}$', color='#90EE90', linewidth=1)
-ax0.set_xlabel('Mode Number', fontsize=16)
-ax0.set_ylabel('Spectral Density', fontsize=16)
-ax0.set_title('ABACO / BATS Comparison', fontsize=18)
-ax0.set_yscale('log')
-ax0.set_xscale('log')
-# ax0.axis([8*10**-1, 10**2, 3*10**(-4), 2*10**(3)])
-ax0.axis([8 * 10 ** -1, 10 ** 2, 3 * 10 ** (-4), 10 ** (3)])
-handles, labels = ax0.get_legend_handles_labels()
-ax0.legend(handles, labels, fontsize=12)
-plot_pro(ax0)
+    # ABACO BATS PE/KE COMPARISONS
+    fig02, ax0 = plt.subplots()
+    mode_num = np.arange(1, 61, 1)
+    PE_ab = ax0.plot(mode_num, abaco_energies['avg_PE'][1:] / (abaco_energies['f_ref'] / abaco_energies['c'][1]),
+                     label=r'APE ABACO$_{DG}$', linewidth=2, color='r')
+    KE_ab = ax0.plot(mode_num, abaco_energies['avg_KE'][1:] / (abaco_energies['f_ref'] / abaco_energies['c'][1]),
+                     label=r'KE ABACO$_{DG}$', linewidth=2, color='g')
+    # PE_sta_hots = ax0.plot(mode_num,sta_hots_pe[1:]/sta_hots_dk,label=r'HOTS$_{ship}$',linewidth=2)
+    PE_p2 = ax0.plot(mode_num, 4 * avg_PE[1:] / dk, label=r'APE BATS$_{DG}$', color='#F08080', linewidth=1)
+    KE_p2 = ax0.plot(mode_num, avg_KE[1:] / dk, 'g', label=r'KE BATS$_{DG}$', color='#90EE90', linewidth=1)
+    ax0.set_xlabel('Mode Number', fontsize=16)
+    ax0.set_ylabel('Spectral Density', fontsize=16)
+    ax0.set_title('ABACO / BATS Comparison', fontsize=18)
+    ax0.set_yscale('log')
+    ax0.set_xscale('log')
+    # ax0.axis([8*10**-1, 10**2, 3*10**(-4), 2*10**(3)])
+    ax0.axis([8 * 10 ** -1, 10 ** 2, 3 * 10 ** (-4), 10 ** 3])
+    handles, labels = ax0.get_legend_handles_labels()
+    ax0.legend(handles, labels, fontsize=12)
+    plot_pro(ax0)
 
 # WORK ON CURVE FITTING TO FIND BREAK IN SLOPES 
 # xx = sc_x
@@ -495,7 +510,7 @@ plot_pro(ax0)
 # export to use findchangepts in matlab 
 # np.savetxt('test_line_fit_x',xx)
 # np.savetxt('test_line_fit_y',yy)
-### index 11 is the point where the break in slope occurs 
+# --- index 11 is the point where the break in slope occurs
 # ipoint = 6 # 11 
 # x_53 = np.log10(xx[0:ipoint])
 # y_53 = np.log10(yy[0:ipoint])
