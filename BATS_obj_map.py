@@ -9,28 +9,21 @@
 # 4. determine spatial and temporal decorrelation scales
 # 4. objectively map 
 
-
-import scipy.io as sio
 import numpy as np
 import pandas as pd
-import matplotlib
-import matplotlib.pyplot as plt
 from scipy.io import netcdf
 from scipy.integrate import cumtrapz
 from scipy.linalg import solve
 import seawater as sw
 import pickle
 import datetime
-from mpl_toolkits.mplot3d import axes3d
 from toolkit import cart2pol, pol2cart, plot_pro, nanseg_interp, data_covariance
-
 
 def trend_fit(lon, lat, data):
     A = np.transpose([lon, lat, lon / lon])
     b = data
     C = np.linalg.lstsq(A, b)
     return C[0][0], C[0][1], C[0][2]
-
 
 def createCorrelationMatrices(lon, lat, data_anom, data_sig, noise_sig, Lx, Ly):
     # lon: vector of data longitudes
@@ -57,7 +50,6 @@ def createCorrelationMatrices(lon, lat, data_anom, data_sig, noise_sig, Lx, Ly):
                 A[j, i] = C[j, i]
     Ainv = np.linalg.inv(A)
     return Ainv
-
 
 # START
 # physical parameters 
@@ -127,8 +119,8 @@ for p in ev_oth:
     d_time[count] = time_rec[p]
     count = count + 1
 
-############################################################################    
-#### compute correlations and covariance ####
+# -------------------------------------------------------------------------------
+# ------------ compute correlations and covariance ####
 # estimate covariance function from data
 # for all pairs of points di and dj compute & store
 # 1) distance between them (km)
@@ -155,7 +147,7 @@ if compute_cor > 0:
     Ls = 50000
     den_var, cov_est = data_covariance(den_anom_o, d_x, d_y, d_t, dt, ds, Ls, Lt)
 
-############################################################################    
+# --------------------------------------------------
 
 # Parameters for objective mapping
 Lx = 30000
@@ -172,8 +164,8 @@ t_bin = np.nan * np.zeros((len(time_rec) - win_size, 2))
 for i in range(len(time_rec) - win_size):
     t_bin[i, :] = [time_rec[i], time_rec[i] + win_size]
 
-### LOOPING ### 
-### LOOPING ### over time windows 
+# --- LOOPING ###
+# --- LOOPING ### over time windows
 U_out = []
 V_out = []
 sigma_theta_out = []
@@ -193,8 +185,8 @@ for k0 in range(np.size(sample_win)):
     time_in = np.where((time_rec > t_bin[k, 0]) & (time_rec < t_bin[k, 1]))[0]  # data
     time_in_2 = np.where((d_time > t_bin[k, 0]) & (d_time < t_bin[k, 1]))[0]  # DAC
 
-    ### LOOPING ### 
-    ### LOOPING ### over depth layers 
+    # --- LOOPING
+    # --- LOOPING  over depth layers
     sigma_theta = np.nan * np.zeros((len(lat_grid), len(lon_grid), len(grid)))
     error = np.nan * np.zeros((len(lat_grid), len(lon_grid), len(grid)))
     d_sigma_dx = np.nan * np.zeros((len(lat_grid), len(lon_grid), len(grid)))
@@ -282,7 +274,7 @@ for k0 in range(np.size(sample_win)):
         d_sigma_dy[:, :, k], d_sigma_dx[:, :, k] = np.gradient(sigma_theta[:, :, k], y_grid[2] - y_grid[1],
                                                                x_grid[2] - x_grid[1])
 
-        ### FINISH LOOPING OVER ALL DEPTH LAYERS 
+        # --- FINISH LOOPING OVER ALL DEPTH LAYERS
 
     # mapping for DAC vectors 
     d_lon_in = dac_lon[time_in_2]
@@ -362,7 +354,7 @@ for k0 in range(np.size(sample_win)):
     t_s = datetime.date.fromordinal(np.int(t_bin[k_out, 0]))
     t_e = datetime.date.fromordinal(np.int(t_bin[k_out, 1]))
 
-    ### OUTPUT
+    # --- OUTPUT
     # indices (profile,z_grid,)
     U_out.append(U_g[good_prof[0], good_prof[1], :])
     V_out.append(V_g[good_prof[0], good_prof[1], :])
@@ -380,10 +372,10 @@ for k0 in range(np.size(sample_win)):
     time_out.append(t_bin[k_out, :])
     good_mask.append(good_prof)
 
-### END LOOPING OVER EACH TIME WINDOW 
+# --- END LOOPING OVER EACH TIME WINDOW
 
 
-### SAVE 
+# --- SAVE
 # write python dict to a file
 sa = 1
 if sa > 0:

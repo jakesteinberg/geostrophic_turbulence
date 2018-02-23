@@ -5,6 +5,7 @@ import seawater as sw
 import pandas as pd
 from scipy.io import netcdf
 import pickle
+from mpl_toolkits.mplot3d import axes3d
 
 # LOAD DATA (gridded dives)
 GD = netcdf.netcdf_file('BATs_2015_gridded_2.nc', 'r')
@@ -63,10 +64,6 @@ lon_grid_good = np.transpose(bats_trans['lon_grid'])
 lat_grid_all = np.transpose(bats_trans['lat_grid_All'])
 lon_grid_all = np.transpose(bats_trans['lon_grid_All'])
 mask = bats_trans['mask']
-
-x_grid = 1852 * 60 * np.cos(np.deg2rad(ref_lat)) * (lon_grid_all - ref_lon)
-y_grid = 1852 * 60 * (lat_grid_all - ref_lat)
-x1, y1 = np.meshgrid(x_grid, y_grid)
 
 # ------------- PLOTTING POSSIBILITIES
 # --------LOOK AT DENSITY CROSS-SECTIONS
@@ -205,19 +202,24 @@ x1, y1 = np.meshgrid(x_grid, y_grid)
 
 # ------- 3-D PLOT AND DEN AND VELOCITY
 k1 = 30
-lvls = np.linspace(np.int(np.nanmin(sigma_theta_all[k1, :, :, iter])),
-                   np.int(np.nanmax(sigma_theta_all[k1, :, :, iter])), 20)
 k3 = 112
-lvls3 = np.linspace(np.int(np.nanmin(sigma_theta_all[k3, :, :, iter])),
-                    np.int(np.nanmax(sigma_theta_all[k3, :, :, iter])), 20)
 k4 = 200
-lvls4 = np.linspace(np.int(np.nanmin(sigma_theta_all[k4, :, :, iter])),
-                    np.int(np.nanmax(sigma_theta_all[k4, :, :, iter])), 20)
 
 # LOOP OVER TIMES 
 # relevant glider dives 
-wins = [0, 1, 2, 3]
+wins = [0, 1, 2]
 for time_i in wins:
+    lvls = np.linspace(np.float(np.nanmin(sigma_theta_all[k1, :, :, time_i])),
+                       np.float(np.nanmax(sigma_theta_all[k1, :, :, time_i])), 20)
+    lvls3 = np.linspace(np.float(np.nanmin(sigma_theta_all[k3, :, :, time_i])),
+                        np.float(np.nanmax(sigma_theta_all[k3, :, :, time_i])), 20)
+    lvls4 = np.linspace(np.float(np.nanmin(sigma_theta_all[k4, :, :, time_i])),
+                        np.float(np.nanmax(sigma_theta_all[k4, :, :, time_i])), 20)
+
+    x_grid = 1852 * 60 * np.cos(np.deg2rad(ref_lat)) * (lon_grid_all[:, time_i] - ref_lon)
+    y_grid = 1852 * 60 * (lat_grid_all[:, time_i] - ref_lat)
+    x1, y1 = np.meshgrid(x_grid, y_grid)
+
     t_s = datetime.date.fromordinal(np.int(Time[time_i][0]))
     t_e = datetime.date.fromordinal(np.int(Time[time_i][1]))
     time_in = np.where((time_rec > Time[time_i][0]) & (time_rec < Time[time_i][1]))[0]
@@ -226,9 +228,9 @@ for time_i in wins:
     ax = fig.add_subplot(111, projection="3d")
 
     ax.plot_surface(x1 / 10000, y1 / 10000, (grid[k1] + np.transpose(sigma_theta_all[k1, :, :, time_i])) / 1000,
-                    cmap='autumn_r', lw=0.5, rstride=1, cstride=1, alpha=0.5)
+                    cmap="autumn_r", alpha=0.5) # , lw=0.5, rstride=1, cstride=1)
     ax.contour(x1 / 10000, y1 / 10000, (grid[k1] + np.transpose(sigma_theta_all[k1, :, :, time_i])) / 1000, zdir='z',
-               cmap='RdBu_r', levels=(grid[k1] + lvls) / 1000, zorder=1, linewidth=1)
+               cmap="RdBu_r", levels=(grid[k1] + lvls) / 1000, zorder=1, linewidth=1)
     ax.quiver(x1[0:-1:2, 0:-1:2] / 10000, y1[0:-1:2, 0:-1:2] / 10000,
               grid[k1] * np.ones(np.shape(x1[0:-1:2, 0:-1:2])) / 1000, np.transpose(U_all[k1, 0:-1:2, 0:-1:2, time_i]),
               np.transpose(V_all[k1, 0:-1:2, 0:-1:2, time_i]), np.zeros(np.shape(x1[0:-1:2, 0:-1:2])), color='k',
@@ -237,15 +239,15 @@ for time_i in wins:
                     (grid[k3] + np.transpose(sigma_theta_all[k3, :, :, time_i])) / 1000, cmap="autumn_r",
                     alpha=0.5)  # , lw=0.5, rstride=1, cstride=1,
     ax.contour((x1 / 1000) / 10, (y1 / 1000) / 10, (grid[k3] + np.transpose(sigma_theta_all[k3, :, :, time_i])) / 1000,
-               zdir='z', cmap='RdBu_r', levels=(grid[k3] + lvls3) / 1000, zorder=0, linewidth=1)
+               zdir='z', cmap="RdBu_r", levels=(grid[k3] + lvls3) / 1000, zorder=0, linewidth=1)
     ax.quiver((x1[0:-1:2, 0:-1:2] / 1000) / 10, (y1[0:-1:2, 0:-1:2] / 1000) / 10,
               grid[k3] * np.ones(np.shape(x1[0:-1:2, 0:-1:2])) / 1000, np.transpose(U_all[k3, 0:-1:2, 0:-1:2, time_i]),
               np.transpose(V_all[k3, 0:-1:2, 0:-1:2, time_i]), np.zeros(np.shape(x1[0:-1:2, 0:-1:2])), color='k',
               length=10)
     ax.plot_surface(x1 / 10000, y1 / 10000, (grid[k4] + np.transpose(sigma_theta_all[k4, :, :, time_i])) / 1000,
-                    cmap="autumn_r", lw=0.5, rstride=1, cstride=1, alpha=0.5)
+                    cmap="autumn_r", alpha=0.5) #  lw=0.5, rstride=1, cstride=1,
     ax.contour(x1 / 10000, y1 / 10000, (grid[k4] + np.transpose(sigma_theta_all[k4, :, :, time_i])) / 1000, zdir='z',
-               cmap='RdBu_r', levels=(grid[k4] + lvls4) / 1000, zorder=0, linewidth=1)
+               cmap="RdBu_r", levels=(grid[k4] + lvls4) / 1000, zorder=0, linewidth=1)
     ax.quiver(x1[0:-1:2, 0:-1:2] / 10000, y1[0:-1:2, 0:-1:2] / 10000,
               grid[k4] * np.ones(np.shape(x1[0:-1:2, 0:-1:2])) / 1000, np.transpose(U_all[k4, 0:-1:2, 0:-1:2, time_i]),
               np.transpose(V_all[k4, 0:-1:2, 0:-1:2, time_i]), np.zeros(np.shape(x1[0:-1:2, 0:-1:2])), color='k',
