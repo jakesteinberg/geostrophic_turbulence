@@ -17,13 +17,7 @@ from scipy.linalg import solve
 import seawater as sw
 import pickle
 import datetime
-from toolkit import cart2pol, pol2cart, plot_pro, nanseg_interp, data_covariance
-
-def trend_fit(lon, lat, data):
-    A = np.transpose([lon, lat, lon / lon])
-    b = data
-    C = np.linalg.lstsq(A, b)
-    return C[0][0], C[0][1], C[0][2]
+from toolkit import cart2pol, pol2cart, plot_pro, nanseg_interp, data_covariance, trend_fit
 
 def createCorrelationMatrices(lon, lat, data_anom, data_sig, noise_sig, Lx, Ly):
     # lon: vector of data longitudes
