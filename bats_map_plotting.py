@@ -8,7 +8,7 @@ import pickle
 from mpl_toolkits.mplot3d import axes3d
 
 # LOAD DATA (gridded dives)
-GD = netcdf.netcdf_file('BATs_2015_gridded_2.nc', 'r')
+GD = netcdf.netcdf_file('BATs_2015_gridded_3.nc', 'r')
 profile_list = np.float64(GD.variables['dive_list'][:]) - 35000
 df_den = pd.DataFrame(np.float64(GD.variables['Density'][:]), index=np.float64(GD.variables['grid'][:]),
                       columns=np.float64(GD.variables['dive_list'][:]))
@@ -29,7 +29,7 @@ z = -1 * grid
 grid_test = np.nan * np.zeros(len(profile_list))
 for i in range(len(profile_list)):
     grid_test[i] = grid[np.where(np.array(df_den.iloc[:, i]) == np.nanmax(np.array(df_den.iloc[:, i])))[0][0]]
-good = np.where(grid_test > 4000)[0]
+good = np.where(grid_test >= 4000)[0]
 
 # load select profiles
 df_den = pd.DataFrame(np.float64(GD.variables['Density'][:]), index=np.float64(GD.variables['grid'][:]),
@@ -42,14 +42,18 @@ df_lon = pd.DataFrame(np.float64(GD.variables['Longitude'][:]), index=np.float64
                       columns=np.float64(GD.variables['dive_list'][:])).iloc[:, good]
 df_lat = pd.DataFrame(np.float64(GD.variables['Latitude'][:]), index=np.float64(GD.variables['grid'][:]),
                       columns=np.float64(GD.variables['dive_list'][:])).iloc[:, good]
+df_lon_all = pd.DataFrame(np.float64(GD.variables['Longitude'][:]), index=np.float64(GD.variables['grid'][:]),
+                      columns=np.float64(GD.variables['dive_list'][:]))
+df_lat_all = pd.DataFrame(np.float64(GD.variables['Latitude'][:]), index=np.float64(GD.variables['grid'][:]),
+                      columns=np.float64(GD.variables['dive_list'][:]))
 dac_u = GD.variables['DAC_u'][good]
 dac_v = GD.variables['DAC_v'][good]
 time_rec = GD.variables['time_start_stop'][good]
-heading_rec = GD.variables['heading_record'][good]
+time_rec_all = GD.variables['time_start_stop'][:]
 profile_list = np.float64(GD.variables['dive_list'][good]) - 35000
 
 # -------------- LOAD IN TRANSECT TO PROFILE DATA COMPILED IN BATS_TRANSECTS.PY
-pkl_file = open('/Users/jake/Documents/geostrophic_turbulence/BATS_obj_map_2.pkl', 'rb')
+pkl_file = open('/Users/jake/Documents/geostrophic_turbulence/BATS_obj_map_3.pkl', 'rb')
 bats_trans = pickle.load(pkl_file)
 pkl_file.close()
 Time = bats_trans['time']
@@ -207,7 +211,7 @@ k4 = 200
 
 # LOOP OVER TIMES 
 # relevant glider dives 
-wins = [0, 1, 2]
+wins = [0] # , 1, 2]
 for time_i in wins:
     lvls = np.linspace(np.float(np.nanmin(sigma_theta_all[k1, :, :, time_i])),
                        np.float(np.nanmax(sigma_theta_all[k1, :, :, time_i])), 20)
@@ -223,6 +227,7 @@ for time_i in wins:
     t_s = datetime.date.fromordinal(np.int(Time[time_i][0]))
     t_e = datetime.date.fromordinal(np.int(Time[time_i][1]))
     time_in = np.where((time_rec > Time[time_i][0]) & (time_rec < Time[time_i][1]))[0]
+    time_in_all = np.where((time_rec_all > Time[time_i][0]) & (time_rec_all < Time[time_i][1]))[0]
 
     fig = plt.figure()
     ax = fig.add_subplot(111, projection="3d")
@@ -263,9 +268,15 @@ for time_i in wins:
     #            cmap=plt.cm.coolwarm, zorder=3, vmin=np.min(cont_data), vmax=np.max(cont_data))
     this_x = 1852 * 60 * np.cos(np.deg2rad(ref_lat)) * (np.array(df_lon.iloc[:, time_in]) - ref_lon)
     this_y = 1852 * 60 * np.cos(np.deg2rad(ref_lat)) * (np.array(df_lat.iloc[:, time_in]) - ref_lat)
-    ax.scatter(this_x / 10000, this_y / 10000, 5500 / 1000, s=7, color='k')
+    this_x_all = 1852 * 60 * np.cos(np.deg2rad(ref_lat)) * (np.array(df_lon_all.iloc[:, time_in_all]) - ref_lon)
+    this_y_all = 1852 * 60 * np.cos(np.deg2rad(ref_lat)) * (np.array(df_lat_all.iloc[:, time_in_all]) - ref_lat)
+    ax.scatter(this_x / 10000, this_y / 10000, 5500 / 1000, s=7, color='b')
+    ax.scatter(this_x_all/10000, this_y_all / 10000, 5500 / 1000, s=1, color='k')
     ax.scatter(x1[mask[time_i][0], mask[time_i][1]] / 10000, y1[mask[time_i][0], mask[time_i][1]] / 10000, 5500 / 1000,
                s=10, color='b')
+
+    ax.quiver(x_grid[0]/10000, y_grid[0]/10000, -150/1000, 0, 0.1, 0, color='k', length=10)
+    ax.text(x_grid[0]/10000, y_grid[0]/10000, -450/1000, '0.1m/s', fontsize=6)
 
     ax.set_xlim([x_grid[0] / 10000, x_grid[-1] / 10000])
     ax.set_ylim([y_grid[0] / 10000, y_grid[-1] / 10000])
@@ -285,3 +296,4 @@ for time_i in wins:
 # in a directory with a bunch of png’s like plot_0000.png I did this:
 # ffmpeg -r 8 -pattern_type glob -i '*.png' -c:v libx264 -pix_fmt yuv420p -crf 25 movie.mp4
 # and it worked perfectly!!!  Also the movie it made was 5 MB, about half the size of the same movie I had made using Quicktime 7 Pro for PECS.
+

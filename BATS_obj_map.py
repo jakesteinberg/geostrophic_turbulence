@@ -144,8 +144,8 @@ if compute_cor > 0:
 # --------------------------------------------------
 
 # Parameters for objective mapping
-Lx = 30000
-Ly = 30000
+Lx = 40000
+Ly = 40000
 lon_grid = np.arange(-64.7, -63.55, .05, dtype=np.float)
 lat_grid = np.arange(31.3, 32.0, .05, dtype=np.float)
 x_grid = 1852 * 60 * np.cos(np.deg2rad(ref_lat)) * (lon_grid - ref_lon)
@@ -153,10 +153,11 @@ y_grid = 1852 * 60 * (lat_grid - ref_lat)
 
 # select time window from which to extract subset for initial objective mapping 
 win_size = 20
-t_windows = np.arange(np.nanmin(time_rec), np.nanmax(time_rec), win_size)
-t_bin = np.nan * np.zeros((len(time_rec) - win_size, 2))
-for i in range(len(time_rec) - win_size):
-    t_bin[i, :] = [time_rec[i], time_rec[i] + win_size]
+time_step = 3
+t_windows = np.arange(np.floor(np.nanmin(time_rec)), np.floor(np.nanmax(time_rec)), time_step)
+t_bin = np.nan * np.zeros((len(t_windows) - win_size, 2))
+for i in range(len(t_windows) - win_size):
+    t_bin[i, :] = [t_windows[i], t_windows[i] + win_size]
 
 # --- LOOPING ###
 # --- LOOPING ### over time windows
@@ -172,7 +173,7 @@ sigma_theta_all = []
 lon_all = []
 lat_all = []
 good_mask = []
-sample_win = np.array([14, 15, 16, 17])
+sample_win = np.array([14, 15, 16, 17, 18, 19, 20, 21, 22, 23])
 for k0 in range(np.size(sample_win)):
     k = sample_win[k0]
     k_out = k
@@ -185,8 +186,8 @@ for k0 in range(np.size(sample_win)):
     error = np.nan * np.zeros((len(lat_grid), len(lon_grid), len(grid)))
     d_sigma_dx = np.nan * np.zeros((len(lat_grid), len(lon_grid), len(grid)))
     d_sigma_dy = np.nan * np.zeros((len(lat_grid), len(lon_grid), len(grid)))
-    for k in range(len(grid_2)):
-        depth = np.where(grid == grid[k])[0][0]
+    for l in range(len(grid_2)):
+        depth = np.where(grid == grid[l])[0][0]
         lon_in = np.array(df_lon.iloc[depth, time_in])
         lat_in = np.array(df_lat.iloc[depth, time_in])
         den_in = np.array(df_den.iloc[depth, time_in])
@@ -200,13 +201,13 @@ for k0 in range(np.size(sample_win)):
             lat_up = np.array(df_lat.iloc[depth - 1, time_in])
             lat_down = np.array(df_lat.iloc[depth + 1, time_in])
             bad = np.where(np.isnan(den_in))[0]
-            for l in range(len(bad)):
-                den_in[bad[l]] = np.interp(grid[depth], [grid[depth - 1], grid[depth + 1]],
-                                           [den_up[bad[l]], den_down[bad[l]]])
-                lon_in[bad[l]] = np.interp(grid[depth], [grid[depth - 1], grid[depth + 1]],
-                                           [lon_up[bad[l]], lon_down[bad[l]]])
-                lat_in[bad[l]] = np.interp(grid[depth], [grid[depth - 1], grid[depth + 1]],
-                                           [lat_up[bad[l]], lat_down[bad[l]]])
+            for l0 in range(len(bad)):
+                den_in[bad[l0]] = np.interp(grid[depth], [grid[depth - 1], grid[depth + 1]],
+                                           [den_up[bad[l0]], den_down[bad[l0]]])
+                lon_in[bad[l0]] = np.interp(grid[depth], [grid[depth - 1], grid[depth + 1]],
+                                           [lon_up[bad[l0]], lon_down[bad[l0]]])
+                lat_in[bad[l0]] = np.interp(grid[depth], [grid[depth - 1], grid[depth + 1]],
+                                           [lat_up[bad[l0]], lat_down[bad[l0]]])
 
         # convert to x,y distance
         x = 1852 * 60 * np.cos(np.deg2rad(ref_lat)) * (lon_in - ref_lon)
@@ -224,15 +225,15 @@ for k0 in range(np.size(sample_win)):
         npts = len(x)
         C = np.zeros((npts, npts), dtype=np.float)
         data_data = np.zeros((npts, npts), dtype=np.float)
-        for l in range(npts):
-            for k0 in range(npts):
-                dxij = (x[l] - x[k0])
-                dyij = (y[l] - y[k0])
-                C[l, k0] = den_var * np.exp(- (dxij * dxij) / (Lx * Lx) - (dyij * dyij) / (Ly * Ly))
-                if (k0 == l):
-                    data_data[l, k0] = C[l, k0] + noise_sig * noise_sig
+        for l2 in range(npts):
+            for k2 in range(npts):
+                dxij = (x[l2] - x[k2])
+                dyij = (y[l2] - y[k2])
+                C[l2, k2] = den_var * np.exp(- (dxij * dxij) / (Lx * Lx) - (dyij * dyij) / (Ly * Ly))
+                if k2 == l2:
+                    data_data[l2, k2] = C[l2, k2] + noise_sig * noise_sig
                 else:
-                    data_data[l, k0] = C[l, k0]
+                    data_data[l2, k2] = C[l2, k2]
 
         # loop over each grid point 
         Dmap = np.zeros((len(lat_grid), len(lon_grid)), dtype=np.float)
@@ -248,8 +249,8 @@ for k0 in range(np.size(sample_win)):
                 Dmap[j, i] = np.sum([den_anom * alpha]) + (cx * x_grid[i] + cy * y_grid[j] + c0)
                 Emap[j, i] = np.sqrt(den_sig * den_sig - np.dot(data_grid, alpha))
 
-        sigma_theta[:, :, k] = Dmap
-        error[:, :, k] = Emap
+        sigma_theta[:, :, l] = Dmap
+        error[:, :, l] = Emap
 
         # # Create correlation matrix 
         # Ainv = createCorrelationMatrices(x,y,den_anom,data_sig,noise_sig,Lx,Ly)
@@ -265,7 +266,7 @@ for k0 in range(np.size(sample_win)):
         #         Dmap[j,i]=Dmap[j,i]+(cx*x_grid[i]+cy*y_grid[j]+c0)
         # sigma_theta[:,:,k] = Dmap
 
-        d_sigma_dy[:, :, k], d_sigma_dx[:, :, k] = np.gradient(sigma_theta[:, :, k], y_grid[2] - y_grid[1],
+        d_sigma_dy[:, :, l], d_sigma_dx[:, :, l] = np.gradient(sigma_theta[:, :, l], y_grid[2] - y_grid[1],
                                                                x_grid[2] - x_grid[1])
 
         # --- FINISH LOOPING OVER ALL DEPTH LAYERS
@@ -377,6 +378,6 @@ if sa > 0:
               'lat_grid': lat_out, 'time': time_out,
               'Sigma_Theta_All': sigma_theta_all, 'U_g_All': U_all, 'V_g_All': V_all, 'lon_grid_All': lon_all,
               'lat_grid_All': lat_all, 'mask': good_mask}
-    output = open('/Users/jake/Documents/geostrophic_turbulence/BATS_obj_map_2.pkl', 'wb')
+    output = open('/Users/jake/Documents/geostrophic_turbulence/BATS_obj_map_3.pkl', 'wb')
     pickle.dump(mydict, output)
     output.close()

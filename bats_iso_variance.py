@@ -7,6 +7,7 @@ import pandas as pd
 import scipy.io as si
 from scipy.io import netcdf
 import pickle
+from scipy.signal import savgol_filter
 # functions I've written 
 from mode_decompositions import vertical_modes, PE_Tide_GM
 from toolkit import plot_pro
@@ -17,6 +18,7 @@ rho0 = 1027
 # limit bin depth to 4500 (to prevent fitting of velocity profiles past points at which we have data) (previous = 5000)
 bin_depth = np.concatenate([np.arange(0, 150, 10), np.arange(150, 300, 10), np.arange(300, 4500, 20)])
 ref_lat = 31.8
+ref_lon = -64.2
 lat_in = 31.7
 lon_in = 64.2
 grid = bin_depth[1:-1]
@@ -57,6 +59,8 @@ Sigma_Theta = bats_trans['Sigma_Theta'][0:sz_g, :]
 Eta = bats_trans['Eta'][0:sz_g, :]
 Eta_theta = bats_trans['Eta_theta'][0:sz_g, :]
 V = bats_trans['V'][0:sz_g, :]
+prof_lon = bats_trans['V_lon']
+prof_lat = bats_trans['V_lat']
 # Heading = bats_trans['Heading']
 
 # average background properties of profiles along these transects 
@@ -88,6 +92,8 @@ V2 = V[:, good]
 Eta2 = Eta[:, good]
 Eta_theta2 = Eta_theta[:, good]
 Time2 = Time[good]
+prof_lon2 = prof_lon[good]
+prof_lat2 = prof_lat[good]
 
 sz = np.shape(Eta2)
 num_profs = sz[1]
@@ -258,14 +264,85 @@ if plot_eta > 0:
 # --- MODE AMPLITUDE IN TIME AND SPACE
 plot_mode = 1
 if plot_mode > 0:
-    this_mode0 = 1
-    this_mode1 = 2
-    this_mode2 = 3
-    fm, ax = plt.subplots()
-    plt.scatter(Time2, AG[this_mode0, :], s=3, color='k')
-    plt.scatter(Time2, AG[this_mode1, :], s=3, color='r')
-    plt.scatter(Time2, AG[this_mode2, :], s=3, color='g')
-    plot_pro(ax)
+
+    window_size, poly_order = 11, 2
+    fm, (ax, ax1) = plt.subplots(1, 2, sharey=True)
+    colors = ['r', 'b', 'm', 'g', 'c']
+    for mo in range(1, 6, 1):
+        orderAG = AG[mo, np.argsort(Time2)]
+        orderAGz = AGz[mo, np.argsort(Time2)]
+        y_sg = savgol_filter(orderAG, window_size, poly_order)
+        y_sgz = savgol_filter(orderAGz, window_size, poly_order)
+        pm = ax.scatter(Time2, AG[mo, :], s=3, color=colors[mo-1], label=('Mode '+str(mo)))
+        ax.plot(Time2[np.argsort(Time2)], y_sg, color=colors[mo-1])
+        pmz = ax1.scatter(Time2, AGz[mo, :], s=3, color=colors[mo-1])
+        ax1.plot(Time2[np.argsort(Time2)], y_sgz, color=colors[mo-1])
+    handles, labels = ax.get_legend_handles_labels()
+    ax.legend(handles, labels, fontsize=14)
+    ax.set_title('Displacement Mode Amplitude')
+    ax1.set_title('Velocity Mode Amplitude')
+    ax.grid()
+    plot_pro(ax1)
+
+plot_mode_corr = 0
+if plot_mode_corr > 0:
+    x = 1852 * 60 * np.cos(np.deg2rad(ref_lat)) * (prof_lon2 - ref_lon)
+    y = 1852 * 60 * (prof_lat2 - ref_lat)
+    x_tile = np.tile(x, (len(x), 1))
+    y_tile = np.tile(y, (len(y), 1))
+    time_tile = np.tile(Time2, (len(Time2), 1))
+    dist = np.sqrt((x_tile - x_tile.T) ** 2 + (y_tile - y_tile.T) ** 2) / 1000
+    time_lag = np.abs(time_tile - time_tile.T)
+
+    # this mode
+    mode_num = 1
+    AG_i = AG[mode_num, :]
+    AGz_i = AGz[mode_num, :]
+
+    # define each box as all points that fall within a time and space lag
+    dist_win = range(0, 100, 10)
+    t_win = range(0, 100, 10)
+    # try to compute lagged autocorrelation for all points within a given distance
+    # returns a tuple of coordinate pairs where distance criteria are met
+    corr_i = np.nan * np.zeros((len(t_win), len(dist_win)))
+    corr_z_i = np.nan * np.zeros((len(t_win), len(dist_win)))
+    for dd in range(len(dist_win) - 1):
+        dist_small_i = np.where((dist > dist_win[dd]) & (dist < dist_win[dd + 1]))
+        time_in = np.unique(time_lag[dist_small_i[0], dist_small_i[1]])
+        AG_out = np.nan * np.zeros([len(dist_small_i[0]), 3])
+        AGz_out = np.nan * np.zeros([len(dist_small_i[0]), 3])
+        for i in range(len(dist_small_i[0])):
+            AG_out[i, :] = [AG_i[dist_small_i[0][i]], AG_i[dist_small_i[1][i]],
+                              time_lag[dist_small_i[0][i], dist_small_i[1][i]]]
+            AGz_out[i, :] = [AGz_i[dist_small_i[0][i]], AGz_i[dist_small_i[1][i]],
+                              time_lag[dist_small_i[0][i], dist_small_i[1][i]]]
+        no_doub, no_doub_i = np.unique(AG_out[:, 2], return_index=True)
+        AG_out2 = AG_out[no_doub_i, :]
+        zno_doub, zno_doub_i = np.unique(AGz_out[:, 2], return_index=True)
+        AGz_out2 = AGz_out[zno_doub_i, :]
+        for j in range(len(t_win) - 1):
+            inn = AG_out2[((AG_out2[:, 2] > t_win[j]) & (AG_out2[:, 2] < t_win[j + 1])), 0:3]
+            i_mean = np.mean(inn[:, 0:2])
+            n = len(inn[:, 0:2])
+            variance = np.var(inn[:, 0:2])
+            covi = np.nan * np.zeros(len(inn[:, 0]))
+            for k in range(len(inn[:, 0])):
+                covi[k] = (inn[k, 0] - i_mean) * (inn[k, 1] - i_mean)
+            corr_i[j, dd] = (1 / (n * variance)) * np.sum(covi)
+
+            innz = AGz_out2[((AGz_out2[:, 2] > t_win[j]) & (AGz_out2[:, 2] < t_win[j + 1])), 0:3]
+            iz_mean = np.mean(innz[:, 0:2])
+            nz = len(innz[:, 0:2])
+            variancez = np.var(innz[:, 0:2])
+            covzi = np.nan * np.zeros(len(innz[:, 0]))
+            for k in range(len(innz[:, 0])):
+                covzi[k] = (innz[k, 0] - iz_mean) * (innz[k, 1] - iz_mean)
+            corr_z_i[j, dd] = (1 / (nz * variancez)) * np.sum(covzi)
+    f, (ax1,ax2) = plt.subplots(1,2)
+    pa = ax1.pcolor(dist_win, t_win, corr_i, vmin=-1, vmax=1)
+    paz = ax2.pcolor(dist_win, t_win, corr_z_i, vmin=-1, vmax=1)
+    f.colorbar(pa)
+    plot_pro(ax2)
 
 avg_PE = np.nanmean(PE_per_mass, 1)
 good_prof_i = good_prof  # np.where(good_prof > 0)
