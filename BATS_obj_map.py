@@ -152,7 +152,7 @@ x_grid = 1852 * 60 * np.cos(np.deg2rad(ref_lat)) * (lon_grid - ref_lon)
 y_grid = 1852 * 60 * (lat_grid - ref_lat)
 
 # select time window from which to extract subset for initial objective mapping 
-win_size = 20
+win_size = 17
 time_step = 3
 t_windows = np.arange(np.floor(np.nanmin(time_rec)), np.floor(np.nanmax(time_rec)), time_step)
 t_bin = np.nan * np.zeros((len(t_windows) - win_size, 2))
@@ -161,19 +161,24 @@ for i in range(len(t_windows) - win_size):
 
 # --- LOOPING ###
 # --- LOOPING ### over time windows
+n_error = []
 U_out = []
 V_out = []
 sigma_theta_out = []
+sigma_theta_all = []
+d_dx_sigma = []
+d_dy_sigma = []
 lon_out = []
 lat_out = []
+lon_all = []
+lat_all = []
 time_out = []
 U_all = []
 V_all = []
-sigma_theta_all = []
-lon_all = []
-lat_all = []
+DAC_U_M = []
+DAC_V_M = []
 good_mask = []
-sample_win = np.array([14, 15, 16, 17, 18, 19, 20, 21, 22, 23])
+sample_win = np.arange(25, 40, 1)
 for k0 in range(np.size(sample_win)):
     k = sample_win[k0]
     k_out = k
@@ -339,30 +344,38 @@ for k0 in range(np.size(sample_win)):
     # include only u/v profiles with density error less than 0.01 
     # - average error on the vertical 
     error_mask = np.zeros((len(lat_grid), len(lon_grid), len(grid_2)))
+    norm_error = np.zeros((len(lat_grid), len(lon_grid), len(grid_2)))
     for i in range(len(grid_2)):
+        norm_error[:, :, i] = error[:, :, i] / (np.nanmax(sigma_theta[:, :, i]) - np.nanmin(sigma_theta[:, :, i]))
         sig_range = (np.nanmax(sigma_theta[:, :, i]) - np.nanmin(sigma_theta[:, :, i])) / 7
+        sig_range2 = 1*(sigma_theta[:, :, i].std())
         good = np.where(error[:, :, i] < sig_range)
         error_mask[good[0], good[1], i] = 1
-    error_test = np.sum(error_mask, axis=2)
-    good_prof = np.where(error_test > 180)
+    # error_test = np.sum(error_mask, axis=2)
+    error_test = np.nanmean(norm_error, axis=2)
+    good_prof = np.where(error_test <= 0.125)
 
     t_s = datetime.date.fromordinal(np.int(t_bin[k_out, 0]))
     t_e = datetime.date.fromordinal(np.int(t_bin[k_out, 1]))
 
     # --- OUTPUT
     # indices (profile,z_grid,)
+    n_error.append(norm_error)
     U_out.append(U_g[good_prof[0], good_prof[1], :])
     V_out.append(V_g[good_prof[0], good_prof[1], :])
     sigma_theta_out.append(sigma_theta[good_prof[0], good_prof[1], :])
     lon_out.append(lon_grid[good_prof[1]])
     lat_out.append(lat_grid[good_prof[0]])
 
-    # need to modify output ...
     lon_all.append(lon_grid)
     lat_all.append(lat_grid)
     sigma_theta_all.append(sigma_theta)
+    d_dx_sigma.append(d_sigma_dx)
+    d_dy_sigma.append(d_sigma_dy)
     U_all.append(U_g)
     V_all.append(V_g)
+    DAC_U_M.append(U_g)
+    DAC_V_M.append(V_g)
 
     time_out.append(t_bin[k_out, :])
     good_mask.append(good_prof)
@@ -377,7 +390,10 @@ if sa > 0:
     mydict = {'depth': grid, 'Sigma_Theta': sigma_theta_out, 'U_g': U_out, 'V_g': V_out, 'lon_grid': lon_out,
               'lat_grid': lat_out, 'time': time_out,
               'Sigma_Theta_All': sigma_theta_all, 'U_g_All': U_all, 'V_g_All': V_all, 'lon_grid_All': lon_all,
-              'lat_grid_All': lat_all, 'mask': good_mask}
+              'lat_grid_All': lat_all, 'mask': good_mask, 'dac_u_map': DAC_U_M, 'dac_v_map': DAC_V_M,
+              'd_sigma_dx': d_dx_sigma, 'd_sigma_dy': d_dy_sigma}
     output = open('/Users/jake/Documents/geostrophic_turbulence/BATS_obj_map_3.pkl', 'wb')
     pickle.dump(mydict, output)
     output.close()
+
+

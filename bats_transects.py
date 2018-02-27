@@ -9,7 +9,6 @@ import datetime
 import glob
 import seawater as sw 
 import pandas as pd 
-import scipy.io as si
 from scipy.io import netcdf
 from scipy.integrate import cumtrapz
 import seaborn as sns
@@ -19,9 +18,9 @@ from grids import make_bin, collect_dives
 from mode_decompositions import vertical_modes, PE_Tide_GM
 from toolkit import cart2pol, pol2cart, plot_pro
 
-############ Plot plan view of station BATS and glider sampling pattern for 2015
+# ------ Plot plan view of station BATS and glider sampling pattern for 2015
 
-## bathymetry 
+# -- bathymetry
 bath = '/Users/jake/Desktop/bats/bats_bathymetry/GEBCO_2014_2D_-67.7_29.8_-59.9_34.8.nc'
 bath_fid = netcdf.netcdf_file(bath,'r',mmap=False if sys.platform == 'darwin' else mmap, version=1)
 bath_lon = bath_fid.variables['lon'][:]
@@ -33,7 +32,7 @@ ax.plot(bath_lon,bath_z[np.where( (bath_lat > 31.69) & (bath_lat < 31.7)  )[0][0
 ax.axis([np.min(bath_lon),np.max(bath_lon),-5250,0])
 plot_pro(ax)
 
-## gliders 
+# -- gliders
 dg_list = glob.glob('/Users/jake/Documents/baroclinic_modes/DG/sg035_BATS_2015/p*.nc')
 
 # physical parameters 
