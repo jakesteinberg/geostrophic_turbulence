@@ -38,13 +38,8 @@ def test_bin(A):
     return (np.shape(A))
 
 
-def collect_dives(dg_list, bin_depth, grid, grid_p, ref_lat):
-    # initial arrays and dataframes 
-    df_t = pd.DataFrame()
-    df_s = pd.DataFrame()
-    df_den = pd.DataFrame()
-    df_lon = pd.DataFrame()
-    df_lat = pd.DataFrame()
+def collect_dives(dg_list, bin_depth, grid_p, ref_lat):
+    # initial arrays
     heading_rec = []
     target_rec = []
     gps_rec = []
@@ -100,7 +95,7 @@ def collect_dives(dg_list, bin_depth, grid, grid_p, ref_lat):
         m = 0
         GPS1_out = np.nan * np.zeros(13)
         for l in range(len(GPS1_1)):
-            if ((GPS1_1[l].isdigit()) | (GPS1_1[l] == '.') | (GPS1_1[l] == '-')):
+            if (GPS1_1[l].isdigit()) | (GPS1_1[l] == '.') | (GPS1_1[l] == '-'):
                 if m < 1:
                     numb = GPS1_1[l]
                 else:
@@ -120,7 +115,7 @@ def collect_dives(dg_list, bin_depth, grid, grid_p, ref_lat):
         m = 0
         GPS2_out = np.nan * np.zeros(13)
         for l in range(len(GPS2_1)):
-            if ((GPS2_1[l].isdigit()) | (GPS2_1[l] == '.') | (GPS2_1[l] == '-')):
+            if (GPS2_1[l].isdigit()) | (GPS2_1[l] == '.') | (GPS2_1[l] == '-'):
                 if m < 1:
                     numb = GPS2_1[l]
                 else:
@@ -217,7 +212,7 @@ def collect_dives(dg_list, bin_depth, grid, grid_p, ref_lat):
         temp_grid_dive, temp_grid_climb, salin_grid_dive, salin_grid_climb, lon_grid_dive, lon_grid_climb, lat_grid_dive, lat_grid_climb = make_bin(
             bin_depth, depth[dive_mask], depth[climb_mask], temp[dive_mask], temp[climb_mask], salin[dive_mask],
             salin[climb_mask], lon[dive_mask] * 1000, lon[climb_mask] * 1000, lat[dive_mask] * 1000,
-            lat[climb_mask] * 1000)
+                               lat[climb_mask] * 1000)
 
         den_grid_dive = sw.pden(salin_grid_dive, temp_grid_dive, grid_p, pr=0) - 1000
         den_grid_climb = sw.pden(salin_grid_climb, temp_grid_climb, grid_p, pr=0) - 1000
@@ -225,33 +220,45 @@ def collect_dives(dg_list, bin_depth, grid, grid_p, ref_lat):
         theta_grid_climb = sw.ptmp(salin_grid_climb, temp_grid_climb, grid_p, pr=0)
 
         # create dataframes where each column is a profile 
-        t_data_d = pd.DataFrame(theta_grid_dive, index=grid, columns=[glid_num * 1000 + dive_num])
-        t_data_c = pd.DataFrame(theta_grid_climb, index=grid, columns=[glid_num * 1000 + dive_num + .5])
-        s_data_d = pd.DataFrame(salin_grid_dive, index=grid, columns=[glid_num * 1000 + dive_num])
-        s_data_c = pd.DataFrame(salin_grid_climb, index=grid, columns=[glid_num * 1000 + dive_num + .5])
-        den_data_d = pd.DataFrame(den_grid_dive, index=grid, columns=[glid_num * 1000 + dive_num])
-        den_data_c = pd.DataFrame(den_grid_climb, index=grid, columns=[glid_num * 1000 + dive_num + .5])
-        lon_data_d = pd.DataFrame(lon_grid_dive, index=grid, columns=[glid_num * 1000 + dive_num])
-        lon_data_c = pd.DataFrame(lon_grid_climb, index=grid, columns=[glid_num * 1000 + dive_num + .5])
-        lat_data_d = pd.DataFrame(lat_grid_dive, index=grid, columns=[glid_num * 1000 + dive_num])
-        lat_data_c = pd.DataFrame(lat_grid_climb, index=grid, columns=[glid_num * 1000 + dive_num + .5])
+        # t_data_d = pd.DataFrame(theta_grid_dive, index=grid, columns=[glid_num * 1000 + dive_num])
+        # t_data_c = pd.DataFrame(theta_grid_climb, index=grid, columns=[glid_num * 1000 + dive_num + .5])
+        # s_data_d = pd.DataFrame(salin_grid_dive, index=grid, columns=[glid_num * 1000 + dive_num])
+        # s_data_c = pd.DataFrame(salin_grid_climb, index=grid, columns=[glid_num * 1000 + dive_num + .5])
+        # den_data_d = pd.DataFrame(den_grid_dive, index=grid, columns=[glid_num * 1000 + dive_num])
+        # den_data_c = pd.DataFrame(den_grid_climb, index=grid, columns=[glid_num * 1000 + dive_num + .5])
+        # lon_data_d = pd.DataFrame(lon_grid_dive, index=grid, columns=[glid_num * 1000 + dive_num])
+        # lon_data_c = pd.DataFrame(lon_grid_climb, index=grid, columns=[glid_num * 1000 + dive_num + .5])
+        # lat_data_d = pd.DataFrame(lat_grid_dive, index=grid, columns=[glid_num * 1000 + dive_num])
+        # lat_data_c = pd.DataFrame(lat_grid_climb, index=grid, columns=[glid_num * 1000 + dive_num + .5])
 
-        if df_t.size < 1:
-            df_t = pd.concat([t_data_d, t_data_c], axis=1)
-            df_s = pd.concat([s_data_d, s_data_c], axis=1)
-            df_den = pd.concat([den_data_d, den_data_c], axis=1)
-            df_lon = pd.concat([lon_data_d, lon_data_c], axis=1)
-            df_lat = pd.concat([lat_data_d, lat_data_c], axis=1)
+        if count == count_st:
+            # df_t = pd.concat([t_data_d, t_data_c], axis=1)
+            # df_s = pd.concat([s_data_d, s_data_c], axis=1)
+            # df_den = pd.concat([den_data_d, den_data_c], axis=1)
+            # df_lon = pd.concat([lon_data_d, lon_data_c], axis=1)
+            # df_lat = pd.concat([lat_data_d, lat_data_c], axis=1)
+            theta_out = np.concatenate([theta_grid_dive[:, None], theta_grid_climb[:, None]], axis=1)
+            salin_out = np.concatenate([salin_grid_dive[:, None], salin_grid_climb[:, None]], axis=1)
+            lon_out = np.concatenate([lon_grid_dive[:, None], lon_grid_climb[:, None]], axis=1)
+            lat_out = np.concatenate([lat_grid_dive[:, None], lat_grid_climb[:, None]], axis=1)
+            den_out = np.concatenate([den_grid_dive[:, None], den_grid_climb[:, None]], axis=1)
+            dive_list = np.array([glid_num * 1000 + dive_num, glid_num * 1000 + dive_num + .5])
         else:
-            df_t = pd.concat([df_t, t_data_d, t_data_c], axis=1)
-            df_s = pd.concat([df_s, s_data_d, s_data_c], axis=1)
-            df_den = pd.concat([df_den, den_data_d, den_data_c], axis=1)
-            df_lon = pd.concat([df_lon, lon_data_d, lon_data_c], axis=1)
-            df_lat = pd.concat([df_lat, lat_data_d, lat_data_c], axis=1)
+            theta_out = np.concatenate([theta_out, theta_grid_dive[:, None], theta_grid_climb[:, None]], axis=1)
+            salin_out = np.concatenate([salin_out, salin_grid_dive[:, None], salin_grid_climb[:, None]], axis=1)
+            lon_out = np.concatenate([lon_out, lon_grid_dive[:, None], lon_grid_climb[:, None]], axis=1)
+            lat_out = np.concatenate([lat_out, lat_grid_dive[:, None], lat_grid_climb[:, None]], axis=1)
+            den_out = np.concatenate([den_out, den_grid_dive[:, None], den_grid_climb[:, None]], axis=1)
+            dive_list = np.append(dive_list, np.array([glid_num * 1000 + dive_num, glid_num * 1000 + dive_num + .5]))
+            # df_t = pd.concat([df_t, t_data_d, t_data_c], axis=1)
+            # df_s = pd.concat([df_s, s_data_d, s_data_c], axis=1)
+            # df_den = pd.concat([df_den, den_data_d, den_data_c], axis=1)
+            # df_lon = pd.concat([df_lon, lon_data_d, lon_data_c], axis=1)
+            # df_lat = pd.concat([df_lat, lat_data_d, lat_data_c], axis=1)
 
         count = count + 1
 
-    return df_t, df_s, df_den, df_lon, df_lat, dac_u, dac_v, time_rec, time_rec_2, heading_rec, target_rec, gps_rec
+    return theta_out, salin_out, den_out, lon_out, lat_out, dac_u, dac_v, time_rec, time_rec_2, target_rec, gps_rec, dive_list
 
 # procedure for take BATS dives and processing each to account for heading and vertical bin averaging
 # (uses collect_dives and make_bin)

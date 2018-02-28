@@ -1,6 +1,7 @@
 from grids import collect_dives
 import numpy as np
 from scipy.io import netcdf
+from netCDF4 import Dataset
 import glob
 import seawater as sw
 
@@ -15,9 +16,16 @@ bin_depth = np.concatenate([np.arange(0, 150, 10), np.arange(150, 300, 10), np.a
 grid = bin_depth[1:-1]
 grid_p = sw.pres(grid, ref_lat)
 
-df_t, df_s, df_den, df_lon, df_lat, dac_u, dac_v, time_rec, time_sta_sto, head_rec, targ_rec, gps_rec = collect_dives(
-    dg_list, bin_depth, grid, grid_p, ref_lat)
-dive_list = np.array(df_t.columns)
+theta_g, salin_g, den_g, lon_g, lat_g, dac_u, dac_v, time_rec, time_sta_sto, targ_rec, gps_rec, dive_list = collect_dives(
+    dg_list, bin_depth, grid_p, ref_lat)
+
+theta_g[np.isnan(theta_g)] = -999
+salin_g[np.isnan(salin_g)] = -999
+den_g[np.isnan(den_g)] = -999
+lon_g[np.isnan(lon_g)] = -999
+lat_g[np.isnan(lat_g)] = -999
+dac_u[np.isnan(dac_u)] = -999
+dac_v[np.isnan(dac_v)] = -999
 
 f = netcdf.netcdf_file('BATs_2015_gridded_3.nc', 'w')
 f.history = 'DG 2015 dives; have been gridded vertically and separated into dive and climb cycles'
@@ -28,16 +36,16 @@ b_d = f.createVariable('grid', np.float64, ('grid',))
 b_d[:] = grid
 b_l = f.createVariable('dive_list', np.float64, ('dive_list',))
 b_l[:] = dive_list
-b_t = f.createVariable('Temperature', np.float64, ('grid', 'dive_list'))
-b_t[:] = df_t
+b_t = f.createVariable('Theta', np.float64, ('grid', 'dive_list'))
+b_t[:] = theta_g
 b_s = f.createVariable('Salinity', np.float64, ('grid', 'dive_list'))
-b_s[:] = df_s
+b_s[:] = salin_g
 b_den = f.createVariable('Density', np.float64, ('grid', 'dive_list'))
-b_den[:] = df_den
+b_den[:] = den_g
 b_lon = f.createVariable('Longitude', np.float64, ('grid', 'dive_list'))
-b_lon[:] = df_lon
+b_lon[:] = lon_g
 b_lat = f.createVariable('Latitude', np.float64, ('grid', 'dive_list'))
-b_lat[:] = df_lat
+b_lat[:] = lat_g
 b_u = f.createVariable('DAC_u', np.float64, ('dive_list',))
 b_u[:] = dac_u
 b_v = f.createVariable('DAC_v', np.float64, ('dive_list',))
@@ -46,8 +54,6 @@ b_time = f.createVariable('time_rec', np.float64, ('dive_list',))
 b_time[:] = time_rec
 b_t_ss = f.createVariable('time_start_stop', np.float64, ('dive_list',))
 b_t_ss[:] = time_sta_sto
-b_h = f.createVariable('heading_record', np.float64, ('dive_list',))
-b_h[:] = head_rec
 b_targ = f.createVariable('target_record', np.float64, ('dive_list',))
 b_targ[:] = targ_rec
 b_gps = f.createVariable('gps_record', np.float64, ('dive_list', 'lat_lon'))
