@@ -27,7 +27,7 @@ lat_g[np.isnan(lat_g)] = -999
 dac_u[np.isnan(dac_u)] = -999
 dac_v[np.isnan(dac_v)] = -999
 
-f = netcdf.netcdf_file('BATs_2015_gridded_3.nc', 'w')
+f = netcdf.netcdf_file('BATs_2015_gridded_2.nc', 'w')
 f.history = 'DG 2015 dives; have been gridded vertically and separated into dive and climb cycles'
 f.createDimension('grid', np.size(grid))
 f.createDimension('lat_lon', 4)

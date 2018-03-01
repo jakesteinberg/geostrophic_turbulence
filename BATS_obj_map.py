@@ -11,7 +11,7 @@
 
 import numpy as np
 import pandas as pd
-from scipy.io import netcdf
+from netCDF4 import Dataset
 from scipy.integrate import cumtrapz
 from scipy.linalg import solve
 import seawater as sw
@@ -60,10 +60,9 @@ z = -1 * grid
 grid_2 = grid[0:214]
 
 # LOAD DATA (gridded dives)
-GD = netcdf.netcdf_file('BATs_2015_gridded_2.nc', 'r')
-profile_list = np.float64(GD.variables['dive_list'][:]) - 35000
-df_den = pd.DataFrame(np.float64(GD.variables['Density'][:]), index=np.float64(GD.variables['grid'][:]),
-                      columns=np.float64(GD.variables['dive_list'][:]))
+GD = Dataset('BATs_2015_gridded_3.nc', 'r')
+profile_list = GD['dive_list'][:] - 35000
+df_den = pd.DataFrame(GD['Density'][:], index=GD['grid'][:], columns=GD['dive_list'][:])
 
 # select only dives with depths greater than 4000m 
 grid_test = np.nan * np.zeros(len(profile_list))
@@ -72,21 +71,24 @@ for i in range(len(profile_list)):
 good = np.where(grid_test > 4000)[0]
 
 # load select profiles
-df_den = pd.DataFrame(np.float64(GD.variables['Density'][:]), index=np.float64(GD.variables['grid'][:]),
-                      columns=np.float64(GD.variables['dive_list'][:])).iloc[:, good]
-df_t = pd.DataFrame(np.float64(GD.variables['Temperature'][:]), index=np.float64(GD.variables['grid'][:]),
-                    columns=np.float64(GD.variables['dive_list'][:])).iloc[:, good]
-df_s = pd.DataFrame(np.float64(GD.variables['Salinity'][:]), index=np.float64(GD.variables['grid'][:]),
-                    columns=np.float64(GD.variables['dive_list'][:])).iloc[:, good]
-df_lon = pd.DataFrame(np.float64(GD.variables['Longitude'][:]), index=np.float64(GD.variables['grid'][:]),
-                      columns=np.float64(GD.variables['dive_list'][:])).iloc[:, good]
-df_lat = pd.DataFrame(np.float64(GD.variables['Latitude'][:]), index=np.float64(GD.variables['grid'][:]),
-                      columns=np.float64(GD.variables['dive_list'][:])).iloc[:, good]
+GD = Dataset('BATs_2015_gridded_3.nc', 'r')
+df_den = pd.DataFrame(GD['Density'][:, good], index=GD['grid'][:], columns=GD['dive_list'][good])
+df_theta = pd.DataFrame(GD['Theta'][:, good], index=GD['grid'][:], columns=GD['dive_list'][good])
+df_s = pd.DataFrame(GD['Salinity'][:, good], index=GD['grid'][:], columns=GD['dive_list'][good])
+df_lon = pd.DataFrame(GD['Longitude'][:, good], index=GD['grid'][:], columns=GD['dive_list'][good])
+df_lat = pd.DataFrame(GD['Latitude'][:, good], index=GD['grid'][:], columns=GD['dive_list'][good])
 dac_u = GD.variables['DAC_u'][good]
 dac_v = GD.variables['DAC_v'][good]
 time_rec = GD.variables['time_start_stop'][good]
-heading_rec = GD.variables['heading_record'][good]
 profile_list = np.float64(GD.variables['dive_list'][good]) - 35000
+df_den[df_den < 0] = np.nan
+df_theta[df_theta < 0] = np.nan
+df_s[df_s < 0] = np.nan
+df_lon[df_lon < -500] = np.nan
+df_lat[df_lat < -500] = np.nan
+dac_u[dac_u < -500] = np.nan
+dac_v[dac_v < -500] = np.nan
+
 
 # interpolate nans that populate density profiles     
 for i in range(len(profile_list)):
@@ -152,8 +154,8 @@ x_grid = 1852 * 60 * np.cos(np.deg2rad(ref_lat)) * (lon_grid - ref_lon)
 y_grid = 1852 * 60 * (lat_grid - ref_lat)
 
 # select time window from which to extract subset for initial objective mapping 
-win_size = 17
-time_step = 3
+win_size = 16
+time_step = 2
 t_windows = np.arange(np.floor(np.nanmin(time_rec)), np.floor(np.nanmax(time_rec)), time_step)
 t_bin = np.nan * np.zeros((len(t_windows) - win_size, 2))
 for i in range(len(t_windows) - win_size):
@@ -178,7 +180,7 @@ V_all = []
 DAC_U_M = []
 DAC_V_M = []
 good_mask = []
-sample_win = np.arange(25, 40, 1)
+sample_win = np.arange(20, 50, 1)
 for k0 in range(np.size(sample_win)):
     k = sample_win[k0]
     k_out = k
@@ -353,7 +355,7 @@ for k0 in range(np.size(sample_win)):
         error_mask[good[0], good[1], i] = 1
     # error_test = np.sum(error_mask, axis=2)
     error_test = np.nanmean(norm_error, axis=2)
-    good_prof = np.where(error_test <= 0.125)
+    good_prof = np.where(error_test <= 0.11)
 
     t_s = datetime.date.fromordinal(np.int(t_bin[k_out, 0]))
     t_e = datetime.date.fromordinal(np.int(t_bin[k_out, 1]))
@@ -392,7 +394,7 @@ if sa > 0:
               'Sigma_Theta_All': sigma_theta_all, 'U_g_All': U_all, 'V_g_All': V_all, 'lon_grid_All': lon_all,
               'lat_grid_All': lat_all, 'mask': good_mask, 'dac_u_map': DAC_U_M, 'dac_v_map': DAC_V_M,
               'd_sigma_dx': d_dx_sigma, 'd_sigma_dy': d_dy_sigma}
-    output = open('/Users/jake/Documents/geostrophic_turbulence/BATS_obj_map_3.pkl', 'wb')
+    output = open('/Users/jake/Documents/geostrophic_turbulence/BATS_obj_map_1.pkl', 'wb')
     pickle.dump(mydict, output)
     output.close()
 

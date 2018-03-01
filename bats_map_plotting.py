@@ -3,16 +3,15 @@ import matplotlib.pyplot as plt
 import datetime
 import seawater as sw
 import pandas as pd
-from scipy.io import netcdf
+from netCDF4 import Dataset
 import pickle
 from mpl_toolkits.mplot3d import axes3d
 from toolkit import plot_pro
 
 # LOAD DATA (gridded dives)
-GD = netcdf.netcdf_file('BATs_2015_gridded_3.nc', 'r')
-profile_list = np.float64(GD.variables['dive_list'][:]) - 35000
-df_den = pd.DataFrame(np.float64(GD.variables['Density'][:]), index=np.float64(GD.variables['grid'][:]),
-                      columns=np.float64(GD.variables['dive_list'][:]))
+GD = Dataset('BATs_2015_gridded_3.nc', 'r')
+profile_list = GD['dive_list'][:] - 35000
+df_den = pd.DataFrame(GD['Density'][:], index=GD['grid'][:], columns=GD['dive_list'][:])
 
 # physical parameters
 g = 9.81
@@ -32,29 +31,33 @@ for i in range(len(profile_list)):
     grid_test[i] = grid[np.where(np.array(df_den.iloc[:, i]) == np.nanmax(np.array(df_den.iloc[:, i])))[0][0]]
 good = np.where(grid_test >= 4000)[0]
 
-# load select profiles
-df_den = pd.DataFrame(np.float64(GD.variables['Density'][:]), index=np.float64(GD.variables['grid'][:]),
-                      columns=np.float64(GD.variables['dive_list'][:])).iloc[:, good]
-df_t = pd.DataFrame(np.float64(GD.variables['Temperature'][:]), index=np.float64(GD.variables['grid'][:]),
-                    columns=np.float64(GD.variables['dive_list'][:])).iloc[:, good]
-df_s = pd.DataFrame(np.float64(GD.variables['Salinity'][:]), index=np.float64(GD.variables['grid'][:]),
-                    columns=np.float64(GD.variables['dive_list'][:])).iloc[:, good]
-df_lon = pd.DataFrame(np.float64(GD.variables['Longitude'][:]), index=np.float64(GD.variables['grid'][:]),
-                      columns=np.float64(GD.variables['dive_list'][:])).iloc[:, good]
-df_lat = pd.DataFrame(np.float64(GD.variables['Latitude'][:]), index=np.float64(GD.variables['grid'][:]),
-                      columns=np.float64(GD.variables['dive_list'][:])).iloc[:, good]
-df_lon_all = pd.DataFrame(np.float64(GD.variables['Longitude'][:]), index=np.float64(GD.variables['grid'][:]),
-                          columns=np.float64(GD.variables['dive_list'][:]))
-df_lat_all = pd.DataFrame(np.float64(GD.variables['Latitude'][:]), index=np.float64(GD.variables['grid'][:]),
-                          columns=np.float64(GD.variables['dive_list'][:]))
-dac_u = GD.variables['DAC_u'][good]
-dac_v = GD.variables['DAC_v'][good]
+# --- LOAD gridded dives (gridded dives)
+GD = Dataset('BATs_2015_gridded_3.nc', 'r')
+df_den = pd.DataFrame(GD['Density'][:], index=GD['grid'][:], columns=GD['dive_list'][:])
+df_theta = pd.DataFrame(GD['Theta'][:], index=GD['grid'][:], columns=GD['dive_list'][:])
+df_s = pd.DataFrame(GD['Salinity'][:], index=GD['grid'][:], columns=GD['dive_list'][:])
+df_lon = pd.DataFrame(GD['Longitude'][:, good], index=GD['grid'][:], columns=GD['dive_list'][good])
+df_lat = pd.DataFrame(GD['Latitude'][:, good], index=GD['grid'][:], columns=GD['dive_list'][good])
+df_lon_all = pd.DataFrame(GD['Longitude'][:], index=GD['grid'][:], columns=GD['dive_list'][:])
+df_lat_all = pd.DataFrame(GD['Latitude'][:], index=GD['grid'][:], columns=GD['dive_list'][:])
+dac_u = GD.variables['DAC_u'][:]
+dac_v = GD.variables['DAC_v'][:]
 time_rec = GD.variables['time_start_stop'][good]
 time_rec_all = GD.variables['time_start_stop'][:]
 profile_list = np.float64(GD.variables['dive_list'][good]) - 35000
 
+df_den[df_den < 0] = np.nan
+df_theta[df_theta < 0] = np.nan
+df_s[df_s < 0] = np.nan
+df_lon[df_lon < -500] = np.nan
+df_lat[df_lat < -500] = np.nan
+df_lon_all[df_lon_all < -500] = np.nan
+df_lat_all[df_lat_all < -500] = np.nan
+dac_u[dac_u < -500] = np.nan
+dac_v[dac_v < -500] = np.nan
+
 # -------------- LOAD IN TRANSECT TO PROFILE DATA COMPILED IN BATS_TRANSECTS.PY
-pkl_file = open('/Users/jake/Documents/geostrophic_turbulence/BATS_obj_map_3.pkl', 'rb')
+pkl_file = open('/Users/jake/Documents/geostrophic_turbulence/BATS_obj_map_1.pkl', 'rb')
 bats_trans = pickle.load(pkl_file)
 pkl_file.close()
 Time = bats_trans['time']
@@ -100,26 +103,50 @@ mask = bats_trans['mask']
 # fig.savefig( ('/Users/jake/Desktop/BATS/bats_mapping/cross_map_' + str(k_out) + '.png'),dpi = 300)
 # plt.close()
 
-# ------------ PLAN VIEW
-test_lev = 100
-lim = 50
-time_t = 0
-time_in_all = np.where((time_rec_all > Time[time_t][0]) & (time_rec_all < Time[time_t][1]))[0]
-this_x_all = 1852 * 60 * np.cos(np.deg2rad(ref_lat)) * (np.array(df_lon_all.iloc[:, time_in_all]) - ref_lon)
-this_y_all = 1852 * 60 * np.cos(np.deg2rad(ref_lat)) * (np.array(df_lat_all.iloc[:, time_in_all]) - ref_lat)
-x_grid = 1852 * 60 * np.cos(np.deg2rad(ref_lat)) * (lon_grid_all[time_t, :] - ref_lon)
-y_grid = 1852 * 60 * (lat_grid_all[time_t, :] - ref_lat)
-x1, y1 = np.meshgrid(x_grid, y_grid)
-
-f, ax = plt.subplots()
-im = ax.pcolor(x1, y1, sigma_theta_all[time_t, :, :, test_lev])
-ax.contour(x1, y1, sigma_theta_all[time_t, :, :, test_lev], colors='k')
-ax.quiver(x1, y1, d_dx_sig[time_t, :, :, test_lev], d_dy_sig[time_t, :, :, test_lev], color='r')
-ax.quiver(x1, y1, U_all[time_t, :, :, test_lev], V_all[time_t, :, :, test_lev], color='w')
-ax.scatter(this_x_all, this_y_all, s=10, color='k')
-ax.scatter(x1[mask[time_t][0], mask[time_t][1]], y1[mask[time_t][0], mask[time_t][1]], s=15, color='m')
-f.colorbar(im, orientation='horizontal')
-plot_pro(ax)
+# ------------ PLAN VIEW ------------------------------
+# test_lev = 100
+# lim = 50
+# time_t = 10
+# time_in_all = np.where((time_rec_all > Time[time_t][0]) & (time_rec_all < Time[time_t][1]))[0]
+# this_x_all = 1852 * 60 * np.cos(np.deg2rad(ref_lat)) * (np.array(df_lon_all.iloc[:, time_in_all]) - ref_lon)
+# this_y_all = 1852 * 60 * np.cos(np.deg2rad(ref_lat)) * (np.array(df_lat_all.iloc[:, time_in_all]) - ref_lat)
+# x_grid = 1852 * 60 * np.cos(np.deg2rad(ref_lat)) * (lon_grid_all[time_t, :] - ref_lon)
+# y_grid = 1852 * 60 * (lat_grid_all[time_t, :] - ref_lat)
+# x1, y1 = np.meshgrid(x_grid, y_grid)
+#
+# f, ax = plt.subplots()
+# im = ax.pcolor(x1, y1, sigma_theta_all[time_t, :, :, test_lev])
+# ax.contour(x1, y1, sigma_theta_all[time_t, :, :, test_lev], colors='k')
+# ax.quiver(x1, y1, d_dx_sig[time_t, :, :, test_lev], d_dy_sig[time_t, :, :, test_lev], color='r')
+# ax.quiver(x1, y1, U_all[time_t, :, :, test_lev], V_all[time_t, :, :, test_lev], color='w')
+# ax.scatter(this_x_all, this_y_all, s=10, color='k')
+# ax.scatter(x1[mask[time_t][0], mask[time_t][1]], y1[mask[time_t][0], mask[time_t][1]], s=20, color='m')
+# plt.colorbar(im, ax=ax, orientation='horizontal')
+#
+# f, ax_ar = plt.subplots(3, 3)
+# colors = plt.cm.Spectral(np.linspace(0, 1, 13))
+# count1 = 0
+# count2 = 0
+# lim = 0.01
+# time_m = range(0, 9, 1)
+# for m in range(9):
+#     count = 0
+#     time_t = time_m[m]
+#     for i in range(0, grid.size-10, 20):
+#         ax_ar[count1, count2].quiver(0, 0, np.nanmean(d_dx_sig[time_t, mask[time_t][0], mask[time_t][1], i]),
+#                 np.nanmean(d_dy_sig[time_t, mask[time_t][0], mask[time_t][1], i]), scale=.000009, color=colors[count, :])
+#         ax_ar[count1, count2].axis([-lim, lim, -lim, lim])
+#         ax_ar[count1, count2].grid()
+#         count = count + 1
+#     if count1 <= 1:
+#         count1 = count1 + 1
+#     else:
+#         count1 = 0
+#         count2 = count2 + 1
+#
+# ax_ar[2,2].grid()
+# plot_pro(ax_ar[2, 2])
+# --------------------------------------------------------
 
 # cont_data = np.array(df_den.iloc[np.where(grid == grid[k1])[0][0], time_in])
 # this_x = 1852 * 60 * np.cos(np.deg2rad(ref_lat)) * (
@@ -229,14 +256,14 @@ k4 = 200
 
 # LOOP OVER TIMES 
 # relevant glider dives 
-wins = [0, 1, 2, 3, 4, 5, 6, 7]
+wins = range(0, np.shape(Time)[0], 1)  # [0, 1, 2, 3, 4, 5, 6, 7]
 for time_i in wins:
-    lvls = np.linspace(np.float(np.nanmin(sigma_theta_all[time_i, :, :, k1])),
-                       np.float(np.nanmax(sigma_theta_all[time_i, :, :, k1])), 20)
-    lvls3 = np.linspace(np.float(np.nanmin(sigma_theta_all[time_i, :, :, k3])),
-                        np.float(np.nanmax(sigma_theta_all[time_i, :, :, k3])), 20)
-    lvls4 = np.linspace(np.float(np.nanmin(sigma_theta_all[time_i, :, :, k4])),
-                        np.float(np.nanmax(sigma_theta_all[time_i, :, :, k4])), 20)
+    lvls = np.linspace(np.float(np.nanmin(sigma_theta_all[:, :, :, k1])),
+                       np.float(np.nanmax(sigma_theta_all[:, :, :, k1])), 20)
+    lvls3 = np.linspace(np.float(np.nanmin(sigma_theta_all[:, :, :, k3])),
+                        np.float(np.nanmax(sigma_theta_all[:, :, :, k3])), 20)
+    lvls4 = np.linspace(np.float(np.nanmin(sigma_theta_all[:, :, :, k4])),
+                        np.float(np.nanmax(sigma_theta_all[:, :, :, k4])), 20)
 
     x_grid = (1852 * 60 * np.cos(np.deg2rad(ref_lat)) * (lon_grid_all[time_i, :] - ref_lon)) / 10000
     y_grid = (1852 * 60 * (lat_grid_all[time_i, :] - ref_lat)) / 10000
@@ -304,4 +331,4 @@ for time_i in wins:
 
 # in a directory with a bunch of png’s like plot_0000.png I did this:
 # ffmpeg -r 8 -pattern_type glob -i '*.png' -c:v libx264 -pix_fmt yuv420p -crf 25 movie.mp4
-# and it worked perfectly!!!  Also the movie it made was 5 MB, about half the size of the same movie I had made using Quicktime 7 Pro for PECS.
+#           8 = frame rate (switched to 1 (fps))

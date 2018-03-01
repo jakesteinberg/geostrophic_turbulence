@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 import seawater as sw
 import pandas as pd
 import scipy.io as si
-from scipy.io import netcdf
+from netCDF4 import Dataset
 import pickle
 from scipy.signal import savgol_filter
 # functions I've written 
@@ -36,18 +36,25 @@ deep_shr_max = 0.1
 # minimum depth for which shear is limited [m]
 deep_shr_max_dep = 3500
 
-# ---- LOAD ALL DIVES (GRIDDED USING MAKE_BIN)
-GD = netcdf.netcdf_file('BATs_2015_gridded.nc', 'r')
-df_den = pd.DataFrame(np.float64(GD.variables['Density'][0:sz_g, :]), index=np.float64(GD.variables['grid'][0:sz_g]),
-                      columns=np.float64(GD.variables['dive_list'][:]))
-df_t = pd.DataFrame(np.float64(GD.variables['Temperature'][0:sz_g, :]), index=np.float64(GD.variables['grid'][0:sz_g]),
-                    columns=np.float64(GD.variables['dive_list'][:]))
-df_s = pd.DataFrame(np.float64(GD.variables['Salinity'][0:sz_g, :]), index=np.float64(GD.variables['grid'][0:sz_g]),
-                    columns=np.float64(GD.variables['dive_list'][:]))
-df_lon = pd.DataFrame(np.float64(GD.variables['Longitude'][0:sz_g, :]), index=np.float64(GD.variables['grid'][0:sz_g]),
-                      columns=np.float64(GD.variables['dive_list'][:]))
-df_lat = pd.DataFrame(np.float64(GD.variables['Latitude'][0:sz_g, :]), index=np.float64(GD.variables['grid'][0:sz_g]),
-                      columns=np.float64(GD.variables['dive_list'][:]))
+# --- LOAD gridded dives (gridded dives)
+GD = Dataset('BATs_2015_gridded_3.nc', 'r')
+df_den = pd.DataFrame(GD['Density'][0:sz_g, :], index=GD['grid'][0:sz_g], columns=GD['dive_list'][:])
+df_theta = pd.DataFrame(GD['Theta'][0:sz_g, :], index=GD['grid'][0:sz_g], columns=GD['dive_list'][:])
+df_s = pd.DataFrame(GD['Salinity'][0:sz_g, :], index=GD['grid'][0:sz_g], columns=GD['dive_list'][:])
+df_lon = pd.DataFrame(GD['Longitude'][0:sz_g, :], index=GD['grid'][0:sz_g], columns=GD['dive_list'][:])
+df_lat = pd.DataFrame(GD['Latitude'][0:sz_g, :], index=GD['grid'][0:sz_g], columns=GD['dive_list'][:])
+dac_u = GD.variables['DAC_u'][:]
+dac_v = GD.variables['DAC_v'][:]
+time_rec = GD.variables['time_start_stop'][:]
+time_rec_all = GD.variables['time_start_stop'][:]
+profile_list = np.float64(GD.variables['dive_list'][:]) - 35000
+df_den[df_den < 0] = np.nan
+df_theta[df_theta < 0] = np.nan
+df_s[df_s < 0] = np.nan
+df_lon[df_lon < -500] = np.nan
+df_lat[df_lat < -500] = np.nan
+dac_u[dac_u < -500] = np.nan
+dac_v[dac_v < -500] = np.nan
 
 # ---- LOAD IN TRANSECT TO PROFILE DATA COMPILED IN BATS_TRANSECTS.PY
 pkl_file = open('/Users/jake/Desktop/bats/transect_profiles_jan18.pkl', 'rb')
@@ -65,7 +72,7 @@ prof_lat = bats_trans['V_lat']
 
 # average background properties of profiles along these transects 
 sigma_theta_avg = df_den.mean(axis=1)
-theta_avg = df_t.mean(axis=1)
+theta_avg = df_theta.mean(axis=1)
 salin_avg = df_s.mean(axis=1)
 ddz_avg_sigma = np.gradient(sigma_theta_avg, z)
 ddz_avg_theta = np.gradient(theta_avg, z)
@@ -284,7 +291,7 @@ if plot_mode > 0:
     ax.grid()
     plot_pro(ax1)
 
-plot_mode_corr = 0
+plot_mode_corr = 1
 if plot_mode_corr > 0:
     x = 1852 * 60 * np.cos(np.deg2rad(ref_lat)) * (prof_lon2 - ref_lon)
     y = 1852 * 60 * (prof_lat2 - ref_lat)
@@ -300,8 +307,8 @@ if plot_mode_corr > 0:
     AGz_i = AGz[mode_num, :]
 
     # define each box as all points that fall within a time and space lag
-    dist_win = range(0, 100, 10)
-    t_win = range(0, 100, 10)
+    dist_win = np.arange(0, 100, 10)
+    t_win = np.arange(0, 100, 10)
     # try to compute lagged autocorrelation for all points within a given distance
     # returns a tuple of coordinate pairs where distance criteria are met
     corr_i = np.nan * np.zeros((len(t_win), len(dist_win)))
@@ -341,6 +348,11 @@ if plot_mode_corr > 0:
     f, (ax1,ax2) = plt.subplots(1,2)
     pa = ax1.pcolor(dist_win, t_win, corr_i, vmin=-1, vmax=1)
     paz = ax2.pcolor(dist_win, t_win, corr_z_i, vmin=-1, vmax=1)
+    ax1.set_xlabel('Spatial Separation [km]')
+    ax2.set_xlabel('Spatial Separation [km]')
+    ax1.set_ylabel('Time Lag [days]')
+    ax1.set_title('Displacement Mode Amplitude')
+    ax2.set_title('Velocity Mode Amplitude')
     f.colorbar(pa)
     plot_pro(ax2)
 
