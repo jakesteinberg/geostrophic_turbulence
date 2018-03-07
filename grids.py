@@ -4,6 +4,19 @@ import pandas as pd
 from scipy.io import netcdf
 import seawater as sw
 
+def make_bin_gen(bin_depth, depth_d, temp_d, salin_d):
+    bin_up = bin_depth[0:-2]
+    bin_down = bin_depth[2:]
+    bin_cen = bin_depth[1:-1]
+    temp_g_dive = np.empty(np.size(bin_cen))
+    salin_g_dive = np.empty(np.size(bin_cen))
+    for i in range(np.size(bin_cen)):
+        dp_in_d = (depth_d > bin_up[i]) & (depth_d < bin_down[i])
+
+        if dp_in_d.size > 2:
+            temp_g_dive[i] = np.nanmean(temp_d[dp_in_d])
+            salin_g_dive[i] = np.nanmean(salin_d[dp_in_d])
+    return (temp_g_dive, salin_g_dive)
 
 def make_bin(bin_depth, depth_d, depth_c, temp_d, temp_c, salin_d, salin_c, x_g_d, x_g_c, y_g_d, y_g_c):
     bin_up = bin_depth[0:-2]

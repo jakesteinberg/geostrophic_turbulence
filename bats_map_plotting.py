@@ -332,3 +332,6 @@ for time_i in wins:
 # in a directory with a bunch of png’s like plot_0000.png I did this:
 # ffmpeg -r 8 -pattern_type glob -i '*.png' -c:v libx264 -pix_fmt yuv420p -crf 25 movie.mp4
 #           8 = frame rate (switched to 1 (fps))
+
+
+#

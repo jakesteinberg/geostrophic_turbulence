@@ -313,17 +313,17 @@ for main in range(4):
         dac_u_inn = dac_u[inn]
         dac_v_inn = dac_v[inn]
 
-        info = np.nan*np.zeros( (3,np.size(this_set)-1))
-        sigma_theta_out = np.nan*np.zeros( (np.size(grid),np.size(this_set)-1))
-        shear = np.nan*np.zeros( (np.size(grid),np.size(this_set)-1))
-        eta = np.nan*np.zeros( (np.size(grid),np.size(this_set)-1))
-        eta_theta = np.nan*np.zeros( (np.size(grid),np.size(this_set)-1) )
-        sigth_levels = np.concatenate([ np.arange(23,27.5,0.5), np.arange(27.2,27.8,0.2), np.arange(27.7,27.9,0.02)])
-        isopycdep = np.nan*np.zeros( (np.size(sigth_levels), np.size(this_set)))
-        isopycx = np.nan*np.zeros( (np.size(sigth_levels), np.size(this_set)))
-        Vbt = np.nan*np.zeros( np.size(this_set) )
-        Ds = np.nan*np.zeros( np.size(this_set) )
-        dist = np.nan*np.zeros( np.shape(df_lon_set) )
+        info = np.nan*np.zeros((3, np.size(this_set)-1))
+        sigma_theta_out = np.nan*np.zeros((np.size(grid), np.size(this_set)-1))
+        shear = np.nan*np.zeros((np.size(grid), np.size(this_set)-1))
+        eta = np.nan*np.zeros((np.size(grid), np.size(this_set)-1))
+        eta_theta = np.nan*np.zeros((np.size(grid), np.size(this_set)-1) )
+        sigth_levels = np.concatenate([np.arange(23, 27.5, 0.5), np.arange(27.2, 27.8, 0.2), np.arange(27.7, 27.9, 0.02)])
+        isopycdep = np.nan*np.zeros((np.size(sigth_levels), np.size(this_set)))
+        isopycx = np.nan*np.zeros((np.size(sigth_levels), np.size(this_set)))
+        Vbt = np.nan*np.zeros(np.size(this_set))
+        Ds = np.nan*np.zeros(np.size(this_set))
+        dist = np.nan*np.zeros(np.shape(df_lon_set))
         dist_st = 0
         distance = 0 
         #### LOOP OVER EACH DIVE CYCLE PROFILE AND COMPUTE SHEAR AND ETA (M/W PROFILING)  
@@ -432,16 +432,16 @@ for main in range(4):
                     yM = 1.852*60*(df_lat_set.iloc[j,c_i_m_in] - df_lat_set.iloc[j,c_i_m_in[0] ] ) # N location [km]
                     XXM = np.concatenate( [ np.ones( (np.size(sigmathetaM[imv]),1)), np.transpose(np.atleast_2d(np.array(xM))), np.transpose(np.atleast_2d(np.array(yM))) ],axis=1)
                     d_anom0M = sigmathetaM[imv] - np.nanmean(sigmathetaM[imv])
-                    ADM = np.squeeze( np.linalg.lstsq( XXM, np.transpose(np.atleast_2d(np.array(d_anom0M))) )[0] )
-                    drhodxM = ADM[1]   # [zonal gradient [kg/m^3/km]
-                    drhodyM = ADM[2]   # [meridional gradient [kg/m^3km]
-                    drhodsM, ang_drhoM = cart2pol(drhodxM, drhodyM);
+                    ADM = np.squeeze(np.linalg.lstsq(XXM, np.transpose(np.atleast_2d(np.array(d_anom0M))))[0])
+                    drhodxM = ADM[1]                                # [zonal gradient [kg/m^3/km]
+                    drhodyM = ADM[2]                                # [meridional gradient [kg/m^3km]
+                    drhodsM, ang_drhoM = cart2pol(drhodxM, drhodyM)
                     drhodatM, drhodpotM = pol2cart(drhodsM, ang_drhoM - ang_sfc_m)
-                    shearM[j] = -g*drhodatM/(rho0*f) # shear to port of track [m/s/km]
+                    shearM[j] = -g*drhodatM/(rho0*f)                # shear to port of track [m/s/km]
                     if (np.abs(shearM[j]) > deep_shr_max) and grid[j] >= deep_shr_max_dep: 
                         shearM[j] = np.sign(shearM[j])*deep_shr_max
-                    etaM[j] = (sigma_theta_avg[j] - np.nanmean(sigmathetaM[imv]) )/ddz_avg_sigma[j] 
-                    eta_thetaM[j] = (theta_avg[j] - np.nanmean(thetaM[imv]) )/ddz_avg_theta[j]   
+                    etaM[j] = (sigma_theta_avg[j] - np.nanmean(sigmathetaM[imv]))/ddz_avg_sigma[j]
+                    eta_thetaM[j] = (theta_avg[j] - np.nanmean(thetaM[imv]))/ddz_avg_theta[j]
         
                 # for W profile compute shear and eta 
                 if nw > 2 and np.size(df_den_set.iloc[j,c_i_w]) > 2:
