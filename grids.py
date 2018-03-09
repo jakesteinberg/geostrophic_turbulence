@@ -4,6 +4,7 @@ import pandas as pd
 from scipy.io import netcdf
 import seawater as sw
 
+
 def make_bin_gen(bin_depth, depth_d, temp_d, salin_d):
     bin_up = bin_depth[0:-2]
     bin_down = bin_depth[2:]
@@ -17,6 +18,7 @@ def make_bin_gen(bin_depth, depth_d, temp_d, salin_d):
             temp_g_dive[i] = np.nanmean(temp_d[dp_in_d])
             salin_g_dive[i] = np.nanmean(salin_d[dp_in_d])
     return (temp_g_dive, salin_g_dive)
+
 
 def make_bin(bin_depth, depth_d, depth_c, temp_d, temp_c, salin_d, salin_c, x_g_d, x_g_c, y_g_d, y_g_c):
     bin_up = bin_depth[0:-2]
@@ -276,39 +278,6 @@ def collect_dives(dg_list, bin_depth, grid_p, ref_lat):
 # procedure for take BATS dives and processing each to account for heading and vertical bin averaging
 # (uses collect_dives and make_bin)
 # LOAD EACH DIVE AND COLLECT IN MAIN DATAFRAME # ----- GRIDDING! -- ONLY DO ONCE
-# df_t, df_s, df_den, df_lon, df_lat, dac_u, dac_v, time_rec, time_sta_sto, heading_rec =
-#   collect_dives(dg_list, bin_depth, grid, grid_p, ref_lat)
-# dive_list = np.array(df_t.columns)
-# f = netcdf.netcdf_file('BATs_2015_gridded.nc', 'w')    
-# f.history = 'DG 2015 dives; have been gridded vertically and separated into dive and climb cycles'
-# f.createDimension('grid',np.size(grid))
-# f.createDimension('dive_list',np.size(dive_list))
-# b_d = f.createVariable('grid',  np.float64, ('grid',) )
-# b_d[:] = grid
-# b_l = f.createVariable('dive_list',  np.float64, ('dive_list',) )
-# b_l[:] = dive_list
-# b_t = f.createVariable('Temperature',  np.float64, ('grid','dive_list') )
-# b_t[:] = df_t
-# b_s = f.createVariable('Salinity',  np.float64, ('grid','dive_list') )
-# b_s[:] = df_s
-# b_den = f.createVariable('Density',  np.float64, ('grid','dive_list') )
-# b_den[:] = df_den
-# b_lon = f.createVariable('Longitude',  np.float64, ('grid','dive_list') )
-# b_lon[:] = df_lon
-# b_lat = f.createVariable('Latitude',  np.float64, ('grid','dive_list') )
-# b_lat[:] = df_lat
-# b_u = f.createVariable('DAC_u',  np.float64, ('dive_list',) )
-# b_u[:] = dac_u
-# b_v = f.createVariable('DAC_v',  np.float64, ('dive_list',) )
-# b_v[:] = dac_v
-# b_time = f.createVariable('time_rec',  np.float64, ('dive_list',) )
-# b_time[:] = time_rec
-# b_t_ss = f.createVariable('time_start_stop',  np.float64, ('dive_list',) )
-# b_t_ss[:] = time_sta_sto
-# b_h = f.createVariable('heading_record',  np.float64, ('dive_list',) )
-# b_h[:] = heading_rec
-# f.close()       
-
 # df_t, df_s, df_den, df_lon, df_lat, dac_u, dac_v, time_rec, time_sta_sto, heading_rec, target_rec =
 #   collect_dives(dg_list, bin_depth, grid, grid_p, ref_lat)
 # dive_list = np.array(df_t.columns)
@@ -346,3 +315,36 @@ def collect_dives(dg_list, bin_depth, grid_p, ref_lat):
 # b_gps = f.createVariable('gps_record',  np.float64, ('dive_list','lat_lon') )
 # b_gps[:] = gps_rec
 # f.close()
+
+# -------------------- BATS CTD KEY
+# ctd.txt
+# b*_ctd.txt	where * is 5 digit cruise number
+#
+# File contains 2dbar downcast CTD data whereby all casts are in single cruise file.
+#
+# Data format as follows:
+#
+# col1: 8 digit cast_ID
+#       $XXXX###  where,
+#
+#  	$= cruise type
+#  	1=bats core
+#  	2=bats bloom a
+#  	3=bats bloom b
+#   5=bats validation
+#  	XXXX= cruise number
+#  	### = cast number
+#
+# eg.	10155005  = bats core cruise, cruise 155, cast 5
+#
+# col2:   decimal year
+# col3: 	Latitude (N)
+# col4: 	Longitude (W)
+# col5:	Pressure (dbar)
+# col6:	Depth (m)
+# col7:	Temperature (ITS-90, C)
+# col8:	Conductivity (S/m)
+# col9:	Salinity (PSS-78)
+# col10:	Dissolved Oxygen (umol/kg)
+# col11:	Beam Attenuation Coefficient (1/m)
+# col12:	Fluorescence (relative fluorescence units)

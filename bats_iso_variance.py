@@ -9,7 +9,7 @@ from netCDF4 import Dataset
 import pickle
 from scipy.signal import savgol_filter
 # functions I've written 
-from mode_decompositions import vertical_modes, PE_Tide_GM
+from mode_decompositions import vertical_modes, PE_Tide_GM, vertical_modes_f
 from toolkit import plot_pro
 
 # physical parameters 
@@ -86,6 +86,28 @@ N = np.sqrt(N2)
 
 # computer vertical mode shapes 
 G, Gz, c = vertical_modes(N2, grid, omega, mmax)
+
+bc_bot = 1      # 1 = flat, 2 = rough
+grid2 = np.concatenate([np.arange(0, 150, 10), np.arange(150, 300, 10), np.arange(300, 4500, 10)])
+n2_interp = np.interp(grid2, grid, N2)
+F_int, F, c_2, norm_constant = vertical_modes_f(n2_interp, grid2, omega, mmax, bc_bot)
+
+f, (ax, ax2) = plt.subplots(1, 2)
+for i in range(5):
+    ax.plot(F[:, i], grid2)
+    ax.plot(Gz[:, i], grid, c='k', linestyle='--')
+    ax2.plot(F_int[:, i], grid2)
+    ax2.plot(G[:, i], grid, c='k', linestyle='--')
+ax.axis([-5, 5, 0, 5000])
+ax.invert_yaxis()
+ax2.invert_yaxis()
+plot_pro(ax)
+
+f, ax = plt.subplots()
+ax.plot(N2, grid)
+ax.plot(n2_interp, grid2, linestyle='--')
+ax.invert_yaxis()
+plot_pro(ax)
 
 # presort V 
 good_v = np.zeros(np.size(Time))
@@ -269,7 +291,7 @@ if plot_eta > 0:
     plot_pro(ax2)
 
 # --- MODE AMPLITUDE IN TIME AND SPACE
-plot_mode = 1
+plot_mode = 0
 if plot_mode > 0:
 
     window_size, poly_order = 11, 2
@@ -291,7 +313,7 @@ if plot_mode > 0:
     ax.grid()
     plot_pro(ax1)
 
-plot_mode_corr = 1
+plot_mode_corr = 0
 if plot_mode_corr > 0:
     x = 1852 * 60 * np.cos(np.deg2rad(ref_lat)) * (prof_lon2 - ref_lon)
     y = 1852 * 60 * (prof_lat2 - ref_lat)
