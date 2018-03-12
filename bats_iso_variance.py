@@ -87,7 +87,7 @@ N = np.sqrt(N2)
 # computer vertical mode shapes
 G, Gz, c = vertical_modes(N2, grid, omega, mmax)
 
-bc_bot = 1      # 1 = flat, 2 = rough
+bc_bot = 2      # 1 = flat, 2 = rough
 grid2 = np.concatenate([np.arange(0, 150, 10), np.arange(150, 300, 10), np.arange(300, 4500, 10)])
 n2_interp = np.interp(grid2, grid, N2)
 F_int_g2, F_g2, c_ff, norm_constant = vertical_modes_f(n2_interp, grid2, omega, mmax, bc_bot)
@@ -259,7 +259,7 @@ t1 = np.real(D_Uzqa[0:10])
 PEV = t1/np.sum(t1)
 
 # --- PLOT V STRUCTURE
-plot_v_struct = 0
+plot_v_struct = 1
 if plot_v_struct > 0:
     f, (ax, ax2, ax3, ax4) = plt.subplots(1, 4, sharey=True)
     for i in range(nq):
@@ -512,7 +512,7 @@ pkl_file = open('/Users/jake/Desktop/abaco/abaco_outputs_2.pkl', 'rb')
 abaco_energies = pickle.load(pkl_file)
 pkl_file.close()
 
-plot_eng = 0
+plot_eng = 1
 if plot_eng > 0:
     fig0, ax0 = plt.subplots()
     PE_p = ax0.plot(sc_x, avg_PE[1:] / dk, color='#B22222', label='APE', linewidth=2)

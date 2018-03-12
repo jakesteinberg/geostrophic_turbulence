@@ -77,7 +77,27 @@ lon_grid_all = np.array(bats_trans['lon_grid_All'])
 mask = bats_trans['mask']
 
 # ------------- PLOTTING POSSIBILITIES
-# --------LOOK AT DENSITY CROSS-SECTIONS
+# ----- U, V (good) in time
+U_avg = np.nan*np.zeros((len(grid), len(Time)))
+V_avg = np.nan*np.zeros((len(grid), len(Time)))
+T_mid = np.nan*np.zeros(len(Time))
+for i in range(len(Time)):
+    U_avg[:, i] = np.transpose(np.nanmean(U[i], axis=0))
+    V_avg[:, i] = np.transpose(np.nanmean(V[i], axis=0))
+    T_mid[i] = np.nanmean(Time[i])
+
+f, ax = plt.subplots(6, 1, sharex=True)
+indi = [10, 30, 70, 100, 150, 210]
+for i in range(6):
+    ax[i].plot(T_mid, U_avg[indi[i], :], color='r')
+    ax[i].plot(T_mid, V_avg[indi[i], :], color='k')
+    ax[i].set_ylim([-.25, .25])
+    ax[i].set_title(str(grid[indi[i]]) + 'm', fontsize=10)
+    ax[i].grid()
+ax[i].grid()
+plot_pro(ax[i])
+
+# ----- DENSITY CROSS-SECTIONS
 # fixed_lat = 7
 # fixed_lon = 10
 # levels_rho = np.concatenate((np.array([26,26.2,26.4,26.8,27,27.2,27.6]), np.arange(27.68,28.2,0.02)))
@@ -250,84 +270,88 @@ mask = bats_trans['mask']
 # plt.close()
 
 # ------- 3-D PLOT AND DEN AND VELOCITY
-k1 = 30
-k3 = 112
-k4 = 200
+movie_making = 0
+if movie_making > 0:
+    k1 = 30
+    k3 = 112
+    k4 = 200
 
-# LOOP OVER TIMES 
-# relevant glider dives 
-wins = range(0, np.shape(Time)[0], 1)  # [0, 1, 2, 3, 4, 5, 6, 7]
-for time_i in wins:
-    lvls = np.linspace(np.float(np.nanmin(sigma_theta_all[:, :, :, k1])),
-                       np.float(np.nanmax(sigma_theta_all[:, :, :, k1])), 20)
-    lvls3 = np.linspace(np.float(np.nanmin(sigma_theta_all[:, :, :, k3])),
-                        np.float(np.nanmax(sigma_theta_all[:, :, :, k3])), 20)
-    lvls4 = np.linspace(np.float(np.nanmin(sigma_theta_all[:, :, :, k4])),
-                        np.float(np.nanmax(sigma_theta_all[:, :, :, k4])), 20)
+    # LOOP OVER TIMES
+    # relevant glider dives
+    wins = range(0, np.shape(Time)[0], 1)  # [0, 1, 2, 3, 4, 5, 6, 7]
+    for time_i in wins:
+        lvls = np.linspace(np.float(np.nanmin(sigma_theta_all[:, :, :, k1])),
+                           np.float(np.nanmax(sigma_theta_all[:, :, :, k1])), 20)
+        lvls3 = np.linspace(np.float(np.nanmin(sigma_theta_all[:, :, :, k3])),
+                            np.float(np.nanmax(sigma_theta_all[:, :, :, k3])), 20)
+        lvls4 = np.linspace(np.float(np.nanmin(sigma_theta_all[:, :, :, k4])),
+                            np.float(np.nanmax(sigma_theta_all[:, :, :, k4])), 20)
 
-    x_grid = (1852 * 60 * np.cos(np.deg2rad(ref_lat)) * (lon_grid_all[time_i, :] - ref_lon)) / 10000
-    y_grid = (1852 * 60 * (lat_grid_all[time_i, :] - ref_lat)) / 10000
-    x1, y1 = np.meshgrid(x_grid, y_grid)
-    grid2 = grid.copy() / 1000
+        x_grid = (1852 * 60 * np.cos(np.deg2rad(ref_lat)) * (lon_grid_all[time_i, :] - ref_lon)) / 10000
+        y_grid = (1852 * 60 * (lat_grid_all[time_i, :] - ref_lat)) / 10000
+        x1, y1 = np.meshgrid(x_grid, y_grid)
+        grid2 = grid.copy() / 1000
 
-    t_s = datetime.date.fromordinal(np.int(Time[time_i][0]))
-    t_e = datetime.date.fromordinal(np.int(Time[time_i][1]))
-    time_in = np.where((time_rec > Time[time_i][0]) & (time_rec < Time[time_i][1]))[0]
-    time_in_all = np.where((time_rec_all > Time[time_i][0]) & (time_rec_all < Time[time_i][1]))[0]
-    uint = 3
+        t_s = datetime.date.fromordinal(np.int(Time[time_i][0]))
+        t_e = datetime.date.fromordinal(np.int(Time[time_i][1]))
+        time_in = np.where((time_rec > Time[time_i][0]) & (time_rec < Time[time_i][1]))[0]
+        time_in_all = np.where((time_rec_all > Time[time_i][0]) & (time_rec_all < Time[time_i][1]))[0]
+        uint = 3
 
-    fig = plt.figure()
-    ax = fig.add_subplot(111, projection="3d")
+        fig = plt.figure()
+        ax = fig.add_subplot(111, projection="3d")
 
-    ax.plot_surface(x1, y1, (grid2[k1] + sigma_theta_all[time_i, :, :, k1] / 1000), cmap="autumn_r", alpha=0.5)
-    ax.contour(x1, y1, (grid2[k1] + sigma_theta_all[time_i, :, :, k1] / 1000), zdir='z', cmap="RdBu_r",
-               levels=(grid2[k1] + lvls / 1000), zorder=1, linewidth=0.75)
-    ax.quiver(x1[0:-1:uint, 0:-1:uint], y1[0:-1:uint, 0:-1:uint],
-              grid2[k1] * np.ones(np.shape(x1[0:-1:uint, 0:-1:uint])),
-              U_all[time_i, 0:-1:uint, 0:-1:uint, k1], V_all[time_i, 0:-1:uint, 0:-1:uint, k1],
-              np.zeros(np.shape(x1[0:-1:uint, 0:-1:uint])), color='k', length=7)
+        ax.plot_surface(x1, y1, (grid2[k1] + sigma_theta_all[time_i, :, :, k1] / 1000), cmap="autumn_r", alpha=0.5)
+        ax.contour(x1, y1, (grid2[k1] + sigma_theta_all[time_i, :, :, k1] / 1000), zdir='z', cmap="RdBu_r",
+                   levels=(grid2[k1] + lvls / 1000), zorder=1, linewidth=0.75)
+        ax.quiver(x1[0:-1:uint, 0:-1:uint], y1[0:-1:uint, 0:-1:uint],
+                  grid2[k1] * np.ones(np.shape(x1[0:-1:uint, 0:-1:uint])),
+                  U_all[time_i, 0:-1:uint, 0:-1:uint, k1], V_all[time_i, 0:-1:uint, 0:-1:uint, k1],
+                  np.zeros(np.shape(x1[0:-1:uint, 0:-1:uint])), color='k', length=7)
 
-    ax.plot_surface(x1, y1, grid2[k3] + sigma_theta_all[time_i, :, :, k3] / 1000, cmap="autumn_r", alpha=0.5)
-    ax.contour(x1, y1, grid2[k3] + sigma_theta_all[time_i, :, :, k3] / 1000, zdir='z', cmap="RdBu_r",
-               levels=grid2[k3] + lvls3 / 1000, zorder=0, linewidth=0.75)
-    ax.quiver(x1[0:-1:uint, 0:-1:uint], y1[0:-1:uint, 0:-1:uint],
-              grid2[k3] * np.ones(np.shape(x1[0:-1:uint, 0:-1:uint])),
-              U_all[time_i, 0:-1:uint, 0:-1:uint, k3], V_all[time_i, 0:-1:uint, 0:-1:uint, k3],
-              np.zeros(np.shape(x1[0:-1:uint, 0:-1:uint])), color='k', length=7)
+        ax.plot_surface(x1, y1, grid2[k3] + sigma_theta_all[time_i, :, :, k3] / 1000, cmap="autumn_r", alpha=0.5)
+        ax.contour(x1, y1, grid2[k3] + sigma_theta_all[time_i, :, :, k3] / 1000, zdir='z', cmap="RdBu_r",
+                   levels=grid2[k3] + lvls3 / 1000, zorder=0, linewidth=0.75)
+        ax.quiver(x1[0:-1:uint, 0:-1:uint], y1[0:-1:uint, 0:-1:uint],
+                  grid2[k3] * np.ones(np.shape(x1[0:-1:uint, 0:-1:uint])),
+                  U_all[time_i, 0:-1:uint, 0:-1:uint, k3], V_all[time_i, 0:-1:uint, 0:-1:uint, k3],
+                  np.zeros(np.shape(x1[0:-1:uint, 0:-1:uint])), color='k', length=7)
 
-    ax.plot_surface(x1, y1, grid2[k4] + sigma_theta_all[time_i, :, :, k4] / 1000, cmap="autumn_r", alpha=0.5)
-    ax.contour(x1, y1, grid2[k4] + sigma_theta_all[time_i, :, :, k4] / 1000, zdir='z', cmap="RdBu_r",
-               levels=grid2[k4] + lvls4 / 1000, zorder=0, linewidth=0.75)
-    ax.quiver(x1[0:-1:uint, 0:-1:uint], y1[0:-1:uint, 0:-1:uint],
-              grid[k4] * np.ones(np.shape(x1[0:-1:uint, 0:-1:uint])) / 1000,
-              U_all[time_i, 0:-1:uint, 0:-1:uint, k4], V_all[time_i, 0:-1:uint, 0:-1:uint, k4],
-              np.zeros(np.shape(x1[0:-1:uint, 0:-1:uint])), color='k', length=7)
+        ax.plot_surface(x1, y1, grid2[k4] + sigma_theta_all[time_i, :, :, k4] / 1000, cmap="autumn_r", alpha=0.5)
+        ax.contour(x1, y1, grid2[k4] + sigma_theta_all[time_i, :, :, k4] / 1000, zdir='z', cmap="RdBu_r",
+                   levels=grid2[k4] + lvls4 / 1000, zorder=0, linewidth=0.75)
+        ax.quiver(x1[0:-1:uint, 0:-1:uint], y1[0:-1:uint, 0:-1:uint],
+                  grid[k4] * np.ones(np.shape(x1[0:-1:uint, 0:-1:uint])) / 1000,
+                  U_all[time_i, 0:-1:uint, 0:-1:uint, k4], V_all[time_i, 0:-1:uint, 0:-1:uint, k4],
+                  np.zeros(np.shape(x1[0:-1:uint, 0:-1:uint])), color='k', length=7)
 
-    this_x = 1852 * 60 * np.cos(np.deg2rad(ref_lat)) * (np.array(df_lon.iloc[:, time_in]) - ref_lon)
-    this_y = 1852 * 60 * np.cos(np.deg2rad(ref_lat)) * (np.array(df_lat.iloc[:, time_in]) - ref_lat)
-    this_x_all = 1852 * 60 * np.cos(np.deg2rad(ref_lat)) * (np.array(df_lon_all.iloc[:, time_in_all]) - ref_lon)
-    this_y_all = 1852 * 60 * np.cos(np.deg2rad(ref_lat)) * (np.array(df_lat_all.iloc[:, time_in_all]) - ref_lat)
-    ax.scatter(this_x / 10000, this_y / 10000, 5500 / 1000, s=7, color='b')
-    ax.scatter(this_x_all / 10000, this_y_all / 10000, 5500 / 1000, s=1, color='k')
-    ax.scatter(x1[mask[time_i][0], mask[time_i][1]], y1[mask[time_i][0], mask[time_i][1]], 5500 / 1000, s=10, color='b')
+        this_x = 1852 * 60 * np.cos(np.deg2rad(ref_lat)) * (np.array(df_lon.iloc[:, time_in]) - ref_lon)
+        this_y = 1852 * 60 * np.cos(np.deg2rad(ref_lat)) * (np.array(df_lat.iloc[:, time_in]) - ref_lat)
+        this_x_all = 1852 * 60 * np.cos(np.deg2rad(ref_lat)) * (np.array(df_lon_all.iloc[:, time_in_all]) - ref_lon)
+        this_y_all = 1852 * 60 * np.cos(np.deg2rad(ref_lat)) * (np.array(df_lat_all.iloc[:, time_in_all]) - ref_lat)
+        ax.scatter(this_x / 10000, this_y / 10000, 5500 / 1000, s=7, color='b')
+        ax.scatter(this_x_all / 10000, this_y_all / 10000, 5500 / 1000, s=1, color='k')
+        ax.scatter(x1[mask[time_i][0], mask[time_i][1]], y1[mask[time_i][0], mask[time_i][1]], 5500 / 1000, s=10,
+                   color='b')
 
-    ax.quiver(x_grid[0], y_grid[0], -.15, 0, 0.1, 0, color='k', length=10)
-    ax.text(x_grid[0], y_grid[0], -.45, '0.1m/s', fontsize=6)
+        ax.quiver(x_grid[0], y_grid[0], -.15, 0, 0.1, 0, color='k', length=10)
+        ax.text(x_grid[0], y_grid[0], -.45, '0.1m/s', fontsize=6)
 
-    ax.set_xlim([x_grid[0], x_grid[-1]])
-    ax.set_ylim([y_grid[0], y_grid[-1]])
-    ax.set_zlim([0, 5.5])
-    ax.view_init(elev=15, azim=-60)
-    ax.invert_zaxis()
-    ax.set_xlabel('X [10km]')
-    ax.set_ylabel('Y [10km]')
-    ax.set_zlabel('Depth [1000m]')
-    ax.set_title(
-        'DG35 2015: ' + np.str(t_s.month) + '/' + np.str(t_s.day) + ' - ' + np.str(t_e.month) + '/' + np.str(t_e.day))
-    ax.grid()
-    # plot_pro(ax)
-    fig.savefig(('/Users/jake/Desktop/BATS/bats_mapping/3d/map3d_' + str(time_i) + '.png'), dpi=300)
-    plt.close()
+        ax.set_xlim([x_grid[0], x_grid[-1]])
+        ax.set_ylim([y_grid[0], y_grid[-1]])
+        ax.set_zlim([0, 5.5])
+        ax.view_init(elev=15, azim=-60)
+        ax.invert_zaxis()
+        ax.set_xlabel('X [10km]')
+        ax.set_ylabel('Y [10km]')
+        ax.set_zlabel('Depth [1000m]')
+        ax.set_title(
+            'DG35 2015: ' + np.str(t_s.month) + '/' + np.str(t_s.day) + ' - ' + np.str(t_e.month) + '/' + np.str(
+                t_e.day))
+        ax.grid()
+        # plot_pro(ax)
+        fig.savefig(('/Users/jake/Desktop/BATS/bats_mapping/3d/map3d_' + str(time_i) + '.png'), dpi=300)
+        plt.close()
 
 # in a directory with a bunch of png’s like plot_0000.png I did this:
 # ffmpeg -r 8 -pattern_type glob -i '*.png' -c:v libx264 -pix_fmt yuv420p -crf 25 movie.mp4

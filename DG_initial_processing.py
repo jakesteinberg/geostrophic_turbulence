@@ -6,7 +6,7 @@ import glob
 import seawater as sw
 
 # --- gliders
-dg_list = glob.glob('/Users/jake/Documents/baroclinic_modes/DG/sg035_BATS_2015/p*.nc')
+dg_list = glob.glob('/Users/jake/Documents/baroclinic_modes/DG/sg035_BATS_2014/p*.nc')
 
 # choose reference latitude
 ref_lat = 31.8
@@ -27,7 +27,25 @@ lat_g[np.isnan(lat_g)] = -999
 dac_u[np.isnan(dac_u)] = -999
 dac_v[np.isnan(dac_v)] = -999
 
-f = netcdf.netcdf_file('BATs_2015_gridded_2.nc', 'w')
+
+def is_number(a):
+    # will be True also for 'NaN'
+    try:
+        number = float(a)
+        return True
+    except ValueError:
+        return False
+
+
+targ_rec_o = np.zeros(len(targ_rec))
+for i in range(len(targ_rec)):
+    test = is_number(targ_rec[i])
+    if test:
+        targ_rec_o[i] = float(targ_rec[i])
+    else:
+        targ_rec_o[i] = np.nan
+
+f = netcdf.netcdf_file('BATs_2014_gridded.nc', 'w')
 f.history = 'DG 2015 dives; have been gridded vertically and separated into dive and climb cycles'
 f.createDimension('grid', np.size(grid))
 f.createDimension('lat_lon', 4)
@@ -55,7 +73,7 @@ b_time[:] = time_rec
 b_t_ss = f.createVariable('time_start_stop', np.float64, ('dive_list',))
 b_t_ss[:] = time_sta_sto
 b_targ = f.createVariable('target_record', np.float64, ('dive_list',))
-b_targ[:] = targ_rec
+b_targ[:] = targ_rec_o
 b_gps = f.createVariable('gps_record', np.float64, ('dive_list', 'lat_lon'))
 b_gps[:] = gps_rec
 f.close()

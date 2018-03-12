@@ -29,9 +29,6 @@ bath_z = bath_fid.variables['elevation'][:]
 # ax.axis([np.min(bath_lon), np.max(bath_lon), -5250, 0])
 # plot_pro(ax)
 
-# -- gliders
-dg_list = glob.glob('/Users/jake/Documents/baroclinic_modes/DG/sg035_BATS_2015/p*.nc')
-
 # physical parameters 
 g = 9.81
 rho0 = 1027
@@ -47,10 +44,11 @@ deep_shr_max_dep = 3500
 
 # PLOTTING SWITCHES 
 plot_bath = 0
-plot_cross = 0
+plot_cross = 1
 
 # LOAD DATA (gridded dives)
-GD = Dataset('BATs_2015_gridded_3.nc', 'r')
+# GD = Dataset('BATs_2015_gridded_3.nc', 'r')
+GD = Dataset('BATs_2014_gridded.nc', 'r')
 df_den = pd.DataFrame(GD['Density'][:], index=GD['grid'][:], columns=GD['dive_list'])
 df_theta = pd.DataFrame(GD['Theta'][:], index=GD['grid'][:], columns=GD['dive_list'])
 df_s = pd.DataFrame(GD['Salinity'][:], index=GD['grid'][:], columns=GD['dive_list'])
@@ -130,7 +128,7 @@ vel_lon = []
 vel_lat = []
 Time = []
 target_out = []
-for main in range(4):
+for main in range(1):
     targ_low = target[main, 0]
     targ_high = target[main, 1]
     # plan view plot (for select heading)   
@@ -203,16 +201,22 @@ for main in range(4):
     # PREPARE FOR TRANSECT ANALYSIS 
     # dive list to consider
     dives = np.array(df_den_in.columns) - 35000
+    last_dive = dives[-1]
 
-    # section out dives into continuous transect groups 
-    if main < 1:
-        to_consider = 14
-    elif (main > 0) & (main < 2):
-        to_consider = 13
-    elif (main > 1) & (main < 3):
-        to_consider = 14
+    # section out dives into continuous transect groups
+    g14 = 1
+    if g14:
+        to_consider = 4
     else:
-        to_consider = 14
+        if main < 1:
+            to_consider = 14
+        elif (main > 0) & (main < 2):
+            to_consider = 13
+        elif (main > 1) & (main < 3):
+            to_consider = 14
+        else:
+            to_consider = 14
+
     dive_iter = np.array(dives[0])
     time_iter = np.array(time_in[0])
     dive_out = {}
@@ -237,8 +241,9 @@ for main in range(4):
         dive_out[i] = dive_group
         time_out[i] = time_group
         up_n = np.where(dives == dive_group[-1])[0]
-        dive_iter = np.array(np.append(dive_iter, dives[up_n[0] + 1]))  # starting dive of each transect
-        time_iter = np.array(np.append(time_iter, time_in[up_n[0] + 1]))
+        if dives[up_n[0]] < last_dive:
+            dive_iter = np.array(np.append(dive_iter, dives[up_n[0] + 1]))  # starting dive of each transect
+            time_iter = np.array(np.append(time_iter, time_in[up_n[0] + 1]))
 
     # --- LOOP over each dive_group ----
     # (looking for transects that are long enough to carry out m/w shear computation)
@@ -389,12 +394,12 @@ for main in range(4):
 
                     if np.size(c_i_m_in) > 1:
                         xM = 1.852 * 60 * np.cos(np.deg2rad(lat_ref)) * (
-                                    df_lon_set.iloc[j, c_i_m_in] - df_lon_set.iloc[j, c_i_m_in[0]])  # E loc [km]
+                                df_lon_set.iloc[j, c_i_m_in] - df_lon_set.iloc[j, c_i_m_in[0]])  # E loc [km]
                         yM = 1.852 * 60 * (
-                                    df_lat_set.iloc[j, c_i_m_in] - df_lat_set.iloc[j, c_i_m_in[0]])  # N location [km]
+                                df_lat_set.iloc[j, c_i_m_in] - df_lat_set.iloc[j, c_i_m_in[0]])  # N location [km]
                         XXM = np.concatenate(
                             [np.ones((np.size(sigmathetaM[imv]), 1)), np.transpose(np.atleast_2d(np.array(xM))),
-                            np.transpose(np.atleast_2d(np.array(yM)))], axis=1)
+                             np.transpose(np.atleast_2d(np.array(yM)))], axis=1)
                         d_anom0M = sigmathetaM[imv] - np.nanmean(sigmathetaM[imv])
                         ADM = np.squeeze(np.linalg.lstsq(XXM, np.transpose(np.atleast_2d(np.array(d_anom0M))))[0])
                         drhodxM = ADM[1]  # [zonal gradient [kg/m^3/km]
@@ -405,7 +410,8 @@ for main in range(4):
                         if (np.abs(shearM[j]) > deep_shr_max) and grid[j] >= deep_shr_max_dep:
                             shearM[j] = np.sign(shearM[j]) * deep_shr_max
                         # etaM[j] = (sigma_theta_avg[j] - np.nanmean(sigmathetaM[imv])) / ddz_avg_sigma[j]
-                        etaM[j] = (sigma_theta_avg[j] - df_den_set.iloc[j, i]) / ddz_avg_sigma[j]  # j = depth, i = profile index
+                        etaM[j] = (sigma_theta_avg[j] - df_den_set.iloc[j, i]) / ddz_avg_sigma[
+                            j]  # j = depth, i = profile index
                         eta_thetaM[j] = (theta_avg[j] - np.nanmean(thetaM[imv])) / ddz_avg_theta[j]
 
                 # for W profile compute shear and eta 
@@ -420,12 +426,12 @@ for main in range(4):
 
                     if np.sum(c_i_w_in) > 1:
                         xW = 1.852 * 60 * np.cos(np.deg2rad(lat_ref)) * (
-                                    df_lon_set.iloc[j, c_i_w_in] - df_lon_set.iloc[j, c_i_w_in[0]])  # E loc [km]
+                                df_lon_set.iloc[j, c_i_w_in] - df_lon_set.iloc[j, c_i_w_in[0]])  # E loc [km]
                         yW = 1.852 * 60 * (
-                                    df_lat_set.iloc[j, c_i_w_in] - df_lat_set.iloc[j, c_i_w_in[0]])  # N location [km]
+                                df_lat_set.iloc[j, c_i_w_in] - df_lat_set.iloc[j, c_i_w_in[0]])  # N location [km]
                         XXW = np.concatenate(
                             [np.ones((np.size(sigmathetaW[iwv]), 1)), np.transpose(np.atleast_2d(np.array(xW))),
-                            np.transpose(np.atleast_2d(np.array(yW)))], axis=1)
+                             np.transpose(np.atleast_2d(np.array(yW)))], axis=1)
                         d_anom0W = sigmathetaW[iwv] - np.nanmean(sigmathetaW[iwv])
                         ADW = np.squeeze(np.linalg.lstsq(XXW, np.transpose(np.atleast_2d(np.array(d_anom0W))))[0])
                         drhodxW = ADW[1]  # [zonal gradient [kg/m^3/km]
@@ -542,10 +548,11 @@ for main in range(4):
             # cax = divider.append_axes("right", size="5%", pad=0.05)
             plt.colorbar(vc, label='[m/s]')
             plt.tight_layout()
-            plot_pro(ax0)
+            # plot_pro(ax0)
             ax0.grid()
-            # fig0.savefig(('/Users/jake/Desktop/BATS/bats_transects/dg035_BATS_TG' + str(int(np.mean([targ_low,targ_high])))+ '_T' + str(ii) + '.png'),dpi = 300)
-            # plt.close()    
+            fig0.savefig(('/Users/jake/Desktop/BATS/bats_transects/dg035_2014_BATS_TG' + str(
+                int(np.mean([targ_low, targ_high]))) + '_T' + str(ii) + '.png'), dpi=300)
+            plt.close()
 
         # OUTPUT V_g AND Eta from each transect collection so that it PE and KE can be computed 
         # size (m,n) is gridded depths and number of profiles 
@@ -573,11 +580,11 @@ for main in range(4):
 
 # --- SAVE
 # write python dict to a file
-sa = 1
+sa = 0
 if sa > 0:
     mydict = {'bin_depth': grid, 'Sigma_Theta': Sigma_Theta_f, 'Eta': Eta, 'Eta_theta': Eta_theta, 'V': V,
               'V_lon': vel_lon, 'V_lat': vel_lat, 'Time': Time, 'Info': Info}
-    output = open('/Users/jake/Desktop/bats/transect_profiles_mar12_2.pkl', 'wb')
+    output = open('/Users/jake/Desktop/bats/transect_profiles_mar12.pkl', 'wb')
     pickle.dump(mydict, output)
     output.close()
 
