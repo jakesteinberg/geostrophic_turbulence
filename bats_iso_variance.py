@@ -57,7 +57,7 @@ dac_u[dac_u < -500] = np.nan
 dac_v[dac_v < -500] = np.nan
 
 # ---- LOAD IN TRANSECT TO PROFILE DATA COMPILED IN BATS_TRANSECTS.PY
-pkl_file = open('/Users/jake/Desktop/bats/transect_profiles_jan18.pkl', 'rb')
+pkl_file = open('/Users/jake/Desktop/bats/transect_profiles_mar12_2.pkl', 'rb')
 bats_trans = pickle.load(pkl_file)
 pkl_file.close()
 Time = bats_trans['Time']
@@ -84,36 +84,24 @@ N2[lz] = 0
 N2[lnan] = 0
 N = np.sqrt(N2)
 
-# computer vertical mode shapes 
+# computer vertical mode shapes
 G, Gz, c = vertical_modes(N2, grid, omega, mmax)
 
 bc_bot = 1      # 1 = flat, 2 = rough
 grid2 = np.concatenate([np.arange(0, 150, 10), np.arange(150, 300, 10), np.arange(300, 4500, 10)])
 n2_interp = np.interp(grid2, grid, N2)
-F_int, F, c_2, norm_constant = vertical_modes_f(n2_interp, grid2, omega, mmax, bc_bot)
-
-f, (ax, ax2) = plt.subplots(1, 2)
-for i in range(5):
-    ax.plot(F[:, i], grid2)
-    ax.plot(Gz[:, i], grid, c='k', linestyle='--')
-    ax2.plot(F_int[:, i], grid2)
-    ax2.plot(G[:, i], grid, c='k', linestyle='--')
-ax.axis([-5, 5, 0, 5000])
-ax.invert_yaxis()
-ax2.invert_yaxis()
-plot_pro(ax)
-
-f, ax = plt.subplots()
-ax.plot(N2, grid)
-ax.plot(n2_interp, grid2, linestyle='--')
-ax.invert_yaxis()
-plot_pro(ax)
+F_int_g2, F_g2, c_ff, norm_constant = vertical_modes_f(n2_interp, grid2, omega, mmax, bc_bot)
+F = np.nan*np.ones(G.shape)
+F_int = np.nan*np.ones(G.shape)
+for i in range(mmax + 1):
+    F[:, i] = np.interp(grid, grid2, F_g2[:, i])
+    F_int[:, i] = np.interp(grid, grid2, F_int_g2[:, i])
 
 # presort V 
 good_v = np.zeros(np.size(Time))
 for i in range(np.size(Time)):
-    v_dz = np.gradient(V[:, i])
-    if np.nanmax(np.abs(v_dz)) < 0.075:
+    v_dz = np.gradient(V[:, i], z)
+    if np.nanmax(np.abs(v_dz)) < 0.0009:              # 0.075
         good_v[i] = 1
 good0 = np.intersect1d(np.where((np.abs(V[-45, :]) < 0.2))[0], np.where((np.abs(V[10, :]) < 0.4))[0])
 good = np.intersect1d(np.where(good_v > 0), good0)
@@ -123,6 +111,16 @@ Eta_theta2 = Eta_theta[:, good]
 Time2 = Time[good]
 prof_lon2 = prof_lon[good]
 prof_lat2 = prof_lat[good]
+
+# f, (ax, ax2) = plt.subplots(1, 2)
+# for i in range(10):
+#     ax.plot(V2[:, i], grid)
+# ax.axis([-.4, .4, 0, 5000])
+# ax.invert_yaxis()
+# ax.grid()
+# ax2.plot(np.nanmean(np.abs(V2), axis=1), grid)
+# ax2.invert_yaxis()
+# plot_pro(ax2)
 
 sz = np.shape(Eta2)
 num_profs = sz[1]
@@ -201,12 +199,19 @@ if sa > 0:
 AGzq = AGz  # (:,quiet_prof)
 nq = np.size(good_prof)  # good_prof and dg_good_prof
 avg_AGzq = np.nanmean(np.transpose(AGzq), axis=0)
-AGzqa = AGzq - np.transpose(np.tile(avg_AGzq, [nq, 1]))  # mode amplitude anomaly matrix
-cov_AGzqa = (1 / nq) * np.matrix(AGzqa) * np.matrix(np.transpose(
-    AGzqa))  # nmodes X nmodes covariance matrix (squared mode amplitude anomaly / number of profiles) = covariance
-var_AGzqa = np.transpose(np.matrix(np.sqrt(np.diag(cov_AGzqa)))) * np.matrix(
-    np.sqrt(np.diag(cov_AGzqa)))  # sqrt(cov)*sqrt(cov) = varaince
-cor_AGzqa = cov_AGzqa / var_AGzqa  # nmodes X nmodes correlation matrix (cov/var) = correlation
+
+# mode amplitude anomaly matrix
+AGzqa = AGzq - np.transpose(np.tile(avg_AGzq, [nq, 1]))
+
+# nmodes X nmodes covariance matrix (squared mode amplitude anomaly / number of profiles) = covariance
+cov_AGzqa = (1 / nq) * np.matrix(AGzqa) * np.matrix(np.transpose(AGzqa))
+
+# sqrt(cov)*sqrt(cov) = variance
+var_AGzqa = np.transpose(np.matrix(np.sqrt(np.diag(cov_AGzqa)))) * np.matrix(np.sqrt(np.diag(cov_AGzqa)))
+
+# nmodes X nmodes correlation matrix (cov/var) = correlation
+cor_AGzqa = cov_AGzqa / var_AGzqa
+
 # (look at how mode amplitude anomalies are correlated) =>
 # to look at shape of eigenfunctions of the correlation matrix
 # (project the shape of the eigenfunctions onto the vertical structure G, Gz )
@@ -232,13 +237,62 @@ AGqa = AGq - np.transpose(np.tile(avg_AGq, [nqd, 1]))  # mode amplitude anomaly 
 cov_AGqa = (1 / nqd) * np.matrix(AGqa) * np.matrix(np.transpose(AGqa))  # nmodes X nmodes covariance matrix
 var_AGqa = np.transpose(np.matrix(np.sqrt(np.diag(cov_AGqa)))) * np.matrix(np.sqrt(np.diag(cov_AGqa)))
 cor_AGqa = cov_AGqa / var_AGqa  # nmodes X nmodes correlation matrix
-
 D_AGqa, V_AGqa = np.linalg.eig(cov_AGqa)  # columns of V_AGzqa are eigenvectors
-
 EOFetaseries = np.transpose(V_AGqa) * np.matrix(AGqa)  # EOF "timeseries' [nmodes X nq]
 EOFetashape = np.matrix(G[:, 1:]) * V_AGqa  # depth shape of eigenfunctions [ndepths X nmodes]
 EOFetashape1_BTpBC1 = G[:, 1:3] * V_AGqa[0:2, 0]  # truncated 2 mode shape of EOF#1
 EOFetashape2_BTpBC1 = G[:, 1:3] * V_AGqa[0:2, 1]  # truncated 2 mode shape of EOF#2
+
+# --- EOF of velocity profiles
+not_deep = np.isfinite(V2[-9, :]) # & (Time2 > 735750)
+V3 = V2[:, not_deep]
+
+grid_check = grid[5:-10]
+Uzq = V3[5:-10, :].copy()
+nq = np.size(V3[0, :])
+avg_Uzq = np.nanmean(np.transpose(Uzq), axis=0)
+Uzqa = Uzq - np.transpose(np.tile(avg_Uzq, [nq, 1]))
+cov_Uzqa = (1 / nq) * np.matrix(Uzq) * np.matrix(np.transpose(Uzq))
+D_Uzqa, V_Uzqa = np.linalg.eig(cov_Uzqa)
+
+t1 = np.real(D_Uzqa[0:10])
+PEV = t1/np.sum(t1)
+
+# --- PLOT V STRUCTURE
+plot_v_struct = 0
+if plot_v_struct > 0:
+    f, (ax, ax2, ax3, ax4) = plt.subplots(1, 4, sharey=True)
+    for i in range(nq):
+        ax.plot(V3[:, i], grid, color='#5F9EA0', linewidth=0.75)
+    ax.plot(np.nanmean(np.abs(V3), axis=1), grid, color='k')
+    ax2.plot(np.zeros(10), np.arange(0, 5000, 500), color='k')
+    ax3.plot(np.zeros(10), np.arange(0, 5000, 500), color='k')
+    for i in range(4):
+        ax2.plot(V_Uzqa[:, i], grid_check, label='EOF' + str(i+1) + ': PEV = ' + str(100 * np.round(PEV[i], 3)))
+        ax3.plot(F[:, i], grid)
+        ax3.plot(Gz[:, i], grid, c='k', linestyle='--', linewidth=0.5)
+        ax4.plot(F_int[:, i], grid)
+        ax4.plot(G[:, i], grid, c='k', linestyle='--', linewidth=0.5)
+    handles, labels = ax2.get_legend_handles_labels()
+    ax2.legend(handles, labels, fontsize=10)
+    ax.axis([-.2, .2, 0, 4800])
+    ax.set_title('Cross-Track Velocity [V]')
+    ax.set_xlabel('m/s')
+    ax.set_ylabel('Depth [m]')
+    ax2.axis([-.2, .2, 0, 4800])
+    ax2.set_title('Principle EOFs of V')
+    ax2.set_xlabel('m/s')
+    ax3.axis([-5, 5, 0, 4800])
+    ax3.set_title('Vertical Structure of V F(z)')
+    ax3.set_xlabel('Mode Amplitude')
+    ax4.axis([-3500, 3500, 0, 4800])
+    ax4.set_title('Vertical Structure of Disp. G(z)')
+    ax4.set_xlabel('Mode Amplitude')
+    ax.invert_yaxis()
+    ax.grid()
+    ax2.grid()
+    ax3.grid()
+    plot_pro(ax4)
 
 # --- PLOT ETA / EOF
 plot_eta = 0
@@ -293,7 +347,6 @@ if plot_eta > 0:
 # --- MODE AMPLITUDE IN TIME AND SPACE
 plot_mode = 0
 if plot_mode > 0:
-
     window_size, poly_order = 11, 2
     fm, (ax, ax1) = plt.subplots(1, 2, sharey=True)
     colors = ['r', 'b', 'm', 'g', 'c']
@@ -433,11 +486,13 @@ enst_diss = np.sqrt(avg_nu) / (enst_xfer ** (1 / 6))
 
 # --- LOAD in other data
 # load in Station BATs PE Comparison
-SB = si.loadmat('/Users/jake/Desktop/bats/station_bats_pe.mat')
-sta_bats_pe = SB['out'][0][0][0]
-sta_bats_c = SB['out'][0][0][3]
-sta_bats_f = SB['out'][0][0][2]
-sta_bats_dk = SB['out'][0][0][1]
+pkl_file = open('/Users/jake/Desktop/bats/station_bats_pe.pkl', 'rb')
+SB = pickle.load(pkl_file)
+pkl_file.close()
+sta_bats_pe = SB['PE']
+sta_bats_c = SB['c']
+sta_bats_f = np.pi * np.sin(np.deg2rad(31.6)) / (12 * 1800)
+sta_bats_dk = sta_bats_f / sta_bats_c[1]
 # load in HKE estimates from Obj. Map 
 pkl_file = open('/Users/jake/Documents/geostrophic_turbulence/BATS_OM_KE.pkl', 'rb')
 bats_map = pickle.load(pkl_file)
@@ -461,8 +516,8 @@ plot_eng = 0
 if plot_eng > 0:
     fig0, ax0 = plt.subplots()
     PE_p = ax0.plot(sc_x, avg_PE[1:] / dk, color='#B22222', label='APE', linewidth=2)
-    # PE_sta_p = ax0.plot((1000) * sta_bats_f / sta_bats_c[1:], sta_bats_pe[1:] / sta_bats_dk, color='#FF8C00',
-    #                     label='$PE_{ship}$', linewidth=1.5)
+    PE_sta_p = ax0.plot(1000 * sta_bats_f / sta_bats_c[1:], np.nanmean(sta_bats_pe[1:], axis=1) / sta_bats_dk, color='#FF8C00',
+                        label='$PE_{ship}$', linewidth=1.5)
     KE_p = ax0.plot(sc_x, avg_KE[1:] / dk, 'g', label='KE', linewidth=2)
     ax0.scatter(sc_x, avg_PE[1:] / dk, color='#B22222', s=12)  # DG PE
     # ax0.scatter((1000)*sta_bats_f/sta_bats_c[1:],sta_bats_pe[1:]/sta_bats_dk,color='#FF8C00',s=10) # BATS PE
@@ -478,12 +533,12 @@ if plot_eng > 0:
     ax0.plot(vert_wave * 1000, one, color='b', linewidth=1, label=r'APE$_{fit}$')
     ax0.plot(10 ** x_53, 10 ** y_g_53, color='k', linewidth=1, linestyle='--')
     ax0.plot(10 ** x_3, 10 ** y_g_3, color='k', linewidth=1, linestyle='--')
-    ax0.text(10 ** x_53[0] - .01, 10 ** y_g_53[0], str(float("{0:.2f}".format(slope1[0]))), fontsize=10)
-    ax0.text(10 ** x_3[0] + .065, 10 ** y_g_3[0], str(float("{0:.2f}".format(slope2[0]))), fontsize=10)
+    ax0.text(10 ** x_53[0] - .012, 10 ** y_g_53[0], str(float("{0:.2f}".format(slope1[0]))), fontsize=10)
+    ax0.text(10 ** x_3[0] + .085, 10 ** y_g_3[0], str(float("{0:.2f}".format(slope2[0]))), fontsize=10)
     ax0.scatter(vert_wave[ipoint] * 1000, one[ipoint], color='b', s=7)
     ax0.plot([xx[ipoint], xx[ipoint]], [10 ** (-4), 4 * 10 ** (-4)], color='k', linewidth=2)
     ax0.text(xx[ipoint + 1], 2 * 10 ** (-4),
-             str('Slope break at ') + str(float("{0:.1f}".format(1 / xx[ipoint]))) + 'km')
+             str('Break at ') + str(float("{0:.1f}".format(1 / xx[ipoint]))) + 'km')
 
     # Rossby Radii
     ax0.plot([sc_x[0], sc_x[0]], [10 ** (-4), 4 * 10 ** (-4)], color='k', linewidth=2)
@@ -491,8 +546,9 @@ if plot_eng > 0:
              str(r'$c_1/f$ = ') + str(float("{0:.1f}".format(1 / sc_x[0]))) + 'km')
 
     # GM
-    ax0.plot(sc_x, 0.25 * PE_GM / dk, linestyle='--', color='#B22222', linewidth=0.75)
-    ax0.text(sc_x[0] - .01, .25 * PE_GM[1] / dk, r'$\frac{1}{4}PE_{GM}$', fontsize=14)
+    ax0.plot(sc_x, PE_GM / dk, linestyle='--', color='#B22222', linewidth=0.75)
+    ax0.text(sc_x[0] - .01, PE_GM[1] / dk, r'$PE_{GM}$', fontsize=12)
+    # ax0.plot(np.array([10**-2, 10]), [PE_SD / dk, PE_SD / dk], linestyle='--', color='k', linewidth=0.75)
 
     # Limits/scales
     # ax0.plot( [3*10**-1, 3*10**0], [1.5*10**1, 1.5*10**-2],color='k',linewidth=0.75)
@@ -550,7 +606,7 @@ if plot_eng > 0:
 
 # -------------------------
 # PE COMPARISON BETWEEN HOTS, BATS_SHIP, AND BATS_DG
-plot_comp = 0
+plot_comp = 1
 if plot_comp > 0:
     fig00, ax0 = plt.subplots()
     ax0.plot([3 * 10 ** -1, 3 * 10 ** 0], [1.5 * 10 ** 1, 1.5 * 10 ** -2], color='k', linewidth=0.75)
@@ -562,8 +618,8 @@ if plot_comp > 0:
     ax0.plot(sc_x, PE_GM / dk, linestyle='--', color='k')
     ax0.text(sc_x[0] - .009, PE_GM[1] / dk, r'$PE_{GM}$')
     PE_p0 = ax0.plot(sc_x, avg_PE[1:] / dk, color='#B22222', label=r'$PE_{BATS_{DG}}$')
-    PE_sta_p0 = ax0.plot(1000 * sta_bats_f / sta_bats_c[1:], sta_bats_pe[1:] / sta_bats_dk, color='#FF8C00',
-                         label=r'$PE_{BATS_{ship}}$')
+    PE_sta_p0 = ax0.plot(1000 * sta_bats_f / sta_bats_c[1:], np.nanmean(sta_bats_pe[1:], axis=1) / sta_bats_dk,
+                         color='#FF8C00', label=r'$PE_{BATS_{ship}}$')
     # PE_sta_hots = ax0.plot((1000)*sta_hots_f/sta_hots_c[1:],sta_hots_pe[1:]/sta_hots_dk,color='g',
     #   label=r'$PE_{HOTS_{ship}}$')
     ax0.set_yscale('log')
@@ -578,7 +634,7 @@ if plot_comp > 0:
     # PE (by mode number) COMPARISON BY SITE
     fig01, ax0 = plt.subplots()
     mode_num = np.arange(1, 61, 1)
-    PE_sta_p1 = ax0.plot(mode_num, sta_bats_pe[1:] / sta_bats_dk, label=r'BATS$_{ship}$', linewidth=2)
+    PE_sta_p1 = ax0.plot(mode_num, np.nanmean(sta_bats_pe[1:], axis=1) / sta_bats_dk, label=r'BATS$_{ship}$', linewidth=2)
     # PE_ab = ax0.plot(mode_num, abaco_energies['avg_PE'][1:] / (abaco_energies['f_ref'] / abaco_energies['c'][1]),
     #                  label=r'$ABACO_{DG}$')
     PE_sta_hots = ax0.plot(mode_num, sta_hots_pe[1:] / sta_hots_dk, label=r'HOTS$_{ship}$', linewidth=2)
