@@ -5,7 +5,6 @@ import matplotlib
 import matplotlib.pyplot as plt
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 import datetime
-import glob
 import seawater as sw
 import pandas as pd
 from scipy.io import netcdf
@@ -44,11 +43,12 @@ deep_shr_max_dep = 3500
 
 # PLOTTING SWITCHES 
 plot_bath = 0
-plot_cross = 1
+plot_cross = 0
 
 # LOAD DATA (gridded dives)
-# GD = Dataset('BATs_2015_gridded_3.nc', 'r')
-GD = Dataset('BATs_2014_gridded.nc', 'r')
+GD = Dataset('BATs_2015_gridded_3.nc', 'r')
+# GD = Dataset('BATs_2014_gridded.nc', 'r')
+g14 = 0  # toggle to select 2014 or 2015
 df_den = pd.DataFrame(GD['Density'][:], index=GD['grid'][:], columns=GD['dive_list'])
 df_theta = pd.DataFrame(GD['Theta'][:], index=GD['grid'][:], columns=GD['dive_list'])
 df_s = pd.DataFrame(GD['Salinity'][:], index=GD['grid'][:], columns=GD['dive_list'])
@@ -69,7 +69,34 @@ dac_u[dac_u < -500] = np.nan
 dac_v[dac_v < -500] = np.nan
 
 # ---------------------------------------------
+# CHECK IF DIVE WAS NOT NORMAL (I.E. DID NOT COVER PROPER DISTANCE)
+dive_cycle = range(0, len(profile_list), 2)
+ref_l = np.nanmean(df_lat)
+dis = np.nan*np.zeros(len(profile_list))
+count = 0
+for i in dive_cycle:
+    dx = 1.852 * 60 * np.cos(np.deg2rad(ref_l)) * (np.nanmean(df_lon.iloc[:, i + 1]) - np.nanmean(df_lon.iloc[:, i]))
+    dy = 1.852 * 60 * (np.nanmean(df_lat.iloc[:, i + 1]) - np.nanmean(df_lat.iloc[:, i]))
+    dis[i] = np.sqrt(dx**2 + dy**2)
+    dis[i + 1] = np.sqrt(dx ** 2 + dy ** 2)
+ok = np.where(dis > 3)[0]
+df_den = df_den.iloc[:, ok]
+df_theta = df_theta.iloc[:, ok]
+df_s = df_s.iloc[:, ok]
+df_lon = df_lon.iloc[:, ok]
+df_lat = df_lat.iloc[:, ok]
+dac_u = dac_u[ok]
+dac_v = dac_v[ok]
+time_sta_sto = time_sta_sto[ok]
+target_rec = target_rec[ok]
+profile_list = profile_list[ok]
+
 # ---------------------------------------------
+
+# f, ax = plt.subplots()
+# ax.quiver(df_lon.nanmean, dac_u, dac_v)
+# ax.invert_yaxis()
+# plot_pro(ax)
 
 # look at headings per each arm of the bowtie pattern  ORDERING: 6, 2, 12, 8 
 # heading_test1 = np.where((target_rec > 7) & (target_rec < 9))  # 8
@@ -128,7 +155,7 @@ vel_lon = []
 vel_lat = []
 Time = []
 target_out = []
-for main in range(1):
+for main in range(4):
     targ_low = target[main, 0]
     targ_high = target[main, 1]
     # plan view plot (for select heading)   
@@ -204,7 +231,6 @@ for main in range(1):
     last_dive = dives[-1]
 
     # section out dives into continuous transect groups
-    g14 = 1
     if g14:
         to_consider = 4
     else:
@@ -233,7 +259,7 @@ for main in range(1):
         time_group = np.array([this_time])
         up_o = np.where(dives == this_dive)[0]
         for j in dives[up_o[0] + 1:]:
-            if j - dive_group[-1] < 1:
+            if j - dive_group[-1] <= 1.5:
                 dive_group = np.append(dive_group, j)
                 t_coor = np.where(dives == j)[0][0]
                 time_group = np.append(time_group, time_in[t_coor])
@@ -293,8 +319,10 @@ for main in range(1):
             order_set = [0, 2, 4]  # go from 0,2,4 (because each transect only has 3 dives)
         elif (np.size(this_set) > 7) & (np.size(this_set) < 9):
             order_set = [0, 2, 4, 6]  # go from 0,2,4,6 (because each transect only has 4 dives)
-        else:
+        elif (np.size(this_set) > 9) & (np.size(this_set) < 11):
             order_set = [0, 2, 4, 6, 8]
+        else:
+            order_set = [0, 2, 4, 6, 8, 10]
 
         for i in order_set:
             # M 
@@ -520,7 +548,8 @@ for main in range(1):
             sns.set(context="notebook", style="whitegrid", rc={"axes.axisbelow": False})
             fig0, ax0 = plt.subplots()
             matplotlib.rcParams['contour.negative_linestyle'] = 'solid'
-            levels = np.arange(-.26, .26, .02)
+            # levels = np.arange(-.26, .26, .02)
+            levels = np.arange(-.4, .4, .02)
             vc = ax0.contourf(Ds, grid, V_g, levels=levels, cmap=plt.cm.coolwarm)
             vcc = ax0.contour(Ds, grid, V_g, levels=levels, colors='k', linewidth=.75)
             vcc2 = ax0.contour(Ds, grid, V_g, levels=[0], colors='k', linewidth=1.25)
@@ -550,7 +579,7 @@ for main in range(1):
             plt.tight_layout()
             # plot_pro(ax0)
             ax0.grid()
-            fig0.savefig(('/Users/jake/Desktop/BATS/bats_transects/dg035_2014_BATS_TG' + str(
+            fig0.savefig(('/Users/jake/Desktop/BATS/bats_transects/dg35_2015_BATS_TG' + str(
                 int(np.mean([targ_low, targ_high]))) + '_T' + str(ii) + '.png'), dpi=300)
             plt.close()
 
@@ -580,11 +609,11 @@ for main in range(1):
 
 # --- SAVE
 # write python dict to a file
-sa = 0
+sa = 1
 if sa > 0:
     mydict = {'bin_depth': grid, 'Sigma_Theta': Sigma_Theta_f, 'Eta': Eta, 'Eta_theta': Eta_theta, 'V': V,
               'V_lon': vel_lon, 'V_lat': vel_lat, 'Time': Time, 'Info': Info}
-    output = open('/Users/jake/Desktop/bats/transect_profiles_mar12.pkl', 'wb')
+    output = open('/Users/jake/Desktop/bats/dep15_transect_profiles_mar13.pkl', 'wb')
     pickle.dump(mydict, output)
     output.close()
 

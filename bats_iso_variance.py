@@ -56,8 +56,26 @@ df_lat[df_lat < -500] = np.nan
 dac_u[dac_u < -500] = np.nan
 dac_v[dac_v < -500] = np.nan
 
+# ---- 2014 initial comparison
+# why are 2014 DACs very! large --- need some reprocessing??
+# GD = Dataset('BATs_2014_gridded.nc', 'r')
+# df_lon2 = pd.DataFrame(GD['Longitude'][0:sz_g, :], index=GD['grid'][0:sz_g], columns=GD['dive_list'][:])
+# df_lat2 = pd.DataFrame(GD['Latitude'][0:sz_g, :], index=GD['grid'][0:sz_g], columns=GD['dive_list'][:])
+# profile_list2 = np.float64(GD.variables['dive_list'][:]) - 35000
+# dac_u2 = GD.variables['DAC_u'][:]
+# dac_v2 = GD.variables['DAC_v'][:]
+# df_lon2[df_lon2 < -500] = np.nan
+# df_lat2[df_lat2 < -500] = np.nan
+# dac_u2[dac_u2 < -500] = np.nan
+# dac_v2[dac_v2 < -500] = np.nan
+# f, ax = plt.subplots()
+# ax.quiver(np.nanmean(df_lon, axis=0), np.nanmean(df_lat, axis=0), dac_u, dac_v, color='r', scale=1)
+# ax.quiver(np.nanmean(df_lon2, axis=0), np.nanmean(df_lat2, axis=0), dac_u2, dac_v2, color='k', scale=1)
+# plot_pro(ax)
+
 # ---- LOAD IN TRANSECT TO PROFILE DATA COMPILED IN BATS_TRANSECTS.PY
-pkl_file = open('/Users/jake/Desktop/bats/transect_profiles_mar12_2.pkl', 'rb')
+# pkl_file = open('/Users/jake/Desktop/bats/transect_profiles_mar12_2.pkl', 'rb')
+pkl_file = open('/Users/jake/Desktop/bats/dep15_transect_profiles_mar13.pkl', 'rb')
 bats_trans = pickle.load(pkl_file)
 pkl_file.close()
 Time = bats_trans['Time']
@@ -68,7 +86,6 @@ Eta_theta = bats_trans['Eta_theta'][0:sz_g, :]
 V = bats_trans['V'][0:sz_g, :]
 prof_lon = bats_trans['V_lon']
 prof_lat = bats_trans['V_lat']
-# Heading = bats_trans['Heading']
 
 # average background properties of profiles along these transects 
 sigma_theta_avg = df_den.mean(axis=1)
@@ -84,10 +101,10 @@ N2[lz] = 0
 N2[lnan] = 0
 N = np.sqrt(N2)
 
-# computer vertical mode shapes
+# --- compute vertical mode shapes
 G, Gz, c = vertical_modes(N2, grid, omega, mmax)
-
-bc_bot = 2      # 1 = flat, 2 = rough
+# --- compute alternate vertical modes
+bc_bot = 1      # 1 = flat, 2 = rough
 grid2 = np.concatenate([np.arange(0, 150, 10), np.arange(150, 300, 10), np.arange(300, 4500, 10)])
 n2_interp = np.interp(grid2, grid, N2)
 F_int_g2, F_g2, c_ff, norm_constant = vertical_modes_f(n2_interp, grid2, omega, mmax, bc_bot)
@@ -97,30 +114,39 @@ for i in range(mmax + 1):
     F[:, i] = np.interp(grid, grid2, F_g2[:, i])
     F_int[:, i] = np.interp(grid, grid2, F_int_g2[:, i])
 
-# presort V 
-good_v = np.zeros(np.size(Time))
+# select only velocity profiles that seem reasonable
+good = np.zeros(np.size(Time))
+v_dz = np.zeros(np.shape(V))
 for i in range(np.size(Time)):
-    v_dz = np.gradient(V[:, i], z)
-    if np.nanmax(np.abs(v_dz)) < 0.0009:              # 0.075
-        good_v[i] = 1
-good0 = np.intersect1d(np.where((np.abs(V[-45, :]) < 0.2))[0], np.where((np.abs(V[10, :]) < 0.4))[0])
-good = np.intersect1d(np.where(good_v > 0), good0)
-V2 = V[:, good]
-Eta2 = Eta[:, good]
-Eta_theta2 = Eta_theta[:, good]
-Time2 = Time[good]
-prof_lon2 = prof_lon[good]
-prof_lat2 = prof_lat[good]
+    v_dz[:, i] = np.gradient(V[:, i], z)
+    if np.nanmax(np.abs(v_dz[:, i])) < 0.0015:              # 0.075
+        good[i] = 1
+# good0 = np.intersect1d(np.where((np.abs(V[-45, :]) < 0.2))[0], np.where((np.abs(V[10, :]) < 0.4))[0])
+# good = np.intersect1d(np.where(good_v > 0), good0)
+V2 = V[:, good > 0]
+Eta2 = Eta[:, good > 0]
+Eta_theta2 = Eta_theta[:, good > 0]
+Time2 = Time[good > 0]
+Info2 = Info[:, good > 0]
+prof_lon2 = prof_lon[good > 0]
+prof_lat2 = prof_lat[good > 0]
 
-# f, (ax, ax2) = plt.subplots(1, 2)
-# for i in range(10):
-#     ax.plot(V2[:, i], grid)
-# ax.axis([-.4, .4, 0, 5000])
-# ax.invert_yaxis()
-# ax.grid()
-# ax2.plot(np.nanmean(np.abs(V2), axis=1), grid)
-# ax2.invert_yaxis()
-# plot_pro(ax2)
+# --- initial info plot that shows generally what's going on
+f, (ax, ax2, ax3) = plt.subplots(1, 3)
+for i in range(150):
+    ax.plot(V2[:, i], grid)
+    ax3.scatter(df_s.iloc[:, i], df_theta.iloc[:, i], s=1)
+ax.axis([-.4, .4, 0, 5000])
+ax.invert_yaxis()
+ax.grid()
+ax2.plot(np.nanmean(np.abs(V2), axis=1), grid)
+ax2.invert_yaxis()
+ax2.grid()
+ax3.scatter(df_s, df_theta, s=1)
+plot_pro(ax3)
+
+# -- plotting switches
+plot_comp = 0
 
 sz = np.shape(Eta2)
 num_profs = sz[1]
@@ -269,9 +295,12 @@ if plot_v_struct > 0:
     ax3.plot(np.zeros(10), np.arange(0, 5000, 500), color='k')
     for i in range(4):
         ax2.plot(V_Uzqa[:, i], grid_check, label='EOF' + str(i+1) + ': PEV = ' + str(100 * np.round(PEV[i], 3)))
-        ax3.plot(F[:, i], grid)
+        ax3.plot(F[:, i], grid, label='Mode' + str(i))
         ax3.plot(Gz[:, i], grid, c='k', linestyle='--', linewidth=0.5)
-        ax4.plot(F_int[:, i], grid)
+        if i < 1:
+            ax4.plot(F_int[:, i] + np.nanmax(np.abs(F_int[:, i])), grid)
+        else:
+            ax4.plot(F_int[:, i], grid)
         ax4.plot(G[:, i], grid, c='k', linestyle='--', linewidth=0.5)
     handles, labels = ax2.get_legend_handles_labels()
     ax2.legend(handles, labels, fontsize=10)
@@ -282,6 +311,8 @@ if plot_v_struct > 0:
     ax2.axis([-.2, .2, 0, 4800])
     ax2.set_title('Principle EOFs of V')
     ax2.set_xlabel('m/s')
+    handles, labels = ax3.get_legend_handles_labels()
+    ax3.legend(handles, labels, fontsize=10)
     ax3.axis([-5, 5, 0, 4800])
     ax3.set_title('Vertical Structure of V F(z)')
     ax3.set_xlabel('Mode Amplitude')
@@ -294,8 +325,11 @@ if plot_v_struct > 0:
     ax3.grid()
     plot_pro(ax4)
 
+# --- Isolate eddy dives
+# ed_in = np.
+
 # --- PLOT ETA / EOF
-plot_eta = 0
+plot_eta = 1
 if plot_eta > 0:
     f, (ax0, ax1) = plt.subplots(1, 2, sharey=True)
     for j in range(num_profs):
@@ -460,7 +494,7 @@ yy = avg_PE[1:] / dk
 # np.savetxt('test_line_fit_x',xx)
 # np.savetxt('test_line_fit_y',yy)
 # index 11 is the point where the break in slope occurs
-ipoint = 8  # 11
+ipoint = 10  # 8  # 11
 x_53 = np.log10(xx[0:ipoint])
 y_53 = np.log10(yy[0:ipoint])
 slope1 = np.polyfit(x_53, y_53, 1)
@@ -606,7 +640,6 @@ if plot_eng > 0:
 
 # -------------------------
 # PE COMPARISON BETWEEN HOTS, BATS_SHIP, AND BATS_DG
-plot_comp = 1
 if plot_comp > 0:
     fig00, ax0 = plt.subplots()
     ax0.plot([3 * 10 ** -1, 3 * 10 ** 0], [1.5 * 10 ** 1, 1.5 * 10 ** -2], color='k', linewidth=0.75)
@@ -717,34 +750,4 @@ if plot_comp > 0:
 # ax.set_xscale('log')
 # plot_pro(ax)
 
-################################
-# try 3
-# from scipy.optimize import curve_fit
-# xx1 = np.log10(sc_x)
-# yy1 = np.log10(avg_PE[1:]/dk)
-# xx1 = np.log10(np.array([2*10**-2, 7*10**-2, 10**-1, 1.5*10**-1, 2.5*10**-1, 4*10**-1]) )
-# yy1 = np.log10(np.array([7*10**1, 3*10**1, 10**1, 10**0, 5*10**-2, 10**-3]) )
 
-# def two_lines(x,a,b):
-# one = (-.75)*x + b
-# two = (-5)*x + d
-# return np.maximum(one, two)
-# pw0 = (10, .5) # a guess for slope, intercept, slope, intercept
-# pw, cov = curve_fit(two_lines, xx1, yy1, pw0, sigma=0.01*np.ones(len(xx1)))
-# crossover = 10**( (pw[1] - pw[0]) / ( (-5/3) - (-3)) )
-
-# try 2 
-# tck = interpolate.splrep(xx, yy, k=2, s=0)
-# fig, axes = plt.subplots()
-# axes.plot(xx, yy, 'x', label = 'data')
-# axes.plot(xx, interpolate.splev(xx, tck, der=0), label = 'Fit')
-# plot_pro(axes)
-
-# try 1
-# def piecewise_linear(x, x0, y0, k1, k2):
-#     return np.piecewise(x, [x < x0], [lambda x:k1*x + y0-k1*x0, lambda x:k2*x + y0-k2*x0])
-# p , e = curve_fit(piecewise_linear, xx, yy)
-# f, ax = plt.subplots()
-# ax.plot(xx, yy, "o")
-# ax.plot(xx, piecewise_linear(xx, *p))
-# plot_pro(ax0)

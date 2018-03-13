@@ -1,7 +1,5 @@
-import sys
 import numpy as np
-import pandas as pd
-from scipy.io import netcdf
+from netCDF4 import Dataset
 import seawater as sw
 
 
@@ -71,14 +69,15 @@ def collect_dives(dg_list, bin_depth, grid_p, ref_lat):
     count_st = 14
     count = count_st
     for i in dg_list[count_st:]:
-        dive_nc_file = netcdf.netcdf_file(i, 'r', mmap=False if sys.platform == 'darwin' else mmap, version=1)
+        # dive_nc_file = netcdf.netcdf_file(i, 'r', mmap=False if sys.platform == 'darwin' else mmap, version=1)
+        dive_nc_file = Dataset(i, 'r')
         # initial dive information 
         glid_num = dive_nc_file.glider
         dive_num = dive_nc_file.dive_number
-        heading_ind = dive_nc_file.variables['log_MHEAD_RNG_PITCHd_Wd']
-        target_ind = dive_nc_file.variables['log_TGT_NAME']
-        GPS1_ind = dive_nc_file.variables['log_GPS1'].data
-        GPS2_ind = dive_nc_file.variables['log_GPS2'].data
+        heading_ind = dive_nc_file.variables['log_MHEAD_RNG_PITCHd_Wd'][:]
+        target_ind = dive_nc_file.variables['log_TGT_NAME'][:]
+        GPS1_ind = dive_nc_file.variables['log_GPS1'][:]
+        GPS2_ind = dive_nc_file.variables['log_GPS2'][:]
 
         # --------- extract target
         t_it = target_ind.shape[0]
@@ -150,9 +149,9 @@ def collect_dives(dg_list, bin_depth, grid_p, ref_lat):
                                                          [GPS1_out[3], GPS1_out[4], GPS2_out[3], GPS2_out[4]]])])
 
         # ---------- extract heading
-        h1 = heading_ind.data[0]
-        h_test_0 = heading_ind.data[1]
-        h_test_1 = heading_ind.data[2]
+        h1 = heading_ind[0]
+        h_test_0 = heading_ind[1]
+        h_test_1 = heading_ind[2]
         if h_test_0.isdigit() == True:
             if h_test_1.isdigit() == True:
                 h2 = h_test_0
@@ -180,7 +179,7 @@ def collect_dives(dg_list, bin_depth, grid_p, ref_lat):
         press = dive_nc_file.variables['ctd_pressure'][:]
         temp = dive_nc_file.variables['temperature'][:]
         salin = dive_nc_file.variables['salinity'][:]
-        theta = sw.ptmp(salin, temp, press, 0)
+        # theta = sw.ptmp(salin, temp, press, 0)
         depth = sw.dpth(press, ref_lat)
 
         # time conversion 
@@ -211,17 +210,17 @@ def collect_dives(dg_list, bin_depth, grid_p, ref_lat):
         if np.sum(time_rec) < 1:
             time_rec = np.concatenate([[serial_date_time_dive], [serial_date_time_climb]])
             time_rec_2 = np.concatenate([[serial_date_time_dive_2], [serial_date_time_climb_2]])
-            dac_u = np.concatenate([[dive_nc_file.variables['depth_avg_curr_east'].data],
-                                    [dive_nc_file.variables['depth_avg_curr_east'].data]])
-            dac_v = np.concatenate([[dive_nc_file.variables['depth_avg_curr_north'].data],
-                                    [dive_nc_file.variables['depth_avg_curr_north'].data]])
+            dac_u = np.concatenate([[dive_nc_file.variables['depth_avg_curr_east'][:]],
+                                    [dive_nc_file.variables['depth_avg_curr_east'][:]]])
+            dac_v = np.concatenate([[dive_nc_file.variables['depth_avg_curr_north'][:]],
+                                    [dive_nc_file.variables['depth_avg_curr_north'][:]]])
         else:
             time_rec = np.concatenate([time_rec, [serial_date_time_dive], [serial_date_time_climb]])
             time_rec_2 = np.concatenate([time_rec_2, [serial_date_time_dive_2], [serial_date_time_climb_2]])
-            dac_u = np.concatenate([dac_u, [dive_nc_file.variables['depth_avg_curr_east'].data],
-                                    [dive_nc_file.variables['depth_avg_curr_east'].data]])
-            dac_v = np.concatenate([dac_v, [dive_nc_file.variables['depth_avg_curr_north'].data],
-                                    [dive_nc_file.variables['depth_avg_curr_north'].data]])
+            dac_u = np.concatenate([dac_u, [dive_nc_file.variables['depth_avg_curr_east'][:]],
+                                    [dive_nc_file.variables['depth_avg_curr_east'][:]]])
+            dac_v = np.concatenate([dac_v, [dive_nc_file.variables['depth_avg_curr_north'][:]],
+                                    [dive_nc_file.variables['depth_avg_curr_north'][:]]])
 
         # interpolate (bin_average) to smooth and place T/S on vertical depth grid 
         temp_grid_dive, temp_grid_climb, salin_grid_dive, salin_grid_climb, lon_grid_dive, lon_grid_climb, lat_grid_dive, lat_grid_climb = make_bin(

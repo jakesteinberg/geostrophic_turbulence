@@ -37,6 +37,7 @@ def is_number(a):
         return False
 
 
+# -- check targets and make sure that they are numbered (if not == nan)
 targ_rec_o = np.zeros(len(targ_rec))
 for i in range(len(targ_rec)):
     test = is_number(targ_rec[i])
