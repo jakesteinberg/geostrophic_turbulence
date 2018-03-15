@@ -7,10 +7,39 @@ import pandas as pd
 import scipy.io as si
 from netCDF4 import Dataset
 import pickle
+import datetime
 from scipy.signal import savgol_filter
 # functions I've written 
 from mode_decompositions import vertical_modes, PE_Tide_GM, vertical_modes_f
 from toolkit import plot_pro
+
+
+def nanseg_interp(x, y):
+    n = len(y)
+    iv = np.where(np.isnan(y))[0]
+    diff_iv = np.diff(iv)
+    nb = len(np.where(diff_iv > 1)[0]) + 1
+
+    yi = y.copy()
+    if len(iv) < 1:
+        return yi
+    if iv[0] == 0:
+        ing = np.where(np.isfinite(y))[0][0]
+        yi[0:ing] = y[ing]
+        nb = nb - 1
+    # if iv[-1] == (len(x) - 1):
+    #     ing = np.where(np.isfinite(y))[0][-1]
+    #     yi[ing+1:] = y[ing]
+    #     nb = nb - 1
+    for j in range(nb):
+        ilg = np.where(np.isnan(yi))[0][0] - 1
+        if np.sum(np.isfinite(yi[ilg+1:])) < 1:
+            return yi
+        else:
+            ing = np.where(np.isfinite(yi[ilg+1:]))[0][0] + ilg + 1
+            yi[ilg+1:ing] = np.interp(x[ilg+1:ing], [x[ilg], x[ing]], [y[ilg], y[ing]])
+    return yi
+
 
 # physical parameters 
 g = 9.81
@@ -118,8 +147,8 @@ for i in range(mmax + 1):
 good = np.zeros(np.size(Time))
 v_dz = np.zeros(np.shape(V))
 for i in range(np.size(Time)):
-    v_dz[:, i] = np.gradient(V[:, i], z)
-    if np.nanmax(np.abs(v_dz[:, i])) < 0.0015:              # 0.075
+    v_dz[20:-20, i] = np.gradient(V[20:-20, i], z[20:-20])
+    if np.nanmax(np.abs(v_dz[:, i])) < 0.00125:              # 0.075
         good[i] = 1
 # good0 = np.intersect1d(np.where((np.abs(V[-45, :]) < 0.2))[0], np.where((np.abs(V[10, :]) < 0.4))[0])
 # good = np.intersect1d(np.where(good_v > 0), good0)
@@ -130,20 +159,25 @@ Time2 = Time[good > 0]
 Info2 = Info[:, good > 0]
 prof_lon2 = prof_lon[good > 0]
 prof_lat2 = prof_lat[good > 0]
+# np.where(np.isnan(Eta2[20:-20, :]))
+for i in range(len(Time2)):
+    y_i = Eta2[:, i]
+    if np.sum(np.isnan(y_i)) > 0:
+        Eta2[:, i] = nanseg_interp(grid, y_i)
 
 # --- initial info plot that shows generally what's going on
-f, (ax, ax2, ax3) = plt.subplots(1, 3)
-for i in range(150):
-    ax.plot(V2[:, i], grid)
-    ax3.scatter(df_s.iloc[:, i], df_theta.iloc[:, i], s=1)
-ax.axis([-.4, .4, 0, 5000])
-ax.invert_yaxis()
-ax.grid()
-ax2.plot(np.nanmean(np.abs(V2), axis=1), grid)
-ax2.invert_yaxis()
-ax2.grid()
-ax3.scatter(df_s, df_theta, s=1)
-plot_pro(ax3)
+# f, (ax, ax2, ax3) = plt.subplots(1, 3)
+# for i in range(150):
+#     ax.plot(V2[:, i], grid)
+#     ax3.scatter(df_s.iloc[:, i], df_theta.iloc[:, i], s=1)
+# ax.axis([-.4, .4, 0, 5000])
+# ax.invert_yaxis()
+# ax.grid()
+# ax2.plot(np.nanmean(np.abs(V2), axis=1), grid)
+# ax2.invert_yaxis()
+# ax2.grid()
+# ax3.scatter(df_s, df_theta, s=1)
+# plot_pro(ax3)
 
 # -- plotting switches
 plot_comp = 0
@@ -278,7 +312,7 @@ Uzq = V3[5:-10, :].copy()
 nq = np.size(V3[0, :])
 avg_Uzq = np.nanmean(np.transpose(Uzq), axis=0)
 Uzqa = Uzq - np.transpose(np.tile(avg_Uzq, [nq, 1]))
-cov_Uzqa = (1 / nq) * np.matrix(Uzq) * np.matrix(np.transpose(Uzq))
+cov_Uzqa = (1 / nq) * np.matrix(Uzqa) * np.matrix(np.transpose(Uzqa))
 D_Uzqa, V_Uzqa = np.linalg.eig(cov_Uzqa)
 
 t1 = np.real(D_Uzqa[0:10])
@@ -326,7 +360,10 @@ if plot_v_struct > 0:
     plot_pro(ax4)
 
 # --- Isolate eddy dives
-# ed_in = np.
+# 2015 - dives 62, 63 ,64
+ed_in = np.where(((Info2[0, :] - 35000) >= 62) & ((Info2[0, :] - 35000) <= 64))[0]
+ed_time_s = datetime.date.fromordinal(np.int(Time2[ed_in[0]]))
+ed_time_e = datetime.date.fromordinal(np.int(Time2[ed_in[-1]+1]))
 
 # --- PLOT ETA / EOF
 plot_eta = 1
@@ -337,7 +374,10 @@ if plot_eta > 0:
         ax1.plot(Eta_m[:, j], grid, color='k', linestyle='--', linewidth=.75)
         ax0.plot(V2[:, j], grid, color='#4682B4', linewidth=1.25)
         ax0.plot(V_m[:, j], grid, color='k', linestyle='--', linewidth=.75)
-    ax1.axis([-400, 400, 0, 4750])
+    for k in range(ed_in[0], ed_in[-1]+2):
+        ax1.plot(Eta2[:, k], grid, color='m', linewidth=2)
+        ax0.plot(V2[:, k], grid, color='m', linewidth=2)
+    ax1.axis([-500, 500, 0, 4750])
     ax0.text(190, 800, str(num_profs) + ' Profiles')
     ax1.set_xlabel(r'Vertical Isopycnal Displacement, $\xi_{\sigma_{\theta}}$ [m]', fontsize=14)
     ax1.set_title(r'Isopycnal Displacement', fontsize=18)  # + '(' + str(Time[0]) + '-' )
@@ -400,7 +440,8 @@ if plot_mode > 0:
     ax.grid()
     plot_pro(ax1)
 
-plot_mode_corr = 0
+# --- MODE AMPLITUDE CORRELATIONS IN TIME AND SPACE
+plot_mode_corr = 1
 if plot_mode_corr > 0:
     x = 1852 * 60 * np.cos(np.deg2rad(ref_lat)) * (prof_lon2 - ref_lon)
     y = 1852 * 60 * (prof_lat2 - ref_lat)
@@ -454,7 +495,7 @@ if plot_mode_corr > 0:
             for k in range(len(innz[:, 0])):
                 covzi[k] = (innz[k, 0] - iz_mean) * (innz[k, 1] - iz_mean)
             corr_z_i[j, dd] = (1 / (nz * variancez)) * np.sum(covzi)
-    f, (ax1,ax2) = plt.subplots(1,2)
+    f, (ax1, ax2) = plt.subplots(1,2)
     pa = ax1.pcolor(dist_win, t_win, corr_i, vmin=-1, vmax=1)
     paz = ax2.pcolor(dist_win, t_win, corr_z_i, vmin=-1, vmax=1)
     ax1.set_xlabel('Spatial Separation [km]')
@@ -468,15 +509,9 @@ if plot_mode_corr > 0:
 avg_PE = np.nanmean(PE_per_mass, 1)
 good_prof_i = good_prof  # np.where(good_prof > 0)
 avg_KE = np.nanmean(HKE_per_mass[:, np.where(good_prof > 0)[0]], 1)
-# PLOT each KE profile
-# fig0, ax0 = plt.subplots()
-# for i in range(np.size(good_prof)):
-#     if good_prof[i] > 0:
-#         ax0.plot(np.arange(0,61,1),HKE_per_mass[:,i])
-# ax0.set_xscale('log')      
-# ax0.set_yscale('log')    
-# plot_pro(ax0)    
-# avg_PE_theta = np.nanmean(PE_theta_per_mass,1)
+# --- eddy kinetic and potential energy
+PE_ed = np.nanmean(PE_per_mass[:, ed_in[0]:ed_in[-1]+2], axis=1)
+KE_ed = np.nanmean(HKE_per_mass[:, ed_in[0]:ed_in[-1]+2], axis=1)
 
 # --- ENERGY parameters
 f_ref = np.pi * np.sin(np.deg2rad(ref_lat)) / (12 * 1800)
@@ -546,7 +581,7 @@ pkl_file = open('/Users/jake/Desktop/abaco/abaco_outputs_2.pkl', 'rb')
 abaco_energies = pickle.load(pkl_file)
 pkl_file.close()
 
-plot_eng = 1
+plot_eng = 0
 if plot_eng > 0:
     fig0, ax0 = plt.subplots()
     PE_p = ax0.plot(sc_x, avg_PE[1:] / dk, color='#B22222', label='APE', linewidth=2)
@@ -562,6 +597,10 @@ if plot_eng > 0:
     # ax0.scatter(sx_c_om,ke_om_u[1:]/dk_om,color='b',s=10) # DG KE
     # KE_om_u = ax0.plot(sx_c_om,ke_om_v[1:]/dk_om,'c',label='$KE_v$',linewidth=1.5)
     # ax0.scatter(sx_c_om,ke_om_v[1:]/dk_om,color='c',s=10) # DG KE
+
+    # Eddy energies
+    PE_e = ax0.plot(sc_x, PE_ed[1:] / dk, color='c', label='Ed.', linewidth=2)
+    KE_e = ax0.plot(sc_x, KE_ed[1:] / dk, color='y', label='Ed.', linewidth=2)
 
     # Slope fits
     ax0.plot(vert_wave * 1000, one, color='b', linewidth=1, label=r'APE$_{fit}$')

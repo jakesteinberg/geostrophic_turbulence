@@ -45,6 +45,7 @@ def createCorrelationMatrices(lon, lat, data_anom, data_sig, noise_sig, Lx, Ly):
     Ainv = np.linalg.inv(A)
     return Ainv
 
+
 # START
 # physical parameters 
 g = 9.81
@@ -376,8 +377,8 @@ for k0 in range(np.size(sample_win)):
     d_dy_sigma.append(d_sigma_dy)
     U_all.append(U_g)
     V_all.append(V_g)
-    DAC_U_M.append(U_g)
-    DAC_V_M.append(V_g)
+    DAC_U_M.append(DACU_map)
+    DAC_V_M.append(DACV_map)
 
     time_out.append(t_bin[k_out, :])
     good_mask.append(good_prof)
@@ -394,7 +395,7 @@ if sa > 0:
               'Sigma_Theta_All': sigma_theta_all, 'U_g_All': U_all, 'V_g_All': V_all, 'lon_grid_All': lon_all,
               'lat_grid_All': lat_all, 'mask': good_mask, 'dac_u_map': DAC_U_M, 'dac_v_map': DAC_V_M,
               'd_sigma_dx': d_dx_sigma, 'd_sigma_dy': d_dy_sigma}
-    output = open('/Users/jake/Documents/geostrophic_turbulence/BATS_obj_map_1.pkl', 'wb')
+    output = open('/Users/jake/Documents/geostrophic_turbulence/BATS_obj_map_2.pkl', 'wb')
     pickle.dump(mydict, output)
     output.close()
 

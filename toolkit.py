@@ -50,7 +50,7 @@ def nanseg_interp(xx, y):
     if len(iv) < 1:
         b = 23
     else:
-        if (iv[0] == 0):
+        if iv[0] == 0:
             ing = np.where(np.isfinite(y))[0][0]
             yi[0:ing] = y[ing]
             nb = nb - 1

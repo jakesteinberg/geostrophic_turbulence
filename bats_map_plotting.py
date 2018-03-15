@@ -24,6 +24,7 @@ lon_in = 64.2
 grid = bin_depth[1:-1]
 grid_p = sw.pres(grid, lat_in)
 z = -1 * grid
+sz_g = grid.shape[0]
 
 # select only dives with depths greater than 4000m 
 grid_test = np.nan * np.zeros(len(profile_list))
@@ -44,7 +45,11 @@ dac_u = GD.variables['DAC_u'][:]
 dac_v = GD.variables['DAC_v'][:]
 time_rec = GD.variables['time_start_stop'][good]
 time_rec_all = GD.variables['time_start_stop'][:]
+time_rec_all_dt = []
+for i in range(len(time_rec_all)):
+    time_rec_all_dt.append(datetime.date.fromordinal(np.int(time_rec_all[i])))
 profile_list = np.float64(GD.variables['dive_list'][good]) - 35000
+profile_list_all = np.float64(GD.variables['dive_list'][:]) - 35000
 
 df_den[df_den < 0] = np.nan
 df_theta[df_theta < 0] = np.nan
@@ -56,46 +61,126 @@ df_lat_all[df_lat_all < -500] = np.nan
 dac_u[dac_u < -500] = np.nan
 dac_v[dac_v < -500] = np.nan
 
-# -------------- LOAD IN TRANSECT TO PROFILE DATA COMPILED IN BATS_TRANSECTS.PY
-pkl_file = open('/Users/jake/Documents/geostrophic_turbulence/BATS_obj_map_1.pkl', 'rb')
+# -------------- LOAD IN MAPPED U/V, AND DENSITY
+pkl_file = open('/Users/jake/Documents/geostrophic_turbulence/BATS_obj_map_2.pkl', 'rb')
+bats_map = pickle.load(pkl_file)
+pkl_file.close()
+Time = bats_map['time']
+sigma_theta = np.array(bats_map['Sigma_Theta'])
+U = np.array(bats_map['U_g'])
+V = np.array(bats_map['V_g'])
+sigma_theta_all = np.array(bats_map['Sigma_Theta_All'])
+d_dx_sig = np.array(bats_map['d_sigma_dx'])
+d_dy_sig = np.array(bats_map['d_sigma_dy'])
+dac_u_map = np.array(bats_map['dac_u_map'])
+dac_v_map = np.array(bats_map['dac_v_map'])
+U_all = np.array(bats_map['U_g_All'])
+V_all = np.array(bats_map['V_g_All'])
+lat_grid_good = np.array(bats_map['lat_grid'])
+lon_grid_good = np.array(bats_map['lon_grid'])
+lat_grid_all = np.array(bats_map['lat_grid_All'])
+lon_grid_all = np.array(bats_map['lon_grid_All'])
+mask = bats_map['mask']
+Lon_map, Lat_map = np.meshgrid(lon_grid_all[0, :], lat_grid_all[0 , :])
+
+# ---- LOAD IN TRANSECT TO PROFILE DATA COMPILED IN BATS_TRANSECTS.PY
+pkl_file = open('/Users/jake/Desktop/bats/dep15_transect_profiles_mar13.pkl', 'rb')
 bats_trans = pickle.load(pkl_file)
 pkl_file.close()
-Time = bats_trans['time']
+Time_t = bats_trans['Time']
+Info = bats_trans['Info']
+Sigma_Theta = bats_trans['Sigma_Theta'][0:sz_g, :]
+Eta = bats_trans['Eta'][0:sz_g, :]
+Eta_theta = bats_trans['Eta_theta'][0:sz_g, :]
+V_t = bats_trans['V'][0:sz_g, :]
+prof_lon = bats_trans['V_lon']
+prof_lat = bats_trans['V_lat']
 
-sigma_theta = np.array(bats_trans['Sigma_Theta'])
-U = np.array(bats_trans['U_g'])
-V = np.array(bats_trans['V_g'])
-sigma_theta_all = np.array(bats_trans['Sigma_Theta_All'])
-d_dx_sig = np.array(bats_trans['d_sigma_dx'])
-d_dy_sig = np.array(bats_trans['d_sigma_dy'])
-U_all = np.array(bats_trans['U_g_All'])
-V_all = np.array(bats_trans['V_g_All'])
-lat_grid_good = np.array(bats_trans['lat_grid'])
-lon_grid_good = np.array(bats_trans['lon_grid'])
-lat_grid_all = np.array(bats_trans['lat_grid_All'])
-lon_grid_all = np.array(bats_trans['lon_grid_All'])
-mask = bats_trans['mask']
+# ---- LOAD GRIDDED ALTIMETRY AND SURFACE VELOCITIES
+SA = Dataset('/Users/jake/Desktop/bats/dataset-duacs-rep-global-merged-allsat-phy-l4-v3_1521132997576.nc', 'r')
+lol = -65.2
+lom = -63.3
+lal = 31.1
+lam = 32.4
+sa_lon = SA.variables['longitude'][:] - 360
+sa_lon_2 = sa_lon[(sa_lon >= lol) & (sa_lon <= lom)]
+sa_lat = SA.variables['latitude'][:]
+sa_lat_2 = sa_lat[(sa_lat >= lal) & (sa_lat <= lam)]
+SA_lon, SA_lat = np.meshgrid(sa_lon_2, sa_lat_2)
+# SA time
+sa_time = SA.variables['time'][:] + 711858     # 1950-01-01      datetime.date.fromordinal(np.int(Time[i]))
+sa_time_dt = []
+for i in range(len(sa_time)):
+    sa_time_dt.append(datetime.date.fromordinal(np.int(sa_time[i])))
+# SA fields
+sa_u = SA.variables['ugos'][:, (sa_lat >= lal) & (sa_lat <= lam), (sa_lon >= lol) & (sa_lon <= lom)]
+sa_v = SA.variables['vgos'][:, (sa_lat >= lal) & (sa_lat <= lam), (sa_lon >= lol) & (sa_lon <= lom)]
+sa_adt = SA.variables['adt'][:, (sa_lat >= lal) & (sa_lat <= lam), (sa_lon >= lol) & (sa_lon <= lom)]
+sa_mean_u = np.nanmean(np.nanmean(sa_u, axis=1), axis=1)
+sa_mean_v = np.nanmean(np.nanmean(sa_v, axis=1), axis=1)
+
 
 # ------------- PLOTTING POSSIBILITIES
 # ----- U, V (good) in time
 U_avg = np.nan*np.zeros((len(grid), len(Time)))
 V_avg = np.nan*np.zeros((len(grid), len(Time)))
-T_mid = np.nan*np.zeros(len(Time))
+T_mid = []
 for i in range(len(Time)):
     U_avg[:, i] = np.transpose(np.nanmean(U[i], axis=0))
     V_avg[:, i] = np.transpose(np.nanmean(V[i], axis=0))
-    T_mid[i] = np.nanmean(Time[i])
+    T_mid.append(datetime.date.fromordinal(np.int(np.nanmean(Time[i]))))
+
+# --- eddy
+ed_in = np.where((profile_list_all >= 62) & (profile_list_all <= 64.5))[0]
+ed_time = 735712
+
+# --- ALTIMETRY and mapping consistency
+this_time = 735725
+sa_t_choice = (np.abs(sa_time-this_time)).argmin()
+map_t_choice = (np.abs(np.mean(Time, axis=1)-this_time)).argmin()
+dive_t_low = np.abs(time_rec_all - (this_time - 7)).argmin()
+dive_t_up = np.abs(time_rec_all - (this_time + 7)).argmin()
+
+f, (ax1, ax2) = plt.subplots(1, 2)
+ax1.pcolor(SA_lon, SA_lat, sa_adt[sa_t_choice, :, :])
+ax1.quiver(SA_lon, SA_lat, sa_u[sa_t_choice, :, :], sa_v[sa_t_choice, :, :], scale_units='xy')
+ax1.quiver(sa_lon_2[0] + .1, sa_lat_2[-1] - .1, 0.1, 0, scale_units='xy', color='m')
+ax1.text(sa_lon_2[0] + .1, sa_lat_2[-1] - .13, '0.1 m/s', color='m', fontsize=9)
+ax1.grid()
+ax1.set_title('Altimetry ' + str(sa_time_dt[sa_t_choice]))
+ax1.axis([lol, lom, lal, lam])
+ax2.quiver(Lon_map, Lat_map, U_all[map_t_choice, :, :, 0], V_all[map_t_choice, :, :, 0], scale_units='xy')
+ax2.quiver(df_lon_all.iloc[:, dive_t_low:dive_t_up].mean(), df_lat_all.iloc[:, dive_t_low:dive_t_up].mean(),
+           dac_u[dive_t_low:dive_t_up], dac_v[dive_t_low:dive_t_up], color='r', scale_units='xy')
+if np.abs(this_time - ed_time) < 5:
+    ax2.scatter(df_lon_all.iloc[0, ed_in[0]], df_lat_all.iloc[0, ed_in[0]], s=30, color='c')
+    ax2.scatter(df_lon_all.iloc[:, ed_in], df_lat_all.iloc[:, ed_in], s=0.5, color='b')
+ax2.quiver(sa_lon_2[0] + .1, sa_lat_2[-1] - .1, 0.1, 0, scale_units='xy', color='m')
+ax2.text(sa_lon_2[0] + .1, sa_lat_2[-1] - .13, '0.1 m/s', color='m', fontsize=9)
+ax2.set_title('DG Mapping ' + str(time_rec_all_dt[dive_t_low]) + ' - ' + str(time_rec_all_dt[dive_t_up]))
+ax2.axis([lol, lom, lal, lam])
+plot_pro(ax2)
 
 f, ax = plt.subplots(6, 1, sharex=True)
-indi = [10, 30, 70, 100, 150, 210]
+indi = [0, 24, 64, 114, 164, 209]
 for i in range(6):
+    if i < 1:
+        ax[i].plot(time_rec_all[0::2], dac_u[0::2], color='r', linestyle=':')
+        ax[i].plot(time_rec_all[0::2], dac_v[0::2], color='k', linestyle=':')
+        ax[i].plot(sa_time, sa_mean_u, color='r', linestyle='--')
+        ax[i].plot(sa_time, sa_mean_v, color='k', linestyle='--')
+        ax[i].plot([sa_time_dt[sa_t_choice], sa_time_dt[sa_t_choice]], [-.3, .3], color='b', linestyle='--')
     ax[i].plot(T_mid, U_avg[indi[i], :], color='r')
     ax[i].plot(T_mid, V_avg[indi[i], :], color='k')
-    ax[i].set_ylim([-.25, .25])
-    ax[i].set_title(str(grid[indi[i]]) + 'm', fontsize=10)
+    ax[i].set_ylim([-.3, .3])
+    ax[i].set_title('Mapped Average U/V at ' + str(grid[indi[i]]) + 'm', fontsize=10)
+    ax[i].plot([time_rec_all[ed_in[0]], time_rec_all[ed_in[0]]], [-.3, .3], color='k', linestyle='--')
+    ax[i].plot([time_rec_all[ed_in[-1]], time_rec_all[ed_in[-1]]], [-.3, .3], color='k', linestyle='--')
     ax[i].grid()
 ax[i].grid()
+ax[i].set_xlim([T_mid[0], T_mid[-1]])
 plot_pro(ax[i])
+
 
 # ----- DENSITY CROSS-SECTIONS
 # fixed_lat = 7
@@ -124,25 +209,44 @@ plot_pro(ax[i])
 # plt.close()
 
 # ------------ PLAN VIEW ------------------------------
-# test_lev = 100
-# lim = 50
-# time_t = 10
-# time_in_all = np.where((time_rec_all > Time[time_t][0]) & (time_rec_all < Time[time_t][1]))[0]
-# this_x_all = 1852 * 60 * np.cos(np.deg2rad(ref_lat)) * (np.array(df_lon_all.iloc[:, time_in_all]) - ref_lon)
-# this_y_all = 1852 * 60 * np.cos(np.deg2rad(ref_lat)) * (np.array(df_lat_all.iloc[:, time_in_all]) - ref_lat)
-# x_grid = 1852 * 60 * np.cos(np.deg2rad(ref_lat)) * (lon_grid_all[time_t, :] - ref_lon)
-# y_grid = 1852 * 60 * (lat_grid_all[time_t, :] - ref_lat)
-# x1, y1 = np.meshgrid(x_grid, y_grid)
-#
-# f, ax = plt.subplots()
-# im = ax.pcolor(x1, y1, sigma_theta_all[time_t, :, :, test_lev])
-# ax.contour(x1, y1, sigma_theta_all[time_t, :, :, test_lev], colors='k')
-# ax.quiver(x1, y1, d_dx_sig[time_t, :, :, test_lev], d_dy_sig[time_t, :, :, test_lev], color='r')
-# ax.quiver(x1, y1, U_all[time_t, :, :, test_lev], V_all[time_t, :, :, test_lev], color='w')
-# ax.scatter(this_x_all, this_y_all, s=10, color='k')
-# ax.scatter(x1[mask[time_t][0], mask[time_t][1]], y1[mask[time_t][0], mask[time_t][1]], s=20, color='m')
-# plt.colorbar(im, ax=ax, orientation='horizontal')
-#
+test_lev = 100
+lim = 50
+time_t = 10
+time_in_all = np.where((time_rec_all > Time[time_t][0]) & (time_rec_all < Time[time_t][1]))[0]
+this_x_all = 1852 * 60 * np.cos(np.deg2rad(ref_lat)) * (np.array(df_lon_all.iloc[:, time_in_all]) - ref_lon)
+this_y_all = 1852 * 60 * np.cos(np.deg2rad(ref_lat)) * (np.array(df_lat_all.iloc[:, time_in_all]) - ref_lat)
+x_grid = 1852 * 60 * np.cos(np.deg2rad(ref_lat)) * (lon_grid_all[time_t, :] - ref_lon)
+y_grid = 1852 * 60 * (lat_grid_all[time_t, :] - ref_lat)
+x1, y1 = np.meshgrid(x_grid, y_grid)
+
+f, ax = plt.subplots()
+im = ax.pcolor(x1, y1, sigma_theta_all[time_t, :, :, test_lev])
+ax.contour(x1, y1, sigma_theta_all[time_t, :, :, test_lev], colors='k')
+ax.quiver(x1, y1, d_dx_sig[time_t, :, :, test_lev], d_dy_sig[time_t, :, :, test_lev], color='r')
+ax.quiver(x1, y1, U_all[time_t, :, :, test_lev], V_all[time_t, :, :, test_lev], color='w')
+ax.scatter(this_x_all, this_y_all, s=10, color='k')
+ax.scatter(x1[mask[time_t][0], mask[time_t][1]], y1[mask[time_t][0], mask[time_t][1]], s=20, color='m')
+plt.colorbar(im, ax=ax, orientation='horizontal')
+plot_pro(ax)
+
+# ---- DAC / integral check
+xc = mask[time_t][0][0]
+yc = mask[time_t][1][0]
+dac_u_c = dac_u_map[time_t]
+dac_v_c = dac_v_map[time_t]
+f, ax = plt.subplots()
+ax.plot(U_all[time_t, xc, yc, :], grid)
+ax.plot(U[time_t][0, :], grid, linestyle=':')
+ax.plot([dac_u_c[xc, yc], dac_u_c[xc, yc]], [0, 5000])
+iq = np.where(~np.isnan(U_all[time_t, xc, yc, :]))
+z2 = -grid[iq]
+urel_av = np.trapz(U_all[time_t, xc, yc, iq] / (z2[-1] - z2[0]), x=z2)
+ubc = U_all[time_t, xc, yc, :] - urel_av
+ax.invert_yaxis()
+plot_pro(ax)
+
+
+# ---- gradients
 # f, ax_ar = plt.subplots(3, 3)
 # colors = plt.cm.Spectral(np.linspace(0, 1, 13))
 # count1 = 0
@@ -164,7 +268,7 @@ plot_pro(ax[i])
 #         count1 = 0
 #         count2 = count2 + 1
 #
-# ax_ar[2,2].grid()
+# ax_ar[2, 2].grid()
 # plot_pro(ax_ar[2, 2])
 # --------------------------------------------------------
 

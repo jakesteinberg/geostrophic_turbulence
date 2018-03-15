@@ -31,7 +31,7 @@ deep_shr_max_dep = 3500  # minimum depth for which shear is limited [m]
 # -------- PLOTTING SWITCHES
 plot_eta = 1
 
-# -------- LOAD IN TRANSECT TO PROFILE DATA COMPILED IN BATS_MAPPING
+# -------- LOAD IN MAPPING
 pkl_file = open('/Users/jake/Documents/geostrophic_turbulence/BATS_obj_map_1.pkl', 'rb')
 bats_trans = pickle.load(pkl_file)
 pkl_file.close()
@@ -42,7 +42,7 @@ U = np.transpose(bats_trans['U_g'][itera][:, 0:sz_g])
 V = np.transpose(bats_trans['V_g'][itera][:, 0:sz_g])
 
 # ---- LOAD IN TRANSECT TO PROFILE DATA COMPILED IN BATS_TRANSECTS.PY
-pkl_file = open('/Users/jake/Desktop/bats/transect_profiles_jan18.pkl', 'rb')
+pkl_file = open('/Users/jake/Desktop/bats/dep15_transect_profiles_mar13.pkl', 'rb')
 bats_trans = pickle.load(pkl_file)
 pkl_file.close()
 Time_t = bats_trans['Time']
@@ -54,18 +54,26 @@ V_t = bats_trans['V'][0:sz_g, :]
 prof_lon = bats_trans['V_lon']
 prof_lat = bats_trans['V_lat']
 
-# filter V for good profiles
-good_v = np.zeros(np.size(Time_t))
-for i in range(np.size(Time_t)):
-    v_dz = np.gradient(V_t[:, i])
-    if np.nanmax(np.abs(v_dz)) < 0.05:
-        good_v[i] = 1
-good0 = np.intersect1d(np.where((np.abs(V_t[-45, :]) < 0.2))[0], np.where((np.abs(V_t[10, :]) < 0.4))[0])
-good = np.intersect1d(np.where(good_v > 0), good0)
+# # filter V for good profiles
+# good_v = np.zeros(np.size(Time_t))
+# for i in range(np.size(Time_t)):
+#     v_dz = np.gradient(V_t[:, i])
+#     if np.nanmax(np.abs(v_dz)) < 0.05:
+#         good_v[i] = 1
+# good0 = np.intersect1d(np.where((np.abs(V_t[-45, :]) < 0.2))[0], np.where((np.abs(V_t[10, :]) < 0.4))[0])
+# good = np.intersect1d(np.where(good_v > 0), good0)
 
-Sigma_Theta_t2 = Sigma_Theta_t[:, good]
-V_t2 = V_t[:, good]
-Time_t2 = Time_t[good]
+# select only velocity profiles that seem reasonable
+good = np.zeros(np.size(Time_t))
+v_dz = np.zeros(np.shape(V_t))
+for i in range(np.size(Time_t)):
+    v_dz[10:-10, i] = np.gradient(V_t[10:-10, i], z[10:-10])
+    if np.nanmax(np.abs(v_dz[:, i])) < 0.00125:              # 0.075
+        good[i] = 1
+
+Sigma_Theta_t2 = Sigma_Theta_t[:, good > 0]
+V_t2 = V_t[:, good > 0]
+Time_t2 = Time_t[good > 0]
 
 V_t3 = V_t2[:, ((Time_t2 > Time[0]) & (Time_t2 < Time[1]))]
 Sigma_Theta_t3 = Sigma_Theta_t2[:, ((Time_t2 > Time[0]) & (Time_t2 < Time[1]))]
@@ -263,7 +271,7 @@ if plot_eta > 0:
 
     max_plot = 3
     # f, (ax1, ax2) = plt.subplots(1, 2, sharey=True)
-    n2p = ax3.plot((np.sqrt(N2) * (1800 / np.pi)), grid, color='k', label='N(z) [cph]')
+    # n2p = ax3.plot((np.sqrt(N2) * (1800 / np.pi)), grid, color='k', label='N(z) [cph]')
     colors = plt.cm.Dark2(np.arange(0, 4, 1))
     for ii in range(max_plot):
         ax3.plot(Gz[:, ii], grid, color='#2F4F4F', linestyle='--')
