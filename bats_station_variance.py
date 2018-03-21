@@ -3,12 +3,12 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import seawater as sw
-import glob
 import pickle
+from scipy.signal import savgol_filter
 # functions I've written
 from grids import make_bin_gen
 from mode_decompositions import vertical_modes, eta_fit, vertical_modes_f
-from toolkit import plot_pro
+from toolkit import plot_pro, nanseg_interp
 
 # ------ physical parameters
 g = 9.81
@@ -220,26 +220,66 @@ d_test, v_test = np.linalg.eig(RR)
 # ax.invert_yaxis()
 # plot_pro(ax)
 
-colors = plt.cm.Dark2(np.arange(0, 4, 1))
-f, (ax, ax2) = plt.subplots(1, 2)
-for i in range(num_profs):
-    ax.plot(eta[:, i], grid, linewidth=.75, color='k')
-    ax.plot(eta_m[:, i], grid, linewidth=.5, color='b', linestyle='--')
-n2p = ax2.plot((np.sqrt(N2) * (1800 / np.pi)), grid, color='k', label='N(z) [cph]')
-for j in range(4):
-    ax2.plot(G[:, j], grid, color='#2F4F4F', linestyle='--')
-    p_eof = ax2.plot(-EOFetashape[:, j], grid, color=colors[j, :], label='EOF # = ' + str(j + 1), linewidth=2.5)
-ax.axis([-750, 750, 0, 5000])
-ax.invert_yaxis()
-handles, labels = ax2.get_legend_handles_labels()
-ax2.legend(handles, labels, fontsize=10)
+# ----- PLOT DENSITY ANOM, ETA, AND MODE SHAPES
+# colors = plt.cm.Dark2(np.arange(0, 4, 1))
+# f, (ax, ax2, ax3) = plt.subplots(1, 3, sharey=True)
+# for i in range(num_profs):
+#     ax.plot((sigma_theta[:, i] - sigma_theta_avg), grid, linewidth=0.75)
+#     ax2.plot(eta[:, i], grid, linewidth=.75, color='#808000')
+#     ax2.plot(eta_m[:, i], grid, linewidth=.5, color='k', linestyle='--')
+# n2p = ax3.plot((np.sqrt(N2) * (1800 / np.pi))/10, grid, color='k', label='N(z) [cph]')
+# for j in range(4):
+#     ax3.plot(G[:, j]/grid.max(), grid, color='#2F4F4F', linestyle='--')
+#     p_eof = ax3.plot(-EOFetashape[:, j]/grid.max(), grid, color=colors[j, :], label='EOF # = ' + str(j + 1), linewidth=2.5)
+# ax.text(0.2, 4000, str(num_profs) + ' profiles', fontsize=10)
+# ax.grid()
+# ax.set_title('BATS Hydrography ' + str(np.round(c_date.min())) + ' - ' + str(np.round(c_date.max())))
+# ax.set_xlabel(r'$\sigma_{\theta} - \overline{\sigma_{\theta}}$')
+# ax.set_ylabel('Depth [m]')
+# ax.set_xlim([-.5, .5])
+# ax2.grid()
+# ax2.set_title('Isopycnal Displacement [m]')
+# ax2.set_xlabel('[m]')
+# ax2.axis([-600, 600, 0, 4750])
+#
+# handles, labels = ax3.get_legend_handles_labels()
+# ax3.legend(handles, labels, fontsize=10)
+# ax3.set_title('EOFs of mode amplitudes (G(z))')
+# ax3.set_xlabel('Normalized Mode Amplitude')
+# ax3.set_xlim([-1, 1])
+# ax3.invert_yaxis()
+# plot_pro(ax3)
 
-ax2.invert_yaxis()
-plot_pro(ax2)
+# --- PLOT MODE AMPLITUDES IN TIME
+window_size = 25
+poly_order = 3
+AG1 = AG[1, :].copy()
+AG1 = nanseg_interp(c_date, AG1)
+y_sg = savgol_filter(AG1, window_size, poly_order)
+AG2 = AG[2, :].copy()
+AG2 = nanseg_interp(c_date, AG2)
+y_sg2 = savgol_filter(AG2, window_size, poly_order)
+AG3 = AG[3, :].copy()
+AG3 = nanseg_interp(c_date, AG3)
+y_sg3 = savgol_filter(AG3, window_size, poly_order)
+
+f, ax = plt.subplots()
+ax.plot(c_date, AG[1, :], color='#FF8C00', linewidth=0.5)
+ax.plot(c_date, y_sg, color='#FF8C00', linewidth=3, label='Mode 1')
+ax.plot(c_date, AG[2, :], linewidth=0.5, color='#5F9EA0')
+ax.plot(c_date, y_sg2, color='#5F9EA0', linewidth=2, label='Mode 2')
+# ax.plot(c_date, AG[3, :], linewidth=0.5, color='#8B0000')
+ax.plot(c_date, y_sg3, color='#8B0000', linewidth=1, label='Mode 3')
+handles, labels = ax.get_legend_handles_labels()
+ax.legend(handles, labels, fontsize=10)
+ax.set_xlabel('Date')
+ax.set_ylabel('Mode Amplitude')
+ax.set_title('Station BATS Mode Amplitude in Time')
+plot_pro(ax)
 
 # --- SAVE
 # write python dict to a file
-sa = 1
+sa = 0
 if sa > 0:
     my_dict = {'depth': grid, 'Sigma_Theta': sigma_theta, 'lon': c_lon, 'lat': c_lat, 'time': c_date, 'N2': N2,
                'AG': AG, 'Eta': eta, 'Eta_m': eta_m, 'NEta_m': NEta_m, 'PE': PE_per_mass, 'c': c}

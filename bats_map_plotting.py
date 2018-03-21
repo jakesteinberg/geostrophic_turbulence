@@ -141,6 +141,9 @@ map_t_choice = (np.abs(np.mean(Time, axis=1)-this_time)).argmin()
 dive_t_low = np.abs(time_rec_all - (this_time - 7)).argmin()
 dive_t_up = np.abs(time_rec_all - (this_time + 7)).argmin()
 
+f, ax = plt.subplots()
+
+
 f, (ax1, ax2) = plt.subplots(1, 2)
 ax1.pcolor(SA_lon, SA_lat, sa_adt[sa_t_choice, :, :])
 ax1.quiver(SA_lon, SA_lat, sa_u[sa_t_choice, :, :], sa_v[sa_t_choice, :, :], scale_units='xy')
@@ -149,9 +152,11 @@ ax1.text(sa_lon_2[0] + .1, sa_lat_2[-1] - .13, '0.1 m/s', color='m', fontsize=9)
 ax1.grid()
 ax1.set_title('Altimetry ' + str(sa_time_dt[sa_t_choice]))
 ax1.axis([lol, lom, lal, lam])
-ax2.quiver(Lon_map, Lat_map, U_all[map_t_choice, :, :, 0], V_all[map_t_choice, :, :, 0], scale_units='xy')
+ax2.quiver(Lon_map, Lat_map, U_all[map_t_choice, :, :, 0], V_all[map_t_choice, :, :, 0], scale_units='xy', label='map')
 ax2.quiver(df_lon_all.iloc[:, dive_t_low:dive_t_up].mean(), df_lat_all.iloc[:, dive_t_low:dive_t_up].mean(),
-           dac_u[dive_t_low:dive_t_up], dac_v[dive_t_low:dive_t_up], color='r', scale_units='xy')
+           dac_u[dive_t_low:dive_t_up], dac_v[dive_t_low:dive_t_up], color='r', scale_units='xy', label='DAC')
+ax1.set_xlabel('Longitude')
+ax1.set_ylabel('Latitude')
 if np.abs(this_time - ed_time) < 5:
     ax2.scatter(df_lon_all.iloc[0, ed_in[0]], df_lat_all.iloc[0, ed_in[0]], s=30, color='c')
     ax2.scatter(df_lon_all.iloc[:, ed_in], df_lat_all.iloc[:, ed_in], s=0.5, color='b')
@@ -159,14 +164,18 @@ ax2.quiver(sa_lon_2[0] + .1, sa_lat_2[-1] - .1, 0.1, 0, scale_units='xy', color=
 ax2.text(sa_lon_2[0] + .1, sa_lat_2[-1] - .13, '0.1 m/s', color='m', fontsize=9)
 ax2.set_title('DG Mapping ' + str(time_rec_all_dt[dive_t_low]) + ' - ' + str(time_rec_all_dt[dive_t_up]))
 ax2.axis([lol, lom, lal, lam])
+ax2.set_xlabel('Longitude')
+ax2.text(-65, 32.1, 'Surface Velocity')
+handles, labels = ax2.get_legend_handles_labels()
+ax2.legend(handles, labels, fontsize=10)
 plot_pro(ax2)
 
 f, ax = plt.subplots(6, 1, sharex=True)
 indi = [0, 24, 64, 114, 164, 209]
 for i in range(6):
     if i < 1:
-        ax[i].plot(time_rec_all[0::2], dac_u[0::2], color='r', linestyle=':')
-        ax[i].plot(time_rec_all[0::2], dac_v[0::2], color='k', linestyle=':')
+        # ax[i].plot(time_rec_all[0::2], dac_u[0::2], color='r', linestyle=':')
+        # ax[i].plot(time_rec_all[0::2], dac_v[0::2], color='k', linestyle=':')
         ax[i].plot(sa_time, sa_mean_u, color='r', linestyle='--')
         ax[i].plot(sa_time, sa_mean_v, color='k', linestyle='--')
         ax[i].plot([sa_time_dt[sa_t_choice], sa_time_dt[sa_t_choice]], [-.3, .3], color='b', linestyle='--')
@@ -176,9 +185,11 @@ for i in range(6):
     ax[i].set_title('Mapped Average U/V at ' + str(grid[indi[i]]) + 'm', fontsize=10)
     ax[i].plot([time_rec_all[ed_in[0]], time_rec_all[ed_in[0]]], [-.3, .3], color='k', linestyle='--')
     ax[i].plot([time_rec_all[ed_in[-1]], time_rec_all[ed_in[-1]]], [-.3, .3], color='k', linestyle='--')
+    ax[i].set_ylabel('m/s')
     ax[i].grid()
 ax[i].grid()
 ax[i].set_xlim([T_mid[0], T_mid[-1]])
+ax[i].set_xlabel('Date')
 plot_pro(ax[i])
 
 
@@ -211,7 +222,7 @@ plot_pro(ax[i])
 # ------------ PLAN VIEW ------------------------------
 test_lev = 100
 lim = 50
-time_t = 10
+time_t = map_t_choice # 10
 time_in_all = np.where((time_rec_all > Time[time_t][0]) & (time_rec_all < Time[time_t][1]))[0]
 this_x_all = 1852 * 60 * np.cos(np.deg2rad(ref_lat)) * (np.array(df_lon_all.iloc[:, time_in_all]) - ref_lon)
 this_y_all = 1852 * 60 * np.cos(np.deg2rad(ref_lat)) * (np.array(df_lat_all.iloc[:, time_in_all]) - ref_lat)
@@ -222,10 +233,15 @@ x1, y1 = np.meshgrid(x_grid, y_grid)
 f, ax = plt.subplots()
 im = ax.pcolor(x1, y1, sigma_theta_all[time_t, :, :, test_lev])
 ax.contour(x1, y1, sigma_theta_all[time_t, :, :, test_lev], colors='k')
-ax.quiver(x1, y1, d_dx_sig[time_t, :, :, test_lev], d_dy_sig[time_t, :, :, test_lev], color='r')
-ax.quiver(x1, y1, U_all[time_t, :, :, test_lev], V_all[time_t, :, :, test_lev], color='w')
-ax.scatter(this_x_all, this_y_all, s=10, color='k')
-ax.scatter(x1[mask[time_t][0], mask[time_t][1]], y1[mask[time_t][0], mask[time_t][1]], s=20, color='m')
+ax.quiver(x1, y1, d_dx_sig[time_t, :, :, test_lev], d_dy_sig[time_t, :, :, test_lev], color='r', label='density gradient')
+ax.quiver(x1, y1, U_all[time_t, :, :, test_lev], V_all[time_t, :, :, test_lev], color='w', label='Mapped Velocity')
+ax.scatter(this_x_all, this_y_all, s=10, color='k', label='contributing dives')
+ax.scatter(x1[mask[time_t][0], mask[time_t][1]], y1[mask[time_t][0], mask[time_t][1]], s=30, color='#FF8C00', label='good dives')
+ax.set_xlabel('X distance [km]')
+ax.set_ylabel('Y distance [km]')
+ax.set_title('Sample Mapped Density Field (plan view) at ' + str(grid[test_lev]) + 'm')
+handles, labels = ax.get_legend_handles_labels()
+ax.legend(handles, labels, fontsize=10)
 plt.colorbar(im, ax=ax, orientation='horizontal')
 plot_pro(ax)
 

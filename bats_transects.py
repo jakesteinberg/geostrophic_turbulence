@@ -437,9 +437,9 @@ for main in range(4):
                         shearM[j] = -g * drhodatM / (rho0 * f_m)  # shear to port of track [m/s/km]
                         if (np.abs(shearM[j]) > deep_shr_max) and grid[j] >= deep_shr_max_dep:
                             shearM[j] = np.sign(shearM[j]) * deep_shr_max
-                        # etaM[j] = (sigma_theta_avg[j] - np.nanmean(sigmathetaM[imv])) / ddz_avg_sigma[j]
-                        etaM[j] = (sigma_theta_avg[j] - df_den_set.iloc[j, i]) / ddz_avg_sigma[
-                            j]  # j = depth, i = profile index
+                        etaM[j] = (sigma_theta_avg[j] - np.nanmean(sigmathetaM[imv])) / ddz_avg_sigma[j]
+                        # etaM[j] = (sigma_theta_avg[j] - df_den_set.iloc[j, i]) / ddz_avg_sigma[
+                        #     j]  # j = depth, i = profile index
                         eta_thetaM[j] = (theta_avg[j] - np.nanmean(thetaM[imv])) / ddz_avg_theta[j]
 
                 # for W profile compute shear and eta 
@@ -469,8 +469,8 @@ for main in range(4):
                         shearW[j] = -g * drhodatW / (rho0 * f_w)  # shear to port of track [m/s/km]
                         if (np.abs(shearW[j]) > deep_shr_max) and grid[j] >= deep_shr_max_dep:
                             shearW[j] = np.sign(shearW[j]) * deep_shr_max
-                        # etaW[j] = (sigma_theta_avg[j] - np.nanmean(sigmathetaW[iwv])) / ddz_avg_sigma[j]
-                        etaW[j] = (sigma_theta_avg[j] - df_den_set.iloc[j, i]) / ddz_avg_sigma[j]
+                        etaW[j] = (sigma_theta_avg[j] - np.nanmean(sigmathetaW[iwv])) / ddz_avg_sigma[j]
+                        # etaW[j] = (sigma_theta_avg[j] - df_den_set.iloc[j, i]) / ddz_avg_sigma[j]
                         eta_thetaW[j] = (theta_avg[j] - np.nanmean(thetaW[iwv])) / ddz_avg_theta[j]
                 # END LOOP OVER EACH BIN_DEPTH
 
@@ -613,7 +613,7 @@ sa = 1
 if sa > 0:
     mydict = {'bin_depth': grid, 'Sigma_Theta': Sigma_Theta_f, 'Eta': Eta, 'Eta_theta': Eta_theta, 'V': V,
               'V_lon': vel_lon, 'V_lat': vel_lat, 'Time': Time, 'Info': Info}
-    output = open('/Users/jake/Desktop/bats/dep15_transect_profiles_mar13.pkl', 'wb')
+    output = open('/Users/jake/Desktop/bats/dep15_transect_profiles_mar16_w_avg.pkl', 'wb')
     pickle.dump(mydict, output)
     output.close()
 

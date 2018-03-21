@@ -33,11 +33,11 @@ def nanseg_interp(x, y):
     #     nb = nb - 1
     for j in range(nb):
         ilg = np.where(np.isnan(yi))[0][0] - 1
-        if np.sum(np.isfinite(yi[ilg+1:])) < 1:
+        if np.sum(np.isfinite(yi[ilg + 1:])) < 1:
             return yi
         else:
-            ing = np.where(np.isfinite(yi[ilg+1:]))[0][0] + ilg + 1
-            yi[ilg+1:ing] = np.interp(x[ilg+1:ing], [x[ilg], x[ing]], [y[ilg], y[ing]])
+            ing = np.where(np.isfinite(yi[ilg + 1:]))[0][0] + ilg + 1
+            yi[ilg + 1:ing] = np.interp(x[ilg + 1:ing], [x[ilg], x[ing]], [y[ilg], y[ing]])
     return yi
 
 
@@ -105,6 +105,7 @@ dac_v[dac_v < -500] = np.nan
 # ---- LOAD IN TRANSECT TO PROFILE DATA COMPILED IN BATS_TRANSECTS.PY
 # pkl_file = open('/Users/jake/Desktop/bats/transect_profiles_mar12_2.pkl', 'rb')
 pkl_file = open('/Users/jake/Desktop/bats/dep15_transect_profiles_mar13.pkl', 'rb')
+# pkl_file = open('/Users/jake/Desktop/bats/dep15_transect_profiles_mar16_w_avg.pkl', 'rb')
 bats_trans = pickle.load(pkl_file)
 pkl_file.close()
 Time = bats_trans['Time']
@@ -133,22 +134,30 @@ N = np.sqrt(N2)
 # --- compute vertical mode shapes
 G, Gz, c = vertical_modes(N2, grid, omega, mmax)
 # --- compute alternate vertical modes
-bc_bot = 1      # 1 = flat, 2 = rough
+bc_bot = 1  # 1 = flat, 2 = rough
 grid2 = np.concatenate([np.arange(0, 150, 10), np.arange(150, 300, 10), np.arange(300, 4500, 10)])
 n2_interp = np.interp(grid2, grid, N2)
 F_int_g2, F_g2, c_ff, norm_constant = vertical_modes_f(n2_interp, grid2, omega, mmax, bc_bot)
-F = np.nan*np.ones(G.shape)
-F_int = np.nan*np.ones(G.shape)
+F = np.nan * np.ones(G.shape)
+F_int = np.nan * np.ones(G.shape)
 for i in range(mmax + 1):
     F[:, i] = np.interp(grid, grid2, F_g2[:, i])
     F_int[:, i] = np.interp(grid, grid2, F_int_g2[:, i])
+
+bc_bot = 2  # 1 = flat, 2 = rough
+F_int_g3, F_g3, c_ff3, norm_constant3 = vertical_modes_f(n2_interp, grid2, omega, mmax, bc_bot)
+F_2 = np.nan * np.ones(G.shape)
+F_int_2 = np.nan * np.ones(G.shape)
+for i in range(mmax + 1):
+    F_2[:, i] = np.interp(grid, grid2, F_g3[:, i])
+    F_int_2[:, i] = np.interp(grid, grid2, F_int_g3[:, i])
 
 # select only velocity profiles that seem reasonable
 good = np.zeros(np.size(Time))
 v_dz = np.zeros(np.shape(V))
 for i in range(np.size(Time)):
     v_dz[20:-20, i] = np.gradient(V[20:-20, i], z[20:-20])
-    if np.nanmax(np.abs(v_dz[:, i])) < 0.00125:              # 0.075
+    if np.nanmax(np.abs(v_dz[:, i])) < 0.00125:  # 0.075
         good[i] = 1
 # good0 = np.intersect1d(np.where((np.abs(V[-45, :]) < 0.2))[0], np.where((np.abs(V[10, :]) < 0.4))[0])
 # good = np.intersect1d(np.where(good_v > 0), good0)
@@ -304,7 +313,7 @@ EOFetashape1_BTpBC1 = G[:, 1:3] * V_AGqa[0:2, 0]  # truncated 2 mode shape of EO
 EOFetashape2_BTpBC1 = G[:, 1:3] * V_AGqa[0:2, 1]  # truncated 2 mode shape of EOF#2
 
 # --- EOF of velocity profiles
-not_deep = np.isfinite(V2[-9, :]) # & (Time2 > 735750)
+not_deep = np.isfinite(V2[-9, :])  # & (Time2 > 735750)
 V3 = V2[:, not_deep]
 
 grid_check = grid[5:-10]
@@ -316,29 +325,34 @@ cov_Uzqa = (1 / nq) * np.matrix(Uzqa) * np.matrix(np.transpose(Uzqa))
 D_Uzqa, V_Uzqa = np.linalg.eig(cov_Uzqa)
 
 t1 = np.real(D_Uzqa[0:10])
-PEV = t1/np.sum(t1)
+PEV = t1 / np.sum(t1)
 
 # --- PLOT V STRUCTURE
-plot_v_struct = 1
+plot_v_struct = 0
 if plot_v_struct > 0:
     f, (ax, ax2, ax3, ax4) = plt.subplots(1, 4, sharey=True)
     for i in range(nq):
         ax.plot(V3[:, i], grid, color='#5F9EA0', linewidth=0.75)
-    ax.plot(np.nanmean(np.abs(V3), axis=1), grid, color='k')
+    ax.plot(np.nanmean(np.abs(V3), axis=1), grid, color='k', label='Average |V]')
+    handles, labels = ax.get_legend_handles_labels()
+    ax.legend(handles, labels, fontsize=10)
     ax2.plot(np.zeros(10), np.arange(0, 5000, 500), color='k')
     ax3.plot(np.zeros(10), np.arange(0, 5000, 500), color='k')
+    ax4.plot(np.zeros(10), np.arange(0, 5000, 500), color='k')
     for i in range(4):
-        ax2.plot(V_Uzqa[:, i], grid_check, label='EOF' + str(i+1) + ': PEV = ' + str(100 * np.round(PEV[i], 3)))
+        ax2.plot(V_Uzqa[:, i], grid_check, label=r'PEV$_{' + str(i + 1) + '}$ = ' + str(100 * np.round(PEV[i], 3)))
         ax3.plot(F[:, i], grid, label='Mode' + str(i))
         ax3.plot(Gz[:, i], grid, c='k', linestyle='--', linewidth=0.5)
-        if i < 1:
-            ax4.plot(F_int[:, i] + np.nanmax(np.abs(F_int[:, i])), grid)
-        else:
-            ax4.plot(F_int[:, i], grid)
-        ax4.plot(G[:, i], grid, c='k', linestyle='--', linewidth=0.5)
+        # if i < 1:
+        #     ax4.plot(F_int[:, i] + np.nanmax(np.abs(F_int[:, i])), grid)
+        # else:
+        #     ax4.plot(F_int[:, i], grid)
+        # ax4.plot(G[:, i], grid, c='k', linestyle='--', linewidth=0.5)
+        ax4.plot(Gz[:, i], grid, c='k', linestyle='--', linewidth=0.5)
+        ax4.plot(F_2[:, i], grid, label='Mode' + str(i))
     handles, labels = ax2.get_legend_handles_labels()
     ax2.legend(handles, labels, fontsize=10)
-    ax.axis([-.2, .2, 0, 4800])
+    ax.axis([-.3, .3, 0, 4800])
     ax.set_title('Cross-Track Velocity [V]')
     ax.set_xlabel('m/s')
     ax.set_ylabel('Depth [m]')
@@ -348,11 +362,14 @@ if plot_v_struct > 0:
     handles, labels = ax3.get_legend_handles_labels()
     ax3.legend(handles, labels, fontsize=10)
     ax3.axis([-5, 5, 0, 4800])
-    ax3.set_title('Vertical Structure of V F(z)')
+    ax3.set_title('Vertical Structure of V F(z): BC1')
     ax3.set_xlabel('Mode Amplitude')
-    ax4.axis([-3500, 3500, 0, 4800])
-    ax4.set_title('Vertical Structure of Disp. G(z)')
+    ax4.axis([-5, 5, 0, 4800])
+    ax4.set_title('Vertical Structure of V F(z): BC2')
     ax4.set_xlabel('Mode Amplitude')
+    # ax4.axis([-3500, 3500, 0, 4800])
+    # ax4.set_title('Vertical Structure of Disp. G(z)')
+    # ax4.set_xlabel('Mode Amplitude')
     ax.invert_yaxis()
     ax.grid()
     ax2.grid()
@@ -363,30 +380,42 @@ if plot_v_struct > 0:
 # 2015 - dives 62, 63 ,64
 ed_in = np.where(((Info2[0, :] - 35000) >= 62) & ((Info2[0, :] - 35000) <= 64))[0]
 ed_time_s = datetime.date.fromordinal(np.int(Time2[ed_in[0]]))
-ed_time_e = datetime.date.fromordinal(np.int(Time2[ed_in[-1]+1]))
+ed_time_e = datetime.date.fromordinal(np.int(Time2[ed_in[-1] + 1]))
+# --- time series
+mission_start = datetime.date.fromordinal(np.int(Time.min()))
+mission_end = datetime.date.fromordinal(np.int(Time.max()))
 
 # --- PLOT ETA / EOF
-plot_eta = 1
+plot_eta = 0
 if plot_eta > 0:
-    f, (ax0, ax1) = plt.subplots(1, 2, sharey=True)
+    f, (ax2, ax1, ax0) = plt.subplots(1, 3, sharey=True)
+    for j in range(len(Time)):
+        ax2.plot(Sigma_Theta[:, j] - sigma_theta_avg, grid, linewidth=0.75)
+    ax2.set_xlim([-.5, .5])
+    ax2.set_xlabel(r'$\sigma_{\theta} - \overline{\sigma_{\theta}}$', fontsize=12)
+    ax2.set_title("DG35 BATS: " + str(mission_start) + ' - ' + str(mission_end))
+    ax2.text(0.1, 4000, str(len(Time2)) + ' profiles', fontsize=10)
     for j in range(num_profs):
         ax1.plot(Eta2[:, j], grid, color='#4682B4', linewidth=1.25)
         ax1.plot(Eta_m[:, j], grid, color='k', linestyle='--', linewidth=.75)
         ax0.plot(V2[:, j], grid, color='#4682B4', linewidth=1.25)
         ax0.plot(V_m[:, j], grid, color='k', linestyle='--', linewidth=.75)
-    for k in range(ed_in[0], ed_in[-1]+2):
-        ax1.plot(Eta2[:, k], grid, color='m', linewidth=2)
+    for k in range(ed_in[0], ed_in[-1] + 2):
+        ax1.plot(Eta2[:, k], grid, color='m', linewidth=2, label='eddy')
         ax0.plot(V2[:, k], grid, color='m', linewidth=2)
-    ax1.axis([-500, 500, 0, 4750])
+    handles, labels = ax1.get_legend_handles_labels()
+    ax1.legend([handles[0]], [labels[0]], fontsize=10)
+    ax1.axis([-600, 600, 0, 4750])
     ax0.text(190, 800, str(num_profs) + ' Profiles')
-    ax1.set_xlabel(r'Vertical Isopycnal Displacement, $\xi_{\sigma_{\theta}}$ [m]', fontsize=14)
-    ax1.set_title(r'Isopycnal Displacement', fontsize=18)  # + '(' + str(Time[0]) + '-' )
+    ax1.set_xlabel(r'Vertical Isopycnal Displacement, $\xi_{\sigma_{\theta}}$ [m]', fontsize=12)
+    ax1.set_title(r'Isopycnal Displacement', fontsize=12)  # + '(' + str(Time[0]) + '-' )
     ax0.axis([-.4, .4, 0, 4750])
-    ax0.set_title("Geostrophic Velocity", fontsize=18)  # (" + str(num_profs) + 'profiles)' )
-    ax0.set_ylabel('Depth [m]', fontsize=16)
-    ax0.set_xlabel('Cross-Track Velocity, U [m/s]', fontsize=14)
+    ax0.set_title("Geostrophic Velocity", fontsize=12)  # (" + str(num_profs) + 'profiles)' )
+    ax2.set_ylabel('Depth [m]', fontsize=12)
+    ax0.set_xlabel('Cross-Track Velocity, U [m/s]', fontsize=12)
     ax0.invert_yaxis()
     ax0.grid()
+    ax2.grid()
     plot_pro(ax1)
     # f.savefig('/Users/jake/Desktop/bats/dg035_15_Eta_a.png',dpi = 300)
     # plt.show()    
@@ -408,7 +437,7 @@ if plot_eta > 0:
     ax1.grid()
     for ii in range(max_plot):
         ax2.plot(G[:, ii + 1] / np.max(grid), grid, color='#2F4F4F', linestyle='--')
-        p_eof_eta = ax2.plot(-EOFetashape[:, ii] / np.max(grid), grid, color=colors[ii, :],
+        p_eof_eta = ax2.plot(EOFetashape[:, ii] / np.max(grid), grid, color=colors[ii, :],
                              label='EOF # = ' + str(ii + 1), linewidth=2.5)
     handles, labels = ax2.get_legend_handles_labels()
     ax2.legend(handles, labels, fontsize=10)
@@ -419,20 +448,41 @@ if plot_eta > 0:
     plot_pro(ax2)
 
 # --- MODE AMPLITUDE IN TIME AND SPACE
+Time3 = Time2[np.argsort(Time2)]
+Time2_dt = []
+for i in range(len(Time3)):
+    Time2_dt.append(datetime.date.fromordinal(np.int(Time3[i])))
+# load in Station BATs mode amplitude Comparison
+pkl_file = open('/Users/jake/Desktop/bats/station_bats_pe.pkl', 'rb')
+SB = pickle.load(pkl_file)
+pkl_file.close()
+sta_bats_ag = SB['AG']
+sta_bats_time = SB['time']
+sba_in = sta_bats_ag[:, sta_bats_time > 2015]
+sbt_in = sta_bats_time[sta_bats_time > 2015]
+sb_dt = []
+for i in range(len(sbt_in)):
+    sb_dt.append(datetime.datetime(np.int(sbt_in[i]), np.int((sbt_in[i] - np.int(sbt_in[i])) * 12), np.int(
+        ((sbt_in[i] - np.int(sbt_in[i])) * 12 - np.int((sbt_in[i] - np.int(sbt_in[i])) * 12)) * 30)))
 plot_mode = 0
 if plot_mode > 0:
-    window_size, poly_order = 11, 2
+    window_size, poly_order = 15, 2
     fm, (ax, ax1) = plt.subplots(1, 2, sharey=True)
-    colors = ['r', 'b', 'm', 'g', 'c']
-    for mo in range(1, 6, 1):
+    colors = ['#FF8C00', '#5F9EA0', 'm', 'g', 'c']
+    ax.plot(sb_dt, sba_in[1, :], color='k', label='Hydrography Mode 1')
+    for mo in range(1, 4):
         orderAG = AG[mo, np.argsort(Time2)]
         orderAGz = AGz[mo, np.argsort(Time2)]
         y_sg = savgol_filter(orderAG, window_size, poly_order)
         y_sgz = savgol_filter(orderAGz, window_size, poly_order)
-        pm = ax.scatter(Time2, AG[mo, :], s=3, color=colors[mo-1], label=('Mode '+str(mo)))
-        ax.plot(Time2[np.argsort(Time2)], y_sg, color=colors[mo-1])
-        pmz = ax1.scatter(Time2, AGz[mo, :], s=3, color=colors[mo-1])
-        ax1.plot(Time2[np.argsort(Time2)], y_sgz, color=colors[mo-1])
+
+        pm = ax.plot(Time2_dt, AG[mo, np.argsort(Time2)], color=colors[mo - 1], linewidth=0.75)
+        ax.plot(Time2_dt, y_sg, color=colors[mo - 1], linewidth=2, label=('Mode ' + str(mo)))
+
+        pmz = ax1.plot(Time2_dt, AGz[mo, np.argsort(Time2)], color=colors[mo - 1], linewidth=0.75)
+        ax1.plot(Time2_dt, y_sgz, color=colors[mo - 1], label=('Mode ' + str(mo)), linewidth=2)
+
+    ax.set_xlim([Time2_dt[0], Time2_dt[-1]])
     handles, labels = ax.get_legend_handles_labels()
     ax.legend(handles, labels, fontsize=14)
     ax.set_title('Displacement Mode Amplitude')
@@ -441,7 +491,7 @@ if plot_mode > 0:
     plot_pro(ax1)
 
 # --- MODE AMPLITUDE CORRELATIONS IN TIME AND SPACE
-plot_mode_corr = 1
+plot_mode_corr = 0
 if plot_mode_corr > 0:
     x = 1852 * 60 * np.cos(np.deg2rad(ref_lat)) * (prof_lon2 - ref_lon)
     y = 1852 * 60 * (prof_lat2 - ref_lat)
@@ -470,9 +520,9 @@ if plot_mode_corr > 0:
         AGz_out = np.nan * np.zeros([len(dist_small_i[0]), 3])
         for i in range(len(dist_small_i[0])):
             AG_out[i, :] = [AG_i[dist_small_i[0][i]], AG_i[dist_small_i[1][i]],
-                              time_lag[dist_small_i[0][i], dist_small_i[1][i]]]
+                            time_lag[dist_small_i[0][i], dist_small_i[1][i]]]
             AGz_out[i, :] = [AGz_i[dist_small_i[0][i]], AGz_i[dist_small_i[1][i]],
-                              time_lag[dist_small_i[0][i], dist_small_i[1][i]]]
+                             time_lag[dist_small_i[0][i], dist_small_i[1][i]]]
         no_doub, no_doub_i = np.unique(AG_out[:, 2], return_index=True)
         AG_out2 = AG_out[no_doub_i, :]
         zno_doub, zno_doub_i = np.unique(AGz_out[:, 2], return_index=True)
@@ -495,7 +545,7 @@ if plot_mode_corr > 0:
             for k in range(len(innz[:, 0])):
                 covzi[k] = (innz[k, 0] - iz_mean) * (innz[k, 1] - iz_mean)
             corr_z_i[j, dd] = (1 / (nz * variancez)) * np.sum(covzi)
-    f, (ax1, ax2) = plt.subplots(1,2)
+    f, (ax1, ax2) = plt.subplots(1, 2)
     pa = ax1.pcolor(dist_win, t_win, corr_i, vmin=-1, vmax=1)
     paz = ax2.pcolor(dist_win, t_win, corr_z_i, vmin=-1, vmax=1)
     ax1.set_xlabel('Spatial Separation [km]')
@@ -510,8 +560,8 @@ avg_PE = np.nanmean(PE_per_mass, 1)
 good_prof_i = good_prof  # np.where(good_prof > 0)
 avg_KE = np.nanmean(HKE_per_mass[:, np.where(good_prof > 0)[0]], 1)
 # --- eddy kinetic and potential energy
-PE_ed = np.nanmean(PE_per_mass[:, ed_in[0]:ed_in[-1]+2], axis=1)
-KE_ed = np.nanmean(HKE_per_mass[:, ed_in[0]:ed_in[-1]+2], axis=1)
+PE_ed = np.nanmean(PE_per_mass[:, ed_in[0]:ed_in[-1] + 2], axis=1)
+KE_ed = np.nanmean(HKE_per_mass[:, ed_in[0]:ed_in[-1] + 2], axis=1)
 
 # --- ENERGY parameters
 f_ref = np.pi * np.sin(np.deg2rad(ref_lat)) / (12 * 1800)
@@ -581,12 +631,13 @@ pkl_file = open('/Users/jake/Desktop/abaco/abaco_outputs_2.pkl', 'rb')
 abaco_energies = pickle.load(pkl_file)
 pkl_file.close()
 
-plot_eng = 0
+plot_eng = 1
 if plot_eng > 0:
     fig0, ax0 = plt.subplots()
     PE_p = ax0.plot(sc_x, avg_PE[1:] / dk, color='#B22222', label='APE', linewidth=2)
-    PE_sta_p = ax0.plot(1000 * sta_bats_f / sta_bats_c[1:], np.nanmean(sta_bats_pe[1:], axis=1) / sta_bats_dk, color='#FF8C00',
-                        label='$PE_{ship}$', linewidth=1.5)
+    # PE_sta_p = ax0.plot(1000 * sta_bats_f / sta_bats_c[1:], np.nanmean(sta_bats_pe[1:], axis=1) / sta_bats_dk,
+    #                     color='#FF8C00',
+    #                     label='$PE_{ship}$', linewidth=1.5)
     KE_p = ax0.plot(sc_x, avg_KE[1:] / dk, 'g', label='KE', linewidth=2)
     ax0.scatter(sc_x, avg_PE[1:] / dk, color='#B22222', s=12)  # DG PE
     # ax0.scatter((1000)*sta_bats_f/sta_bats_c[1:],sta_bats_pe[1:]/sta_bats_dk,color='#FF8C00',s=10) # BATS PE
@@ -599,11 +650,11 @@ if plot_eng > 0:
     # ax0.scatter(sx_c_om,ke_om_v[1:]/dk_om,color='c',s=10) # DG KE
 
     # Eddy energies
-    PE_e = ax0.plot(sc_x, PE_ed[1:] / dk, color='c', label='Ed.', linewidth=2)
-    KE_e = ax0.plot(sc_x, KE_ed[1:] / dk, color='y', label='Ed.', linewidth=2)
+    PE_e = ax0.plot(sc_x, PE_ed[1:] / dk, color='c', label='eddy PE', linewidth=2)
+    KE_e = ax0.plot(sc_x, KE_ed[1:] / dk, color='y', label='eddy KE', linewidth=2)
 
     # Slope fits
-    ax0.plot(vert_wave * 1000, one, color='b', linewidth=1, label=r'APE$_{fit}$')
+    # ax0.plot(vert_wave * 1000, one, color='b', linewidth=1, label=r'APE$_{fit}$')
     ax0.plot(10 ** x_53, 10 ** y_g_53, color='k', linewidth=1, linestyle='--')
     ax0.plot(10 ** x_3, 10 ** y_g_3, color='k', linewidth=1, linestyle='--')
     ax0.text(10 ** x_53[0] - .012, 10 ** y_g_53[0], str(float("{0:.2f}".format(slope1[0]))), fontsize=10)
@@ -619,8 +670,8 @@ if plot_eng > 0:
              str(r'$c_1/f$ = ') + str(float("{0:.1f}".format(1 / sc_x[0]))) + 'km')
 
     # GM
-    ax0.plot(sc_x, PE_GM / dk, linestyle='--', color='#B22222', linewidth=0.75)
-    ax0.text(sc_x[0] - .01, PE_GM[1] / dk, r'$PE_{GM}$', fontsize=12)
+    # ax0.plot(sc_x, (1/4)*PE_GM / dk, linestyle='--', color='#B22222', linewidth=0.75)
+    # ax0.text(sc_x[0] - .01, (1/4)*PE_GM[1] / dk, r'$PE_{GM}$', fontsize=12)
     # ax0.plot(np.array([10**-2, 10]), [PE_SD / dk, PE_SD / dk], linestyle='--', color='k', linewidth=0.75)
 
     # Limits/scales
@@ -643,7 +694,7 @@ if plot_eng > 0:
     ax0.set_ylabel('Spectral Density', fontsize=18)  # ' (and Hor. Wavenumber)')
     ax0.set_title('Energy Spectrum', fontsize=20)
     handles, labels = ax0.get_legend_handles_labels()
-    ax0.legend([handles[0], handles[1], handles[2]], [labels[0], labels[1], labels[2]], fontsize=14)
+    ax0.legend([handles[0], handles[1], handles[2], handles[3]], [labels[0], labels[1], labels[2], labels[3]], fontsize=14)
     plt.tight_layout()
     plot_pro(ax0)
     # fig0.savefig('/Users/jake/Desktop/bats/dg035_15_PE_b.png',dpi = 300)
@@ -706,7 +757,8 @@ if plot_comp > 0:
     # PE (by mode number) COMPARISON BY SITE
     fig01, ax0 = plt.subplots()
     mode_num = np.arange(1, 61, 1)
-    PE_sta_p1 = ax0.plot(mode_num, np.nanmean(sta_bats_pe[1:], axis=1) / sta_bats_dk, label=r'BATS$_{ship}$', linewidth=2)
+    PE_sta_p1 = ax0.plot(mode_num, np.nanmean(sta_bats_pe[1:], axis=1) / sta_bats_dk, label=r'BATS$_{ship}$',
+                         linewidth=2)
     # PE_ab = ax0.plot(mode_num, abaco_energies['avg_PE'][1:] / (abaco_energies['f_ref'] / abaco_energies['c'][1]),
     #                  label=r'$ABACO_{DG}$')
     PE_sta_hots = ax0.plot(mode_num, sta_hots_pe[1:] / sta_hots_dk, label=r'HOTS$_{ship}$', linewidth=2)
@@ -788,5 +840,3 @@ if plot_comp > 0:
 # ax.set_yscale('log')
 # ax.set_xscale('log')
 # plot_pro(ax)
-
-
