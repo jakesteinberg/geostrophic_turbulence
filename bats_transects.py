@@ -5,7 +5,7 @@ import matplotlib
 import matplotlib.pyplot as plt
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 import datetime
-import seawater as sw
+import gsw
 import pandas as pd
 from scipy.io import netcdf
 from netCDF4 import Dataset
@@ -36,7 +36,7 @@ ref_lat = 31.8
 lat_in = 31.7
 lon_in = 64.2
 grid = bin_depth[1:-1]
-grid_p = sw.pres(grid, lat_in)
+grid_p = gsw.p_from_z(-1*grid, lat_in)
 z = -1 * grid
 deep_shr_max = 0.1
 deep_shr_max_dep = 3500
@@ -46,7 +46,7 @@ plot_bath = 0
 plot_cross = 0
 
 # LOAD DATA (gridded dives)
-GD = Dataset('BATs_2015_gridded_3.nc', 'r')
+GD = Dataset('BATs_2015_gridded.nc', 'r')
 # GD = Dataset('BATs_2014_gridded.nc', 'r')
 g14 = 0  # toggle to select 2014 or 2015
 df_den = pd.DataFrame(GD['Density'][:], index=GD['grid'][:], columns=GD['dive_list'])
@@ -613,7 +613,7 @@ sa = 1
 if sa > 0:
     mydict = {'bin_depth': grid, 'Sigma_Theta': Sigma_Theta_f, 'Eta': Eta, 'Eta_theta': Eta_theta, 'V': V,
               'V_lon': vel_lon, 'V_lat': vel_lat, 'Time': Time, 'Info': Info}
-    output = open('/Users/jake/Desktop/bats/dep15_transect_profiles_mar16_w_avg.pkl', 'wb')
+    output = open('/Users/jake/Desktop/bats/dep15_transect_profiles_mar23.pkl', 'wb')
     pickle.dump(mydict, output)
     output.close()
 

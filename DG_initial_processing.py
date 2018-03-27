@@ -1,12 +1,13 @@
 from grids import collect_dives
 import numpy as np
 from scipy.io import netcdf
-from netCDF4 import Dataset
+from toolkit import is_number
 import glob
 import seawater as sw
+import gsw
 
 # --- gliders
-dg_list = glob.glob('/Users/jake/Documents/baroclinic_modes/DG/sg035_BATS_2014/p*.nc')
+dg_list = glob.glob('/Users/jake/Documents/baroclinic_modes/DG/sg035_BATS_2015/p*.nc')
 
 # choose reference latitude
 ref_lat = 31.8
@@ -15,27 +16,19 @@ ref_lat = 31.8
 bin_depth = np.concatenate([np.arange(0, 150, 10), np.arange(150, 300, 10), np.arange(300, 5000, 20)])
 grid = bin_depth[1:-1]
 grid_p = sw.pres(grid, ref_lat)
+grid_p = gsw.p_from_z(-1*grid, ref_lat)
 
-theta_g, salin_g, den_g, lon_g, lat_g, dac_u, dac_v, time_rec, time_sta_sto, targ_rec, gps_rec, dive_list = collect_dives(
+theta_g, ct_g, sa_g, sig0_g, lon_g, lat_g, dac_u, dac_v, time_rec, time_sta_sto, targ_rec, gps_rec, dive_list = collect_dives(
     dg_list, bin_depth, grid_p, ref_lat)
 
 theta_g[np.isnan(theta_g)] = -999
-salin_g[np.isnan(salin_g)] = -999
-den_g[np.isnan(den_g)] = -999
+ct_g[np.isnan(ct_g)] = -999
+sa_g[np.isnan(sa_g)] = -999
+sig0_g[np.isnan(sig0_g)] = -999
 lon_g[np.isnan(lon_g)] = -999
 lat_g[np.isnan(lat_g)] = -999
 dac_u[np.isnan(dac_u)] = -999
 dac_v[np.isnan(dac_v)] = -999
-
-
-def is_number(a):
-    # will be True also for 'NaN'
-    try:
-        number = float(a)
-        return True
-    except ValueError:
-        return False
-
 
 # -- check targets and make sure that they are numbered (if not == nan)
 targ_rec_o = np.zeros(len(targ_rec))
@@ -46,7 +39,7 @@ for i in range(len(targ_rec)):
     else:
         targ_rec_o[i] = np.nan
 
-f = netcdf.netcdf_file('BATs_2014_gridded.nc', 'w')
+f = netcdf.netcdf_file('BATs_2015_gridded.nc', 'w')
 f.history = 'DG 2015 dives; have been gridded vertically and separated into dive and climb cycles'
 f.createDimension('grid', np.size(grid))
 f.createDimension('lat_lon', 4)
@@ -57,10 +50,12 @@ b_l = f.createVariable('dive_list', np.float64, ('dive_list',))
 b_l[:] = dive_list
 b_t = f.createVariable('Theta', np.float64, ('grid', 'dive_list'))
 b_t[:] = theta_g
-b_s = f.createVariable('Salinity', np.float64, ('grid', 'dive_list'))
-b_s[:] = salin_g
+b_t = f.createVariable('Conservative Temperature', np.float64, ('grid', 'dive_list'))
+b_t[:] = ct_g
+b_s = f.createVariable('Absolute Salinity', np.float64, ('grid', 'dive_list'))
+b_s[:] = sa_g
 b_den = f.createVariable('Density', np.float64, ('grid', 'dive_list'))
-b_den[:] = den_g
+b_den[:] = sig0_g
 b_lon = f.createVariable('Longitude', np.float64, ('grid', 'dive_list'))
 b_lon[:] = lon_g
 b_lat = f.createVariable('Latitude', np.float64, ('grid', 'dive_list'))
@@ -78,6 +73,8 @@ b_targ[:] = targ_rec_o
 b_gps = f.createVariable('gps_record', np.float64, ('dive_list', 'lat_lon'))
 b_gps[:] = gps_rec
 f.close()
+
+
 
 # time_in_test = np.where((time_sta_sto > Time[time_i][0]) & (time_sta_sto < Time[time_i][1]))[0]
 # plt.figure()

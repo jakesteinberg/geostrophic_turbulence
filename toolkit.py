@@ -39,6 +39,15 @@ def pol2cart(rho, phi):
     return (x, y)
 
 
+def is_number(a):
+    # will be True also for 'NaN'
+    try:
+        number = float(a)
+        return True
+    except ValueError:
+        return False
+
+
 # nan-seg interp (interpret nan's found in an array...does not deal with a nan segment that ends an array)
 def nanseg_interp(xx, y):
     n = len(y)

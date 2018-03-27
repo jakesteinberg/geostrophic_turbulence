@@ -1,6 +1,7 @@
 import numpy as np
 from netCDF4 import Dataset
 import seawater as sw
+import gsw
 
 
 def make_bin_gen(bin_depth, depth_d, temp_d, salin_d):
@@ -167,7 +168,7 @@ def collect_dives(dg_list, bin_depth, grid_p, ref_lat):
         else:
             heading_rec = np.concatenate([heading_rec, [h], [h]])
 
-            # dive position
+        # dive position
         lat = dive_nc_file.variables['latitude'][:]
         lon = dive_nc_file.variables['longitude'][:]
 
@@ -180,7 +181,9 @@ def collect_dives(dg_list, bin_depth, grid_p, ref_lat):
         temp = dive_nc_file.variables['temperature'][:]
         salin = dive_nc_file.variables['salinity'][:]
         # theta = sw.ptmp(salin, temp, press, 0)
-        depth = sw.dpth(press, ref_lat)
+        # depth = sw.dpth(press, ref_lat)
+        press[press < 0] = 0
+        depth = -1*gsw.z_from_p(press, ref_lat)
 
         # time conversion 
         dive_start_time = dive_nc_file.start_time
@@ -203,8 +206,7 @@ def collect_dives(dg_list, bin_depth, grid_p, ref_lat):
         serial_date_time_dive = datenum_start + dive_start_time / (60 * 60 * 24) + np.median(time_dive) / secs_per_day
         serial_date_time_climb = datenum_start + dive_start_time / (60 * 60 * 24) + np.median(time_climb) / secs_per_day
         serial_date_time_dive_2 = datenum_start + dive_start_time / (60 * 60 * 24) + np.nanmin(time_dive) / secs_per_day
-        serial_date_time_climb_2 = datenum_start + dive_start_time / (60 * 60 * 24) + np.nanmax(
-            time_climb) / secs_per_day
+        serial_date_time_climb_2 = datenum_start + dive_start_time / (60 * 60 * 24) + np.nanmax(time_climb) / secs_per_day
         # time_rec_2[count,:] = np.array([ serial_date_time_dive, serial_date_time_climb ])
         # time_rec_2[count,:] = np.array([ serial_date_time_dive_2, serial_date_time_climb_2 ])
         if np.sum(time_rec) < 1:
@@ -228,8 +230,16 @@ def collect_dives(dg_list, bin_depth, grid_p, ref_lat):
             salin[climb_mask], lon[dive_mask] * 1000, lon[climb_mask] * 1000, lat[dive_mask] * 1000,
                                lat[climb_mask] * 1000)
 
-        den_grid_dive = sw.pden(salin_grid_dive, temp_grid_dive, grid_p, pr=0) - 1000
-        den_grid_climb = sw.pden(salin_grid_climb, temp_grid_climb, grid_p, pr=0) - 1000
+        # compute absolute salinity, conservative temperature, and potential density anomaly (reference p = 0)
+        SA_grid_dive = gsw.SA_from_SP(salin_grid_dive, grid_p, lon_grid_dive, lat_grid_dive)
+        SA_grid_climb = gsw.SA_from_SP(salin_grid_climb, grid_p, lon_grid_climb, lat_grid_climb)
+        CT_grid_dive = gsw.CT_from_t(SA_grid_dive, temp_grid_dive, grid_p)
+        CT_grid_climb = gsw.CT_from_t(SA_grid_climb, temp_grid_climb, grid_p)
+        sig0_grid_dive = gsw.sigma0(SA_grid_dive, CT_grid_dive)
+        sig0_grid_climb = gsw.sigma0(SA_grid_climb, CT_grid_climb)
+
+        # den_grid_dive = sw.pden(salin_grid_dive, temp_grid_dive, grid_p, pr=0) - 1000
+        # den_grid_climb = sw.pden(salin_grid_climb, temp_grid_climb, grid_p, pr=0) - 1000
         theta_grid_dive = sw.ptmp(salin_grid_dive, temp_grid_dive, grid_p, pr=0)
         theta_grid_climb = sw.ptmp(salin_grid_climb, temp_grid_climb, grid_p, pr=0)
 
@@ -247,32 +257,26 @@ def collect_dives(dg_list, bin_depth, grid_p, ref_lat):
 
         if count == count_st:
             # df_t = pd.concat([t_data_d, t_data_c], axis=1)
-            # df_s = pd.concat([s_data_d, s_data_c], axis=1)
-            # df_den = pd.concat([den_data_d, den_data_c], axis=1)
-            # df_lon = pd.concat([lon_data_d, lon_data_c], axis=1)
-            # df_lat = pd.concat([lat_data_d, lat_data_c], axis=1)
             theta_out = np.concatenate([theta_grid_dive[:, None], theta_grid_climb[:, None]], axis=1)
-            salin_out = np.concatenate([salin_grid_dive[:, None], salin_grid_climb[:, None]], axis=1)
+            SA_out = np.concatenate([SA_grid_dive[:, None], SA_grid_climb[:, None]], axis=1)
+            CT_out = np.concatenate([CT_grid_dive[:, None], CT_grid_climb[:, None]], axis=1)
             lon_out = np.concatenate([lon_grid_dive[:, None], lon_grid_climb[:, None]], axis=1)
             lat_out = np.concatenate([lat_grid_dive[:, None], lat_grid_climb[:, None]], axis=1)
-            den_out = np.concatenate([den_grid_dive[:, None], den_grid_climb[:, None]], axis=1)
-            dive_list = np.array([glid_num * 1000 + dive_num, glid_num * 1000 + dive_num + .5])
+            sig0_out = np.concatenate([sig0_grid_dive[:, None], sig0_grid_climb[:, None]], axis=1)
+            d_l = np.array([glid_num * 1000 + dive_num, glid_num * 1000 + dive_num + .5])
         else:
+            # df_t = pd.concat([df_t, t_data_d, t_data_c], axis=1)
             theta_out = np.concatenate([theta_out, theta_grid_dive[:, None], theta_grid_climb[:, None]], axis=1)
-            salin_out = np.concatenate([salin_out, salin_grid_dive[:, None], salin_grid_climb[:, None]], axis=1)
+            SA_out = np.concatenate([SA_out, SA_grid_dive[:, None], SA_grid_climb[:, None]], axis=1)
+            CT_out = np.concatenate([CT_out, CT_grid_dive[:, None], CT_grid_climb[:, None]], axis=1)
             lon_out = np.concatenate([lon_out, lon_grid_dive[:, None], lon_grid_climb[:, None]], axis=1)
             lat_out = np.concatenate([lat_out, lat_grid_dive[:, None], lat_grid_climb[:, None]], axis=1)
-            den_out = np.concatenate([den_out, den_grid_dive[:, None], den_grid_climb[:, None]], axis=1)
-            dive_list = np.append(dive_list, np.array([glid_num * 1000 + dive_num, glid_num * 1000 + dive_num + .5]))
-            # df_t = pd.concat([df_t, t_data_d, t_data_c], axis=1)
-            # df_s = pd.concat([df_s, s_data_d, s_data_c], axis=1)
-            # df_den = pd.concat([df_den, den_data_d, den_data_c], axis=1)
-            # df_lon = pd.concat([df_lon, lon_data_d, lon_data_c], axis=1)
-            # df_lat = pd.concat([df_lat, lat_data_d, lat_data_c], axis=1)
+            sig0_out = np.concatenate([sig0_out, sig0_grid_dive[:, None], sig0_grid_climb[:, None]], axis=1)
+            d_l = np.append(d_l, np.array([glid_num * 1000 + dive_num, glid_num * 1000 + dive_num + .5]))
 
         count = count + 1
 
-    return theta_out, salin_out, den_out, lon_out, lat_out, dac_u, dac_v, time_rec, time_rec_2, target_rec, gps_rec, dive_list
+    return theta_out, CT_out, SA_out, sig0_out, lon_out, lat_out, dac_u, dac_v, time_rec, time_rec_2, target_rec, gps_rec, d_l
 
 # procedure for take BATS dives and processing each to account for heading and vertical bin averaging
 # (uses collect_dives and make_bin)

@@ -2,6 +2,7 @@
 # take velocity and displacement profiles and compute energy spectra / explore mode amplitude variability
 import numpy as np
 import matplotlib.pyplot as plt
+import gsw
 import seawater as sw
 import pandas as pd
 import scipy.io as si
@@ -11,34 +12,7 @@ import datetime
 from scipy.signal import savgol_filter
 # functions I've written 
 from mode_decompositions import vertical_modes, PE_Tide_GM, vertical_modes_f
-from toolkit import plot_pro
-
-
-def nanseg_interp(x, y):
-    n = len(y)
-    iv = np.where(np.isnan(y))[0]
-    diff_iv = np.diff(iv)
-    nb = len(np.where(diff_iv > 1)[0]) + 1
-
-    yi = y.copy()
-    if len(iv) < 1:
-        return yi
-    if iv[0] == 0:
-        ing = np.where(np.isfinite(y))[0][0]
-        yi[0:ing] = y[ing]
-        nb = nb - 1
-    # if iv[-1] == (len(x) - 1):
-    #     ing = np.where(np.isfinite(y))[0][-1]
-    #     yi[ing+1:] = y[ing]
-    #     nb = nb - 1
-    for j in range(nb):
-        ilg = np.where(np.isnan(yi))[0][0] - 1
-        if np.sum(np.isfinite(yi[ilg + 1:])) < 1:
-            return yi
-        else:
-            ing = np.where(np.isfinite(yi[ilg + 1:]))[0][0] + ilg + 1
-            yi[ilg + 1:ing] = np.interp(x[ilg + 1:ing], [x[ilg], x[ing]], [y[ilg], y[ing]])
-    return yi
+from toolkit import nanseg_interp, plot_pro
 
 
 # physical parameters 
@@ -51,7 +25,7 @@ ref_lon = -64.2
 lat_in = 31.7
 lon_in = 64.2
 grid = bin_depth[1:-1]
-grid_p = sw.pres(grid, lat_in)
+grid_p = gsw.p_from_z(-1*grid, lat_in)
 z = -1 * grid
 sz_g = grid.shape[0]
 # MODE PARAMETERS
@@ -66,10 +40,11 @@ deep_shr_max = 0.1
 deep_shr_max_dep = 3500
 
 # --- LOAD gridded dives (gridded dives)
-GD = Dataset('BATs_2015_gridded_3.nc', 'r')
+GD = Dataset('BATs_2015_gridded.nc', 'r')
 df_den = pd.DataFrame(GD['Density'][0:sz_g, :], index=GD['grid'][0:sz_g], columns=GD['dive_list'][:])
 df_theta = pd.DataFrame(GD['Theta'][0:sz_g, :], index=GD['grid'][0:sz_g], columns=GD['dive_list'][:])
-df_s = pd.DataFrame(GD['Salinity'][0:sz_g, :], index=GD['grid'][0:sz_g], columns=GD['dive_list'][:])
+df_ct = pd.DataFrame(GD['Conservative Temperature'][0:sz_g, :], index=GD['grid'][0:sz_g], columns=GD['dive_list'][:])
+df_s = pd.DataFrame(GD['Absolute Salinity'][0:sz_g, :], index=GD['grid'][0:sz_g], columns=GD['dive_list'][:])
 df_lon = pd.DataFrame(GD['Longitude'][0:sz_g, :], index=GD['grid'][0:sz_g], columns=GD['dive_list'][:])
 df_lat = pd.DataFrame(GD['Latitude'][0:sz_g, :], index=GD['grid'][0:sz_g], columns=GD['dive_list'][:])
 dac_u = GD.variables['DAC_u'][:]
@@ -79,6 +54,7 @@ time_rec_all = GD.variables['time_start_stop'][:]
 profile_list = np.float64(GD.variables['dive_list'][:]) - 35000
 df_den[df_den < 0] = np.nan
 df_theta[df_theta < 0] = np.nan
+df_ct[df_ct < 0] = np.nan
 df_s[df_s < 0] = np.nan
 df_lon[df_lon < -500] = np.nan
 df_lat[df_lat < -500] = np.nan
@@ -104,7 +80,7 @@ dac_v[dac_v < -500] = np.nan
 
 # ---- LOAD IN TRANSECT TO PROFILE DATA COMPILED IN BATS_TRANSECTS.PY
 # pkl_file = open('/Users/jake/Desktop/bats/transect_profiles_mar12_2.pkl', 'rb')
-pkl_file = open('/Users/jake/Desktop/bats/dep15_transect_profiles_mar13.pkl', 'rb')
+pkl_file = open('/Users/jake/Desktop/bats/dep15_transect_profiles_mar23.pkl', 'rb')
 # pkl_file = open('/Users/jake/Desktop/bats/dep15_transect_profiles_mar16_w_avg.pkl', 'rb')
 bats_trans = pickle.load(pkl_file)
 pkl_file.close()
@@ -119,16 +95,23 @@ prof_lat = bats_trans['V_lat']
 
 # average background properties of profiles along these transects 
 sigma_theta_avg = df_den.mean(axis=1)
+ct_avg = df_ct.mean(axis=1)
 theta_avg = df_theta.mean(axis=1)
 salin_avg = df_s.mean(axis=1)
 ddz_avg_sigma = np.gradient(sigma_theta_avg, z)
 ddz_avg_theta = np.gradient(theta_avg, z)
 N2 = np.nan * np.zeros(sigma_theta_avg.size)
-N2[1:] = np.squeeze(sw.bfrq(salin_avg, theta_avg, grid_p, lat=ref_lat)[0])
+N2_old = np.nan * np.zeros(sigma_theta_avg.size)
+N2_old[1:] = np.squeeze(sw.bfrq(salin_avg, theta_avg, grid_p, lat=ref_lat)[0])
+N2[1:] = gsw.Nsquared(salin_avg, ct_avg, grid_p, lat=ref_lat)[0]
+
 lz = np.where(N2 < 0)
-lnan = np.isnan(N2)
-N2[lz] = 0
-N2[lnan] = 0
+N2[lz] = np.nan
+N2 = nanseg_interp(grid, N2)
+# lz = np.where(N2 < 0)
+# lnan = np.isnan(N2)
+# N2[lz] = 0
+# N2[lnan] = 0
 N = np.sqrt(N2)
 
 # --- compute vertical mode shapes
@@ -194,7 +177,7 @@ plot_comp = 0
 sz = np.shape(Eta2)
 num_profs = sz[1]
 eta_fit_depth_min = 50
-eta_fit_depth_max = 3800
+eta_fit_depth_max = 3900
 eta_theta_fit_depth_max = 4200
 AG = np.zeros([nmodes, num_profs])
 AGz = np.zeros([nmodes, num_profs])
@@ -321,14 +304,14 @@ Uzq = V3[5:-10, :].copy()
 nq = np.size(V3[0, :])
 avg_Uzq = np.nanmean(np.transpose(Uzq), axis=0)
 Uzqa = Uzq - np.transpose(np.tile(avg_Uzq, [nq, 1]))
-cov_Uzqa = (1 / nq) * np.matrix(Uzqa) * np.matrix(np.transpose(Uzqa))
+cov_Uzqa = (1 / nq) * np.matrix(Uzq) * np.matrix(np.transpose(Uzq))
 D_Uzqa, V_Uzqa = np.linalg.eig(cov_Uzqa)
 
 t1 = np.real(D_Uzqa[0:10])
 PEV = t1 / np.sum(t1)
 
 # --- PLOT V STRUCTURE
-plot_v_struct = 0
+plot_v_struct = 1
 if plot_v_struct > 0:
     f, (ax, ax2, ax3, ax4) = plt.subplots(1, 4, sharey=True)
     for i in range(nq):
@@ -464,7 +447,8 @@ sb_dt = []
 for i in range(len(sbt_in)):
     sb_dt.append(datetime.datetime(np.int(sbt_in[i]), np.int((sbt_in[i] - np.int(sbt_in[i])) * 12), np.int(
         ((sbt_in[i] - np.int(sbt_in[i])) * 12 - np.int((sbt_in[i] - np.int(sbt_in[i])) * 12)) * 30)))
-plot_mode = 0
+
+plot_mode = 1
 if plot_mode > 0:
     window_size, poly_order = 15, 2
     fm, (ax, ax1) = plt.subplots(1, 2, sharey=True)
@@ -491,7 +475,7 @@ if plot_mode > 0:
     plot_pro(ax1)
 
 # --- MODE AMPLITUDE CORRELATIONS IN TIME AND SPACE
-plot_mode_corr = 0
+plot_mode_corr = 1
 if plot_mode_corr > 0:
     x = 1852 * 60 * np.cos(np.deg2rad(ref_lat)) * (prof_lon2 - ref_lon)
     y = 1852 * 60 * (prof_lat2 - ref_lat)
@@ -597,7 +581,7 @@ ak = vert_wave / ak0
 one = E0 * ((ak ** (5 * alpha / 3)) * (1 + ak ** (4 * alpha / 3))) ** (-1 / alpha)
 # -  enstrophy/energy transfers
 mu = 1.88e-3 / (1 + 0.03222 * theta_avg + 0.002377 * theta_avg * theta_avg)
-nu = mu / sw.dens(salin_avg, theta_avg, grid_p)
+nu = mu / gsw.rho(salin_avg, ct_avg, grid_p)
 avg_nu = np.nanmean(nu)
 enst_xfer = (E0 * ak0 ** 3) ** (3 / 2)
 ener_xfer = (E0 * ak0 ** (5 / 3)) ** (3 / 2)
@@ -650,8 +634,8 @@ if plot_eng > 0:
     # ax0.scatter(sx_c_om,ke_om_v[1:]/dk_om,color='c',s=10) # DG KE
 
     # Eddy energies
-    PE_e = ax0.plot(sc_x, PE_ed[1:] / dk, color='c', label='eddy PE', linewidth=2)
-    KE_e = ax0.plot(sc_x, KE_ed[1:] / dk, color='y', label='eddy KE', linewidth=2)
+    # PE_e = ax0.plot(sc_x, PE_ed[1:] / dk, color='c', label='eddy PE', linewidth=2)
+    # KE_e = ax0.plot(sc_x, KE_ed[1:] / dk, color='y', label='eddy KE', linewidth=2)
 
     # Slope fits
     # ax0.plot(vert_wave * 1000, one, color='b', linewidth=1, label=r'APE$_{fit}$')
@@ -694,7 +678,8 @@ if plot_eng > 0:
     ax0.set_ylabel('Spectral Density', fontsize=18)  # ' (and Hor. Wavenumber)')
     ax0.set_title('Energy Spectrum', fontsize=20)
     handles, labels = ax0.get_legend_handles_labels()
-    ax0.legend([handles[0], handles[1], handles[2], handles[3]], [labels[0], labels[1], labels[2], labels[3]], fontsize=14)
+    ax0.legend(handles, labels, fontsize=10)
+    # ax0.legend([handles[0], handles[1], handles[2], handles[3]], [labels[0], labels[1], labels[2], labels[3]])
     plt.tight_layout()
     plot_pro(ax0)
     # fig0.savefig('/Users/jake/Desktop/bats/dg035_15_PE_b.png',dpi = 300)

@@ -155,7 +155,8 @@ def vertical_modes_f(N2_0, depth, omega, mmax, bc_bot):
         if wmodes[0, i] < 0:
             norm_constant = -1 * norm_constant
         F[:, i] = wmodes[:, i] / norm_constant
-        G[:, i] = cumtrapz(wmodes[:, i], z, initial=0) / norm_constant
+        G[:, i] = np.gradient(wmodes[:, i], z) / norm_constant
+        # G[:, i] = cumtrapz(wmodes[:, i], z, initial=0) / norm_constant
 
     return G, F, c, norm_constant
 
