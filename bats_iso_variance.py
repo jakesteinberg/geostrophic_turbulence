@@ -1,7 +1,9 @@
 # BATS
 # take velocity and displacement profiles and compute energy spectra / explore mode amplitude variability
 import numpy as np
+import matplotlib
 import matplotlib.pyplot as plt
+from mpl_toolkits.axes_grid1 import make_axes_locatable
 import gsw
 import seawater as sw
 import pandas as pd
@@ -93,6 +95,48 @@ V = bats_trans['V'][0:sz_g, :]
 prof_lon = bats_trans['V_lon']
 prof_lat = bats_trans['V_lat']
 
+# ---- PLAN VIEW REFERENCE
+# bathymetry
+bath = '/Users/jake/Desktop/bats/bats_bathymetry/GEBCO_2014_2D_-67.7_29.8_-59.9_34.8.nc'
+bath_fid = Dataset(bath, 'r')
+bath_lon = bath_fid.variables['lon'][:]
+bath_lat = bath_fid.variables['lat'][:]
+bath_z = bath_fid.variables['elevation'][:]
+levels = [-5250, -5000, -4750, -4500, -4250, -4000, -3500, -3000, -2500, -2000, -1500, -1000, -500, 0]
+fig0, ax0 = plt.subplots()
+cmap = plt.cm.get_cmap("Blues_r")
+cmap.set_over('#808000')  # ('#E6E6E6')
+bc = ax0.contourf(bath_lon, bath_lat, bath_z, levels, cmap='Blues_r', extend='both', zorder=0)
+matplotlib.rcParams['contour.negative_linestyle'] = 'solid'
+bcl = ax0.contour(bath_lon, bath_lat, bath_z, [-4500, -4000], colors='k', zorder=0)
+ml = [(-65, 31.5), (-64.4, 32.435)]
+ax0.clabel(bcl, manual=ml, inline_spacing=-3, fmt='%1.0f', colors='k')
+ax0.plot(df_lon, df_lat, color='#DAA520', linewidth=2)
+ax0.plot(df_lon.iloc[:, -1], df_lat.iloc[:, -1], color='#DAA520',
+                label='Dives (' + str(int(profile_list[0])) + '-' + str(int(profile_list[-2])) + ')', zorder=1)
+ax0.plot([-64.8, -63.59], [31.2, 31.2], color='w', zorder=2)
+ax0.text(-64.3, 31.1, '115km', color='w', fontsize=12, fontweight='bold')
+ax0.scatter(-(64 + (10 / 60)), 31 + (40 / 60), s=50, color='#E6E6FA', edgecolors='k', zorder=3)
+ax0.scatter(-(64 + (10 / 60)), 31 + (40 / 60), s=50, color='#E6E6FA', edgecolors='k', zorder=4)
+ax0.text(-(64 + (10 / 60)) + .05, 31 + (40 / 60) - .07, 'Sta. BATS', color='w', fontsize=12, fontweight='bold')
+w = 1 / np.cos(np.deg2rad(ref_lat))
+ax0.axis([-66, -63, 31, 33])
+ax0.set_aspect(w)
+divider = make_axes_locatable(ax0)
+cax = divider.append_axes("right", size="5%", pad=0.05)
+fig0.colorbar(bc, cax=cax, label='[m]')
+ax0.set_xlabel('Longitude', fontsize=14)
+ax0.set_ylabel('Latitude', fontsize=14)
+t_s = datetime.date.fromordinal(np.int(np.min(time_rec_all)))
+t_e = datetime.date.fromordinal(np.int(np.max(time_rec_all)))
+handles, labels = ax0.get_legend_handles_labels()
+ax0.legend(handles, labels, fontsize=10)
+ax0.set_title('Deepglider BATS Deployment: ' + np.str(t_s.month) + '/' + np.str(t_s.day) + '/' + np.str(
+    t_s.year) + ' - ' + np.str(t_e.month) + '/' + np.str(t_e.day) + '/' + np.str(t_e.year), fontsize=14)
+plt.tight_layout()
+ax0.grid()
+plot_pro(ax0)
+
 # average background properties of profiles along these transects 
 sigma_theta_avg = df_den.mean(axis=1)
 ct_avg = df_ct.mean(axis=1)
@@ -104,7 +148,6 @@ N2 = np.nan * np.zeros(sigma_theta_avg.size)
 N2_old = np.nan * np.zeros(sigma_theta_avg.size)
 N2_old[1:] = np.squeeze(sw.bfrq(salin_avg, theta_avg, grid_p, lat=ref_lat)[0])
 N2[1:] = gsw.Nsquared(salin_avg, ct_avg, grid_p, lat=ref_lat)[0]
-
 lz = np.where(N2 < 0)
 N2[lz] = np.nan
 N2 = nanseg_interp(grid, N2)
@@ -116,8 +159,9 @@ N = np.sqrt(N2)
 
 # --- compute vertical mode shapes
 G, Gz, c = vertical_modes(N2, grid, omega, mmax)
+
 # --- compute alternate vertical modes
-bc_bot = 1  # 1 = flat, 2 = rough
+bc_bot = 2  # 1 = flat, 2 = rough
 grid2 = np.concatenate([np.arange(0, 150, 10), np.arange(150, 300, 10), np.arange(300, 4500, 10)])
 n2_interp = np.interp(grid2, grid, N2)
 F_int_g2, F_g2, c_ff, norm_constant = vertical_modes_f(n2_interp, grid2, omega, mmax, bc_bot)
@@ -127,13 +171,13 @@ for i in range(mmax + 1):
     F[:, i] = np.interp(grid, grid2, F_g2[:, i])
     F_int[:, i] = np.interp(grid, grid2, F_int_g2[:, i])
 
-bc_bot = 2  # 1 = flat, 2 = rough
-F_int_g3, F_g3, c_ff3, norm_constant3 = vertical_modes_f(n2_interp, grid2, omega, mmax, bc_bot)
-F_2 = np.nan * np.ones(G.shape)
-F_int_2 = np.nan * np.ones(G.shape)
-for i in range(mmax + 1):
-    F_2[:, i] = np.interp(grid, grid2, F_g3[:, i])
-    F_int_2[:, i] = np.interp(grid, grid2, F_int_g3[:, i])
+# bc_bot = 2  # 1 = flat, 2 = rough
+# F_int_g3, F_g3, c_ff3, norm_constant3 = vertical_modes_f(n2_interp, grid2, omega, mmax, bc_bot)
+# F_2 = np.nan * np.ones(G.shape)
+# F_int_2 = np.nan * np.ones(G.shape)
+# for i in range(mmax + 1):
+#     F_2[:, i] = np.interp(grid, grid2, F_g3[:, i])
+#     F_int_2[:, i] = np.interp(grid, grid2, F_int_g3[:, i])
 
 # select only velocity profiles that seem reasonable
 good = np.zeros(np.size(Time))
@@ -326,13 +370,13 @@ if plot_v_struct > 0:
         ax2.plot(V_Uzqa[:, i], grid_check, label=r'PEV$_{' + str(i + 1) + '}$ = ' + str(100 * np.round(PEV[i], 3)))
         ax3.plot(F[:, i], grid, label='Mode' + str(i))
         ax3.plot(Gz[:, i], grid, c='k', linestyle='--', linewidth=0.5)
-        # if i < 1:
-        #     ax4.plot(F_int[:, i] + np.nanmax(np.abs(F_int[:, i])), grid)
-        # else:
-        #     ax4.plot(F_int[:, i], grid)
+        if i < 1:
+            ax4.plot(F_int[:, i] + np.nanmax(np.abs(F_int[:, i])), grid)
+        else:
+            ax4.plot(F_int[:, i], grid)
         # ax4.plot(G[:, i], grid, c='k', linestyle='--', linewidth=0.5)
-        ax4.plot(Gz[:, i], grid, c='k', linestyle='--', linewidth=0.5)
-        ax4.plot(F_2[:, i], grid, label='Mode' + str(i))
+        # ax4.plot(Gz[:, i], grid, c='k', linestyle='--', linewidth=0.5)
+        # ax4.plot(F_2[:, i], grid, label='Mode' + str(i))
     handles, labels = ax2.get_legend_handles_labels()
     ax2.legend(handles, labels, fontsize=10)
     ax.axis([-.3, .3, 0, 4800])
@@ -345,14 +389,14 @@ if plot_v_struct > 0:
     handles, labels = ax3.get_legend_handles_labels()
     ax3.legend(handles, labels, fontsize=10)
     ax3.axis([-5, 5, 0, 4800])
-    ax3.set_title('Vertical Structure of V F(z): BC1')
+    ax3.set_title('Vertical Structure of V F(z): BC' + str(bc_bot))
     ax3.set_xlabel('Mode Amplitude')
-    ax4.axis([-5, 5, 0, 4800])
-    ax4.set_title('Vertical Structure of V F(z): BC2')
-    ax4.set_xlabel('Mode Amplitude')
-    # ax4.axis([-3500, 3500, 0, 4800])
-    # ax4.set_title('Vertical Structure of Disp. G(z)')
+    # ax4.axis([-5, 5, 0, 4800])
+    # ax4.set_title('Vertical Structure of V F(z): BC2')
     # ax4.set_xlabel('Mode Amplitude')
+    # ax4.axis([-3500, 3500, 0, 4800])
+    ax4.set_title('Vertical Structure of Disp. G(z)')
+    ax4.set_xlabel('Mode Amplitude')
     ax.invert_yaxis()
     ax.grid()
     ax2.grid()
@@ -615,7 +659,7 @@ pkl_file = open('/Users/jake/Desktop/abaco/abaco_outputs_2.pkl', 'rb')
 abaco_energies = pickle.load(pkl_file)
 pkl_file.close()
 
-plot_eng = 1
+plot_eng = 0
 if plot_eng > 0:
     fig0, ax0 = plt.subplots()
     PE_p = ax0.plot(sc_x, avg_PE[1:] / dk, color='#B22222', label='APE', linewidth=2)
