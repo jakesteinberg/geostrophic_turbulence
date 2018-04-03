@@ -32,7 +32,7 @@ deep_shr_max_dep = 3500  # minimum depth for which shear is limited [m]
 plot_eta = 1
 
 # -------- LOAD IN MAPPING
-pkl_file = open('/Users/jake/Documents/geostrophic_turbulence/BATS_obj_map_1.pkl', 'rb')
+pkl_file = open('/Users/jake/Documents/geostrophic_turbulence/BATS_obj_map_L35.pkl', 'rb')
 bats_trans = pickle.load(pkl_file)
 pkl_file.close()
 itera = 10
@@ -42,7 +42,7 @@ U = np.transpose(bats_trans['U_g'][itera][:, 0:sz_g])
 V = np.transpose(bats_trans['V_g'][itera][:, 0:sz_g])
 
 # ---- LOAD IN TRANSECT TO PROFILE DATA COMPILED IN BATS_TRANSECTS.PY
-pkl_file = open('/Users/jake/Desktop/bats/dep15_transect_profiles_mar13.pkl', 'rb')
+pkl_file = open('/Users/jake/Desktop/bats/dep15_transect_profiles_mar30.pkl', 'rb')
 bats_trans = pickle.load(pkl_file)
 pkl_file.close()
 Time_t = bats_trans['Time']

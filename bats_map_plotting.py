@@ -62,7 +62,7 @@ dac_u[dac_u < -500] = np.nan
 dac_v[dac_v < -500] = np.nan
 
 # -------------- LOAD IN MAPPED U/V, AND DENSITY
-pkl_file = open('/Users/jake/Documents/geostrophic_turbulence/BATS_obj_map_2.pkl', 'rb')
+pkl_file = open('/Users/jake/Documents/geostrophic_turbulence/BATS_obj_map_L35.pkl', 'rb')   # _2
 bats_map = pickle.load(pkl_file)
 pkl_file.close()
 Time = bats_map['time']
@@ -252,18 +252,30 @@ for i in range(9):
     im = ax[axl1[i], axl2[i]].pcolor(x1, y1, sig_th_i[this_t, :, :], vmin=np.nanmin(sig_th_i[this_t, :, :]),
                                      vmax=np.nanmax(sig_th_i[this_t, :, :]), cmap=cmp)
     ax[axl1[i], axl2[i]].contour(x1, y1, sig_th_i[this_t, :, :], colors='k')
-    ax[axl1[i], axl2[i]].quiver(x1, y1, U_i[this_t, :, :], V_i[this_t, :, :], color='w', label='Mapped Velocity')
-    ax[axl1[i], axl2[i]].scatter(this_x_all, this_y_all, s=10, color='k', label='DG dives')
+    ax[axl1[i], axl2[i]].quiver(x1, y1, U_i[this_t, :, :], V_i[this_t, :, :], color='w',
+                                label='Mapped Velocity', scale=1.2)
+    ax[axl1[i], axl2[i]].scatter(this_x_all, this_y_all, s=6.5, color='k', label='DG dives')
     for j in range(len(profs)):
         ax[axl1[i], axl2[i]].text(dive_pos_x[j] + 2, dive_pos_y[j], str(profs[j]), color='r',
                                   fontsize=6, fontweight='bold')
-    ax[axl1[i], axl2[i]].set_xlabel('X distance [km]', fontsize=10)
-    ax[axl1[i], axl2[i]].set_ylabel('Y distance [km]', fontsize=10)
     ax[axl1[i], axl2[i]].set_title(
-        'Density at ' + str(grid[test_lev]) + 'm ' + '(' + str(t_s) + ' - ' + str(t_e) + ')', fontsize=10)
-    handles, labels = ax[axl1[i], axl2[i]].get_legend_handles_labels()
-    ax[axl1[i], axl2[i]].legend(handles, labels, fontsize=6)
-    plt.colorbar(im, ax=ax[axl1[i], axl2[i]], orientation='horizontal')
+        str(grid[test_lev]) + 'm ' + '(' + str(t_s) + ' - ' + str(t_e) + ')', fontsize=10)
+    if i < 1:
+        handles, labels = ax[axl1[i], axl2[i]].get_legend_handles_labels()
+        ax[axl1[i], axl2[i]].legend(handles, labels, fontsize=10)
+    if i < 1:
+        ax[axl1[i], axl2[i]].set_ylabel('Y distance [km]', fontsize=10)
+    if (i > 2) & (i < 4):
+        ax[axl1[i], axl2[i]].set_ylabel('Y distance [km]', fontsize=10)
+    if (i > 5) & (i < 7):
+        ax[axl1[i], axl2[i]].set_ylabel('Y distance [km]', fontsize=10)
+    if i >= 6:
+        ax[axl1[i], axl2[i]].set_xlabel('X distance [km]', fontsize=10)
+    # plt.colorbar(im, ax=ax[axl1[i], axl2[i]], orientation='horizontal')
+    f.subplots_adjust(right=0.8)
+    cbar_ax = f.add_axes([0.85, 0.15, 0.03, 0.7])
+    f.colorbar(im, cax=cbar_ax)
+
     ax[axl1[i], axl2[i]].grid()
 ax[axl1[i], axl2[i]].grid()
 plot_pro(ax[axl1[i], axl2[i]])

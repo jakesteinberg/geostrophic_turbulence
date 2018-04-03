@@ -13,7 +13,7 @@ from scipy.integrate import cumtrapz
 import seaborn as sns
 import pickle
 # functions I've written
-from toolkit import cart2pol, pol2cart, plot_pro
+from toolkit import cart2pol, pol2cart, plot_pro, find_nearest
 
 # ------ Plot plan view of station BATS and glider sampling pattern for 2015
 # -- bathymetry
@@ -51,7 +51,8 @@ GD = Dataset('BATs_2015_gridded.nc', 'r')
 g14 = 0  # toggle to select 2014 or 2015
 df_den = pd.DataFrame(GD['Density'][:], index=GD['grid'][:], columns=GD['dive_list'])
 df_theta = pd.DataFrame(GD['Theta'][:], index=GD['grid'][:], columns=GD['dive_list'])
-df_s = pd.DataFrame(GD['Salinity'][:], index=GD['grid'][:], columns=GD['dive_list'])
+df_ct = pd.DataFrame(GD['Conservative Temperature'][:], index=GD['grid'][:], columns=GD['dive_list'])
+df_s = pd.DataFrame(GD['Absolute Salinity'][:], index=GD['grid'][:], columns=GD['dive_list'])
 df_lon = pd.DataFrame(GD['Longitude'][:], index=GD['grid'][:], columns=GD['dive_list'])
 df_lat = pd.DataFrame(GD['Latitude'][:], index=GD['grid'][:], columns=GD['dive_list'])
 dac_u = GD.variables['DAC_u'][:]
@@ -62,11 +63,30 @@ profile_list = np.float64(GD.variables['dive_list'][:]) - 35000
 
 df_den[df_den < 0] = np.nan
 df_theta[df_theta < 0] = np.nan
+df_ct[df_ct < 0] = np.nan
 df_s[df_s < 0] = np.nan
 df_lon[df_lon < -500] = np.nan
 df_lat[df_lat < -500] = np.nan
 dac_u[dac_u < -500] = np.nan
 dac_v[dac_v < -500] = np.nan
+
+# --- AVERAGE background density as a function of time ------
+# - 3 background profiles (spring, summer, fall)
+Time_order = time_sta_sto[time_sta_sto.argsort()]
+T_0 = time_sta_sto.min()
+T_1 = Time_order[100]  # MAY 1
+T_2 = Time_order[243]  # SEPT 1
+T_3 = time_sta_sto.max()
+T_A = np.array([T_0 + 0.5 * (T_1 - T_0), T_1 + 0.5 * (T_2 - T_1), T_2 + 0.5 * (T_3 - T_2)])
+sigma_theta_A1 = np.nanmean(df_den.iloc[:, (time_sta_sto > T_0) & (time_sta_sto < T_1)], axis=1)
+sigma_theta_A2 = np.nanmean(df_den.iloc[:, (time_sta_sto > T_1) & (time_sta_sto < T_2)], axis=1)
+sigma_theta_A3 = np.nanmean(df_den.iloc[:, (time_sta_sto > T_2) & (time_sta_sto < T_3)], axis=1)
+ST_A = np.concatenate([sigma_theta_A1[:, np.newaxis], sigma_theta_A2[:, np.newaxis], sigma_theta_A3[:, np.newaxis]],
+                      axis=1)
+CT_A1 = np.nanmean(df_ct.iloc[:, (time_sta_sto > T_0) & (time_sta_sto < T_1)], axis=1)
+CT_A2 = np.nanmean(df_ct.iloc[:, (time_sta_sto > T_1) & (time_sta_sto < T_2)], axis=1)
+CT_A3 = np.nanmean(df_ct.iloc[:, (time_sta_sto > T_2) & (time_sta_sto < T_3)], axis=1)
+CT_A = np.concatenate([CT_A1[:, np.newaxis], CT_A2[:, np.newaxis], CT_A3[:, np.newaxis]], axis=1)
 
 # ---------------------------------------------
 # CHECK IF DIVE WAS NOT NORMAL (I.E. DID NOT COVER PROPER DISTANCE)
@@ -82,6 +102,7 @@ for i in dive_cycle:
 ok = np.where(dis > 3)[0]
 df_den = df_den.iloc[:, ok]
 df_theta = df_theta.iloc[:, ok]
+df_ct = df_ct.iloc[:, ok]
 df_s = df_s.iloc[:, ok]
 df_lon = df_lon.iloc[:, ok]
 df_lat = df_lat.iloc[:, ok]
@@ -150,6 +171,7 @@ target = np.array([[5, 7], [1, 3], [11, 13], [7, 9]])
 N2_out = np.ones((np.size(grid), 2))
 Eta = []
 Eta_theta = []
+Eta_ct = []
 V = []
 vel_lon = []
 vel_lat = []
@@ -213,17 +235,18 @@ for main in range(4):
     target_mask = np.where((target_rec > targ_low) & (target_rec < targ_high))
     df_den_in = df_den.iloc[:, target_mask[0]]
     df_t_in = df_theta.iloc[:, target_mask[0]]
+    df_ct_in = df_ct.iloc[:, target_mask[0]]
     df_s_in = df_s.iloc[:, target_mask[0]]
     df_lon_in = df_lon.iloc[:, target_mask[0]]
     df_lat_in = df_lat.iloc[:, target_mask[0]]
     time_in = time_sta_sto[target_mask[0]]
 
     # average background properties of profiles along these transects (average for all dives along this transect )
-    sigma_theta_avg = np.array(np.nanmean(df_den_in, 1))
-    theta_avg = np.array(np.nanmean(df_t_in, 1))
-    salin_avg = np.array(np.nanmean(df_s_in, 1))
-    ddz_avg_sigma = np.gradient(sigma_theta_avg, z)
-    ddz_avg_theta = np.gradient(theta_avg, z)
+    sigma_theta_avg_0 = np.array(np.nanmean(df_den_in, 1))
+    theta_avg_0 = np.array(np.nanmean(df_t_in, 1))
+
+    ddz_avg_sigma_0 = np.gradient(sigma_theta_avg_0, z)
+    ddz_avg_theta = np.gradient(theta_avg_0, z)
 
     # PREPARE FOR TRANSECT ANALYSIS 
     # dive list to consider
@@ -287,8 +310,17 @@ for main in range(4):
         this_set_time = time_out[ii]
         df_den_set = df_den_in[this_set]
         df_theta_set = df_t_in[this_set]
+        df_ct_set = df_ct_in[this_set]
         df_lon_set = df_lon_in[this_set]
         df_lat_set = df_lat_in[this_set]
+
+        # relevant background profile
+        this_t_mean = np.nanmean(this_set_time)
+        nearest_background = find_nearest(T_A, this_t_mean)
+        sigma_theta_avg = ST_A[:, nearest_background[0]]
+        ddz_avg_sigma = np.gradient(sigma_theta_avg, z)
+        ct_avg = CT_A[:, nearest_background[0]]
+        ddz_avg_ct = np.gradient(ct_avg, z)
 
         # total number of dive cycles within this transect 
         dive_cycs = np.unique(np.floor(this_set))
@@ -417,6 +449,7 @@ for main in range(4):
                     lon_pa_M[j] = np.nanmean(df_lon_set.iloc[j, c_i_m])  # avg lat/lon across M/W profiles
                     lat_pa_M[j] = np.nanmean(df_lat_set.iloc[j, c_i_m])
                     thetaM = df_theta_set.iloc[j, c_i_m]
+                    ctM = df_ct_set.iloc[j, c_i_m]
                     imv = ~np.isnan(np.array(df_den_set.iloc[j, c_i_m]))
                     c_i_m_in = c_i_m[imv]
 
@@ -437,10 +470,13 @@ for main in range(4):
                         shearM[j] = -g * drhodatM / (rho0 * f_m)  # shear to port of track [m/s/km]
                         if (np.abs(shearM[j]) > deep_shr_max) and grid[j] >= deep_shr_max_dep:
                             shearM[j] = np.sign(shearM[j]) * deep_shr_max
-                        etaM[j] = (sigma_theta_avg[j] - np.nanmean(sigmathetaM[imv])) / ddz_avg_sigma[j]
-                        # etaM[j] = (sigma_theta_avg[j] - df_den_set.iloc[j, i]) / ddz_avg_sigma[
-                        #     j]  # j = depth, i = profile index
-                        eta_thetaM[j] = (theta_avg[j] - np.nanmean(thetaM[imv])) / ddz_avg_theta[j]
+                        # --- Computation of Eta
+                        # -- isopycnal position is average position of a few dives
+                        # etaM[j] = (sigma_theta_avg[j] - np.nanmean(sigmathetaM[imv])) / ddz_avg_sigma[j]
+                        # eta_thetaM[j] = (theta_avg[j] - np.nanmean(thetaM[imv])) / ddz_avg_theta[j]
+                        # -- isopycnal position is position on this single profile
+                        etaM[j] = (sigma_theta_avg[j] - df_den_set.iloc[j, i]) / ddz_avg_sigma[j]  # j=dp, i=prof_ind
+                        eta_thetaM[j] = (ct_avg[j] - df_ct_set.iloc[j, i]) / ddz_avg_ct[j]
 
                 # for W profile compute shear and eta 
                 if nw > 2 and np.size(df_den_set.iloc[j, c_i_w]) > 2:
@@ -449,6 +485,7 @@ for main in range(4):
                     lon_pa_W[j] = np.nanmean(df_lon_set.iloc[j, c_i_w])  # avg lat/lon across M/W profiles
                     lat_pa_W[j] = np.nanmean(df_lat_set.iloc[j, c_i_w])
                     thetaW = df_theta_set.iloc[j, c_i_w]
+                    ctW = df_theta_set.iloc[j, c_i_w]
                     iwv = ~np.isnan(np.array(df_den_set.iloc[j, c_i_w]))
                     c_i_w_in = c_i_w[iwv]
 
@@ -469,9 +506,13 @@ for main in range(4):
                         shearW[j] = -g * drhodatW / (rho0 * f_w)  # shear to port of track [m/s/km]
                         if (np.abs(shearW[j]) > deep_shr_max) and grid[j] >= deep_shr_max_dep:
                             shearW[j] = np.sign(shearW[j]) * deep_shr_max
-                        etaW[j] = (sigma_theta_avg[j] - np.nanmean(sigmathetaW[iwv])) / ddz_avg_sigma[j]
-                        # etaW[j] = (sigma_theta_avg[j] - df_den_set.iloc[j, i]) / ddz_avg_sigma[j]
-                        eta_thetaW[j] = (theta_avg[j] - np.nanmean(thetaW[iwv])) / ddz_avg_theta[j]
+                        # --- Computation of Eta
+                        # -- isopycnal position is average position of a few dives
+                        # etaW[j] = (sigma_theta_avg[j] - np.nanmean(sigmathetaW[iwv])) / ddz_avg_sigma[j]
+                        # eta_thetaW[j] = (theta_avg[j] - np.nanmean(thetaW[iwv])) / ddz_avg_theta[j]
+                        # -- isopycnal position is position on this single profile
+                        etaW[j] = (sigma_theta_avg[j] - df_den_set.iloc[j, i]) / ddz_avg_sigma[j]
+                        eta_thetaW[j] = (ct_avg[j] - df_ct_set.iloc[j, i]) / ddz_avg_ct[j]
                 # END LOOP OVER EACH BIN_DEPTH
 
             # OUTPUT FOR EACH TRANSECT (at least 2 DIVES)
@@ -613,7 +654,7 @@ sa = 1
 if sa > 0:
     mydict = {'bin_depth': grid, 'Sigma_Theta': Sigma_Theta_f, 'Eta': Eta, 'Eta_theta': Eta_theta, 'V': V,
               'V_lon': vel_lon, 'V_lat': vel_lat, 'Time': Time, 'Info': Info}
-    output = open('/Users/jake/Desktop/bats/dep15_transect_profiles_mar23.pkl', 'wb')
+    output = open('/Users/jake/Desktop/bats/dep15_transect_profiles_mar30.pkl', 'wb')
     pickle.dump(mydict, output)
     output.close()
 

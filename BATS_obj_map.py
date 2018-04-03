@@ -147,8 +147,8 @@ if compute_cor > 0:
 # --------------------------------------------------
 
 # Parameters for objective mapping
-Lx = 40000
-Ly = 40000
+Lx = 35000
+Ly = 35000
 lon_grid = np.arange(-64.7, -63.55, .05, dtype=np.float)
 lat_grid = np.arange(31.3, 32.0, .05, dtype=np.float)
 x_grid = 1852 * 60 * np.cos(np.deg2rad(ref_lat)) * (lon_grid - ref_lon)
@@ -382,6 +382,7 @@ for k0 in range(np.size(sample_win)):
 
     time_out.append(t_bin[k_out, :])
     good_mask.append(good_prof)
+    print(str(k0))
 
 # --- END LOOPING OVER EACH TIME WINDOW
 
@@ -395,7 +396,7 @@ if sa > 0:
               'Sigma_Theta_All': sigma_theta_all, 'U_g_All': U_all, 'V_g_All': V_all, 'lon_grid_All': lon_all,
               'lat_grid_All': lat_all, 'mask': good_mask, 'dac_u_map': DAC_U_M, 'dac_v_map': DAC_V_M,
               'd_sigma_dx': d_dx_sigma, 'd_sigma_dy': d_dy_sigma}
-    output = open('/Users/jake/Documents/geostrophic_turbulence/BATS_obj_map_2.pkl', 'wb')
+    output = open('/Users/jake/Documents/geostrophic_turbulence/BATS_obj_map_L35.pkl', 'wb')
     pickle.dump(mydict, output)
     output.close()
 
