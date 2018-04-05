@@ -3,7 +3,6 @@ import numpy as np
 from scipy.io import netcdf
 from toolkit import is_number
 import glob
-import seawater as sw
 import gsw
 
 # --- gliders
@@ -13,19 +12,28 @@ dg_list = glob.glob('/Users/jake/Documents/baroclinic_modes/DG/sg035_BATS_2015/p
 ref_lat = 31.8
 
 # choose bin_depth increment
-bin_depth = np.concatenate([np.arange(0, 150, 10), np.arange(150, 300, 10), np.arange(300, 5000, 20)])
-grid = bin_depth[1:-1]
-grid_p = sw.pres(grid, ref_lat)
+bin_depth = np.concatenate([np.arange(0, 150, 10), np.arange(150, 300, 10), np.arange(300, 4500, 20)])
+bin_depth[0] = 5
+grid = bin_depth
 grid_p = gsw.p_from_z(-1*grid, ref_lat)
 
 theta_g, ct_g, sa_g, sig0_g, lon_g, lat_g, dac_u, dac_v, time_rec, time_sta_sto, targ_rec, gps_rec, dive_list = collect_dives(
     dg_list, bin_depth, grid_p, ref_lat)
 
+" note: time_rec is the median time for each profile while time_sta_sto is the earliest time on the dive profile" \
+"and the latest time on the climb profile"
+
+theta_g[theta_g < 0] = -999
 theta_g[np.isnan(theta_g)] = -999
+ct_g[ct_g < 0] = -999
 ct_g[np.isnan(ct_g)] = -999
+sa_g[sa_g < 0] = -999
 sa_g[np.isnan(sa_g)] = -999
+sig0_g[sig0_g < 0] = -999
 sig0_g[np.isnan(sig0_g)] = -999
+lon_g[lon_g < -360] = -999
 lon_g[np.isnan(lon_g)] = -999
+lat_g[lat_g < 0] = -999
 lat_g[np.isnan(lat_g)] = -999
 dac_u[np.isnan(dac_u)] = -999
 dac_v[np.isnan(dac_v)] = -999
@@ -39,7 +47,7 @@ for i in range(len(targ_rec)):
     else:
         targ_rec_o[i] = np.nan
 
-f = netcdf.netcdf_file('BATs_2015_gridded.nc', 'w')
+f = netcdf.netcdf_file('BATs_2015_gridded_apr04.nc', 'w')
 f.history = 'DG 2015 dives; have been gridded vertically and separated into dive and climb cycles'
 f.createDimension('grid', np.size(grid))
 f.createDimension('lat_lon', 4)

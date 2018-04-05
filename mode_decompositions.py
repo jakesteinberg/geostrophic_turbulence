@@ -63,6 +63,7 @@ def vertical_modes(N2_0, Depth, omega, mmax):
     for i in range(m):
         dw_dz = np.gradient(wmodes[:, i], z)
         norm_constant = np.sqrt(np.trapz(dw_dz * dw_dz, z) / z[-1])
+        # norm_constant = np.abs(np.trapz(dw_dz * dw_dz, z) / Depth.max())
         if dw_dz[0] < 0:
             norm_constant = -1 * norm_constant
         Gz[:, i] = dw_dz / norm_constant

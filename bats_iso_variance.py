@@ -21,13 +21,17 @@ from toolkit import nanseg_interp, plot_pro
 g = 9.81
 rho0 = 1027
 # limit bin depth to 4500 (to prevent fitting of velocity profiles past points at which we have data) (previous = 5000)
-bin_depth = np.concatenate([np.arange(0, 150, 10), np.arange(150, 300, 10), np.arange(300, 4500, 20)])
-ref_lat = 31.8
-ref_lon = -64.2
-lat_in = 31.7
-lon_in = 64.2
-grid = bin_depth[1:-1]
-grid_p = gsw.p_from_z(-1 * grid, lat_in)
+#  bin_depth = np.concatenate([np.arange(0, 150, 10), np.arange(150, 300, 10), np.arange(300, 4500, 20)])
+GD = Dataset('BATs_2015_gridded_apr04.nc', 'r')
+bin_depth = GD.variables['grid'][:]
+df_lon = pd.DataFrame(GD['Longitude'][:], index=GD['grid'][:], columns=GD['dive_list'][:])
+df_lat = pd.DataFrame(GD['Latitude'][:], index=GD['grid'][:], columns=GD['dive_list'][:])
+df_lon[df_lon < -500] = np.nan
+df_lat[df_lat < -500] = np.nan
+ref_lon = np.nanmean(df_lon)
+ref_lat = np.nanmean(df_lat)
+grid = bin_depth
+grid_p = gsw.p_from_z(-1 * grid, ref_lat)
 z = -1 * grid
 sz_g = grid.shape[0]
 # MODE PARAMETERS
@@ -42,13 +46,10 @@ deep_shr_max = 0.1
 deep_shr_max_dep = 3500
 
 # --- LOAD gridded dives (gridded dives)
-GD = Dataset('BATs_2015_gridded.nc', 'r')
 df_den = pd.DataFrame(GD['Density'][0:sz_g, :], index=GD['grid'][0:sz_g], columns=GD['dive_list'][:])
 df_theta = pd.DataFrame(GD['Theta'][0:sz_g, :], index=GD['grid'][0:sz_g], columns=GD['dive_list'][:])
 df_ct = pd.DataFrame(GD['Conservative Temperature'][0:sz_g, :], index=GD['grid'][0:sz_g], columns=GD['dive_list'][:])
 df_s = pd.DataFrame(GD['Absolute Salinity'][0:sz_g, :], index=GD['grid'][0:sz_g], columns=GD['dive_list'][:])
-df_lon = pd.DataFrame(GD['Longitude'][0:sz_g, :], index=GD['grid'][0:sz_g], columns=GD['dive_list'][:])
-df_lat = pd.DataFrame(GD['Latitude'][0:sz_g, :], index=GD['grid'][0:sz_g], columns=GD['dive_list'][:])
 dac_u = GD.variables['DAC_u'][:]
 dac_v = GD.variables['DAC_v'][:]
 time_rec = GD.variables['time_start_stop'][:]
@@ -58,8 +59,6 @@ df_den[df_den < 0] = np.nan
 df_theta[df_theta < 0] = np.nan
 df_ct[df_ct < 0] = np.nan
 df_s[df_s < 0] = np.nan
-df_lon[df_lon < -500] = np.nan
-df_lat[df_lat < -500] = np.nan
 dac_u[dac_u < -500] = np.nan
 dac_v[dac_v < -500] = np.nan
 
@@ -83,7 +82,7 @@ dac_v[dac_v < -500] = np.nan
 # ---- LOAD IN TRANSECT TO PROFILE DATA COMPILED IN BATS_TRANSECTS.PY
 # pkl_file = open('/Users/jake/Desktop/bats/transect_profiles_mar12_2.pkl', 'rb')
 # pkl_file = open('/Users/jake/Desktop/bats/dep15_transect_profiles_mar23.pkl', 'rb')
-pkl_file = open('/Users/jake/Desktop/bats/dep15_transect_profiles_mar30.pkl', 'rb')
+pkl_file = open('/Users/jake/Desktop/bats/dep15_transect_profiles_apr04.pkl', 'rb')
 bats_trans = pickle.load(pkl_file)
 pkl_file.close()
 Time = bats_trans['Time']
@@ -147,15 +146,15 @@ ddz_avg_theta = np.gradient(theta_avg, z)
 N2 = np.nan * np.zeros(sigma_theta_avg.size)
 N2_old = np.nan * np.zeros(sigma_theta_avg.size)
 N2_old[1:] = np.squeeze(sw.bfrq(salin_avg, theta_avg, grid_p, lat=ref_lat)[0])
-N2[1:] = gsw.Nsquared(salin_avg, ct_avg, grid_p, lat=ref_lat)[0]
-lz = np.where(N2 < 0)
-N2[lz] = np.nan
+N2[0:-1] = gsw.Nsquared(salin_avg, ct_avg, grid_p, lat=ref_lat)[0]
+N2[-2:] = N2[-3]
+N2[N2 < 0] = np.nan
 N2 = nanseg_interp(grid, N2)
 N = np.sqrt(N2)
 
-window_size = 25
-poly_order = 3
-N2 = savgol_filter(N2, window_size, poly_order)
+# window_size = 5
+# poly_order = 3
+# N2 = savgol_filter(N2, window_size, poly_order)
 
 # --- compute vertical mode shapes
 G, Gz, c = vertical_modes(N2, grid, omega, mmax)
@@ -179,6 +178,7 @@ for i in range(mmax + 1):
 #     F_2[:, i] = np.interp(grid, grid2, F_g3[:, i])
 #     F_int_2[:, i] = np.interp(grid, grid2, F_int_g3[:, i])
 
+# -- SOME VELOCITY PROFILES ARE TOO NOISY AND DEEMED UNTRUSTWORTHY
 # select only velocity profiles that seem reasonable
 good = np.zeros(np.size(Time))
 v_dz = np.zeros(np.shape(V))
@@ -186,6 +186,7 @@ for i in range(np.size(Time)):
     v_dz[20:-20, i] = np.gradient(V[20:-20, i], z[20:-20])
     if np.nanmax(np.abs(v_dz[:, i])) < 0.00125:  # 0.075
         good[i] = 1
+good[191] = 1
 # good0 = np.intersect1d(np.where((np.abs(V[-45, :]) < 0.2))[0], np.where((np.abs(V[10, :]) < 0.4))[0])
 # good = np.intersect1d(np.where(good_v > 0), good0)
 V2 = V[:, good > 0].copy()
@@ -290,12 +291,16 @@ ax3.plot(Eta2[:, 180], grid)
 ax3.plot(Eta_m[:, 180], grid, color='k', linestyle='--')
 ax3.axis([-600, 600, 0, 5000])
 ax3.invert_yaxis()
-ax4.plot(Eta2[:, 210], grid)
-ax4.plot(Eta_m[:, 210], grid, color='k', linestyle='--')
+ax4.plot(Eta2[:, 200], grid)
+ax4.plot(Eta_m[:, 200], grid, color='k', linestyle='--')
 ax4.axis([-600, 600, 0, 5000])
 ax4.invert_yaxis()
 plot_pro(ax4)
 
+# todo make sure the integral of the linear modes = 1
+# todo fraction of variance unexplained should be between each profile alpha*F(z) and EOF1?
+# todo make sure barotropic mode in KE is right
+# todo apply new gridded transects to mapping and compute KE as a function of u,v and then look at partition across modes and in depth
 sa = 0
 if sa > 0:
     mydict = {'bin_depth': grid, 'eta': Eta2, 'dg_v': V2}

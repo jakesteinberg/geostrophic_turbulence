@@ -1,6 +1,7 @@
 import numpy as np
 from netCDF4 import Dataset
 import seawater as sw
+from toolkit import find_nearest
 import gsw
 
 
@@ -16,40 +17,59 @@ def make_bin_gen(bin_depth, depth_d, temp_d, salin_d):
         if dp_in_d.size > 2:
             temp_g_dive[i] = np.nanmean(temp_d[dp_in_d])
             salin_g_dive[i] = np.nanmean(salin_d[dp_in_d])
-    return (temp_g_dive, salin_g_dive)
+    return temp_g_dive, salin_g_dive
 
 
 def make_bin(bin_depth, depth_d, depth_c, temp_d, temp_c, salin_d, salin_c, x_g_d, x_g_c, y_g_d, y_g_c):
-    bin_up = bin_depth[0:-2]
-    bin_down = bin_depth[2:]
-    bin_cen = bin_depth[1:-1]
-    temp_g_dive = np.empty(np.size(bin_cen))
-    temp_g_climb = np.empty(np.size(bin_cen))
-    salin_g_dive = np.empty(np.size(bin_cen))
-    salin_g_climb = np.empty(np.size(bin_cen))
-    x_g_dive = np.empty(np.size(bin_cen))
-    x_g_climb = np.empty(np.size(bin_cen))
-    y_g_dive = np.empty(np.size(bin_cen))
-    y_g_climb = np.empty(np.size(bin_cen))
-    for i in range(np.size(bin_cen)):
-        dp_in_d = (depth_d > bin_up[i]) & (depth_d < bin_down[i])
-        dp_in_c = (depth_c > bin_up[i]) & (depth_c < bin_down[i])
+    # max depth attained
+    dep_max = np.round(np.max([depth_d.max(), depth_c.max()]))
+    deepest_bin = find_nearest(bin_depth, dep_max)[0]
 
-        if dp_in_d.size > 2:
+    bin_up = bin_depth[0:(deepest_bin - 1)]
+    bin_down = bin_depth[2:(deepest_bin + 1)]
+    bin_cen = bin_depth[1:deepest_bin]
+    temp_g_dive = -999*np.ones(np.size(bin_depth))
+    temp_g_climb = -999*np.ones(np.size(bin_depth))
+    salin_g_dive = -999*np.ones(np.size(bin_depth))
+    salin_g_climb = -999*np.ones(np.size(bin_depth))
+    x_g_dive = -999*np.ones(np.size(bin_depth))
+    x_g_climb = -999*np.ones(np.size(bin_depth))
+    y_g_dive = -999*np.ones(np.size(bin_depth))
+    y_g_climb = -999*np.ones(np.size(bin_depth))
+    # -- Case z = 0
+    dp_in_d_1 = depth_d < bin_cen[0]
+    dp_in_c_1 = depth_c < bin_cen[0]
+    if np.sum(dp_in_d_1) >= 2:
+        temp_g_dive[0] = np.nanmean(temp_d[dp_in_d_1])
+        salin_g_dive[0] = np.nanmean(salin_d[dp_in_d_1])
+        x_g_dive[0] = np.nanmean(x_g_d[dp_in_d_1]) / 1000
+        y_g_dive[0] = np.nanmean(y_g_d[dp_in_d_1]) / 1000
+    if np.sum(dp_in_c_1) >= 2:
+        temp_g_climb[0] = np.nanmean(temp_c[dp_in_c_1])
+        salin_g_climb[0] = np.nanmean(salin_c[dp_in_c_1])
+        x_g_climb[0] = np.nanmean(x_g_c[dp_in_c_1]) / 1000
+        y_g_climb[0] = np.nanmean(y_g_c[dp_in_c_1]) / 1000
+    # -- Case z > 0
+    for j in range(np.size(bin_cen)):
+        i = j + 1
+        dp_in_d = (depth_d > bin_up[j]) & (depth_d < bin_down[j])
+        dp_in_c = (depth_c > bin_up[j]) & (depth_c < bin_down[j])
+        if np.sum(dp_in_d) >= 2:
             temp_g_dive[i] = np.nanmean(temp_d[dp_in_d])
             salin_g_dive[i] = np.nanmean(salin_d[dp_in_d])
             x_g_dive[i] = np.nanmean(x_g_d[dp_in_d]) / 1000
             y_g_dive[i] = np.nanmean(y_g_d[dp_in_d]) / 1000
-        if dp_in_c.size > 2:
+        if np.sum(dp_in_c) >= 2:
             temp_g_climb[i] = np.nanmean(temp_c[dp_in_c])
             salin_g_climb[i] = np.nanmean(salin_c[dp_in_c])
             x_g_climb[i] = np.nanmean(x_g_c[dp_in_c]) / 1000
             y_g_climb[i] = np.nanmean(y_g_c[dp_in_c]) / 1000
-    return (temp_g_dive, temp_g_climb, salin_g_dive, salin_g_climb, x_g_dive, x_g_climb, y_g_dive, y_g_climb)
+
+    return temp_g_dive, temp_g_climb, salin_g_dive, salin_g_climb, x_g_dive, x_g_climb, y_g_dive, y_g_climb
 
 
-def test_bin(A):
-    return (np.shape(A))
+def test_bin(a):
+    return np.shape(a)
 
 
 def collect_dives(dg_list, bin_depth, grid_p, ref_lat):
@@ -224,7 +244,7 @@ def collect_dives(dg_list, bin_depth, grid_p, ref_lat):
             dac_v = np.concatenate([dac_v, [dive_nc_file.variables['depth_avg_curr_north'][:]],
                                     [dive_nc_file.variables['depth_avg_curr_north'][:]]])
 
-        # interpolate (bin_average) to smooth and place T/S on vertical depth grid 
+        # interpolate (bin_average) to smooth and place T/S on vertical depth grid
         temp_grid_dive, temp_grid_climb, salin_grid_dive, salin_grid_climb, lon_grid_dive, lon_grid_climb, lat_grid_dive, lat_grid_climb = make_bin(
             bin_depth, depth[dive_mask], depth[climb_mask], temp[dive_mask], temp[climb_mask], salin[dive_mask],
             salin[climb_mask], lon[dive_mask] * 1000, lon[climb_mask] * 1000, lat[dive_mask] * 1000,

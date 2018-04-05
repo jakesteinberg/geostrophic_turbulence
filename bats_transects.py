@@ -28,33 +28,34 @@ bath_z = bath_fid.variables['elevation'][:]
 # ax.axis([np.min(bath_lon), np.max(bath_lon), -5250, 0])
 # plot_pro(ax)
 
-# physical parameters 
-g = 9.81
-rho0 = 1027
-bin_depth = np.concatenate([np.arange(0, 150, 10), np.arange(150, 300, 10), np.arange(300, 5000, 20)])
-ref_lat = 31.8
-lat_in = 31.7
-lon_in = 64.2
-grid = bin_depth[1:-1]
-grid_p = gsw.p_from_z(-1*grid, lat_in)
-z = -1 * grid
-deep_shr_max = 0.1
-deep_shr_max_dep = 3500
-
 # PLOTTING SWITCHES 
 plot_bath = 0
 plot_cross = 0
 
 # LOAD DATA (gridded dives)
-GD = Dataset('BATs_2015_gridded.nc', 'r')
+GD = Dataset('BATs_2015_gridded_apr04.nc', 'r')
 # GD = Dataset('BATs_2014_gridded.nc', 'r')
 g14 = 0  # toggle to select 2014 or 2015
-df_den = pd.DataFrame(GD['Density'][:], index=GD['grid'][:], columns=GD['dive_list'])
-df_theta = pd.DataFrame(GD['Theta'][:], index=GD['grid'][:], columns=GD['dive_list'])
-df_ct = pd.DataFrame(GD['Conservative Temperature'][:], index=GD['grid'][:], columns=GD['dive_list'])
-df_s = pd.DataFrame(GD['Absolute Salinity'][:], index=GD['grid'][:], columns=GD['dive_list'])
-df_lon = pd.DataFrame(GD['Longitude'][:], index=GD['grid'][:], columns=GD['dive_list'])
-df_lat = pd.DataFrame(GD['Latitude'][:], index=GD['grid'][:], columns=GD['dive_list'])
+
+# physical parameters
+g = 9.81
+rho0 = 1027
+bin_depth = GD.variables['grid'][:]
+df_lon = pd.DataFrame(GD['Longitude'][:], index=GD['grid'][:], columns=GD['dive_list'][:])
+df_lat = pd.DataFrame(GD['Latitude'][:], index=GD['grid'][:], columns=GD['dive_list'][:])
+"bin_depth = np.concatenate([np.arange(0, 150, 10), np.arange(150, 300, 10), np.arange(300, 5000, 20)])"
+ref_lat = np.nanmean(df_lat)
+grid = bin_depth
+grid_p = gsw.p_from_z(-1*grid, ref_lat)
+z = -1 * grid
+deep_shr_max = 0.1
+deep_shr_max_dep = 3500
+
+# -- continue LOADING
+df_den = pd.DataFrame(GD['Density'][:], index=GD['grid'][:], columns=GD['dive_list'][:])
+df_theta = pd.DataFrame(GD['Theta'][:], index=GD['grid'][:], columns=GD['dive_list'][:])
+df_ct = pd.DataFrame(GD['Conservative Temperature'][:], index=GD['grid'][:], columns=GD['dive_list'][:])
+df_s = pd.DataFrame(GD['Absolute Salinity'][:], index=GD['grid'][:], columns=GD['dive_list'][:])
 dac_u = GD.variables['DAC_u'][:]
 dac_v = GD.variables['DAC_v'][:]
 time_sta_sto = GD.variables['time_start_stop'][:]
@@ -654,7 +655,7 @@ sa = 1
 if sa > 0:
     mydict = {'bin_depth': grid, 'Sigma_Theta': Sigma_Theta_f, 'Eta': Eta, 'Eta_theta': Eta_theta, 'V': V,
               'V_lon': vel_lon, 'V_lat': vel_lat, 'Time': Time, 'Info': Info}
-    output = open('/Users/jake/Desktop/bats/dep15_transect_profiles_mar30.pkl', 'wb')
+    output = open('/Users/jake/Desktop/bats/dep15_transect_profiles_apr04.pkl', 'wb')
     pickle.dump(mydict, output)
     output.close()
 
