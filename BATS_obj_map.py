@@ -47,23 +47,27 @@ def createCorrelationMatrices(lon, lat, data_anom, data_sig, noise_sig, Lx, Ly):
 
 
 # START
+
+# LOAD DATA (gridded dives)
+GD = Dataset('BATs_2015_gridded_apr04.nc', 'r')
+bin_depth = GD.variables['grid'][:]
+profile_list = GD['dive_list'][:] - 35000
+df_den = pd.DataFrame(GD['Density'][:], index=GD['grid'][:], columns=GD['dive_list'][:])
+df_lon = pd.DataFrame(GD['Longitude'][:], index=GD['grid'][:], columns=GD['dive_list'][:])
+df_lat = pd.DataFrame(GD['Latitude'][:], index=GD['grid'][:], columns=GD['dive_list'][:])
+df_lon[df_lon < -500] = np.nan
+df_lat[df_lat < -500] = np.nan
+
 # physical parameters 
 g = 9.81
 rho0 = 1027
-bin_depth = np.concatenate([np.arange(0, 150, 10), np.arange(150, 300, 10), np.arange(300, 5000, 20)])
-ref_lat = 31.7
-ref_lon = -64.2
-lat_in = 31.7
-lon_in = 64.2
-grid = bin_depth[1:-1]
-grid_p = sw.pres(grid, lat_in)
+#  bin_depth = np.concatenate([np.arange(0, 150, 10), np.arange(150, 300, 10), np.arange(300, 5000, 20)])
+ref_lon = np.nanmean(df_lon)
+ref_lat = np.nanmean(df_lat)
+grid = bin_depth
+grid_p = sw.pres(grid, ref_lat)
 z = -1 * grid
 grid_2 = grid[0:214]
-
-# LOAD DATA (gridded dives)
-GD = Dataset('BATs_2015_gridded_3.nc', 'r')
-profile_list = GD['dive_list'][:] - 35000
-df_den = pd.DataFrame(GD['Density'][:], index=GD['grid'][:], columns=GD['dive_list'][:])
 
 # select only dives with depths greater than 4000m 
 grid_test = np.nan * np.zeros(len(profile_list))
@@ -72,10 +76,10 @@ for i in range(len(profile_list)):
 good = np.where(grid_test > 4000)[0]
 
 # load select profiles
-GD = Dataset('BATs_2015_gridded_3.nc', 'r')
 df_den = pd.DataFrame(GD['Density'][:, good], index=GD['grid'][:], columns=GD['dive_list'][good])
 df_theta = pd.DataFrame(GD['Theta'][:, good], index=GD['grid'][:], columns=GD['dive_list'][good])
-df_s = pd.DataFrame(GD['Salinity'][:, good], index=GD['grid'][:], columns=GD['dive_list'][good])
+df_ct = pd.DataFrame(GD['Conservative Temperature'][:, good], index=GD['grid'][:], columns=GD['dive_list'][good])
+df_s = pd.DataFrame(GD['Absolute Salinity'][:, good], index=GD['grid'][:], columns=GD['dive_list'][good])
 df_lon = pd.DataFrame(GD['Longitude'][:, good], index=GD['grid'][:], columns=GD['dive_list'][good])
 df_lat = pd.DataFrame(GD['Latitude'][:, good], index=GD['grid'][:], columns=GD['dive_list'][good])
 dac_u = GD.variables['DAC_u'][good]
@@ -84,9 +88,8 @@ time_rec = GD.variables['time_start_stop'][good]
 profile_list = np.float64(GD.variables['dive_list'][good]) - 35000
 df_den[df_den < 0] = np.nan
 df_theta[df_theta < 0] = np.nan
+df_ct[df_ct < 0] = np.nan
 df_s[df_s < 0] = np.nan
-df_lon[df_lon < -500] = np.nan
-df_lat[df_lat < -500] = np.nan
 dac_u[dac_u < -500] = np.nan
 dac_v[dac_v < -500] = np.nan
 
@@ -101,7 +104,7 @@ for i in range(len(profile_list)):
     df_lat.iloc[:, i] = fix_lat
 
 # extract DAC_U/V and lat/lon pos 
-ev_oth = range(0, int(len(dac_u)), 2)
+ev_oth = range(0, int(len(dac_u)-1), 2)
 count = 0
 dac_lon = np.nan * np.zeros(int(len(dac_u) / 2))
 dac_lat = np.nan * np.zeros(int(len(dac_u) / 2))
@@ -389,14 +392,14 @@ for k0 in range(np.size(sample_win)):
 
 # --- SAVE
 # write python dict to a file
-sa = 1
+sa = 0
 if sa > 0:
     mydict = {'depth': grid, 'Sigma_Theta': sigma_theta_out, 'U_g': U_out, 'V_g': V_out, 'lon_grid': lon_out,
               'lat_grid': lat_out, 'time': time_out,
               'Sigma_Theta_All': sigma_theta_all, 'U_g_All': U_all, 'V_g_All': V_all, 'lon_grid_All': lon_all,
               'lat_grid_All': lat_all, 'mask': good_mask, 'dac_u_map': DAC_U_M, 'dac_v_map': DAC_V_M,
               'd_sigma_dx': d_dx_sigma, 'd_sigma_dy': d_dy_sigma}
-    output = open('/Users/jake/Documents/geostrophic_turbulence/BATS_obj_map_L35.pkl', 'wb')
+    output = open('/Users/jake/Documents/geostrophic_turbulence/BATS_obj_map_L35_apr05.pkl', 'wb')
     pickle.dump(mydict, output)
     output.close()
 

@@ -30,7 +30,7 @@ bath_z = bath_fid.variables['elevation'][:]
 
 # PLOTTING SWITCHES 
 plot_bath = 0
-plot_cross = 0
+plot_cross = 1
 
 # LOAD DATA (gridded dives)
 GD = Dataset('BATs_2015_gridded_apr04.nc', 'r')
@@ -621,7 +621,7 @@ for main in range(4):
             plt.tight_layout()
             # plot_pro(ax0)
             ax0.grid()
-            fig0.savefig(('/Users/jake/Desktop/BATS/bats_transects/dg35_2015_BATS_TG' + str(
+            fig0.savefig(('/Users/jake/Desktop/BATS/bats_transects/DG035_2015_BATS_TG' + str(
                 int(np.mean([targ_low, targ_high]))) + '_T' + str(ii) + '.png'), dpi=300)
             plt.close()
 

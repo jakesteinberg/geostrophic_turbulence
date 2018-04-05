@@ -1,7 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import datetime
-import seawater as sw
+import gsw
 import pandas as pd
 from netCDF4 import Dataset
 import pickle
@@ -9,20 +9,22 @@ from mpl_toolkits.mplot3d import axes3d
 from toolkit import plot_pro
 
 # LOAD DATA (gridded dives)
-GD = Dataset('BATs_2015_gridded_3.nc', 'r')
+GD = Dataset('BATs_2015_gridded_apr04.nc', 'r')
 profile_list = GD['dive_list'][:] - 35000
 df_den = pd.DataFrame(GD['Density'][:], index=GD['grid'][:], columns=GD['dive_list'][:])
+df_lon = pd.DataFrame(GD['Longitude'][:], index=GD['grid'][:], columns=GD['dive_list'][:])
+df_lat = pd.DataFrame(GD['Latitude'][:], index=GD['grid'][:], columns=GD['dive_list'][:])
+df_lon[df_lon < -500] = np.nan
+df_lat[df_lat < -500] = np.nan
 
 # physical parameters
 g = 9.81
 rho0 = 1027
-bin_depth = np.concatenate([np.arange(0, 150, 10), np.arange(150, 300, 10), np.arange(300, 5000, 20)])
-ref_lat = 31.8
-ref_lon = -64.2
-lat_in = 31.7
-lon_in = 64.2
-grid = bin_depth[1:-1]
-grid_p = sw.pres(grid, lat_in)
+bin_depth = GD.variables['grid'][:]
+ref_lon = np.nanmean(df_lon)
+ref_lat = np.nanmean(df_lat)
+grid = bin_depth
+grid_p = gsw.p_from_z(-1 * grid, ref_lat)
 z = -1 * grid
 sz_g = grid.shape[0]
 
@@ -33,7 +35,6 @@ for i in range(len(profile_list)):
 good = np.where(grid_test >= 4000)[0]
 
 # --- LOAD gridded dives (gridded dives)
-GD = Dataset('BATs_2015_gridded.nc', 'r')
 df_den = pd.DataFrame(GD['Density'][:], index=GD['grid'][:], columns=GD['dive_list'][:])
 df_theta = pd.DataFrame(GD['Theta'][:], index=GD['grid'][:], columns=GD['dive_list'][:])
 df_s = pd.DataFrame(GD['Absolute Salinity'][:], index=GD['grid'][:], columns=GD['dive_list'][:])
@@ -54,15 +55,13 @@ profile_list_all = np.float64(GD.variables['dive_list'][:]) - 35000
 df_den[df_den < 0] = np.nan
 df_theta[df_theta < 0] = np.nan
 df_s[df_s < 0] = np.nan
-df_lon[df_lon < -500] = np.nan
-df_lat[df_lat < -500] = np.nan
 df_lon_all[df_lon_all < -500] = np.nan
 df_lat_all[df_lat_all < -500] = np.nan
 dac_u[dac_u < -500] = np.nan
 dac_v[dac_v < -500] = np.nan
 
 # -------------- LOAD IN MAPPED U/V, AND DENSITY
-pkl_file = open('/Users/jake/Documents/geostrophic_turbulence/BATS_obj_map_L35.pkl', 'rb')   # _2
+pkl_file = open('/Users/jake/Documents/geostrophic_turbulence/BATS_obj_map_L35_apr05.pkl', 'rb')   # _2
 bats_map = pickle.load(pkl_file)
 pkl_file.close()
 Time = bats_map['time']
@@ -84,7 +83,7 @@ mask = bats_map['mask']
 Lon_map, Lat_map = np.meshgrid(lon_grid_all[0, :], lat_grid_all[0, :])
 
 # ---- LOAD IN TRANSECT TO PROFILE DATA COMPILED IN BATS_TRANSECTS.PY
-pkl_file = open('/Users/jake/Desktop/bats/dep15_transect_profiles_mar13.pkl', 'rb')
+pkl_file = open('/Users/jake/Desktop/bats/dep15_transect_profiles_apr04.pkl', 'rb')
 bats_trans = pickle.load(pkl_file)
 pkl_file.close()
 Time_t = bats_trans['Time']
@@ -213,6 +212,7 @@ plot_pro(ax[i])
 # ax1.grid()
 # fig.savefig( ('/Users/jake/Desktop/BATS/bats_mapping/cross_map_' + str(k_out) + '.png'),dpi = 300)
 # plt.close()
+
 
 # ------------ PLAN VIEW ------------------------------
 test_lev = 64

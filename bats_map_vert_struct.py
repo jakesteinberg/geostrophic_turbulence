@@ -3,24 +3,41 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import datetime
-import seawater as sw
+from netCDF4 import Dataset
+import pandas as pd
+import gsw
 import scipy.io as si
 import pickle
 # functions I've written 
 from mode_decompositions import vertical_modes, PE_Tide_GM
-from toolkit import plot_pro
+from toolkit import plot_pro, nanseg_interp
 
-# ------- physical parameters
+# LOAD DATA (gridded dives)
+GD = Dataset('BATs_2015_gridded_apr04.nc', 'r')
+profile_list = GD['dive_list'][:] - 35000
+df_den = pd.DataFrame(GD['Density'][:], index=GD['grid'][:], columns=GD['dive_list'][:])
+df_lon = pd.DataFrame(GD['Longitude'][:], index=GD['grid'][:], columns=GD['dive_list'][:])
+df_lat = pd.DataFrame(GD['Latitude'][:], index=GD['grid'][:], columns=GD['dive_list'][:])
+df_lon[df_lon < -500] = np.nan
+df_lat[df_lat < -500] = np.nan
+
+# physical parameters
 g = 9.81
 rho0 = 1027
-bin_depth = np.concatenate([np.arange(0, 150, 10), np.arange(150, 300, 10), np.arange(300, 4500, 20)])
-ref_lat = 31.8
-lat_in = 31.7
-lon_in = 64.2
-grid = bin_depth[1:-1]
-grid_p = sw.pres(grid, lat_in)
+bin_depth = GD.variables['grid'][:]
+ref_lon = np.nanmean(df_lon)
+ref_lat = np.nanmean(df_lat)
+grid = bin_depth
+grid_p = gsw.p_from_z(-1 * grid, ref_lat)
 z = -1 * grid
 sz_g = grid.shape[0]
+
+# ---- gridded dive T/S
+df_ct = pd.DataFrame(GD['Conservative Temperature'][0:sz_g, :], index=GD['grid'][0:sz_g], columns=GD['dive_list'][:])
+df_s = pd.DataFrame(GD['Absolute Salinity'][0:sz_g, :], index=GD['grid'][0:sz_g], columns=GD['dive_list'][:])
+df_ct[df_ct < 0] = np.nan
+df_s[df_s < 0] = np.nan
+
 # -------- mode parameters
 omega = 0  # frequency zeroed for geostrophic modes
 mmax = 60  # highest baroclinic mode to be calculated
@@ -32,7 +49,7 @@ deep_shr_max_dep = 3500  # minimum depth for which shear is limited [m]
 plot_eta = 1
 
 # -------- LOAD IN MAPPING
-pkl_file = open('/Users/jake/Documents/geostrophic_turbulence/BATS_obj_map_L35.pkl', 'rb')
+pkl_file = open('/Users/jake/Documents/geostrophic_turbulence/BATS_obj_map_L35_apr05.pkl', 'rb')
 bats_trans = pickle.load(pkl_file)
 pkl_file.close()
 itera = 10
@@ -42,7 +59,7 @@ U = np.transpose(bats_trans['U_g'][itera][:, 0:sz_g])
 V = np.transpose(bats_trans['V_g'][itera][:, 0:sz_g])
 
 # ---- LOAD IN TRANSECT TO PROFILE DATA COMPILED IN BATS_TRANSECTS.PY
-pkl_file = open('/Users/jake/Desktop/bats/dep15_transect_profiles_mar30.pkl', 'rb')
+pkl_file = open('/Users/jake/Desktop/bats/dep15_transect_profiles_apr04.pkl', 'rb')
 bats_trans = pickle.load(pkl_file)
 pkl_file.close()
 Time_t = bats_trans['Time']
@@ -63,17 +80,33 @@ prof_lat = bats_trans['V_lat']
 # good0 = np.intersect1d(np.where((np.abs(V_t[-45, :]) < 0.2))[0], np.where((np.abs(V_t[10, :]) < 0.4))[0])
 # good = np.intersect1d(np.where(good_v > 0), good0)
 
+# -- SOME VELOCITY PROFILES ARE TOO NOISY AND DEEMED UNTRUSTWORTHY
 # select only velocity profiles that seem reasonable
-good = np.zeros(np.size(Time_t))
+# criteria are slope of v (dont want kinks)
+# criteria: limit surface velocity to greater that 40cm/s
+good_v = np.zeros(np.size(Time_t))
 v_dz = np.zeros(np.shape(V_t))
 for i in range(np.size(Time_t)):
-    v_dz[10:-10, i] = np.gradient(V_t[10:-10, i], z[10:-10])
-    if np.nanmax(np.abs(v_dz[:, i])) < 0.00125:              # 0.075
-        good[i] = 1
+    v_dz[5:-20, i] = np.gradient(V_t[5:-20, i], z[5:-20])
+    if np.nanmax(np.abs(v_dz[:, i])) < 0.0015:  # 0.075
+        good_v[i] = 1
+good_v[191] = 1
+good_ex = np.where(np.abs(V_t[5, :]) < 0.4)[0]
+good_der = np.where(good_v > 0)[0]
+good = np.intersect1d(good_der, good_ex)
 
-Sigma_Theta_t2 = Sigma_Theta_t[:, good > 0]
-V_t2 = V_t[:, good > 0]
-Time_t2 = Time_t[good > 0]
+Sigma_Theta_t2 = Sigma_Theta_t[:, good]
+V_t2 = V_t[:, good].copy()
+Eta2 = Eta[:, good].copy()
+Eta_theta2 = Eta_theta[:, good].copy()
+Time_t2 = Time_t[good].copy()
+Info2 = Info[:, good].copy()
+prof_lon2 = prof_lon[good].copy()
+prof_lat2 = prof_lat[good].copy()
+for i in range(len(Time_t2)):
+    y_i = Eta2[:, i]
+    if np.sum(np.isnan(y_i)) > 0:
+        Eta2[:, i] = nanseg_interp(grid, y_i)
 
 V_t3 = V_t2[:, ((Time_t2 > Time[0]) & (Time_t2 < Time[1]))]
 Sigma_Theta_t3 = Sigma_Theta_t2[:, ((Time_t2 > Time[0]) & (Time_t2 < Time[1]))]
@@ -81,19 +114,30 @@ Sigma_Theta_t3 = Sigma_Theta_t2[:, ((Time_t2 > Time[0]) & (Time_t2 < Time[1]))]
 # --------------------------------------------------------------------------------------------
 
 # -------- AVG background properties of profiles along these transects
-# - model profiles
-sigma_theta_avg = np.nanmean(Sigma_Theta, axis=1)
+sigma_theta_avg = df_den.mean(axis=1)
+ct_avg = df_ct.mean(axis=1)
+salin_avg = df_s.mean(axis=1)
 ddz_avg_sigma = np.gradient(sigma_theta_avg, z)
+N2 = np.nan * np.zeros(sigma_theta_avg.size)
+N2[0:-1] = gsw.Nsquared(salin_avg, ct_avg, grid_p, lat=ref_lat)[0]
+N2[-2:] = N2[-3]
+N2[N2 < 0] = np.nan
+N2 = nanseg_interp(grid, N2)
+N = np.sqrt(N2)
+
+# - model profiles
+sigma_theta_avg_map = np.nanmean(Sigma_Theta, axis=1)
+ddz_avg_sigma_map = np.gradient(sigma_theta_avg_map, z)
 # - comparison transect M/W profiles
 sigma_theta_avg_t = np.nanmean(Sigma_Theta_t3, axis=1)
 ddz_avg_sigma_t = np.gradient(sigma_theta_avg_t, z)
 
-N2 = (-g / rho0) * ddz_avg_sigma
-lz = np.where(N2 < 0)
-lnan = np.isnan(N2)
-N2[lz] = 0
-N2[lnan] = 0
-N = np.sqrt(N2)
+N2_map = (-g / rho0) * ddz_avg_sigma_map
+lz = np.where(N2_map < 0)
+lnan = np.isnan(N2_map)
+N2_map[lz] = 0
+N2_map[lnan] = 0
+N_map = np.sqrt(N2_map)
 
 N2_t = (-g / rho0) * ddz_avg_sigma_t
 lz = np.where(N2_t < 0)
@@ -103,8 +147,9 @@ N2_t[lnan] = 0
 N_t = np.sqrt(N2_t)
 
 # f, ax = plt.subplots()
-# ax.plot(N2, z)
-# ax.plot(N2_t, z)
+# ax.plot(N2, z, color='k')
+# ax.plot(N2_map, z, color='r')
+# ax.plot(N2_t, z, color='b')
 # plot_pro(ax)
 
 # computer vertical mode shapes 
@@ -172,6 +217,33 @@ for i in range(num_profs):
             good_prof_v[i] = 0  # flag profile as noisy
     else:
         good_prof_v[i] = 0  # flag empty profile as noisy as well
+
+# --- TOTAL ENERGY
+# --- total water column KE for each profile
+TKE_per_mass = (1 / 2) * (HKE_U_per_mass + HKE_V_per_mass)
+TKE = (1 / 2) * np.sum(HKE_U_per_mass + HKE_V_per_mass, axis=0)
+# --- surface KE
+z_surf = 0
+u_sum = np.nan * np.zeros(num_profs)
+v_sum = np.nan * np.zeros(num_profs)
+# sum the KE from each mode at each profile location
+for i in range(num_profs):
+    u_sum[i] = np.sum((AGz_U[:, i] ** 2) * (Gz[z_surf, :] ** 2))
+    v_sum[i] = np.sum((AGz_V[:, i] ** 2) * (Gz[z_surf, :] ** 2))
+# --- average TKE at z_surf at each location
+f_ref = np.pi * np.sin(np.deg2rad(ref_lat)) / (12 * 1800)
+rho0 = 1025
+dk = f_ref / c[1]
+TKE_surface = (1 / 2) * (u_sum + v_sum)
+mode0 = 0
+TKE_surface_mode0 = (1 / 2) * (
+            (AGz_U[mode0, :] ** 2) * (Gz[z_surf, mode0] ** 2) + (AGz_V[mode0, :] ** 2) * (Gz[z_surf, mode0] ** 2))
+mode1 = 1
+TKE_surface_mode1 = (1 / 2) * (
+    (AGz_U[mode1, :] ** 2) * (Gz[z_surf, mode1] ** 2) + (AGz_V[mode1, :] ** 2) * (Gz[z_surf, mode1] ** 2))
+mode2 = 2
+TKE_surface_mode2 = (1 / 2) * (
+    (AGz_U[mode2, :] ** 2) * (Gz[z_surf, mode2] ** 2) + (AGz_V[mode2, :] ** 2) * (Gz[z_surf, mode2] ** 2))
 
 # -- unmapped transect profiles
 AGz_t = np.zeros([nmodes, V_t3.shape[1]])
@@ -296,6 +368,7 @@ if plot_eta > 0:
 
 avg_KE_U = np.nanmean(HKE_U_per_mass[:, np.where(good_prof_u > 0)[0]], 1)
 avg_KE_V = np.nanmean(HKE_V_per_mass[:, np.where(good_prof_v > 0)[0]], 1)
+avg_KE = np.nanmean(TKE_per_mass[:, np.where(good_prof_v > 0)[0]], 1)
 avg_KE_V_t = np.nanmean(HKE_V_t_per_mass[:, np.where(good_prof_vt > 0)[0]], 1)
 
 # fig0, ax0 = plt.subplots()
@@ -320,26 +393,33 @@ dk_ke = 1000 * f_ref / c[1]
 # k_h = 1e3*(f_ref/c[1:])*np.sqrt( avg_KE_U[1:]/avg_PE[1:])
 # k_h_v = 1e3*(f_ref/c[1:])*np.sqrt( avg_KE_V[1:]/avg_PE[1:])
 
-# load in Station BATs PE Comparison
-SB = si.loadmat('/Users/jake/Desktop/bats/station_bats_pe.mat')
-sta_bats_pe = SB['out'][0][0][0]
-sta_bats_c = SB['out'][0][0][3]
-sta_bats_f = SB['out'][0][0][2]
-sta_bats_dk = SB['out'][0][0][1]
+# load in PE/KE from DG 2015 estimates
+pkl_file = open('/Users/jake/Documents/geostrophic_turbulence/BATs_DG_2015_energy.pkl', 'rb')
+bats_map = pickle.load(pkl_file)
+pkl_file.close()
+bdg_ke = bats_map['KE']
+bdg_pe = bats_map['PE']
+bdg_c = bats_map['c'][:]
+bdg_f = bats_map['f']
 
 plot_eng = 1
 if plot_eng > 0:
     fig0, ax0 = plt.subplots()
     # PE_p = ax0.plot(sc_x,avg_PE[1:]/dk,color='#B22222',label='PE',linewidth=1.5)
-    KE_p = ax0.plot(sc_x, avg_KE_U[1:] / dk, 'g', label='KE_u_map', linewidth=1.5)
-    ax0.scatter(sc_x, avg_KE_U[1:] / dk, color='g', s=10)  # map KE
-    KE_p = ax0.plot(sc_x, avg_KE_V[1:] / dk, 'r', label='KE_v_map', linewidth=1.5)
-    ax0.scatter(sc_x, avg_KE_V[1:] / dk, color='r', s=10)  # map KE
-    KE_p = ax0.plot(sc_x_t, avg_KE_V_t[1:] / dk_t, 'k', label='KE_trans', linewidth=1.5)
-    ax0.scatter(sc_x_t, avg_KE_V_t[1:] / dk_t, color='k', s=10)  # DG KE
-    # ax0.text(1000 * f_ref / c[-2] + .1, 1000 * f_ref / c[-2], r'f/c$_m$', fontsize=10)
+    KE_p = ax0.plot(1000 * f_ref / c, avg_KE / dk, 'g', label=r'KE$_{u_{map}}$', linewidth=1.5)
+    ax0.scatter(1000 * f_ref / c, avg_KE / dk, color='g', s=10)  # map KE
+    # KE_p = ax0.plot(sc_x, avg_KE_U[1:] / dk, 'g', label='KE_u_map', linewidth=1.5)
+    # ax0.scatter(sc_x, avg_KE_U[1:] / dk, color='g', s=10)  # map KE
+    # KE_p = ax0.plot(sc_x, avg_KE_V[1:] / dk, 'r', label='KE_v_map', linewidth=1.5)
+    # ax0.scatter(sc_x, avg_KE_V[1:] / dk, color='r', s=10)  # map KE
+    # KE_p = ax0.plot(sc_x_t, avg_KE_V_t[1:] / dk_t, 'k', label='KE_trans', linewidth=1.5)
+    # ax0.scatter(sc_x_t, avg_KE_V_t[1:] / dk_t, color='k', s=10)  # DG KE
+    KE_p = ax0.plot(1000 * bdg_f / bdg_c, bdg_ke / (bdg_f / bdg_c[1]), 'k', label='KE$_{trans}$', linewidth=1.5)
+    ax0.scatter(1000 * bdg_f / bdg_c, bdg_ke / (bdg_f / bdg_c[1]), color='k', s=10)  # DG KE
+    PE_p = ax0.plot(1000 * bdg_f / bdg_c[1:], bdg_pe[1:] / (bdg_f / bdg_c[1]), 'b', label='PE$_{trans}$', linewidth=1.5)
+    ax0.scatter(1000 * bdg_f / bdg_c[1:], bdg_pe[1:] / (bdg_f / bdg_c[1]), color='b', s=10)  # DG KE
 
-    # limits/scales 
+    # limits/scales
     ax0.plot([3 * 10 ** -1, 3 * 10 ** 0], [1.5 * 10 ** 1, 1.5 * 10 ** -2], color='k', linewidth=0.75)
     ax0.plot([3 * 10 ** -2, 3 * 10 ** -1],
              [7 * 10 ** 2, ((5 / 3) * (np.log10(2 * 10 ** -1) - np.log10(2 * 10 ** -2)) + np.log10(7 * 10 ** 2))],
@@ -358,7 +438,7 @@ if plot_eng > 0:
         'Energy Map, Transect (' + np.str(t_s.month) + '/' + np.str(t_s.day) + ' - ' + np.str(t_e.month) + '/' + np.str(
             t_e.day) + ')', fontsize=14)
     handles, labels = ax0.get_legend_handles_labels()
-    ax0.legend([handles[0], handles[1], handles[2]], [labels[0], labels[1], labels[2]], fontsize=12)
+    ax0.legend(handles, labels, fontsize=12)
     plt.tight_layout()
     plot_pro(ax0)
     # fig0.savefig('/Users/jake/Desktop/bats/dg035_15_PE_b.png',dpi = 300)

@@ -152,9 +152,9 @@ N2[N2 < 0] = np.nan
 N2 = nanseg_interp(grid, N2)
 N = np.sqrt(N2)
 
-# window_size = 5
-# poly_order = 3
-# N2 = savgol_filter(N2, window_size, poly_order)
+window_size = 5
+poly_order = 3
+N2 = savgol_filter(N2, window_size, poly_order)
 
 # --- compute vertical mode shapes
 G, Gz, c = vertical_modes(N2, grid, omega, mmax)
@@ -180,24 +180,26 @@ for i in range(mmax + 1):
 
 # -- SOME VELOCITY PROFILES ARE TOO NOISY AND DEEMED UNTRUSTWORTHY
 # select only velocity profiles that seem reasonable
-good = np.zeros(np.size(Time))
+# criteria are slope of v (dont want kinks)
+# criteria: limit surface velocity to greater that 40cm/s
+good_v = np.zeros(np.size(Time))
 v_dz = np.zeros(np.shape(V))
 for i in range(np.size(Time)):
-    v_dz[20:-20, i] = np.gradient(V[20:-20, i], z[20:-20])
-    if np.nanmax(np.abs(v_dz[:, i])) < 0.00125:  # 0.075
-        good[i] = 1
-good[191] = 1
-# good0 = np.intersect1d(np.where((np.abs(V[-45, :]) < 0.2))[0], np.where((np.abs(V[10, :]) < 0.4))[0])
-# good = np.intersect1d(np.where(good_v > 0), good0)
-V2 = V[:, good > 0].copy()
-Eta2 = Eta[:, good > 0].copy()
-Eta2_c = Eta[:, good > 0].copy()
-Eta_theta2 = Eta_theta[:, good > 0].copy()
-Time2 = Time[good > 0].copy()
-Info2 = Info[:, good > 0].copy()
-prof_lon2 = prof_lon[good > 0].copy()
-prof_lat2 = prof_lat[good > 0].copy()
-# np.where(np.isnan(Eta2[20:-20, :]))
+    v_dz[5:-20, i] = np.gradient(V[5:-20, i], z[5:-20])
+    if np.nanmax(np.abs(v_dz[:, i])) < 0.0015:  # 0.075
+        good_v[i] = 1
+good_v[191] = 1
+good_ex = np.where(np.abs(V[5, :]) < 0.4)[0]
+good_der = np.where(good_v > 0)[0]
+good = np.intersect1d(good_der, good_ex)
+V2 = V[:, good].copy()
+Eta2 = Eta[:, good].copy()
+Eta2_c = Eta[:, good].copy()
+Eta_theta2 = Eta_theta[:, good].copy()
+Time2 = Time[good].copy()
+Info2 = Info[:, good].copy()
+prof_lon2 = prof_lon[good].copy()
+prof_lat2 = prof_lat[good].copy()
 for i in range(len(Time2)):
     y_i = Eta2[:, i]
     if np.sum(np.isnan(y_i)) > 0:
@@ -278,24 +280,24 @@ for i in range(num_profs):
 
 # -- inspect ability of G to describe individual eta profiles
 # todo look at eof of eta profiles as a do the velocity profiles
-f, (ax1, ax2, ax3, ax4) = plt.subplots(1, 4)
-ax1.plot(Eta2[:, 90], grid)
-ax1.plot(Eta_m[:, 90], grid, color='k', linestyle='--')
-ax1.axis([-600, 600, 0, 5000])
-ax1.invert_yaxis()
-ax2.plot(Eta2[:, 140], grid)
-ax2.plot(Eta_m[:, 140], grid, color='k', linestyle='--')
-ax2.axis([-600, 600, 0, 5000])
-ax2.invert_yaxis()
-ax3.plot(Eta2[:, 180], grid)
-ax3.plot(Eta_m[:, 180], grid, color='k', linestyle='--')
-ax3.axis([-600, 600, 0, 5000])
-ax3.invert_yaxis()
-ax4.plot(Eta2[:, 200], grid)
-ax4.plot(Eta_m[:, 200], grid, color='k', linestyle='--')
-ax4.axis([-600, 600, 0, 5000])
-ax4.invert_yaxis()
-plot_pro(ax4)
+# f, (ax1, ax2, ax3, ax4) = plt.subplots(1, 4)
+# ax1.plot(Eta2[:, 90], grid)
+# ax1.plot(Eta_m[:, 90], grid, color='k', linestyle='--')
+# ax1.axis([-600, 600, 0, 5000])
+# ax1.invert_yaxis()
+# ax2.plot(Eta2[:, 140], grid)
+# ax2.plot(Eta_m[:, 140], grid, color='k', linestyle='--')
+# ax2.axis([-600, 600, 0, 5000])
+# ax2.invert_yaxis()
+# ax3.plot(Eta2[:, 180], grid)
+# ax3.plot(Eta_m[:, 180], grid, color='k', linestyle='--')
+# ax3.axis([-600, 600, 0, 5000])
+# ax3.invert_yaxis()
+# ax4.plot(Eta2[:, 200], grid)
+# ax4.plot(Eta_m[:, 200], grid, color='k', linestyle='--')
+# ax4.axis([-600, 600, 0, 5000])
+# ax4.invert_yaxis()
+# plot_pro(ax4)
 
 # todo make sure the integral of the linear modes = 1
 # todo fraction of variance unexplained should be between each profile alpha*F(z) and EOF1?
@@ -358,8 +360,10 @@ EOFetashape2_BTpBC1 = G[:, 1:3] * V_AGqa[0:2, 1]  # truncated 2 mode shape of EO
 not_deep = np.isfinite(V2[-9, :])  # & (Time2 > 735750)
 V3 = V2[:, not_deep]
 
-grid_check = grid[5:-10]
-Uzq = V3[5:-10, :].copy()
+check1 = 3
+check2 = -8
+grid_check = grid[check1:check2]
+Uzq = V3[check1:check2, :].copy()
 nq = np.size(V3[0, :])
 avg_Uzq = np.nanmean(np.transpose(Uzq), axis=0)
 Uzqa = Uzq - np.transpose(np.tile(avg_Uzq, [nq, 1]))
@@ -372,8 +376,8 @@ PEV = t1 / np.sum(t1)
 # --- VARIANCE EXPLAINED BY BAROCLINIC MODES
 eof1 = np.array(np.real(V_Uzqa[:, 0]))
 eof1_sc = (1/2)*(eof1.max() - eof1.min()) + eof1.min()
-bc1 = Gz[5:-10, 1]  # flat bottom
-bc2 = F[5:-10, 0]   # sloping bottom
+bc1 = Gz[check1:check2, 1]  # flat bottom
+bc2 = F[check1:check2, 0]   # sloping bottom
 
 
 def functi(p, xe, xb):
@@ -388,12 +392,12 @@ ins2 = np.transpose(np.concatenate([eof1, bc2[:, np.newaxis]], axis=1))
 min_p1 = fmin(functi, p, args=(tuple(ins1)))
 min_p2 = fmin(functi, p, args=(tuple(ins2)))
 
-# f, ax = plt.subplots()
-# ax.plot(eof1, grid_check, color='k')
-# ax.plot(bc1*min_p1, grid_check, color='r')
-# ax.plot(bc2*min_p2, grid_check, color='b')
-# ax.invert_yaxis()
-# plot_pro(ax)
+f, ax = plt.subplots()
+ax.plot(eof1, grid_check, color='k')
+ax.plot(bc1*min_p1, grid_check, color='r')
+ax.plot(bc2*min_p2, grid_check, color='b')
+ax.invert_yaxis()
+plot_pro(ax)
 fvu1 = np.sum((eof1[:, 0] - bc1*min_p1)**2)/np.sum((eof1 - np.mean(eof1))**2)
 fvu2 = np.sum((eof1[:, 0] - bc2*min_p2)**2)/np.sum((eof1 - np.mean(eof1))**2)
 
@@ -455,7 +459,7 @@ mission_start = datetime.date.fromordinal(np.int(Time.min()))
 mission_end = datetime.date.fromordinal(np.int(Time.max()))
 
 # --- PLOT ETA / EOF
-plot_eta = 1
+plot_eta = 0
 if plot_eta > 0:
     f, (ax2, ax1, ax0) = plt.subplots(1, 3, sharey=True)
     for j in range(len(Time)):
@@ -536,28 +540,29 @@ for i in range(len(sbt_in)):
 
 plot_mode = 0
 if plot_mode > 0:
-    window_size, poly_order = 15, 2
-    fm, (ax, ax1) = plt.subplots(1, 2, sharey=True)
+    window_size, poly_order = 9, 2
+    fm, ax = plt.subplots()
     colors = ['#FF8C00', '#5F9EA0', 'm', 'g', 'c']
     ax.plot(sb_dt, sba_in[1, :], color='k', label='Hydrography Mode 1')
     for mo in range(1, 4):
         orderAG = AG[mo, np.argsort(Time2)]
-        orderAGz = AGz[mo, np.argsort(Time2)]
         y_sg = savgol_filter(orderAG, window_size, poly_order)
-        y_sgz = savgol_filter(orderAGz, window_size, poly_order)
-
         pm = ax.plot(Time2_dt, AG[mo, np.argsort(Time2)], color=colors[mo - 1], linewidth=0.75)
         ax.plot(Time2_dt, y_sg, color=colors[mo - 1], linewidth=2, label=('Mode ' + str(mo)))
-
-        pmz = ax1.plot(Time2_dt, AGz[mo, np.argsort(Time2)], color=colors[mo - 1], linewidth=0.75)
-        ax1.plot(Time2_dt, y_sgz, color=colors[mo - 1], label=('Mode ' + str(mo)), linewidth=2)
-
     ax.set_xlim([Time2_dt[0], Time2_dt[-1]])
     handles, labels = ax.get_legend_handles_labels()
     ax.legend(handles, labels, fontsize=14)
     ax.set_title('Displacement Mode Amplitude')
+    plot_pro(ax)
+
+    fm, ax1 = plt.subplots()
+    colors = ['k', 'r', 'b']
+    for mo in range(3):
+        orderAGz = AGz[mo, np.argsort(Time2)]
+        y_sgz = savgol_filter(orderAGz, window_size, poly_order)
+        pmz = ax1.plot(Time2_dt, AGz[mo, np.argsort(Time2)], color=colors[mo], linewidth=0.75)
+        ax1.plot(Time2_dt, y_sgz, color=colors[mo - 1], label=('Mode ' + str(mo)), linewidth=2)
     ax1.set_title('Velocity Mode Amplitude')
-    ax.grid()
     plot_pro(ax1)
 
 # --- MODE AMPLITUDE CORRELATIONS IN TIME AND SPACE
@@ -701,14 +706,14 @@ pkl_file = open('/Users/jake/Desktop/abaco/abaco_outputs_2.pkl', 'rb')
 abaco_energies = pickle.load(pkl_file)
 pkl_file.close()
 
-plot_eng = 1
+plot_eng = 0
 if plot_eng > 0:
     fig0, ax0 = plt.subplots()
     PE_p = ax0.plot(sc_x, avg_PE[1:] / dk, color='#B22222', label='APE', linewidth=2)
     PE_sta_p = ax0.plot(1000 * sta_bats_f / sta_bats_c[1:], np.nanmean(sta_bats_pe[1:], axis=1) / sta_bats_dk,
                         color='#FF8C00',
                         label='$APE_{ship}$', linewidth=1.5)
-    KE_p = ax0.plot(sc_x, avg_KE[1:] / dk, 'g', label='KE', linewidth=2)
+    KE_p = ax0.plot(1000 * f_ref / c, avg_KE / dk, 'g', label='KE', linewidth=2)
     ax0.scatter(sc_x, avg_PE[1:] / dk, color='#B22222', s=12)  # DG PE
     # ax0.scatter((1000)*sta_bats_f/sta_bats_c[1:],sta_bats_pe[1:]/sta_bats_dk,color='#FF8C00',s=10) # BATS PE
     ax0.scatter(sc_x, avg_KE[1:] / dk, color='g', s=12)  # DG KE
@@ -798,6 +803,15 @@ if plot_eng > 0:
     ax0.set_aspect('equal')
     plt.tight_layout()
     plot_pro(ax0)
+
+# --- SAVE BATS ENERGIES DG TRANSECTS
+# write python dict to a file
+sa = 1
+if sa > 0:
+    my_dict = {'depth': grid, 'KE': avg_KE, 'PE': avg_PE, 'c': c, 'f': f_ref}
+    output = open('/Users/jake/Documents/geostrophic_turbulence/BATs_DG_2015_energy.pkl', 'wb')
+    pickle.dump(my_dict, output)
+    output.close()
 
 # -------------------------
 # PE COMPARISON BETWEEN HOTS, BATS_SHIP, AND BATS_DG
