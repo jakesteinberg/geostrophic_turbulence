@@ -298,11 +298,7 @@ for i in range(num_profs):
 # ax4.axis([-600, 600, 0, 5000])
 # ax4.invert_yaxis()
 # plot_pro(ax4)
-
-# todo make sure the integral of the linear modes = 1
 # todo fraction of variance unexplained should be between each profile alpha*F(z) and EOF1?
-# todo make sure barotropic mode in KE is right
-# todo apply new gridded transects to mapping and compute KE as a function of u,v and then look at partition across modes and in depth
 sa = 0
 if sa > 0:
     mydict = {'bin_depth': grid, 'eta': Eta2, 'dg_v': V2}
@@ -538,7 +534,7 @@ for i in range(len(sbt_in)):
     sb_dt.append(datetime.datetime(np.int(sbt_in[i]), np.int((sbt_in[i] - np.int(sbt_in[i])) * 12), np.int(
         ((sbt_in[i] - np.int(sbt_in[i])) * 12 - np.int((sbt_in[i] - np.int(sbt_in[i])) * 12)) * 30)))
 
-plot_mode = 0
+plot_mode = 1
 if plot_mode > 0:
     window_size, poly_order = 9, 2
     fm, ax = plt.subplots()
@@ -566,7 +562,7 @@ if plot_mode > 0:
     plot_pro(ax1)
 
 # --- MODE AMPLITUDE CORRELATIONS IN TIME AND SPACE
-plot_mode_corr = 0
+plot_mode_corr = 1
 if plot_mode_corr > 0:
     x = 1852 * 60 * np.cos(np.deg2rad(ref_lat)) * (prof_lon2 - ref_lon)
     y = 1852 * 60 * (prof_lat2 - ref_lat)
@@ -650,19 +646,26 @@ PE_SD, PE_GM = PE_Tide_GM(rho0, grid, nmodes, np.transpose(np.atleast_2d(N2)), f
 # --- CURVE FITTING TO FIND BREAK IN SLOPES
 xx = sc_x
 yy = avg_PE[1:] / dk
+yy2 = avg_KE[1:] / dk
 # export to use findchangepts in matlab 
 # np.savetxt('test_line_fit_x',xx)
 # np.savetxt('test_line_fit_y',yy)
 # index 11 is the point where the break in slope occurs
 ipoint = 8  # 8  # 11
+# fit slopes to PE and KE spectra
 x_53 = np.log10(xx[0:ipoint])
 y_53 = np.log10(yy[0:ipoint])
 slope1 = np.polyfit(x_53, y_53, 1)
 x_3 = np.log10(xx[ipoint:])
 y_3 = np.log10(yy[ipoint:])
 slope2 = np.polyfit(x_3, y_3, 1)
+x_3_2 = np.log10(xx[0:50])
+y_3_2 = np.log10(yy2[0:50])
+slope_ke = np.polyfit(x_3_2, y_3_2, 1)
+
 y_g_53 = np.polyval(slope1, x_53)
 y_g_3 = np.polyval(slope2, x_3)
+y_g_ke = np.polyval(slope_ke, x_3_2)
 
 vert_wave = sc_x / 1000
 alpha = 10
@@ -706,47 +709,53 @@ pkl_file = open('/Users/jake/Desktop/abaco/abaco_outputs_2.pkl', 'rb')
 abaco_energies = pickle.load(pkl_file)
 pkl_file.close()
 
-plot_eng = 0
+plot_eng = 1
 if plot_eng > 0:
     fig0, ax0 = plt.subplots()
-    PE_p = ax0.plot(sc_x, avg_PE[1:] / dk, color='#B22222', label='APE', linewidth=2)
-    PE_sta_p = ax0.plot(1000 * sta_bats_f / sta_bats_c[1:], np.nanmean(sta_bats_pe[1:], axis=1) / sta_bats_dk,
-                        color='#FF8C00',
-                        label='$APE_{ship}$', linewidth=1.5)
-    KE_p = ax0.plot(1000 * f_ref / c, avg_KE / dk, 'g', label='KE', linewidth=2)
-    ax0.scatter(sc_x, avg_PE[1:] / dk, color='#B22222', s=12)  # DG PE
+    # PE_p = ax0.plot(sc_x, avg_PE[1:] / dk, color='#B22222', label='APE', linewidth=2)
+    # PE_sta_p = ax0.plot(1000 * sta_bats_f / sta_bats_c[1:], np.nanmean(sta_bats_pe[1:], axis=1) / sta_bats_dk,
+    #                     color='#FF8C00',
+    #                     label='$APE_{ship}$', linewidth=1.5)
+    # ax0.scatter(sc_x, avg_PE[1:] / dk, color='#B22222', s=12)  # DG PE
+    KE_p = ax0.plot(1000 * f_ref / c, avg_KE / dk, 'g', label='KE', linewidth=3)
     # ax0.scatter((1000)*sta_bats_f/sta_bats_c[1:],sta_bats_pe[1:]/sta_bats_dk,color='#FF8C00',s=10) # BATS PE
-    ax0.scatter(sc_x, avg_KE[1:] / dk, color='g', s=12)  # DG KE
+    ax0.scatter(sc_x, avg_KE[1:] / dk, color='g', s=20)  # DG KE
+    ax0.scatter(10**-2, avg_KE[0] / dk, color='g', s=25, facecolors='none')  # DG KE_0
 
-    # Obj. Map
+    # -- Obj. Map
     # KE_om_u = ax0.plot(sx_c_om,ke_om_u[1:]/dk_om,'b',label='$KE_u$',linewidth=1.5)
     # ax0.scatter(sx_c_om,ke_om_u[1:]/dk_om,color='b',s=10) # DG KE
     # KE_om_u = ax0.plot(sx_c_om,ke_om_v[1:]/dk_om,'c',label='$KE_v$',linewidth=1.5)
     # ax0.scatter(sx_c_om,ke_om_v[1:]/dk_om,color='c',s=10) # DG KE
 
-    # Eddy energies
+    # -- Eddy energies
     # PE_e = ax0.plot(sc_x, PE_ed[1:] / dk, color='c', label='eddy PE', linewidth=2)
     # KE_e = ax0.plot(sc_x, KE_ed[1:] / dk, color='y', label='eddy KE', linewidth=2)
 
-    # Slope fits
-    # ax0.plot(vert_wave * 1000, one, color='b', linewidth=1, label=r'APE$_{fit}$')
-    ax0.plot(10 ** x_53, 10 ** y_g_53, color='k', linewidth=1, linestyle='--')
-    ax0.plot(10 ** x_3, 10 ** y_g_3, color='k', linewidth=1, linestyle='--')
-    ax0.text(10 ** x_53[0] - .012, 10 ** y_g_53[0], str(float("{0:.2f}".format(slope1[0]))), fontsize=10)
-    ax0.text(10 ** x_3[0] + .085, 10 ** y_g_3[0], str(float("{0:.2f}".format(slope2[0]))), fontsize=10)
-    ax0.scatter(vert_wave[ipoint] * 1000, one[ipoint], color='b', s=7)
-    ax0.plot([xx[ipoint], xx[ipoint]], [10 ** (-4), 4 * 10 ** (-4)], color='k', linewidth=2)
-    ax0.text(xx[ipoint + 1], 2 * 10 ** (-4),
-             str('Break at ') + str(float("{0:.1f}".format(1 / xx[ipoint]))) + 'km')
+    # -- Slope fits
+    # ax0.plot(10 ** x_53, 10 ** y_g_53, color='k', linewidth=1, linestyle='--')
+    # ax0.plot(10 ** x_3, 10 ** y_g_3, color='k', linewidth=1, linestyle='--')
+    ax0.plot(10 ** x_3_2, 10 ** y_g_ke, color='k', linewidth=1.5, linestyle='--')
+    # ax0.text(10 ** x_53[0] - .012, 10 ** y_g_53[0], str(float("{0:.2f}".format(slope1[0]))), fontsize=10)
+    # ax0.text(10 ** x_3[0] + .085, 10 ** y_g_3[0], str(float("{0:.2f}".format(slope2[0]))), fontsize=10)
+    ax0.text(10 ** x_3_2[3] + .05, 10 ** y_g_ke[3], str(float("{0:.2f}".format(slope_ke[0]))), fontsize=10)
 
-    # Rossby Radii
+    # ax0.scatter(vert_wave[ipoint] * 1000, one[ipoint], color='b', s=7)
+    # ax0.plot([xx[ipoint], xx[ipoint]], [10 ** (-4), 4 * 10 ** (-4)], color='k', linewidth=2)
+    # ax0.text(xx[ipoint + 1], 2 * 10 ** (-4),
+    #          str('Break at ') + str(float("{0:.1f}".format(1 / xx[ipoint]))) + 'km')
+
+    # -- Rossby Radii
     ax0.plot([sc_x[0], sc_x[0]], [10 ** (-4), 4 * 10 ** (-4)], color='k', linewidth=2)
     ax0.text(sc_x[0] + .2 * 10 ** -2, 4 * 10 ** (-4),
              str(r'$c_1/f$ = ') + str(float("{0:.1f}".format(1 / sc_x[0]))) + 'km')
+    ax0.plot([sc_x[4], sc_x[4]], [10 ** (-4), 4 * 10 ** (-4)], color='k', linewidth=2)
+    ax0.text(sc_x[4] + .25 * 10 ** -2, 4 * 10 ** (-4),
+             str(r'$c_5/f$ = ') + str(float("{0:.1f}".format(1 / sc_x[4]))) + 'km')
 
     # GM
-    ax0.plot(sc_x, PE_GM / dk, linestyle='--', color='#B22222', linewidth=0.75)
-    ax0.text(sc_x[0] - .01, PE_GM[1] / dk, r'$PE_{GM}$', fontsize=12)
+    # ax0.plot(sc_x, PE_GM / dk, linestyle='--', color='#B22222', linewidth=0.75)
+    # ax0.text(sc_x[0] - .01, PE_GM[1] / dk, r'$PE_{GM}$', fontsize=12)
     # ax0.plot(np.array([10**-2, 10]), [PE_SD / dk, PE_SD / dk], linestyle='--', color='k', linewidth=0.75)
 
     # Limits/scales

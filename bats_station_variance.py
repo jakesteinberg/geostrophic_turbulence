@@ -2,6 +2,7 @@
 
 import numpy as np
 import matplotlib.pyplot as plt
+import gsw
 import seawater as sw
 import pickle
 from scipy.signal import savgol_filter
@@ -130,13 +131,20 @@ c_s = bats_ctd['cast_salin'][:, span]
 # ------------- initial processing
 num_profs0 = np.sum(np.isfinite(c_log))
 theta = np.nan * np.zeros((len(grid), num_profs0))
+conservative_t = np.nan * np.zeros((len(grid), num_profs0))
+abs_salin = np.nan * np.zeros((len(grid), num_profs0))
+sigma0 = np.nan * np.zeros((len(grid), num_profs0))
 sigma_theta = np.nan * np.zeros((len(grid), num_profs0))
 for i in range(num_profs0):
     theta[:, i] = sw.ptmp(c_s[:, i], c_t[:, i], grid_p, 0)
     sigma_theta[:, i] = sw.dens(c_s[:, i], theta[:, i], 0) - 1000
+    abs_salin[:, i] = gsw.SA_from_SP(c_s[:, i], grid_p, c_lon[i] * np.ones(len(grid_p)),
+                                     c_lat[i] * np.ones(len(grid_p)))
+    conservative_t[:, i] = gsw.CT_from_t(abs_salin[:, i], c_t[:, i], grid_p)
+    sigma0[:, i] = gsw.sigma0(abs_salin[:, i], conservative_t[:, i])
 
 # exclude profiles with density perturbations at depth that seem like ctd calibration offsets
-cal_good = np.where(np.abs(sigma_theta[grid == 4100, :] - 27.89) < 0.0075)[1]
+cal_good = np.where(np.abs(sigma0[grid == 4100, :] - 27.89) < 0.0075)[1]
 num_profs = len(cal_good)
 c_log = c_log[cal_good]
 c_date = c_date[cal_good]
@@ -145,18 +153,27 @@ c_lat = c_lat[cal_good]
 theta = theta[:, cal_good]
 salin = c_s[:, cal_good]
 sigma_theta = sigma_theta[:, cal_good]
+abs_salin = abs_salin[:, cal_good]
+conservative_t = conservative_t[:, cal_good]
+sigma0 = sigma0[:, cal_good]
 
-salin_avg = np.nanmean(salin, axis=1)
+salin_avg = np.nanmean(abs_salin, axis=1)
+conservative_t_avg = np.nanmean(conservative_t, axis=1)
 theta_avg = np.nanmean(theta, axis=1)
-sigma_theta_avg = np.nanmean(sigma_theta, axis=1)
+sigma_theta_avg = np.nanmean(sigma0, axis=1)
 ddz_avg_sigma = np.gradient(sigma_theta_avg, z)
 N2 = np.nan * np.zeros(sigma_theta_avg.size)
-N2[1:] = np.squeeze(sw.bfrq(salin_avg, theta_avg, grid_p, lat=ref_lat)[0])
-lz = np.where(N2 < 0)
-lnan = np.isnan(N2)
-N2[lz] = 0
-N2[lnan] = 0
+# N2[1:] = np.squeeze(sw.bfrq(salin_avg, theta_avg, grid_p, lat=ref_lat)[0])
+N2[0:-1] = gsw.Nsquared(salin_avg, conservative_t_avg, grid_p, lat=ref_lat)[0]
+N2[N2 < 0] = np.nan
+N2 = nanseg_interp(grid, N2)
 N = np.sqrt(N2)
+N2[np.where(np.isnan(N2))[0]] = N2[np.where(np.isnan(N2))[0][0]-1]
+# lz = np.where(N2 < 0)
+# lnan = np.isnan(N2)
+# N2[lz] = 0
+# N2[lnan] = 0
+# N = np.sqrt(N2)
 
 # --- T/S plot and lat/lon profile location
 # f, (ax1, ax2, ax3) = plt.subplots(1, 3)
@@ -171,7 +188,7 @@ N = np.sqrt(N2)
 # --- eta
 eta = np.nan * np.zeros((len(grid), num_profs))
 for i in range(num_profs):
-    eta[:, i] = (sigma_theta[:, i] - sigma_theta_avg) / ddz_avg_sigma
+    eta[:, i] = (sigma0[:, i] - sigma_theta_avg) / ddz_avg_sigma
 
 # MODE PARAMETERS
 # frequency zeroed for geostrophic modes
@@ -221,34 +238,35 @@ d_test, v_test = np.linalg.eig(RR)
 # plot_pro(ax)
 
 # ----- PLOT DENSITY ANOM, ETA, AND MODE SHAPES
-# colors = plt.cm.Dark2(np.arange(0, 4, 1))
-# f, (ax, ax2, ax3) = plt.subplots(1, 3, sharey=True)
-# for i in range(num_profs):
-#     ax.plot((sigma_theta[:, i] - sigma_theta_avg), grid, linewidth=0.75)
-#     ax2.plot(eta[:, i], grid, linewidth=.75, color='#808000')
-#     ax2.plot(eta_m[:, i], grid, linewidth=.5, color='k', linestyle='--')
-# n2p = ax3.plot((np.sqrt(N2) * (1800 / np.pi))/10, grid, color='k', label='N(z) [cph]')
-# for j in range(4):
-#     ax3.plot(G[:, j]/grid.max(), grid, color='#2F4F4F', linestyle='--')
-#     p_eof = ax3.plot(-EOFetashape[:, j]/grid.max(), grid, color=colors[j, :], label='EOF # = ' + str(j + 1), linewidth=2.5)
-# ax.text(0.2, 4000, str(num_profs) + ' profiles', fontsize=10)
-# ax.grid()
-# ax.set_title('BATS Hydrography ' + str(np.round(c_date.min())) + ' - ' + str(np.round(c_date.max())))
-# ax.set_xlabel(r'$\sigma_{\theta} - \overline{\sigma_{\theta}}$')
-# ax.set_ylabel('Depth [m]')
-# ax.set_xlim([-.5, .5])
-# ax2.grid()
-# ax2.set_title('Isopycnal Displacement [m]')
-# ax2.set_xlabel('[m]')
-# ax2.axis([-600, 600, 0, 4750])
-#
-# handles, labels = ax3.get_legend_handles_labels()
-# ax3.legend(handles, labels, fontsize=10)
-# ax3.set_title('EOFs of mode amplitudes (G(z))')
-# ax3.set_xlabel('Normalized Mode Amplitude')
-# ax3.set_xlim([-1, 1])
-# ax3.invert_yaxis()
-# plot_pro(ax3)
+colors = plt.cm.Dark2(np.arange(0, 4, 1))
+f, (ax, ax2, ax3) = plt.subplots(1, 3, sharey=True)
+for i in range(num_profs):
+    ax.plot((sigma_theta[:, i] - sigma_theta_avg), grid, linewidth=0.75)
+    ax2.plot(eta[:, i], grid, linewidth=.75, color='#808000')
+    ax2.plot(eta_m[:, i], grid, linewidth=.5, color='k', linestyle='--')
+n2p = ax3.plot((np.sqrt(N2) * (1800 / np.pi)) / 10, grid, color='k', label='N(z) [cph]')
+for j in range(4):
+    ax3.plot(G[:, j] / grid.max(), grid, color='#2F4F4F', linestyle='--')
+    p_eof = ax3.plot(-EOFetashape[:, j] / grid.max(), grid, color=colors[j, :], label='EOF # = ' + str(j + 1),
+                     linewidth=2.5)
+ax.text(0.2, 4000, str(num_profs) + ' profiles', fontsize=10)
+ax.grid()
+ax.set_title('BATS Hydrography ' + str(np.round(c_date.min())) + ' - ' + str(np.round(c_date.max())))
+ax.set_xlabel(r'$\sigma_{\theta} - \overline{\sigma_{\theta}}$')
+ax.set_ylabel('Depth [m]')
+ax.set_xlim([-.5, .5])
+ax2.grid()
+ax2.set_title('Isopycnal Displacement [m]')
+ax2.set_xlabel('[m]')
+ax2.axis([-600, 600, 0, 4750])
+
+handles, labels = ax3.get_legend_handles_labels()
+ax3.legend(handles, labels, fontsize=10)
+ax3.set_title('EOFs of mode amplitudes (G(z))')
+ax3.set_xlabel('Normalized Mode Amplitude')
+ax3.set_xlim([-1, 1])
+ax3.invert_yaxis()
+plot_pro(ax3)
 
 # --- PLOT MODE AMPLITUDES IN TIME
 window_size = 25
@@ -279,10 +297,13 @@ plot_pro(ax)
 
 # --- SAVE
 # write python dict to a file
-sa = 0
+sa = 1
 if sa > 0:
     my_dict = {'depth': grid, 'Sigma_Theta': sigma_theta, 'lon': c_lon, 'lat': c_lat, 'time': c_date, 'N2': N2,
                'AG': AG, 'Eta': eta, 'Eta_m': eta_m, 'NEta_m': NEta_m, 'PE': PE_per_mass, 'c': c}
-    output = open('/Users/jake/Desktop/bats/station_bats_pe.pkl', 'wb')
+    output = open('/Users/jake/Desktop/bats/station_bats_pe_apr09.pkl', 'wb')
     pickle.dump(my_dict, output)
     output.close()
+
+
+# todo how should mode amplitude decay as mode number increases?
