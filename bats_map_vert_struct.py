@@ -599,3 +599,6 @@ if plot_eng > 0:
         output = open('/Users/jake/Documents/geostrophic_turbulence/BATS_OM_KE.pkl', 'wb')
         pickle.dump(mydict, output)
         output.close()
+
+
+# todo read wunsch comparisons with altimetry and compare his results to time (do satellites agree with my data?)

@@ -81,6 +81,7 @@ lat_grid_all = np.array(bats_map['lat_grid_All'])
 lon_grid_all = np.array(bats_map['lon_grid_All'])
 mask = bats_map['mask']
 Lon_map, Lat_map = np.meshgrid(lon_grid_all[0, :], lat_grid_all[0, :])
+# todo compute potential vorticity (need to check where Q goes to zero or becomes negative)
 
 # ---- LOAD IN TRANSECT TO PROFILE DATA COMPILED IN BATS_TRANSECTS.PY
 pkl_file = open('/Users/jake/Desktop/bats/dep15_transect_profiles_apr04.pkl', 'rb')
