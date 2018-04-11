@@ -9,9 +9,11 @@ def make_bin_gen(bin_depth, depth_d, temp_d, salin_d):
     bin_up = bin_depth[0:-2]
     bin_down = bin_depth[2:]
     bin_cen = bin_depth[1:-1]
-    temp_g_dive = np.empty(np.size(bin_cen))
-    salin_g_dive = np.empty(np.size(bin_cen))
-    for i in range(np.size(bin_cen)):
+    temp_g_dive = np.empty(np.size(bin_cen)+1)
+    salin_g_dive = np.empty(np.size(bin_cen)+1)
+    temp_g_dive[0] = np.nanmean(temp_d[depth_d < bin_cen[0]])
+    salin_g_dive[0] = np.nanmean(salin_d[depth_d < bin_cen[0]])
+    for i in range(1, np.size(bin_cen)):
         dp_in_d = (depth_d > bin_up[i]) & (depth_d < bin_down[i])
 
         if dp_in_d.size > 2:

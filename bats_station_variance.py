@@ -6,19 +6,23 @@ import gsw
 import seawater as sw
 import pickle
 from scipy.signal import savgol_filter
+import glob
+from netCDF4 import Dataset
 # functions I've written
 from grids import make_bin_gen
 from mode_decompositions import vertical_modes, eta_fit, vertical_modes_f
-from toolkit import plot_pro, nanseg_interp
+from toolkit import plot_pro, nanseg_interp, find_nearest
 
 # ------ physical parameters
 g = 9.81
 rho0 = 1027
-bin_depth = np.concatenate([np.arange(0, 150, 5), np.arange(150, 300, 5), np.arange(300, 4600, 5)])
+GD = Dataset('BATs_2015_gridded_apr04.nc', 'r')
+bin_depth = GD.variables['grid'][:]
+# bin_depth = np.concatenate([np.arange(0, 150, 5), np.arange(150, 300, 5), np.arange(300, 4500, 10)])
 ref_lat = 31.7
 ref_lon = -64.2
-grid = bin_depth[0:-1]
-grid_p = sw.pres(grid, ref_lat)
+grid = bin_depth[0:221]
+grid_p = gsw.p_from_z(-1 * grid, ref_lat)
 z = -1 * grid
 
 # write this to process any set of shipboard hydrography (specify file type)
@@ -81,7 +85,7 @@ z = -1 * grid
 #                 each_cast = np.where(cast_no == k)[0]
 #                 cast_data = data_per_cruise_j[each_cast, :]  # data from each cast k
 #                 cast_p = cast_data[:, 4]
-#                 c_d = sw.dpth(cast_p, ref_lat)
+#                 c_d = -1 * gsw.z_from_p(cast_p, ref_lat)  # sw.dpth(cast_p, ref_lat)
 #
 #                 lt = cast_data[:, 2]
 #                 lo = cast_data[:, 3]
@@ -95,7 +99,7 @@ z = -1 * grid
 #                 # only select deep dives w/in lat/lon box
 #                 if (c_d.max() > 3500) & (np.sum(np.isnan(cast_s_pre)) < len(cast_s_pre)/3):
 #                     g_ol = np.where(grid <= c_d.max())[0]
-#                     cast_t[g_ol[1:-1], count], cast_s[g_ol[1:-1], count] = make_bin_gen(grid[g_ol], c_d, cast_t_pre,
+#                     cast_t[g_ol[0:-1], count], cast_s[g_ol[0:-1], count] = make_bin_gen(grid[g_ol], c_d, cast_t_pre,
 #                                                                                         cast_s_pre)
 #                     # cast_t[g_overlap, count] = np.interp(grid[g_overlap], cast_d, cast_t_pre)
 #                     # cast_s[g_overlap, count] = np.interp(grid[g_overlap], cast_d, cast_s_pre)
@@ -108,14 +112,15 @@ z = -1 * grid
 #
 # savee = 1
 # if savee > 0:
-#     output_file = open('/Users/jake/Documents/baroclinic_modes/BATS_station/bats_ship_ctd_gridded.pkl', 'wb')
+#     output_file = open('/Users/jake/Documents/baroclinic_modes/BATS_station/bats_ship_ctd_gridded_apr10.pkl', 'wb')
 #     my_dict = {'grid': grid, 'grid_p': grid_p, 'cast_log': cast_log, 'cast_date': cast_date, 'cast_lat': cast_lat,
 #                'cast_lon': cast_lon, 'cast_temp': cast_t, 'cast_salin': cast_s}
 #     pickle.dump(my_dict, output_file)
 #     output_file.close()
 
+# ------------------------------------------------------------------------------------------------------------
 # ------------- LOAD GRIDDED CASTS -------------
-pkl_file = open('/Users/jake/Documents/baroclinic_modes/BATS_station/bats_ship_ctd_gridded.pkl', 'rb')
+pkl_file = open('/Users/jake/Documents/baroclinic_modes/BATS_station/bats_ship_ctd_gridded_apr10.pkl', 'rb')
 bats_ctd = pickle.load(pkl_file)
 pkl_file.close()
 c_lon = bats_ctd['cast_lon'][0]
@@ -127,6 +132,28 @@ c_log = bats_ctd['cast_log'][0, span]
 c_date = bats_ctd['cast_date'][0, span]
 c_t = bats_ctd['cast_temp'][:, span]
 c_s = bats_ctd['cast_salin'][:, span]
+
+c_t[c_t < 1] = np.nan
+c_t[c_t > 30] = np.nan
+c_s[c_s < 34] = np.nan
+c_s[c_s > 40] = np.nan
+for i in range(len(c_lon)):
+    c_t[:, i] = nanseg_interp(grid, c_t[:, i])
+    c_s[:, i] = nanseg_interp(grid, c_s[:, i])
+    c_t[np.isnan(c_t[:, i]), i] = c_t[np.where(c_t[~np.isnan(c_t[:, i]), i])[0][-1], i]
+    c_s[np.isnan(c_s[:, i]), i] = c_s[np.where(c_s[~np.isnan(c_s[:, i]), i])[0][-1], i]
+    # if c_t[(c_t[:, i] > 15) & (grid > 1000), i].size > 0:
+    #     c_t[(c_t[:, i] > 15) & (grid > 1000), i] = np.nan
+
+good_s = np.where(c_s[-1, :] < 35)[0]
+good_t = np.where(c_t[-1, :] < 3)[0]
+good = np.intersect1d(good_s, good_t)
+c_s = c_s[:, good]
+c_t = c_t[:, good]
+c_date = c_date[good]
+c_lon = c_lon[good]
+c_lat = c_lat[good]
+c_log = c_log[good]
 
 # ------------- initial processing
 num_profs0 = np.sum(np.isfinite(c_log))
@@ -157,38 +184,80 @@ abs_salin = abs_salin[:, cal_good]
 conservative_t = conservative_t[:, cal_good]
 sigma0 = sigma0[:, cal_good]
 
-salin_avg = np.nanmean(abs_salin, axis=1)
-conservative_t_avg = np.nanmean(conservative_t, axis=1)
-theta_avg = np.nanmean(theta, axis=1)
-sigma_theta_avg = np.nanmean(sigma0, axis=1)
-ddz_avg_sigma = np.gradient(sigma_theta_avg, z)
-N2 = np.nan * np.zeros(sigma_theta_avg.size)
-# N2[1:] = np.squeeze(sw.bfrq(salin_avg, theta_avg, grid_p, lat=ref_lat)[0])
-N2[0:-1] = gsw.Nsquared(salin_avg, conservative_t_avg, grid_p, lat=ref_lat)[0]
-N2[N2 < 0] = np.nan
-N2 = nanseg_interp(grid, N2)
-N = np.sqrt(N2)
-N2[np.where(np.isnan(N2))[0]] = N2[np.where(np.isnan(N2))[0][0]-1]
-# lz = np.where(N2 < 0)
-# lnan = np.isnan(N2)
-# N2[lz] = 0
-# N2[lnan] = 0
-# N = np.sqrt(N2)
+# -- construct four background profiles to represent seasons
+date_year = np.floor(c_date)
+date_month = c_date - date_year
+# Mar 1 - June 1
+d_spring = np.where((date_month > 3 / 12) & (date_month < 6 / 12))[0]
+# June 1 - Sept 1
+d_summer = np.where((date_month > 6 / 12) & (date_month < 9 / 12))[0]
+# Sept 1 - Nov 1
+d_fall = np.where((date_month > 9 / 12) & (date_month < 11 / 12))[0]
+# Nov 1 - Mar 1
+d_winter = np.where((date_month > 11 / 12) | (date_month < 3 / 12))[0]
 
-# --- T/S plot and lat/lon profile location
-# f, (ax1, ax2, ax3) = plt.subplots(1, 3)
-# ax1.scatter(salin, theta, s=0.5)
-# for i in range(num_profs):
-#     ax2.plot(sigma_theta[:, i] - sigma_theta_avg, grid, linewidth=.5)
-# ax2.invert_yaxis()
-# ax2.axis([-1, 1, 0, 5000])
-# ax3.scatter(c_lon, c_lat, s=3)
-# plot_pro(ax3)
+bckgrds = [d_spring, d_summer, d_fall, d_winter]
+# -----------------------------------------------------------------------------
+
+salin_avg = np.nan * np.zeros((len(grid), 4))
+conservative_t_avg = np.nan * np.zeros((len(grid), 4))
+theta_avg = np.nan * np.zeros((len(grid), 4))
+sigma_theta_avg = np.nan * np.zeros((len(grid), 4))
+ddz_avg_sigma = np.nan * np.zeros((len(grid), 4))
+N2 = np.nan * np.zeros(sigma_theta_avg.shape)
+N = np.nan * np.zeros(sigma_theta_avg.shape)
+for i in range(4):
+    inn = bckgrds[i]
+    salin_avg[:, i] = np.nanmean(abs_salin[:, inn], axis=1)
+    conservative_t_avg[:, i] = np.nanmean(conservative_t[:, inn], axis=1)
+    theta_avg[:, i] = np.nanmean(theta[:, inn], axis=1)
+    sigma_theta_avg[:, i] = np.nanmean(sigma0[:, inn], axis=1)
+    ddz_avg_sigma[:, i] = np.gradient(sigma_theta_avg[:, i], z)
+
+    # N2[1:] = np.squeeze(sw.bfrq(salin_avg, theta_avg, grid_p, lat=ref_lat)[0])
+    go = ~np.isnan(salin_avg[:, i])
+    N2[np.where(go)[0][0:-1], i] = gsw.Nsquared(salin_avg[go, i], conservative_t_avg[go, i], grid_p[go], lat=ref_lat)[0]
+    N2[N2[:, i] < 0] = np.nan
+    # N2[:, i] = nanseg_interp(grid, N2[:, i])
+    last_good = np.where(~np.isnan(N2[:, i]))[0][-1]
+    if last_good.size > 0:
+        N2[last_good + 1:, i] = N2[last_good, i]
+    # N[:, i] = np.sqrt(N2[:, i])
+    # N2[np.where(np.isnan(N2))[0]] = N2[np.where(np.isnan(N2))[0][0] - 1]
 
 # --- eta
 eta = np.nan * np.zeros((len(grid), num_profs))
+sigma_anom = np.nan * np.zeros((len(grid), num_profs))
 for i in range(num_profs):
-    eta[:, i] = (sigma0[:, i] - sigma_theta_avg) / ddz_avg_sigma
+    this_time = c_date[i] - np.floor(c_date[i])
+    cor_b = np.zeros(4)
+    for j in range(4):
+        if j > 2:
+            if (this_time > date_month[bckgrds[j]].min()) | (this_time < date_month[bckgrds[j]].max()):
+                cor_b[j] = 1
+        else:
+            if (this_time > date_month[bckgrds[j]].min()) & (this_time < date_month[bckgrds[j]].max()):
+                cor_b[j] = 1
+    eta[:, i] = (sigma0[:, i] - sigma_theta_avg[:, cor_b > 0][:, 0]) / ddz_avg_sigma[:, cor_b > 0][:, 0]
+    sigma_anom[:, i] = (sigma0[:, i] - sigma_theta_avg[:, cor_b > 0][:, 0])
+
+
+colors = plt.cm.Dark2(np.arange(0, 4, 1))
+
+# --- T/S plot and lat/lon profile location
+f, (ax, ax2, ax3) = plt.subplots(1, 3)
+for i in range(num_profs):
+    ax.scatter(abs_salin[:, i], conservative_t[:, i], s=1)
+# colors = ['r', 'g', 'b', 'k']
+for i in range(4):
+    ax.plot(salin_avg[:, i], conservative_t_avg[:, i], linewidth=2, color=colors[i])
+    ax2.plot(sigma_theta_avg[:, i], grid, linewidth=2, color=colors[i])
+    ax3.plot(sigma_anom[:, bckgrds[i]], grid, color=colors[i], linewidth=0.5)
+ax.grid()
+ax2.invert_yaxis()
+ax3.invert_yaxis()
+ax2.grid()
+plot_pro(ax3)
 
 # MODE PARAMETERS
 # frequency zeroed for geostrophic modes
@@ -196,18 +265,41 @@ omega = 0
 # highest baroclinic mode to be calculated
 mmax = 60
 nmodes = mmax + 1
-eta_fit_dep_min = 50
+eta_fit_dep_min = 100
 eta_fit_dep_max = 3600
 
-# computer vertical mode shapes
-G, Gz, c = vertical_modes(N2, grid, omega, mmax)
+# -- computer vertical mode shapes
+G, Gz, c = vertical_modes(np.nanmean(N2, axis=1), grid, omega, mmax)
 
-AG, eta_m, NEta_m, PE_per_mass = eta_fit(num_profs, grid, nmodes, N2, G, c, eta, eta_fit_dep_min, eta_fit_dep_max)
+# -- cycle through seasons
+AG = []
+PE_per_mass = []
+eta_m = []
+Neta_m = []
+Eta_m = []
+for i in range(4):
+    AG_out, eta_m_out, Neta_m_out, PE_per_mass_out = eta_fit(len(bckgrds[i]), grid, nmodes,
+                                                             np.nanmean(N2, axis=1), G, c, eta[:, bckgrds[i]],
+                                                             eta_fit_dep_min,
+                                                             eta_fit_dep_max)
+    AG.append(AG_out)
+    eta_m.append(eta_m_out)
+    Neta_m.append(Neta_m_out)
+    PE_per_mass.append(PE_per_mass_out)
+    if i < 1:
+        Eta_m = eta_m_out
+    else:
+        Eta_m = np.concatenate([Eta_m, eta_m_out], axis=1)
+
+AG_all, eta_m_all, Neta_m_all, PE_per_mass_all = eta_fit(num_profs, grid, nmodes,
+                                                         np.nanmean(N2, axis=1), G, c, eta, eta_fit_dep_min,
+                                                         eta_fit_dep_max)
 
 # --- find EOFs of dynamic vertical displacement (Eta mode amplitudes)
-good_prof_eof = np.where(~np.isnan(AG[2, :]))
+AG_avg = AG[0].copy()
+good_prof_eof = np.where(~np.isnan(AG_avg[2, :]))
 num_profs_2 = np.size(good_prof_eof)
-AG2 = AG[:, good_prof_eof[0]]
+AG2 = AG_avg[:, good_prof_eof[0]]
 C = np.transpose(np.tile(c, (num_profs_2, 1)))
 AGs = C * AG2
 AGq = AGs[1:, :]  # ignores barotropic mode
@@ -238,13 +330,12 @@ d_test, v_test = np.linalg.eig(RR)
 # plot_pro(ax)
 
 # ----- PLOT DENSITY ANOM, ETA, AND MODE SHAPES
-colors = plt.cm.Dark2(np.arange(0, 4, 1))
 f, (ax, ax2, ax3) = plt.subplots(1, 3, sharey=True)
 for i in range(num_profs):
-    ax.plot((sigma_theta[:, i] - sigma_theta_avg), grid, linewidth=0.75)
+    ax.plot(sigma_anom[:, i], grid, linewidth=0.75)
     ax2.plot(eta[:, i], grid, linewidth=.75, color='#808000')
-    ax2.plot(eta_m[:, i], grid, linewidth=.5, color='k', linestyle='--')
-n2p = ax3.plot((np.sqrt(N2) * (1800 / np.pi)) / 10, grid, color='k', label='N(z) [cph]')
+    ax2.plot(Eta_m[:, i], grid, linewidth=.5, color='k', linestyle='--')
+n2p = ax3.plot((np.sqrt(np.nanmean(N2, axis=1)) * (1800 / np.pi))/2, grid, color='k', label='N(z) [cph]')
 for j in range(4):
     ax3.plot(G[:, j] / grid.max(), grid, color='#2F4F4F', linestyle='--')
     p_eof = ax3.plot(-EOFetashape[:, j] / grid.max(), grid, color=colors[j, :], label='EOF # = ' + str(j + 1),
@@ -268,42 +359,64 @@ ax3.set_xlim([-1, 1])
 ax3.invert_yaxis()
 plot_pro(ax3)
 
+# --- PLOT ETA AND COLOR BY SEASON
+f, ax = plt.subplots()
+# colors = ['r', 'g', 'b', 'm']
+for i in range(4):
+    for j in range(len(bckgrds[i])):
+        ax.plot(eta[:, bckgrds[i][j]], grid, color=colors[i], linewidth=0.5)
+ax.set_xlabel('[m]')
+ax.axis([-600, 600, 0, 4750])
+ax.invert_yaxis()
+plot_pro(ax)
+
 # --- PLOT MODE AMPLITUDES IN TIME
 window_size = 25
 poly_order = 3
-AG1 = AG[1, :].copy()
-AG1 = nanseg_interp(c_date, AG1)
-y_sg = savgol_filter(AG1, window_size, poly_order)
-AG2 = AG[2, :].copy()
-AG2 = nanseg_interp(c_date, AG2)
-y_sg2 = savgol_filter(AG2, window_size, poly_order)
-AG3 = AG[3, :].copy()
-AG3 = nanseg_interp(c_date, AG3)
-y_sg3 = savgol_filter(AG3, window_size, poly_order)
+f, (ax1, ax2) = plt.subplots(2, 1, sharex=True)
+# colors = ['r', 'g', 'b', 'm']
+# for i in range(4):
+#     AG1 = AG[i][1, :].copy()
+#     AG1 = nanseg_interp(c_date[bckgrds[i]], AG1)
+#     y_sg = savgol_filter(AG1, window_size, poly_order)
+#     AG2 = AG[i][2, :].copy()
+#     AG2 = nanseg_interp(c_date[bckgrds[i]], AG2)
+#     y_sg2 = savgol_filter(AG2, window_size, poly_order)
+#
+#     # ax.plot(c_date[bckgrds[i]], AG[1, :], color='#FF8C00', linewidth=0.5)
+#     ax1.plot(c_date[bckgrds[i]], y_sg, color=colors[i], linewidth=1, label='Mode 1')
+#     # ax.plot(c_date[bckgrds[i]], AG[2, :], linewidth=0.5, color='#5F9EA0')
+#     ax2.plot(c_date[bckgrds[i]], y_sg2, color=colors[i], linewidth=1, label='Mode 2')
 
-f, ax = plt.subplots()
-ax.plot(c_date, AG[1, :], color='#FF8C00', linewidth=0.5)
-ax.plot(c_date, y_sg, color='#FF8C00', linewidth=3, label='Mode 1')
-ax.plot(c_date, AG[2, :], linewidth=0.5, color='#5F9EA0')
-ax.plot(c_date, y_sg2, color='#5F9EA0', linewidth=2, label='Mode 2')
-# ax.plot(c_date, AG[3, :], linewidth=0.5, color='#8B0000')
-ax.plot(c_date, y_sg3, color='#8B0000', linewidth=1, label='Mode 3')
-handles, labels = ax.get_legend_handles_labels()
-ax.legend(handles, labels, fontsize=10)
-ax.set_xlabel('Date')
-ax.set_ylabel('Mode Amplitude')
-ax.set_title('Station BATS Mode Amplitude in Time')
-plot_pro(ax)
+AG1_all = AG_all[1, :].copy()
+AG1_all = nanseg_interp(c_date, AG1_all)
+y_sg_all = savgol_filter(AG1_all, window_size, poly_order)
+ax1.plot(c_date, y_sg_all, color='k', linewidth=2, label='Mode 1')
+AG2_all = AG_all[2, :].copy()
+AG2_all = nanseg_interp(c_date, AG2_all)
+y_sg2_all = savgol_filter(AG2_all, window_size, poly_order)
+ax2.plot(c_date, y_sg2_all, color='k', linewidth=2, label='Mode 1')
+# ax1.legend(['Spring', 'Summer', 'Fall', 'Winter', 'All'], fontsize=10)
+ax2.set_xlabel('Date')
+ax1.set_ylabel('Mode Amplitude')
+ax2.set_ylabel('Mode Amplitude')
+ax1.set_title('Station BATS Mode 1 Amplitude in Time')
+ax2.set_title('Station BATS Mode 2 Amplitude in Time')
+ax1.set_ylim([-.075, 0.075])
+ax2.set_ylim([-.075, 0.075])
+ax1.grid()
+plot_pro(ax2)
 
 # --- SAVE
 # write python dict to a file
 sa = 1
 if sa > 0:
-    my_dict = {'depth': grid, 'Sigma_Theta': sigma_theta, 'lon': c_lon, 'lat': c_lat, 'time': c_date, 'N2': N2,
-               'AG': AG, 'Eta': eta, 'Eta_m': eta_m, 'NEta_m': NEta_m, 'PE': PE_per_mass, 'c': c}
-    output = open('/Users/jake/Desktop/bats/station_bats_pe_apr09.pkl', 'wb')
+    my_dict = {'depth': grid, 'Sigma0': sigma0, 'lon': c_lon, 'lat': c_lat, 'time': c_date,
+               'N2_per_season': N2, 'background indices': bckgrds, 'background order': ['spr', 'sum', 'fall', 'wint'],
+               'AG': AG_all, 'AG_per_season': AG, 'Eta': eta, 'Eta_m': eta_m_all, 'NEta_m': Neta_m_all,
+               'PE': PE_per_mass_all, 'c': c}
+    output = open('/Users/jake/Desktop/bats/station_bats_pe_apr10.pkl', 'wb')
     pickle.dump(my_dict, output)
     output.close()
-
 
 # todo how should mode amplitude decay as mode number increases?
