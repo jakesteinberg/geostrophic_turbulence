@@ -539,7 +539,7 @@ for i in range(len(sbt_in)):
     sb_dt.append(datetime.datetime(np.int(sbt_in[i]), np.int((sbt_in[i] - np.int(sbt_in[i])) * 12), np.int(
         ((sbt_in[i] - np.int(sbt_in[i])) * 12 - np.int((sbt_in[i] - np.int(sbt_in[i])) * 12)) * 30)))
 
-plot_mode = 0
+plot_mode = 1
 if plot_mode > 0:
     window_size, poly_order = 9, 2
     fm, ax = plt.subplots()
@@ -760,8 +760,9 @@ if plot_eng > 0:
     #                     color='#FF8C00',
     #                     label='APE$_{ship}$', linewidth=1.5)
     ax0.scatter(sc_x, avg_PE[1:] / dk, color='#B22222', s=20)  # DG PE
-    KE_p = ax0.plot(1000 * f_ref / c, avg_KE / dk, 'g', label='KE$_{DG}$', linewidth=3)
+    KE_p = ax0.plot(1000 * f_ref / c[1:], avg_KE[1:] / dk, 'g', label='KE$_{DG}$', linewidth=3)
     ax0.scatter(sc_x, avg_KE[1:] / dk, color='g', s=20)  # DG KE
+    KE_p = ax0.plot([10**-2, 1000 * f_ref / c[1]], avg_KE[0:2] / dk, 'g', label='KE$_{DG}$', linewidth=3) # DG KE_0
     ax0.scatter(10**-2, avg_KE[0] / dk, color='g', s=25, facecolors='none')  # DG KE_0
 
     # -- Obj. Map

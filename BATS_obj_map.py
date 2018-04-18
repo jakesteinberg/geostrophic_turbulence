@@ -159,7 +159,7 @@ y_grid = 1852 * 60 * (lat_grid - ref_lat)
 
 # select time window from which to extract subset for initial objective mapping 
 win_size = 16
-time_step = 2
+time_step = 4
 t_windows = np.arange(np.floor(np.nanmin(time_rec)), np.floor(np.nanmax(time_rec)), time_step)
 t_bin = np.nan * np.zeros((len(t_windows) - win_size, 2))
 for i in range(len(t_windows) - win_size):
@@ -171,6 +171,7 @@ n_error = []
 U_out = []
 V_out = []
 sigma_theta_out = []
+sigma_theta_limits_out = []
 sigma_theta_all = []
 d_dx_sigma = []
 d_dy_sigma = []
@@ -184,7 +185,7 @@ V_all = []
 DAC_U_M = []
 DAC_V_M = []
 good_mask = []
-sample_win = np.arange(20, 50, 1)
+sample_win = np.arange(18, 45, 1)   # started at 20
 for k0 in range(np.size(sample_win)):
     k = sample_win[k0]
     k_out = k
@@ -194,14 +195,19 @@ for k0 in range(np.size(sample_win)):
     # --- LOOPING
     # --- LOOPING  over depth layers
     sigma_theta = np.nan * np.zeros((len(lat_grid), len(lon_grid), len(grid)))
+    sigma_theta_obs_limits = np.nan*np.zeros((len(grid), 2))
     error = np.nan * np.zeros((len(lat_grid), len(lon_grid), len(grid)))
     d_sigma_dx = np.nan * np.zeros((len(lat_grid), len(lon_grid), len(grid)))
     d_sigma_dy = np.nan * np.zeros((len(lat_grid), len(lon_grid), len(grid)))
+    error_mask = np.zeros((len(lat_grid), len(lon_grid), len(grid_2)))
+    norm_error = np.zeros((len(lat_grid), len(lon_grid), len(grid_2)))
     for l in range(len(grid_2)):
         depth = np.where(grid == grid[l])[0][0]
         lon_in = np.array(df_lon.iloc[depth, time_in])
         lat_in = np.array(df_lat.iloc[depth, time_in])
         den_in = np.array(df_den.iloc[depth, time_in])
+        den_in_max = np.nanmax(den_in)
+        den_in_min = np.nanmin(den_in)
 
         # attempt to correct for nan's 
         if len(np.where(np.isnan(den_in))[0]) > 0:
@@ -230,7 +236,7 @@ for k0 in range(np.size(sample_win)):
         den_sig = np.nanstd(den_anom)
         den_var = np.nanvar(den_anom)
         errsq = 0
-        noise_sig = (np.max(den_in) - np.min(den_in)) / 7  # 0.01
+        noise_sig = (np.max(den_in) - np.min(den_in)) / 7.5  # 0.01
 
         # data-data covariance (loop over nXn data points) 
         npts = len(x)
@@ -260,6 +266,7 @@ for k0 in range(np.size(sample_win)):
                 Dmap[j, i] = np.sum([den_anom * alpha]) + (cx * x_grid[i] + cy * y_grid[j] + c0)
                 Emap[j, i] = np.sqrt(den_sig * den_sig - np.dot(data_grid, alpha))
 
+        sigma_theta_obs_limits[l, :] = np.array([den_in_min, den_in_max])
         sigma_theta[:, :, l] = Dmap
         error[:, :, l] = Emap
 
@@ -280,7 +287,23 @@ for k0 in range(np.size(sample_win)):
         d_sigma_dy[:, :, l], d_sigma_dx[:, :, l] = np.gradient(sigma_theta[:, :, l], y_grid[2] - y_grid[1],
                                                                x_grid[2] - x_grid[1])
 
+        # MASK consider only profiles that are within a low error region
+        # error values are plus/minus in units of the signal (in this case it density)
+        # include only u/v profiles with density error less than 0.01
+        # --- NORMALIZED ERROR
+        # norm_error[:, :, l] = error[:, :, l] / (np.nanmax(sigma_theta[:, :, l]) - np.nanmin(sigma_theta[:, :, l]))
+        norm_error[:, :, l] = error[:, :, l] / (sigma_theta_obs_limits[l, 1] - sigma_theta_obs_limits[l, 0])
+        # sig_range = (np.nanmax(sigma_theta[:, :, l]) - np.nanmin(sigma_theta[:, :, l])) / 7
+        # sig_range2 = 1 * (sigma_theta[:, :, l].std())
+        # good = np.where(error[:, :, l] < sig_range)
+        # error_mask[good[0], good[1], l] = 1
+
         # --- FINISH LOOPING OVER ALL DEPTH LAYERS
+        # -------------------------------------------------------------------
+
+    # normalized error averaged over the grid points to give one value per grid cell
+    error_test = np.nanmean(norm_error, axis=2)
+    good_prof = np.where(error_test <= 0.1)
 
     # mapping for DAC vectors 
     d_lon_in = dac_lon[time_in_2]
@@ -345,22 +368,6 @@ for k0 in range(np.size(sample_win)):
                 U_g[m, n, iq] = DACU_map[m, n] + ubc
                 V_g[m, n, iq] = DACV_map[m, n] + vbc
 
-                # MASK consider only profiles that are within a low error region
-    # error values are plus/minus in units of the signal (in this case it density)
-    # include only u/v profiles with density error less than 0.01 
-    # - average error on the vertical 
-    error_mask = np.zeros((len(lat_grid), len(lon_grid), len(grid_2)))
-    norm_error = np.zeros((len(lat_grid), len(lon_grid), len(grid_2)))
-    for i in range(len(grid_2)):
-        norm_error[:, :, i] = error[:, :, i] / (np.nanmax(sigma_theta[:, :, i]) - np.nanmin(sigma_theta[:, :, i]))
-        sig_range = (np.nanmax(sigma_theta[:, :, i]) - np.nanmin(sigma_theta[:, :, i])) / 7
-        sig_range2 = 1*(sigma_theta[:, :, i].std())
-        good = np.where(error[:, :, i] < sig_range)
-        error_mask[good[0], good[1], i] = 1
-    # error_test = np.sum(error_mask, axis=2)
-    error_test = np.nanmean(norm_error, axis=2)
-    good_prof = np.where(error_test <= 0.11)
-
     t_s = datetime.date.fromordinal(np.int(t_bin[k_out, 0]))
     t_e = datetime.date.fromordinal(np.int(t_bin[k_out, 1]))
 
@@ -370,6 +377,7 @@ for k0 in range(np.size(sample_win)):
     U_out.append(U_g[good_prof[0], good_prof[1], :])
     V_out.append(V_g[good_prof[0], good_prof[1], :])
     sigma_theta_out.append(sigma_theta[good_prof[0], good_prof[1], :])
+    sigma_theta_limits_out.append(sigma_theta_obs_limits)
     lon_out.append(lon_grid[good_prof[1]])
     lat_out.append(lat_grid[good_prof[0]])
 
@@ -392,14 +400,14 @@ for k0 in range(np.size(sample_win)):
 
 # --- SAVE
 # write python dict to a file
-sa = 0
+sa = 1
 if sa > 0:
     mydict = {'depth': grid, 'Sigma_Theta': sigma_theta_out, 'U_g': U_out, 'V_g': V_out, 'lon_grid': lon_out,
               'lat_grid': lat_out, 'time': time_out,
               'Sigma_Theta_All': sigma_theta_all, 'U_g_All': U_all, 'V_g_All': V_all, 'lon_grid_All': lon_all,
               'lat_grid_All': lat_all, 'mask': good_mask, 'dac_u_map': DAC_U_M, 'dac_v_map': DAC_V_M,
               'd_sigma_dx': d_dx_sigma, 'd_sigma_dy': d_dy_sigma}
-    output = open('/Users/jake/Documents/geostrophic_turbulence/BATS_obj_map_L35_apr05.pkl', 'wb')
+    output = open('/Users/jake/Documents/geostrophic_turbulence/BATS_obj_map_L35_W4_apr18.pkl', 'wb')
     pickle.dump(mydict, output)
     output.close()
 

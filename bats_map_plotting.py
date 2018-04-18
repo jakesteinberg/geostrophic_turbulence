@@ -61,7 +61,7 @@ dac_u[dac_u < -500] = np.nan
 dac_v[dac_v < -500] = np.nan
 
 # -------------- LOAD IN MAPPED U/V, AND DENSITY
-pkl_file = open('/Users/jake/Documents/geostrophic_turbulence/BATS_obj_map_L35_apr05.pkl', 'rb')   # _2
+pkl_file = open('/Users/jake/Documents/geostrophic_turbulence/BATS_obj_map_L35_W4_apr18.pkl', 'rb')  # _2
 bats_map = pickle.load(pkl_file)
 pkl_file.close()
 Time = bats_map['time']
@@ -97,7 +97,7 @@ prof_lon = bats_trans['V_lon']
 prof_lat = bats_trans['V_lat']
 
 # ---- LOAD GRIDDED ALTIMETRY AND SURFACE VELOCITIES
-SA = Dataset('/Users/jake/Desktop/bats/dataset-duacs-rep-global-merged-allsat-phy-l4-v3_1521132997576.nc', 'r')
+SA = Dataset('/Users/jake/Desktop/bats/dataset-duacs-rep-global-merged-allsat-phy-l4-v3_1524083289217.nc', 'r')
 lol = -65.2
 lom = -63.3
 lal = 31.1
@@ -164,6 +164,9 @@ ax2.set_xlabel('Longitude')
 ax2.text(-65, 32.1, 'Surface Velocity')
 handles, labels = ax2.get_legend_handles_labels()
 ax2.legend(handles, labels, fontsize=10)
+w = 1 / np.cos(np.deg2rad(ref_lat))
+ax1.set_aspect(w)
+ax2.set_aspect(w)
 plot_pro(ax2)
 
 f, ax = plt.subplots(6, 1, sharex=True)
@@ -216,9 +219,9 @@ plot_pro(ax[i])
 
 
 # ------------ PLAN VIEW ------------------------------
-test_lev = 64
+test_lev = 65
 lim = 50
-time_t = 15  # map_t_choice  # 10
+time_t = 0  # 15  # map_t_choice  # 10
 x_grid = 1852 * 60 * np.cos(np.deg2rad(ref_lat)) * (lon_grid_all[time_t, :] - ref_lon)
 y_grid = 1852 * 60 * (lat_grid_all[time_t, :] - ref_lat)
 x1, y1 = np.meshgrid(x_grid / 1000, y_grid / 1000)
@@ -229,16 +232,20 @@ axl2 = [0, 1, 2, 0, 1, 2, 0, 1, 2]
 cmp = plt.cm.get_cmap("viridis")
 cmp.set_over('w')  # ('#E6E6E6')
 cmp.set_under('w')
-tt = np.arange(time_t, time_t + 11)
+tt = np.arange(time_t, time_t + 20)
+# den_min = 27.38
+# den_max = 27.56
+den_min = 27.41
+den_max = 27.61
 
 for i in range(9):
-    this_t = tt[i]
+    this_t = tt[i+8]  # tt[i]
     t_s = datetime.date.fromordinal(np.int(Time[this_t][0]))
     t_e = datetime.date.fromordinal(np.int(Time[this_t][1]))
     t_in_all = np.where((time_rec_all > Time[this_t][0]) & (time_rec_all < Time[this_t][1]))[0]
     profs = profile_list_all[t_in_all]
-    this_x_all = 1852 * 60 * np.cos(np.deg2rad(ref_lat)) * (np.array(df_lon_all.iloc[:, t_in_all]) - ref_lon)/1000
-    this_y_all = 1852 * 60 * np.cos(np.deg2rad(ref_lat)) * (np.array(df_lat_all.iloc[:, t_in_all]) - ref_lat)/1000
+    this_x_all = 1852 * 60 * np.cos(np.deg2rad(ref_lat)) * (np.array(df_lon_all.iloc[:, t_in_all]) - ref_lon) / 1000
+    this_y_all = 1852 * 60 * np.cos(np.deg2rad(ref_lat)) * (np.array(df_lat_all.iloc[:, t_in_all]) - ref_lat) / 1000
     dive_pos_x = np.nanmean(this_x_all, axis=0)
     dive_pos_y = np.nanmean(this_y_all, axis=0)
     # mask grid for plotting
@@ -250,12 +257,19 @@ for i in range(9):
     U_i[this_t, mask[this_t][0], mask[this_t][1]] = U_all[this_t, mask[this_t][0], mask[this_t][1], test_lev]
     V_i[this_t, mask[this_t][0], mask[this_t][1]] = V_all[this_t, mask[this_t][0], mask[this_t][1], test_lev]
 
-    im = ax[axl1[i], axl2[i]].pcolor(x1, y1, sig_th_i[this_t, :, :], vmin=np.nanmin(sig_th_i[this_t, :, :]),
-                                     vmax=np.nanmax(sig_th_i[this_t, :, :]), cmap=cmp)
-    ax[axl1[i], axl2[i]].contour(x1, y1, sig_th_i[this_t, :, :], colors='k')
+    # -- old density limits = np.nanmin(sig_th_i[this_t, :, :])
+    # -- pcolor mapped density field
+    im = ax[axl1[i], axl2[i]].pcolor(x1, y1, sig_th_i[this_t, :, :], vmin=den_min, vmax=den_max, cmap=cmp, zorder=0)
+    ax[axl1[i], axl2[i]].contour(x1, y1, sig_th_i[this_t, :, :], colors='k', zorder=1)
     ax[axl1[i], axl2[i]].quiver(x1, y1, U_i[this_t, :, :], V_i[this_t, :, :], color='w',
-                                label='Mapped Velocity', scale=1.2)
-    ax[axl1[i], axl2[i]].scatter(this_x_all, this_y_all, s=6.5, color='k', label='DG dives')
+                                label='Mapped Velocity', scale=1.2, zorder=2)
+    # -- add path of DG during mapping window
+    ax[axl1[i], axl2[i]].scatter(this_x_all, this_y_all, s=5, color='k', label='DG dives', zorder=3)
+    # -- color density values of DG profiles in this window
+    ax[axl1[i], axl2[i]].scatter(this_x_all[test_lev, :], this_y_all[test_lev, :],
+                                 c=np.array(df_den.iloc[test_lev, t_in_all]),
+                                 s=25, edgecolor='k', cmap=cmp, zorder=4, vmin=den_min, vmax=den_max)
+
     for j in range(len(profs)):
         ax[axl1[i], axl2[i]].text(dive_pos_x[j] + 2, dive_pos_y[j], str(profs[j]), color='r',
                                   fontsize=6, fontweight='bold')
@@ -263,7 +277,7 @@ for i in range(9):
         str(grid[test_lev]) + 'm ' + '(' + str(t_s) + ' - ' + str(t_e) + ')', fontsize=10)
     if i < 1:
         handles, labels = ax[axl1[i], axl2[i]].get_legend_handles_labels()
-        ax[axl1[i], axl2[i]].legend(handles, labels, fontsize=10)
+    ax[axl1[i], axl2[i]].legend(handles, labels, fontsize=10)
     if i < 1:
         ax[axl1[i], axl2[i]].set_ylabel('Y distance [km]', fontsize=10)
     if (i > 2) & (i < 4):
@@ -278,8 +292,9 @@ for i in range(9):
     f.colorbar(im, cax=cbar_ax)
 
     ax[axl1[i], axl2[i]].grid()
-ax[axl1[i], axl2[i]].grid()
-plot_pro(ax[axl1[i], axl2[i]])
+    ax[axl1[i], axl2[i]].grid()
+    plot_pro(ax[axl1[i], axl2[i]])
+
 
 # ---- DAC / integral check
 # xc = mask[time_t][0][0]
@@ -292,11 +307,10 @@ plot_pro(ax[axl1[i], axl2[i]])
 # ax.plot([dac_u_c[xc, yc], dac_u_c[xc, yc]], [0, 5000])
 # iq = np.where(~np.isnan(U_all[time_t, xc, yc, :]))
 # z2 = -grid[iq]
-# urel_av = np.trapz(U_all[time_t, xc, yc, iq] / (z2[-1] - z2[0]), x=z2)
+#  urel_av = np.trapz(U_all[time_t, xc, yc, iq] / (z2[-1] - z2[0]), x=z2)
 # ubc = U_all[time_t, xc, yc, :] - urel_av
 # ax.invert_yaxis()
 # plot_pro(ax)
-
 
 # ---- gradients
 # f, ax_ar = plt.subplots(3, 3)
@@ -406,25 +420,6 @@ plot_pro(ax[axl1[i], axl2[i]])
 # fig.savefig( ('/Users/jake/Desktop/BATS/bats_mapping/map_' + str(k_out) + '.png'),dpi = 300)
 # plt.close()
 
-# --------- PLOT U,V
-# fig, (ax0,ax1) = plt.subplots(1,2,sharey=True)
-# for i in range(len(good_prof[0])):
-#     ax0.plot(U_g[good_prof[0][i],good_prof[1][i],:],grid,color='r',linewidth=0.25)
-#     ax1.plot(V_g[good_prof[0][i],good_prof[1][i],:],grid,color='b',linewidth=0.25)
-# ax0.set_title('U')
-# ax0.set_ylabel('Depth [m]')
-# ax0.set_xlabel('m/s')
-# ax0.axis([-.3,.3,0,4250])
-# ax1.set_title('V')
-# ax1.set_xlabel('m/s')
-# ax1.axis([-.3,.3,0,4250])
-# ax0.grid()
-# ax0.invert_yaxis() 
-# plot_pro(ax1)
-
-# fig.savefig( ('/Users/jake/Desktop/BATS/bats_mapping/u_v_' + str(k_out) + '.png'),dpi = 300)
-# plt.close()
-
 # ------- 3-D PLOT AND DEN AND VELOCITY
 movie_making = 0
 if movie_making > 0:
@@ -438,80 +433,79 @@ if movie_making > 0:
     for time_i in wins:
         lvls = np.linspace(np.float(np.nanmin(sigma_theta_all[:, :, :, k1])),
                            np.float(np.nanmax(sigma_theta_all[:, :, :, k1])), 20)
-        lvls3 = np.linspace(np.float(np.nanmin(sigma_theta_all[:, :, :, k3])),
-                            np.float(np.nanmax(sigma_theta_all[:, :, :, k3])), 20)
-        lvls4 = np.linspace(np.float(np.nanmin(sigma_theta_all[:, :, :, k4])),
-                            np.float(np.nanmax(sigma_theta_all[:, :, :, k4])), 20)
+    lvls3 = np.linspace(np.float(np.nanmin(sigma_theta_all[:, :, :, k3])),
+                        np.float(np.nanmax(sigma_theta_all[:, :, :, k3])), 20)
+    lvls4 = np.linspace(np.float(np.nanmin(sigma_theta_all[:, :, :, k4])),
+                        np.float(np.nanmax(sigma_theta_all[:, :, :, k4])), 20)
 
-        x_grid = (1852 * 60 * np.cos(np.deg2rad(ref_lat)) * (lon_grid_all[time_i, :] - ref_lon)) / 10000
-        y_grid = (1852 * 60 * (lat_grid_all[time_i, :] - ref_lat)) / 10000
-        x1, y1 = np.meshgrid(x_grid, y_grid)
-        grid2 = grid.copy() / 1000
+    x_grid = (1852 * 60 * np.cos(np.deg2rad(ref_lat)) * (lon_grid_all[time_i, :] - ref_lon)) / 10000
+    y_grid = (1852 * 60 * (lat_grid_all[time_i, :] - ref_lat)) / 10000
+    x1, y1 = np.meshgrid(x_grid, y_grid)
+    grid2 = grid.copy() / 1000
 
-        t_s = datetime.date.fromordinal(np.int(Time[time_i][0]))
-        t_e = datetime.date.fromordinal(np.int(Time[time_i][1]))
-        time_in = np.where((time_rec > Time[time_i][0]) & (time_rec < Time[time_i][1]))[0]
-        time_in_all = np.where((time_rec_all > Time[time_i][0]) & (time_rec_all < Time[time_i][1]))[0]
-        uint = 3
+    t_s = datetime.date.fromordinal(np.int(Time[time_i][0]))
+    t_e = datetime.date.fromordinal(np.int(Time[time_i][1]))
+    time_in = np.where((time_rec > Time[time_i][0]) & (time_rec < Time[time_i][1]))[0]
+    time_in_all = np.where((time_rec_all > Time[time_i][0]) & (time_rec_all < Time[time_i][1]))[0]
+    uint = 3
 
-        fig = plt.figure()
-        ax = fig.add_subplot(111, projection="3d")
+    fig = plt.figure()
+    ax = fig.add_subplot(111, projection="3d")
 
-        ax.plot_surface(x1, y1, (grid2[k1] + sigma_theta_all[time_i, :, :, k1] / 1000), cmap="autumn_r", alpha=0.5)
-        ax.contour(x1, y1, (grid2[k1] + sigma_theta_all[time_i, :, :, k1] / 1000), zdir='z', cmap="RdBu_r",
-                   levels=(grid2[k1] + lvls / 1000), zorder=1, linewidth=0.75)
-        ax.quiver(x1[0:-1:uint, 0:-1:uint], y1[0:-1:uint, 0:-1:uint],
-                  grid2[k1] * np.ones(np.shape(x1[0:-1:uint, 0:-1:uint])),
-                  U_all[time_i, 0:-1:uint, 0:-1:uint, k1], V_all[time_i, 0:-1:uint, 0:-1:uint, k1],
-                  np.zeros(np.shape(x1[0:-1:uint, 0:-1:uint])), color='k', length=7)
+    ax.plot_surface(x1, y1, (grid2[k1] + sigma_theta_all[time_i, :, :, k1] / 1000), cmap="autumn_r", alpha=0.5)
+    ax.contour(x1, y1, (grid2[k1] + sigma_theta_all[time_i, :, :, k1] / 1000), zdir='z', cmap="RdBu_r",
+               levels=(grid2[k1] + lvls / 1000), zorder=1, linewidth=0.75)
+    ax.quiver(x1[0:-1:uint, 0:-1:uint], y1[0:-1:uint, 0:-1:uint],
+              grid2[k1] * np.ones(np.shape(x1[0:-1:uint, 0:-1:uint])),
+              U_all[time_i, 0:-1:uint, 0:-1:uint, k1], V_all[time_i, 0:-1:uint, 0:-1:uint, k1],
+              np.zeros(np.shape(x1[0:-1:uint, 0:-1:uint])), color='k', length=7)
 
-        ax.plot_surface(x1, y1, grid2[k3] + sigma_theta_all[time_i, :, :, k3] / 1000, cmap="autumn_r", alpha=0.5)
-        ax.contour(x1, y1, grid2[k3] + sigma_theta_all[time_i, :, :, k3] / 1000, zdir='z', cmap="RdBu_r",
-                   levels=grid2[k3] + lvls3 / 1000, zorder=0, linewidth=0.75)
-        ax.quiver(x1[0:-1:uint, 0:-1:uint], y1[0:-1:uint, 0:-1:uint],
-                  grid2[k3] * np.ones(np.shape(x1[0:-1:uint, 0:-1:uint])),
-                  U_all[time_i, 0:-1:uint, 0:-1:uint, k3], V_all[time_i, 0:-1:uint, 0:-1:uint, k3],
-                  np.zeros(np.shape(x1[0:-1:uint, 0:-1:uint])), color='k', length=7)
+    ax.plot_surface(x1, y1, grid2[k3] + sigma_theta_all[time_i, :, :, k3] / 1000, cmap="autumn_r", alpha=0.5)
+    ax.contour(x1, y1, grid2[k3] + sigma_theta_all[time_i, :, :, k3] / 1000, zdir='z', cmap="RdBu_r",
+               levels=grid2[k3] + lvls3 / 1000, zorder=0, linewidth=0.75)
+    ax.quiver(x1[0:-1:uint, 0:-1:uint], y1[0:-1:uint, 0:-1:uint],
+              grid2[k3] * np.ones(np.shape(x1[0:-1:uint, 0:-1:uint])),
+              U_all[time_i, 0:-1:uint, 0:-1:uint, k3], V_all[time_i, 0:-1:uint, 0:-1:uint, k3],
+              np.zeros(np.shape(x1[0:-1:uint, 0:-1:uint])), color='k', length=7)
 
-        ax.plot_surface(x1, y1, grid2[k4] + sigma_theta_all[time_i, :, :, k4] / 1000, cmap="autumn_r", alpha=0.5)
-        ax.contour(x1, y1, grid2[k4] + sigma_theta_all[time_i, :, :, k4] / 1000, zdir='z', cmap="RdBu_r",
-                   levels=grid2[k4] + lvls4 / 1000, zorder=0, linewidth=0.75)
-        ax.quiver(x1[0:-1:uint, 0:-1:uint], y1[0:-1:uint, 0:-1:uint],
-                  grid[k4] * np.ones(np.shape(x1[0:-1:uint, 0:-1:uint])) / 1000,
-                  U_all[time_i, 0:-1:uint, 0:-1:uint, k4], V_all[time_i, 0:-1:uint, 0:-1:uint, k4],
-                  np.zeros(np.shape(x1[0:-1:uint, 0:-1:uint])), color='k', length=7)
+    ax.plot_surface(x1, y1, grid2[k4] + sigma_theta_all[time_i, :, :, k4] / 1000, cmap="autumn_r", alpha=0.5)
+    ax.contour(x1, y1, grid2[k4] + sigma_theta_all[time_i, :, :, k4] / 1000, zdir='z', cmap="RdBu_r",
+               levels=grid2[k4] + lvls4 / 1000, zorder=0, linewidth=0.75)
+    ax.quiver(x1[0:-1:uint, 0:-1:uint], y1[0:-1:uint, 0:-1:uint],
+              grid[k4] * np.ones(np.shape(x1[0:-1:uint, 0:-1:uint])) / 1000,
+              U_all[time_i, 0:-1:uint, 0:-1:uint, k4], V_all[time_i, 0:-1:uint, 0:-1:uint, k4],
+              np.zeros(np.shape(x1[0:-1:uint, 0:-1:uint])), color='k', length=7)
 
-        this_x = 1852 * 60 * np.cos(np.deg2rad(ref_lat)) * (np.array(df_lon.iloc[:, time_in]) - ref_lon)
-        this_y = 1852 * 60 * np.cos(np.deg2rad(ref_lat)) * (np.array(df_lat.iloc[:, time_in]) - ref_lat)
-        this_x_all = 1852 * 60 * np.cos(np.deg2rad(ref_lat)) * (np.array(df_lon_all.iloc[:, time_in_all]) - ref_lon)
-        this_y_all = 1852 * 60 * np.cos(np.deg2rad(ref_lat)) * (np.array(df_lat_all.iloc[:, time_in_all]) - ref_lat)
-        ax.scatter(this_x / 10000, this_y / 10000, 5500 / 1000, s=7, color='b')
-        ax.scatter(this_x_all / 10000, this_y_all / 10000, 5500 / 1000, s=1, color='k')
-        ax.scatter(x1[mask[time_i][0], mask[time_i][1]], y1[mask[time_i][0], mask[time_i][1]], 5500 / 1000, s=10,
-                   color='b')
+    this_x = 1852 * 60 * np.cos(np.deg2rad(ref_lat)) * (np.array(df_lon.iloc[:, time_in]) - ref_lon)
+    this_y = 1852 * 60 * np.cos(np.deg2rad(ref_lat)) * (np.array(df_lat.iloc[:, time_in]) - ref_lat)
+    this_x_all = 1852 * 60 * np.cos(np.deg2rad(ref_lat)) * (np.array(df_lon_all.iloc[:, time_in_all]) - ref_lon)
+    this_y_all = 1852 * 60 * np.cos(np.deg2rad(ref_lat)) * (np.array(df_lat_all.iloc[:, time_in_all]) - ref_lat)
+    ax.scatter(this_x / 10000, this_y / 10000, 5500 / 1000, s=7, color='b')
+    ax.scatter(this_x_all / 10000, this_y_all / 10000, 5500 / 1000, s=1, color='k')
+    ax.scatter(x1[mask[time_i][0], mask[time_i][1]], y1[mask[time_i][0], mask[time_i][1]], 5500 / 1000, s=10,
+               color='b')
 
-        ax.quiver(x_grid[0], y_grid[0], -.15, 0, 0.1, 0, color='k', length=10)
-        ax.text(x_grid[0], y_grid[0], -.45, '0.1m/s', fontsize=6)
+    ax.quiver(x_grid[0], y_grid[0], -.15, 0, 0.1, 0, color='k', length=10)
+    ax.text(x_grid[0], y_grid[0], -.45, '0.1m/s', fontsize=6)
 
-        ax.set_xlim([x_grid[0], x_grid[-1]])
-        ax.set_ylim([y_grid[0], y_grid[-1]])
-        ax.set_zlim([0, 5.5])
-        ax.view_init(elev=15, azim=-60)
-        ax.invert_zaxis()
-        ax.set_xlabel('X [10km]')
-        ax.set_ylabel('Y [10km]')
-        ax.set_zlabel('Depth [1000m]')
-        ax.set_title(
-            'DG35 2015: ' + np.str(t_s.month) + '/' + np.str(t_s.day) + ' - ' + np.str(t_e.month) + '/' + np.str(
-                t_e.day))
-        ax.grid()
-        # plot_pro(ax)
-        fig.savefig(('/Users/jake/Desktop/BATS/bats_mapping/3d/map3d_' + str(time_i) + '.png'), dpi=300)
-        plt.close()
+    ax.set_xlim([x_grid[0], x_grid[-1]])
+    ax.set_ylim([y_grid[0], y_grid[-1]])
+    ax.set_zlim([0, 5.5])
+    ax.view_init(elev=15, azim=-60)
+    ax.invert_zaxis()
+    ax.set_xlabel('X [10km]')
+    ax.set_ylabel('Y [10km]')
+    ax.set_zlabel('Depth [1000m]')
+    ax.set_title(
+        'DG35 2015: ' + np.str(t_s.month) + '/' + np.str(t_s.day) + ' - ' + np.str(t_e.month) + '/' + np.str(
+            t_e.day))
+    ax.grid()
+    # plot_pro(ax)
+    fig.savefig(('/Users/jake/Desktop/BATS/bats_mapping/3d/map3d_' + str(time_i) + '.png'), dpi=300)
+    plt.close()
 
-# in a directory with a bunch of png’s like plot_0000.png I did this:
-# ffmpeg -r 8 -pattern_type glob -i '*.png' -c:v libx264 -pix_fmt yuv420p -crf 25 movie.mp4
-#           8 = frame rate (switched to 1 (fps))
+    # in a directory with a bunch of png’s like plot_0000.png I did this:
+    # ffmpeg -r 8 -pattern_type glob -i '*.png' -c:v libx264 -pix_fmt yuv420p -crf 25 movie.mp4
+    #           8 = frame rate (switched to 1 (fps))
 
-
-#
+    #

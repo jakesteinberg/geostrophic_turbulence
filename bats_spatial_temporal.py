@@ -14,7 +14,7 @@ g = 9.81
 rho0 = 1027
 bin_depth = np.concatenate([np.arange(0, 150, 10), np.arange(150, 300, 10), np.arange(300, 5000, 20)])
 ref_lat = 31.7
-ref_lon = -64.2 + 360
+ref_lon = -64.2
 grid = bin_depth[1:-1]
 grid_p = sw.pres(grid, ref_lat)
 z = -1 * grid
@@ -28,12 +28,13 @@ bath_z = bath_fid.variables['elevation'][:]
 levels_b = [-5250, -5000, -4750, -4500, -4250, -4000, -3500, -3000, -2500, -2000, -1500, -1000, -500, 0]
 
 # --- LOAD gridded dives (gridded dives)
-GD = Dataset('BATs_2015_gridded_3.nc', 'r')
+GD = Dataset('BATs_2015_gridded_apr04.nc', 'r')
 df_den = pd.DataFrame(GD['Density'][:], index=GD['grid'][:], columns=GD['dive_list'][:])
 df_theta = pd.DataFrame(GD['Theta'][:], index=GD['grid'][:], columns=GD['dive_list'][:])
-df_s = pd.DataFrame(GD['Salinity'][:], index=GD['grid'][:], columns=GD['dive_list'][:])
+df_s = pd.DataFrame(GD['Absolute Salinity'][:], index=GD['grid'][:], columns=GD['dive_list'][:])
 df_lon = pd.DataFrame(GD['Longitude'][:], index=GD['grid'][:], columns=GD['dive_list'][:])
 df_lat = pd.DataFrame(GD['Latitude'][:], index=GD['grid'][:], columns=GD['dive_list'][:])
+time_rec_all = GD.variables['time_start_stop'][:]
 dac_u = GD.variables['DAC_u'][:]
 dac_v = GD.variables['DAC_v'][:]
 
@@ -42,14 +43,14 @@ df_theta[df_theta < 0] = np.nan
 df_s[df_s < 0] = np.nan
 df_lon[df_lon < -500] = np.nan
 df_lat[df_lat < -500] = np.nan
-dac_u[dac_u < 0] = np.nan
-dac_v[dac_v < 0] = np.nan
+dac_u[dac_u < -100] = np.nan
+dac_v[dac_v < -100] = np.nan
 
 time_rec = GD.variables['time_start_stop'][:]
 profile_list = np.float64(GD.variables['dive_list'][:]) - 35000
 
 # --- LOAD TRANSECT TO PROFILE DATA COMPILED IN BATS_TRANSECTS.PY
-pkl_file = open('/Users/jake/Desktop/bats/transect_profiles_jan18.pkl', 'rb')
+pkl_file = open('/Users/jake/Desktop/bats/dep15_transect_profiles_apr04.pkl', 'rb')
 bats_trans = pickle.load(pkl_file)
 pkl_file.close()
 Time = bats_trans['Time']
@@ -75,11 +76,11 @@ l_lon = 292
 u_lon = 298
 count = 0
 f, ax = plt.subplots()
-sat_days = glob.glob('/users/Jake/Documents/baroclinic_modes/altika_along_track_2015/dt*.nc')
-for i in range(len(sat_days[0:20])):
+sat_days = glob.glob('/users/Jake/Documents/baroclinic_modes/Altimetry/altika_along_track_2015/dt*.nc')
+for i in range(len(sat_days[0:40])):
     J2 = Dataset(sat_days[i], 'r')
     in_it = np.where((J2.variables['latitude'][:] > l_lat) & (J2.variables['latitude'][:] < u_lat) & (
-                J2.variables['longitude'][:] > l_lon) & (J2.variables['longitude'][:] < u_lon))[0]
+            J2.variables['longitude'][:] > l_lon) & (J2.variables['longitude'][:] < u_lon))[0]
     # only take satellite paths within defined window
     if in_it.size > 2:
         Jlon_i = J2.variables['longitude'][in_it]
@@ -101,24 +102,31 @@ for i in range(len(sat_days[0:20])):
             # haversine formula
             dlon = this_lon - this_lon[0]
             dlat = this_lat - this_lat[0]
-            a = (np.sin(dlat / 2)**2) + np.cos(this_lat[0]) * np.cos(this_lat) * (np.sin(dlon / 2)**2)
+            a = (np.sin(dlat / 2) ** 2) + np.cos(this_lat[0]) * np.cos(this_lat) * (np.sin(dlon / 2) ** 2)
             # a = sin(dlat/2)**2 + cos(lat1) * cos(lat2) * sin(dlon/2)**2
             c = 2 * np.arcsin(np.sqrt(a))
             dx.append(6371 * c)  # Radius of earth in kilometers. Use 3956 for miles
 
-            ax.scatter(Jlon[count], Jlat[count], s=2)
+            ax.scatter(Jlon[count] - 360, Jlat[count], s=2)
             count = count + 1
 
 ax.scatter(ref_lon, ref_lat)
-ax.scatter(df_lon+360, df_lat, color='k', s=0.1)
+ax.scatter(df_lon, df_lat, color='k', s=0.1)
+ax.set_xlabel('Lon')
+ax.set_xlabel('Lat')
+ax.set_title('Altika Track and DG BATS15 sampling pattern')
 # ax.axis([l_lon, u_lon, l_lat, u_lat])
-w = 1/np.cos(np.deg2rad(ref_lat))
+w = 1 / np.cos(np.deg2rad(ref_lat))
 ax.set_aspect(w)
 plot_pro(ax)
 
 f, ax = plt.subplots()
 for k in range(len(dx)):
-    ax.scatter(dx[k], Jsla[k], s=.75)
+    ax.plot(dx[k], Jsla[k], linewidth=0.75)
+    ax.scatter(dx[k], Jsla[k], s=1)
+ax.set_xlabel('SLA [m]')
+ax.set_xlabel('Distance [km]')
+ax.set_title('Along-Track SLA near BATS')
 plot_pro(ax)
 
 # goal: look at spatial variability of T/S fields on varied time scales at various depths 
@@ -138,16 +146,34 @@ plot_pro(ax)
 # t_s = datetime.date.fromordinal(np.int(np.min(time_rec[0])))
 # t_e = datetime.date.fromordinal(np.int(np.max(time_rec[-1])))
 
+
+Time_dt = []
+for i in range(len(time_rec_all)):
+    Time_dt.append(datetime.date.fromordinal(np.int(time_rec_all[i])))
+
+u_pos = np.where(dac_u > 0)[0]
+v_pos = np.where(dac_v > 0)[0]
+days_pos_u = 0
+days_pos_v = 0
+for i in range(1, len(u_pos)):
+    if (u_pos[i] - u_pos[i-1]) < 1.1:
+        days_pos_u = days_pos_u + (time_rec_all[u_pos[i]] - time_rec_all[u_pos[i-1]])
+for i in range(1, len(v_pos)):
+    if (v_pos[i] - v_pos[i-1]) < 1.1:
+        days_pos_v = days_pos_v + (time_rec_all[v_pos[i]] - time_rec_all[v_pos[i-1]])
+
 # ---- DAC AND ITS AVERAGE ----
-# fig0, ax0 = plt.subplots()
-# ax0.quiver(np.zeros(np.size(dac_u)),np.zeros(np.size(dac_u)),dac_u,dac_v,color='r',angles='xy', scale_units='xy', scale=1)
-# ax0.quiver(0,0,np.nanmean(dac_u),np.nanmean(dac_v),color='b',angles='xy', scale_units='xy', scale=1)
-# for i in range(np.size(avg_u)):
-#     ax0.quiver(0,0,avg_u[i],avg_v[i],color='g',angles='xy', scale_units='xy', scale=1)
-# ax0.axis([-.2, .2, -.2, .2])
-# plt.tight_layout()
-# plt.gca().set_aspect('equal')
-# plot_pro(ax0)
+fig0, (ax0, ax1) = plt.subplots(2, 1, sharex=True)
+ax0.plot(Time_dt, np.zeros(len(time_rec_all)), color='k')
+ax0.plot(Time_dt[0:-1:2], dac_u[0:-1:2])
+ax0.set_title('DAC$_u$')
+ax1.plot(Time_dt, np.zeros(len(time_rec_all)), color='k')
+ax1.plot(Time_dt[0:-1:2], dac_v[0:-1:2])
+ax1.set_title('DAC$_v$')
+ax0.set_ylim([-.2, .2])
+ax1.set_ylim([-.2, .2])
+ax0.grid()
+plot_pro(ax1)
 
 # ---- TEMPERATURE on depth surfaces with time ----
 # depth = 3000

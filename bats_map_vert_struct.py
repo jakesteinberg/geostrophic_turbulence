@@ -122,7 +122,7 @@ N_t = np.sqrt(N2_t)
 
 # ---- VERTICAL MODES
 G, Gz, c = vertical_modes(N2, grid, omega, mmax)
-G_t, Gz_t, c_t = vertical_modes(N2_t, grid, omega, mmax)
+G_t, Gz_t, c_t = vertical_modes(N2, grid, omega, mmax)
 
 # presort V 
 # good_v = np.zeros(np.size(Time))
@@ -160,19 +160,24 @@ for i in range(len(sa_time)):
 
 # ---- LOAD PE/KE from DG 2015 estimates
 pkl_file = open('/Users/jake/Documents/geostrophic_turbulence/BATs_DG_2015_energy.pkl', 'rb')
-bats_map = pickle.load(pkl_file)
+bats_trans = pickle.load(pkl_file)
 pkl_file.close()
-bdg_ke = bats_map['KE']
-bdg_pe = bats_map['PE']
-bdg_c = bats_map['c'][:]
-bdg_f = bats_map['f']
+bdg_ke = bats_trans['KE']
+bdg_pe = bats_trans['PE']
+bdg_c = bats_trans['c'][:]
+bdg_f = bats_trans['f']
 
 # -------- LOAD IN MAPPING
-pkl_file = open('/Users/jake/Documents/geostrophic_turbulence/BATS_obj_map_L35_apr05.pkl', 'rb')
+pkl_file = open('/Users/jake/Documents/geostrophic_turbulence/BATS_obj_map_L35_W4_apr18.pkl', 'rb')
 bats_map = pickle.load(pkl_file)
 pkl_file.close()
 
 # --- iterate over time windows (looking into KE per window (how does energy vary in time?)
+U_out = []
+V_out = []
+U_m_out = []
+V_m_out = []
+V_t_out = []
 AGz_U_out = []
 AGz_V_out = []
 AGz_t_out = []
@@ -180,11 +185,14 @@ good_prof_u_out = []
 good_prof_v_out = []
 good_prof_vt_out = []
 KE_i_out = []
-lr = range(15, 16)
-avg_KE_U = np.nan*np.zeros((len(lr), nmodes))
-avg_KE_V = np.nan*np.zeros((len(lr), nmodes))
-avg_KE = np.nan*np.zeros((len(lr), nmodes))
-avg_KE_V_t = np.nan*np.zeros((len(lr), nmodes))
+lr = range(0, 25)  # range(15, 20)
+avg_KE_U = np.nan * np.zeros((len(lr), nmodes))
+avg_KE_V = np.nan * np.zeros((len(lr), nmodes))
+avg_KE = np.nan * np.zeros((len(lr), nmodes))
+avg_KE_V_t = np.nan * np.zeros((len(lr), nmodes))
+Time_out = np.nan * np.zeros(len(lr))
+Time_out_s = []
+Time_out_e = []
 TKE_surface_map_out = []
 TKE_surface_out = []
 SAT_STKE_out = []
@@ -202,13 +210,14 @@ for m in range(len(lr)):
     t_e = datetime.date.fromordinal(np.int(Time[1]))
     Sigma_Theta = np.transpose(bats_map['Sigma_Theta'][map_t_itera][:, 0:sz_g])
     sigma_theta_all = np.transpose(bats_map['Sigma_Theta_All'][map_t_itera][:, 0:sz_g])
+    # U,V dives are only those within the mask
     U = np.transpose(bats_map['U_g'][map_t_itera][:, 0:sz_g])
     V = np.transpose(bats_map['V_g'][map_t_itera][:, 0:sz_g])
-    U_all = np.array(bats_map['U_g_All'])
-    V_all = np.array(bats_map['V_g_All'])
+    U_all = np.array(bats_map['U_g_All'][map_t_itera])
+    V_all = np.array(bats_map['V_g_All'][map_t_itera])
     lat_grid_all = np.array(bats_map['lat_grid_All'])
     lon_grid_all = np.array(bats_map['lon_grid_All'])
-    mask = bats_map['mask']
+    mask = bats_map['mask'][map_t_itera]
 
     # --- select transect profiles that fall within this time window
     V_t3 = V_t2[:, ((Time_t2 > Time[0]) & (Time_t2 < Time[1]))]
@@ -270,9 +279,9 @@ for m in range(len(lr)):
     # --- TOTAL ENERGY
     # --- total water column KE for each profile
     TKE_per_mass = (1 / 2) * (HKE_U_per_mass + HKE_V_per_mass)
-    KE_i = np.nan*np.zeros((num_profs, len(grid)))
+    KE_i = np.nan * np.zeros((num_profs, len(grid)))
     for i in range(num_profs):
-        um = np.nan*np.zeros((len(grid), nmodes))
+        um = np.nan * np.zeros((len(grid), nmodes))
         vm = np.nan * np.zeros((len(grid), nmodes))
         for j in range(len(grid)):
             # u^2 at each dpth with contribution of each mode at that dpth
@@ -311,7 +320,8 @@ for m in range(len(lr)):
     # --- ALTIMETERY
     sa_u = SA.variables['ugos'][:, (sa_lat >= lal) & (sa_lat <= lam), (sa_lon >= lol) & (sa_lon <= lom)]
     sa_v = SA.variables['vgos'][:, (sa_lat >= lal) & (sa_lat <= lam), (sa_lon >= lol) & (sa_lon <= lom)]
-    this_time = np.mean(Time)  # this is the avg of the interpolating window within which we map a map of density (15 days)
+    this_time = np.mean(
+        Time)  # this is the avg of the interpolating window within which we map a map of density (15 days)
     sa_t_choice = (np.abs(sa_time - this_time)).argmin()
     SA_U_in = sa_u[sa_t_choice, :, :]
     SA_V_in = sa_v[sa_t_choice, :, :]
@@ -320,13 +330,11 @@ for m in range(len(lr)):
 
     # mask grid for plotting MAP
     test_lev = 0
-    U_i = np.nan * np.zeros(np.shape(U_all[:, :, :, test_lev]))
-    V_i = np.nan * np.zeros(np.shape(V_all[:, :, :, test_lev]))
-    U_i[map_t_itera, mask[map_t_itera][0], mask[map_t_itera][1]] = U_all[
-        map_t_itera, mask[map_t_itera][0], mask[map_t_itera][1], test_lev]
-    V_i[map_t_itera, mask[map_t_itera][0], mask[map_t_itera][1]] = V_all[
-        map_t_itera, mask[map_t_itera][0], mask[map_t_itera][1], test_lev]
-    TKE_surface_map = (1 / 2) * (U_i[map_t_itera, :, :] ** 2 + V_i[map_t_itera, :, :] ** 2)
+    U_i = np.nan * np.zeros(np.shape(U_all[:, :, test_lev]))
+    V_i = np.nan * np.zeros(np.shape(V_all[:, :, test_lev]))
+    U_i[mask[0], mask[1]] = U_all[mask[0], mask[1], test_lev]
+    V_i[mask[0], mask[1]] = V_all[mask[0], mask[1], test_lev]
+    TKE_surface_map = (1 / 2) * (U_i[:, :] ** 2 + V_i[:, :] ** 2)
 
     # --- VERTICAL STRUCTURE OF UN-MAPPED TRANSECT VELOCITY PROFILES
     AGz_t = np.zeros([nmodes, V_t3.shape[1]])
@@ -348,12 +356,20 @@ for m in range(len(lr)):
         else:
             good_prof_vt[i] = 0  # flag empty profile as noisy as well
 
+    U_out.append(U)
+    V_out.append(V)
+    U_m_out.append(U_m)
+    V_m_out.append(V_m)
+    V_t_out.append(V_t3)
     KE_i_out.append(KE_i)
-    SAT_STKE_out.append(SA_TKE)                                                           # satellite
-    avg_KE_U[m, :] = np.nanmean(HKE_U_per_mass[:, np.where(good_prof_u > 0)[0]], 1)       # map U
-    avg_KE_V[m, :] = np.nanmean(HKE_V_per_mass[:, np.where(good_prof_v > 0)[0]], 1)       # map V
-    avg_KE[m, :] = np.nanmean(TKE_per_mass[:, np.where(good_prof_v > 0)[0]], 1)           # total map
+    SAT_STKE_out.append(SA_TKE)  # satellite
+    avg_KE_U[m, :] = np.nanmean(HKE_U_per_mass[:, np.where(good_prof_u > 0)[0]], 1)  # map U
+    avg_KE_V[m, :] = np.nanmean(HKE_V_per_mass[:, np.where(good_prof_v > 0)[0]], 1)  # map V
+    avg_KE[m, :] = np.nanmean(TKE_per_mass[:, np.where(good_prof_v > 0)[0]], 1)  # total map
     avg_KE_V_t[m, :] = np.nanmean(HKE_V_t_per_mass[:, np.where(good_prof_vt > 0)[0]], 1)  # DG V
+    Time_out[m] = np.nanmean(Time)
+    Time_out_s.append(t_s)
+    Time_out_e.append(t_e)
     avg_surf_KE_m0.append(TKE_surface_mode0)
     avg_surf_KE_m1.append(TKE_surface_mode1)
     avg_surf_KE_m2.append(TKE_surface_mode2)
@@ -397,7 +413,6 @@ sc_x = 1000 * f_ref / c[1:]
 dk_t = f_ref / c_t[1]
 sc_x_t = 1000 * f_ref / c_t[1:]
 vert_wavenumber = f_ref / c[1:]
-
 PE_SD, PE_GM = PE_Tide_GM(rho0, grid, nmodes, np.transpose(np.atleast_2d(N2)), f_ref)
 
 # ------------ EOF SHAPES ------------------
@@ -439,15 +454,74 @@ D_AGzqa_t, V_AGzqa_t = np.linalg.eig(cov_AGzqa_t)  # columns of V_AGzqa are eige
 EOFseries_t = np.transpose(V_AGzqa) * np.matrix(AGzqa)  # EOF "timeseries' [nmodes X nq]
 EOFshape_Vt = np.matrix(Gz_t) * V_AGzqa_t  # depth shape of eigenfunctions [ndepths X nmodes]
 
+# --- PLOT PARTITION OF AVERAGE WATER COLUMN KE BY MODE IN TIME
+Time_mids = []
+for i in range(len(lr)):
+    Time_mids.append(datetime.date.fromordinal(np.int(Time_out[i])))
+
+plot_avg_part = 1
+if plot_avg_part > 0:
+    f, (ax1, ax2, ax3) = plt.subplots(3, 1, sharex=True)
+    ax1.plot(Time_mids, avg_KE_U[:, 0], color='k')
+    ax1.plot(Time_mids, avg_KE_U[:, 0] + avg_KE_U[:, 1], color='b')
+    ax1.fill_between(Time_mids, 0, avg_KE_U[:, 0], label='Mode 0')
+    ax1.fill_between(Time_mids, avg_KE_U[:, 0], avg_KE_U[:, 0] + avg_KE_U[:, 1], label='Mode 1')
+    ax1.fill_between(Time_mids, avg_KE_U[:, 0] + avg_KE_U[:, 1], avg_KE_U[:, 0] + avg_KE_U[:, 1] + avg_KE_U[:, 2],
+                     label='Mode 2')
+    ax1.fill_between(Time_mids, avg_KE_U[:, 0] + avg_KE_U[:, 1] + avg_KE_U[:, 2],
+                     avg_KE_U[:, 0] + avg_KE_U[:, 1] + avg_KE_U[:, 2] + avg_KE_U[:, 3], label='Mode 3')
+    ax1.plot([Time_mids[inn], Time_mids[inn]], [0, 0.25], color='k')
+    handles, labels = ax1.get_legend_handles_labels()
+    ax1.legend(handles, labels, fontsize=10)
+    ax1.set_ylabel(r'[m$^{2}$s$^{-2}$]')
+    ax1.set_ylim([0, 0.018])
+    ax1.set_title(r'$\frac{1}{2} \langle u^2 \rangle = \frac{1}{2} \langle \alpha_{un} \rangle ^2$', fontsize=14)
+    ax1.grid()
+
+    ax2.plot(Time_mids, avg_KE_V[:, 0], color='k')
+    ax2.plot(Time_mids, avg_KE_V[:, 0] + avg_KE_V[:, 1], color='b')
+    ax2.fill_between(Time_mids, 0, avg_KE_V[:, 0], label='Mode 0')
+    ax2.fill_between(Time_mids, avg_KE_V[:, 0], avg_KE_V[:, 0] + avg_KE_V[:, 1], label='Mode 1')
+    ax2.fill_between(Time_mids, avg_KE_V[:, 0] + avg_KE_V[:, 1], avg_KE_V[:, 0] + avg_KE_V[:, 1] + avg_KE_V[:, 2],
+                     label='Mode 2')
+    ax2.fill_between(Time_mids, avg_KE_V[:, 0] + avg_KE_V[:, 1] + avg_KE_V[:, 2],
+                     avg_KE_V[:, 0] + avg_KE_V[:, 1] + avg_KE_V[:, 2] + avg_KE_V[:, 3], label='Mode 3')
+    ax2.plot([Time_mids[inn], Time_mids[inn]], [0, 0.25], color='k')
+    handles, labels = ax2.get_legend_handles_labels()
+    ax2.legend(handles, labels, fontsize=10)
+    ax2.set_ylabel(r'[m$^{2}$s$^{-2}$]')
+    ax2.set_ylim([0, 0.018])
+    ax2.set_title(r'$\frac{1}{2} \langle v^2 \rangle = \frac{1}{2} \langle \alpha_{vn} \rangle ^2$', fontsize=14)
+    ax2.grid()
+
+    ax3.plot(Time_mids, avg_KE_V_t[:, 0], color='k')
+    ax3.plot(Time_mids, avg_KE_V_t[:, 0] + avg_KE_V_t[:, 1], color='b')
+    ax3.fill_between(Time_mids, 0, avg_KE_V_t[:, 0], label='Mode 0')
+    ax3.fill_between(Time_mids, avg_KE_V_t[:, 0], avg_KE_V_t[:, 0] + avg_KE_V_t[:, 1], label='Mode 1')
+    ax3.fill_between(Time_mids, avg_KE_V_t[:, 0] + avg_KE_V_t[:, 1],
+                     avg_KE_V_t[:, 0] + avg_KE_V_t[:, 1] + avg_KE_V_t[:, 2],
+                     label='Mode 2')
+    ax3.fill_between(Time_mids, avg_KE_V_t[:, 0] + avg_KE_V_t[:, 1] + avg_KE_V_t[:, 2],
+                     avg_KE_V_t[:, 0] + avg_KE_V_t[:, 1] + avg_KE_V_t[:, 2] + avg_KE_V_t[:, 3], label='Mode 3')
+    ax3.plot([Time_mids[inn], Time_mids[inn]], [0, 0.25], color='k')
+    handles, labels = ax3.get_legend_handles_labels()
+    ax3.legend(handles, labels, fontsize=10)
+    ax3.set_ylabel(r'[m$^{2}$s$^{-2}$]')
+    ax3.set_ylim([0, 0.018])
+    ax3.set_xlabel('Date')
+    ax3.set_title(r'$\frac{1}{2} \langle v_{DG}^2 \rangle = \frac{1}{2} \langle \alpha_{DGn} \rangle ^2$',
+                  fontsize=14)
+    plot_pro(ax3)
+
 # --- PLOT fraction of TKE throughout the water column
 plot_tke_frac = 0
 if plot_tke_frac > 0:
-    dp_w = [0, 40, 65, 90, 115, 140, 165, 190, 215, (len(grid)-1)]
-    KE_per = np.nan*np.zeros((num_profs, len(grid)))
+    dp_w = [0, 40, 65, 90, 115, 140, 165, 190, 215, (len(grid) - 1)]
+    KE_per = np.nan * np.zeros((num_profs, len(grid)))
     f, ax = plt.subplots()
     for m in range(num_profs):
         for i in range(2, len(grid)):  # range(2, len(dp_w)):
-            KE_per[m, i] = np.trapz(KE_i[m, 0:i], grid[0:i])/TKE[m]
+            KE_per[m, i] = np.trapz(KE_i[m, 0:i], grid[0:i]) / TKE[m]
             # KE_per[i] = 100*np.trapz(KE_i[0, dp_w[i-1]:dp_w[i]], grid[dp_w[i-1]:dp_w[i]])/TKE[0]
         ax.plot(KE_per[m, :], grid)
     ax.invert_yaxis()
@@ -467,11 +541,14 @@ if plot_TKE_surf > 0:
     TKE_high = .09
     im1 = ax1.pcolor(SA_x1, SA_y1, SA_TKE, vmin=TKE_low, vmax=TKE_high, cmap=cmp)
     im2 = ax2.pcolor(x1, y1, TKE_surface_map, vmin=TKE_low, vmax=TKE_high, cmap=cmp)
-    ax2.scatter(prof_x3/1000, prof_y3/1000, s=5, color='r')
-    ax2.text(-25, 50, str(t_s) + ' -- ' + str(t_e))
-    ax2.text(-60, -40, 'Mode 0 Fraction: ' + str(np.round(100*TKE_surface_mode0.mean()/TKE_surface.mean(), 2)) + '%')
-    ax2.text(-60, -50, 'Mode 1 Fraction: ' + str(np.round(100*TKE_surface_mode1.mean()/TKE_surface.mean(), 2)) + '%')
-    ax2.text(-60, -60, 'Mode 2 Fraction: ' + str(np.round(100*TKE_surface_mode2.mean()/TKE_surface.mean(), 2)) + '%')
+    ax2.scatter(prof_x3 / 1000, prof_y3 / 1000, s=5, color='r')
+    ax2.text(-25, 50, str(Time_out_s[inn]) + ' -- ' + str(Time_out_e[inn]))
+    ax2.text(-60, -40,
+             'Mode 0 Fraction: ' + str(np.round(100 * TKE_surface_mode0.mean() / TKE_surface.mean(), 2)) + '%')
+    ax2.text(-60, -50,
+             'Mode 1 Fraction: ' + str(np.round(100 * TKE_surface_mode1.mean() / TKE_surface.mean(), 2)) + '%')
+    ax2.text(-60, -60,
+             'Mode 2 Fraction: ' + str(np.round(100 * TKE_surface_mode2.mean() / TKE_surface.mean(), 2)) + '%')
     ax1.set_title('Altimetric Surface Kinetic Energy ')
     ax2.set_title('Mapped DG Surface Kinetic Energy ')
     c1 = plt.colorbar(im1, ax=ax1, orientation='horizontal')
@@ -488,19 +565,19 @@ if plot_TKE_surf > 0:
     plot_pro(ax2)
 
 # ---- PLOT ETA / EOF OF PROFILES FROM TRANSECTS AND FROM MAPPING THAT FALL WITHIN THIS TIME WINDOW
-plot_eta = 0
+plot_eta = 1
 if plot_eta > 0:
     f, (ax0, ax1, ax2, ax3, ax4) = plt.subplots(1, 5, sharey=True)
-    for j in range(num_profs):
-        ax0.plot(U[:, j], grid, color='#CD853F', linewidth=1.25)
-        ax0.plot(U_m[:, j], grid, color='k', linestyle='--', linewidth=.75)
-        ax1.plot(V[:, j], grid, color='#CD853F', linewidth=1.25)
-        ax1.plot(V_m[:, j], grid, color='k', linestyle='--', linewidth=.75)
+    for j in range(len(good_prof_u)):
+        ax0.plot(U_out[inn][:, j], grid, color='#CD853F', linewidth=.5)
+        ax0.plot(U_m_out[inn][:, j], grid, color='k', linestyle='--', linewidth=.4)
+        ax1.plot(V_out[inn][:, j], grid, color='#CD853F', linewidth=.5)
+        ax1.plot(V_m_out[inn][:, j], grid, color='k', linestyle='--', linewidth=.4)
     ax0.text(190, 800, str(num_profs) + ' Profiles')
     ax0.axis([-.4, .4, 0, 5000])
     ax1.axis([-.4, .4, 0, 5000])
     ax0.set_title(
-        'Map U (' + np.str(t_s.month) + '/' + np.str(t_s.day) + ' - ' + np.str(t_e.month) + '/' + np.str(t_e.day) + ')')
+        'Map U (' + np.str(Time_out_s[inn]) + ' - ' + np.str(Time_out_e[inn]) + ')')
     ax1.set_title("Map V")
     ax0.set_ylabel('Depth [m]', fontsize=14)
     ax0.set_xlabel('u [m/s]', fontsize=14)
@@ -508,11 +585,11 @@ if plot_eta > 0:
     ax0.invert_yaxis()
     ax0.grid()
     ax1.grid()
-    for l in range(V_t3.shape[1]):
-        ax2.plot(V_t3[:, l], grid, color='k')
+    for l in range(V_t_out[inn].shape[1]):
+        ax2.plot(V_t_out[inn][:, l], grid, color='k')
     ax2.axis([-.4, .4, 0, 5000])
     ax2.invert_yaxis()
-    ax2.set_title('DG Transect V')
+    ax2.set_title('DG Transect Velocity')
     ax2.set_xlabel('v [m/s]', fontsize=14)
     ax2.grid()
     # plot_pro(ax2)
@@ -525,15 +602,25 @@ if plot_eta > 0:
     colors = plt.cm.Dark2(np.arange(0, 4, 1))
     for ii in range(max_plot):
         # ax3.plot(Gz[:, ii], grid, color='#2F4F4F', linestyle='--')
-        p_eof_u = ax3.plot(-EOFshape_U[:, ii], grid, color=colors[ii, :], label='EOF # = ' + str(ii + 1), linewidth=2)
-        if ii > 0:
-            p_eof_v = ax3.plot(EOFshape_V[:, ii], grid, color=colors[ii, :],
-                                linewidth=2, linestyle='--')  # , label='EOF # = ' + str(ii + 1))
-        else:
-            p_eof_v = ax3.plot(-EOFshape_V[:, ii], grid, color=colors[ii, :],
-                                linewidth=2, linestyle='--')  # , label='EOF # = ' + str(ii + 1))
+        p_eof_u = ax3.plot(EOFshape_U[:, ii], grid, color=colors[ii, :], label='EOF # = ' + str(ii + 1), linewidth=2)
+
+        if (EOFshape_U[0, ii] > 0) & (EOFshape_V[0, ii] > 0):
+            p_eof_v = ax3.plot(EOFshape_V[:, ii], grid, color=colors[ii, :], linewidth=2, linestyle='--')
+        elif (EOFshape_U[0, ii] > 0) & (EOFshape_V[0, ii] < 0):
+            p_eof_v = ax3.plot(-EOFshape_V[:, ii], grid, color=colors[ii, :], linewidth=2, linestyle='--')
+        elif (EOFshape_U[0, ii] < 0) & (EOFshape_V[0, ii] < 0):
+            p_eof_v = ax3.plot(EOFshape_V[:, ii], grid, color=colors[ii, :], linewidth=2, linestyle='--')
+        elif (EOFshape_U[0, ii] < 0) & (EOFshape_V[0, ii] > 0):
+            p_eof_v = ax3.plot(-EOFshape_V[:, ii], grid, color=colors[ii, :], linewidth=2, linestyle='--')
+
         ax4.plot(Gz[:, ii], grid, color='#2F4F4F', linestyle='--')
-        p_eof_vt = ax4.plot(-EOFshape_Vt[:, ii], grid, color=colors[ii, :], label='EOF # = ' + str(ii + 1), linewidth=2)
+
+        if EOFshape_Vt[0, ii] < 0:
+            p_eof_vt = ax4.plot(-EOFshape_Vt[:, ii], grid, color=colors[ii, :], label='EOF # = ' + str(ii + 1),
+                                linewidth=2)
+        else:
+            p_eof_vt = ax4.plot(EOFshape_Vt[:, ii], grid, color=colors[ii, :], label='EOF # = ' + str(ii + 1),
+                                linewidth=2)
 
     handles, labels = ax3.get_legend_handles_labels()
     ax3.legend(handles, labels, fontsize=10)
@@ -543,50 +630,88 @@ if plot_eta > 0:
     ax3.set_title('Map U,V Mode Shapes')
     ax3.set_xlabel('U,V Mode Shapes (Map)')
     ax4.set_title('DG Mode Shapes')
-    ax4.set_xlabel('V_t Mode Shapes (DG)')
+    ax4.set_xlabel('DG V Mode Shapes')
     plot_pro(ax4)
     # END PLOTTING
 
 # -- PLOT ENERGY SPECTRA
-plot_eng = 0
+plot_eng = 1
 if plot_eng > 0:
-    fig0, ax0 = plt.subplots()
+    fig0, (ax0, ax1) = plt.subplots(1, 2, sharey=True)
     # PE_p = ax0.plot(sc_x,avg_PE[1:]/dk,color='#B22222',label='PE',linewidth=1.5)
-    KE_p = ax0.plot(1000 * f_ref / c, avg_KE / dk, 'k', label=r'KE$_{u_{map}}$', linewidth=2)
-    ax0.scatter(1000 * f_ref / c, avg_KE / dk, color='k', s=20)  # map KE
-    # KE_p = ax0.plot(sc_x, avg_KE_U[1:] / dk, 'g', label='KE_u_map', linewidth=1.5)
-    # ax0.scatter(sc_x, avg_KE_U[1:] / dk, color='g', s=10)  # map KE
-    # KE_p = ax0.plot(sc_x, avg_KE_V[1:] / dk, 'r', label='KE_v_map', linewidth=1.5)
-    # ax0.scatter(sc_x, avg_KE_V[1:] / dk, color='r', s=10)  # map KE
-    # KE_p = ax0.plot(sc_x_t, avg_KE_V_t[1:] / dk_t, 'k', label='KE_trans', linewidth=1.5)
-    # ax0.scatter(sc_x_t, avg_KE_V_t[1:] / dk_t, color='k', s=10)  # DG KE
-    KE_p = ax0.plot(1000 * bdg_f / bdg_c, bdg_ke / (bdg_f / bdg_c[1]), 'g', label='KE$_{trans}$', linewidth=2)
-    ax0.scatter(1000 * bdg_f / bdg_c, bdg_ke / (bdg_f / bdg_c[1]), color='g', s=20)  # DG KE
-    # PE_p = ax0.plot(1000 * bdg_f / bdg_c[1:], bdg_pe[1:] / (bdg_f / bdg_c[1]), 'b', label='PE$_{trans}$', linewidth=1.5)
+
+    # -- AVG KE 1/2(U^2 + V^2)
+    ax0.plot(1000 * f_ref / c[1:], avg_KE[inn, 1:] / dk, 'g', label=r'KE$_{u_{map}}$', linewidth=2)
+    ax0.scatter(1000 * f_ref / c[1:], avg_KE[inn, 1:] / dk, color='g', s=20)  # map KE
+    ax0.plot([10**-2, 1000 * f_ref / c[1]], avg_KE[inn, 0:2] / dk, 'g', linewidth=2)
+
+    # -- AVG KE FROM DG TRANSECTS WITHIN THIS TIME WINDOW
+    ax0.plot(1000 * f_ref / c[1:], avg_KE_V_t[inn, 1:] / dk, 'k', label=r'KE$_{u_{trans}}$', linewidth=2)
+    ax0.scatter(1000 * f_ref / c[1:], avg_KE_V_t[inn, 1:] / dk, color='k', s=20)  # map KE
+    ax0.plot([10**-2, 1000 * f_ref / c[1]], avg_KE_V_t[inn, 0:2] / dk, 'k', linewidth=2)
+
+    # -- AVG KE 1/2(U^2)
+    ax0.plot(1000 * f_ref / c[1:], avg_KE_U[inn, 1:] / dk, 'g', label=r'KE$_{u_{map}}$', linewidth=1, linestyle='--')
+    ax0.scatter(1000 * f_ref / c[1:], avg_KE_U[inn, 1:] / dk, color='g', s=10)  # map KE_U
+    ax0.plot([10 ** -2, 1000 * f_ref / c[1]], avg_KE_U[inn, 0:2] / dk, 'g', linewidth=1, linestyle='--')
+    # -- AVG KE 1/2(V^2)
+    ax0.plot(1000 * f_ref / c[1:], avg_KE_V[inn, 1:] / dk, 'g', label=r'KE$_{v_{map}}$', linewidth=1, linestyle='-.')
+    ax0.scatter(1000 * f_ref / c[1:], avg_KE_V[inn, 1:] / dk, color='g', s=10)  # map KE_V
+    ax0.plot([10 ** -2, 1000 * f_ref / c[1]], avg_KE_V[inn, 0:2] / dk, 'g', linewidth=1, linestyle='-.')
+
+    # -- AVG KE 1/2(U^2 + V^2) FROM ALL MAPPING
+    ax1.plot(1000 * f_ref / c[1:], np.nanmean(avg_KE[:, 1:], axis=0) / dk, 'g', label=r'KE$_{map}$', linewidth=2)
+    ax1.scatter(1000 * f_ref / c[1:], np.nanmean(avg_KE[:, 1:], axis=0) / dk, color='g', s=20)  # map KE
+    ax1.plot([10**-2, 1000 * f_ref / c[1]], np.nanmean(avg_KE[:, 0:2], axis=0) / dk, 'g', linewidth=2)
+
+    # -- AVG KE FROM ALL DG TRANSECTS
+    ax1.plot(1000 * bdg_f / bdg_c[1:], bdg_ke[1:] / (bdg_f / bdg_c[1]), 'k', label='KE$_{trans}$', linewidth=2)
+    ax1.scatter(1000 * bdg_f / bdg_c[1:], bdg_ke[1:] / (bdg_f / bdg_c[1]), color='k', s=20)  # DG KE
+    ax1.plot([10**-2, 1000 * bdg_f / bdg_c[1]], bdg_ke[0:2] / (bdg_f / bdg_c[1]), 'k', linewidth=2)
+
+    # PE_p = ax0.plot(1000 * bdg_f / bdg_c[1:], bdg_pe[1:] / (bdg_f / bdg_c[1]), 'b', label='PE$_{trans}$')
     # ax0.scatter(1000 * bdg_f / bdg_c[1:], bdg_pe[1:] / (bdg_f / bdg_c[1]), color='b', s=10)  # DG KE
 
     # limits/scales
     ax0.plot([3 * 10 ** -1, 3 * 10 ** 0], [1.5 * 10 ** 1, 1.5 * 10 ** -2], color='k', linewidth=0.75)
-    # ax0.plot([3 * 10 ** -2, 3 * 10 ** -1],
-    #          [7 * 10 ** 2, ((5 / 3) * (np.log10(2 * 10 ** -1) - np.log10(2 * 10 ** -2)) + np.log10(7 * 10 ** 2))],
-    #          color='k', linewidth=0.75)
     ax0.text(3.3 * 10 ** -1, 1.3 * 10 ** 1, '-3', fontsize=10)
-    # ax0.text(3.3 * 10 ** -2, 6 * 10 ** 2, '-5/3', fontsize=10)
-    # ax0.plot([1000 * f_ref / c[1], 1000 * f_ref / c[-2]], [1000 * f_ref / c[1], 1000 * f_ref / c[-2]], linestyle='--',
-    #          color='k', linewidth=0.8)
+    ax1.plot([3 * 10 ** -1, 3 * 10 ** 0], [1.5 * 10 ** 1, 1.5 * 10 ** -2], color='k', linewidth=0.75)
+    ax1.text(3.3 * 10 ** -1, 1.3 * 10 ** 1, '-3', fontsize=10)
+
+    # -- Rossby Radii
+    ax0.plot([sc_x[0], sc_x[0]], [10 ** (-4), 3 * 10 ** (-4)], color='k', linewidth=2)
+    ax0.text(sc_x[0] - .6 * 10 ** -2, 5 * 10 ** (-4),
+             str(r'$c_1/f$ = ') + str(float("{0:.1f}".format(1 / sc_x[0]))) + 'km', fontsize=12)
+    ax0.plot([sc_x[4], sc_x[4]], [10 ** (-4), 3 * 10 ** (-4)], color='k', linewidth=2)
+    ax0.text(sc_x[4] - .4 * 10 ** -2, 5 * 10 ** (-4),
+             str(r'$c_5/f$ = ') + str(float("{0:.1f}".format(1 / sc_x[4]))) + 'km', fontsize=12)
+    ax1.plot([sc_x[0], sc_x[0]], [10 ** (-4), 3 * 10 ** (-4)], color='k', linewidth=2)
+    ax1.text(sc_x[0] - .6 * 10 ** -2, 5 * 10 ** (-4),
+             str(r'$c_1/f$ = ') + str(float("{0:.1f}".format(1 / sc_x[0]))) + 'km', fontsize=12)
+    ax1.plot([sc_x[4], sc_x[4]], [10 ** (-4), 3 * 10 ** (-4)], color='k', linewidth=2)
+    ax1.text(sc_x[4] - .4 * 10 ** -2, 5 * 10 ** (-4),
+             str(r'$c_5/f$ = ') + str(float("{0:.1f}".format(1 / sc_x[4]))) + 'km', fontsize=12)
 
     ax0.set_yscale('log')
     ax0.set_xscale('log')
+    ax1.set_yscale('log')
+    ax1.set_xscale('log')
     ax0.axis([10 ** -2, 10 ** 1, 1 * 10 ** (-4), 2 * 10 ** 3])
-    ax0.set_xlabel(r'Scaled Vertical Wavenumber = (Rossby Radius)$^{-1}$ = $\frac{f}{c_n}$ [$km^{-1}$]', fontsize=14)
+    ax1.axis([10 ** -2, 10 ** 1, 1 * 10 ** (-4), 2 * 10 ** 3])
+    ax0.set_xlabel(r'Scaled Vertical Wavenumber = (Rossby Radius)$^{-1}$ = $\frac{f}{c_n}$ [$km^{-1}$]', fontsize=12)
+    ax1.set_xlabel(r'Scaled Vertical Wavenumber = (Rossby Radius)$^{-1}$ = $\frac{f}{c_n}$ [$km^{-1}$]', fontsize=12)
     ax0.set_ylabel('Spectral Density, Hor. Wavenumber', fontsize=14)  # ' (and Hor. Wavenumber)')
     ax0.set_title(
-        'Energy Map, Transect (' + np.str(t_s.month) + '/' + np.str(t_s.day) + ' - ' + np.str(t_e.month) + '/' + np.str(
-            t_e.day) + ')', fontsize=14)
+        'Energy Map, Transect (' + np.str(Time_out_s[inn]) + ' - ' + np.str(Time_out_e[inn]) + ')', fontsize=12)
     handles, labels = ax0.get_legend_handles_labels()
-    ax0.legend(handles, labels, fontsize=12)
-    plt.tight_layout()
-    plot_pro(ax0)
+    ax0.legend(handles, labels, fontsize=14)
+    ax0.grid()
+    ax1.set_title(
+        'Energy Map, Transect Mission Average', fontsize=12)
+    handles, labels = ax1.get_legend_handles_labels()
+    ax1.legend(handles, labels, fontsize=12)
+    # fig0.tight_layout()
+    plot_pro(ax1)
     # fig0.savefig('/Users/jake/Desktop/bats/dg035_15_PE_b.png',dpi = 300)
     # plt.close()
     # plt.show()
@@ -599,6 +724,5 @@ if plot_eng > 0:
         output = open('/Users/jake/Documents/geostrophic_turbulence/BATS_OM_KE.pkl', 'wb')
         pickle.dump(mydict, output)
         output.close()
-
 
 # todo read wunsch comparisons with altimetry and compare his results to time (do satellites agree with my data?)
