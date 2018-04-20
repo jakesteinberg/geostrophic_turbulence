@@ -61,7 +61,7 @@ dac_u[dac_u < -500] = np.nan
 dac_v[dac_v < -500] = np.nan
 
 # -------------- LOAD IN MAPPED U/V, AND DENSITY
-pkl_file = open('/Users/jake/Documents/geostrophic_turbulence/BATS_obj_map_L35_W4_apr18.pkl', 'rb')  # _2
+pkl_file = open('/Users/jake/Documents/geostrophic_turbulence/BATS_obj_map_L35_W4_apr19.pkl', 'rb')  # _2
 bats_map = pickle.load(pkl_file)
 pkl_file.close()
 Time = bats_map['time']
@@ -233,13 +233,13 @@ cmp = plt.cm.get_cmap("viridis")
 cmp.set_over('w')  # ('#E6E6E6')
 cmp.set_under('w')
 tt = np.arange(time_t, time_t + 20)
-# den_min = 27.38
-# den_max = 27.56
-den_min = 27.41
-den_max = 27.61
+den_min = 27.38
+den_max = 27.58
+# den_min = 27.41
+# den_max = 27.61
 
 for i in range(9):
-    this_t = tt[i+8]  # tt[i]
+    this_t = tt[i]  # tt[i]
     t_s = datetime.date.fromordinal(np.int(Time[this_t][0]))
     t_e = datetime.date.fromordinal(np.int(Time[this_t][1]))
     t_in_all = np.where((time_rec_all > Time[this_t][0]) & (time_rec_all < Time[this_t][1]))[0]
@@ -268,16 +268,25 @@ for i in range(9):
     # -- color density values of DG profiles in this window
     ax[axl1[i], axl2[i]].scatter(this_x_all[test_lev, :], this_y_all[test_lev, :],
                                  c=np.array(df_den.iloc[test_lev, t_in_all]),
-                                 s=25, edgecolor='k', cmap=cmp, zorder=4, vmin=den_min, vmax=den_max)
+                                 s=35, edgecolor='k', cmap=cmp, zorder=4, vmin=den_min, vmax=den_max)
+    # -- add DG DACS during window
+    this_prof = profile_list[t_in_all]
+    for l in range(len(np.unique(np.floor(profile_list[t_in_all])))):
+        di = np.unique(np.floor(profile_list[t_in_all]))[l]
+        ind_in = np.where((this_prof >= di) & (this_prof <= di+1))[0]
+        dau = dac_u[t_in_all]
+        dav = dac_v[t_in_all]
+        ax[axl1[i], axl2[i]].quiver(this_x_all[-50, ind_in[0]], this_y_all[-50, ind_in[0]],
+                                    dau[l], dav[l], color='r', label='DAC', scale=1.4, zorder=3)
 
     for j in range(len(profs)):
         ax[axl1[i], axl2[i]].text(dive_pos_x[j] + 2, dive_pos_y[j], str(profs[j]), color='r',
                                   fontsize=6, fontweight='bold')
     ax[axl1[i], axl2[i]].set_title(
         str(grid[test_lev]) + 'm ' + '(' + str(t_s) + ' - ' + str(t_e) + ')', fontsize=10)
-    if i < 1:
+    if i > 7.5:
         handles, labels = ax[axl1[i], axl2[i]].get_legend_handles_labels()
-    ax[axl1[i], axl2[i]].legend(handles, labels, fontsize=10)
+        ax[axl1[i], axl2[i]].legend(handles[0:3], labels[0:3], fontsize=10)
     if i < 1:
         ax[axl1[i], axl2[i]].set_ylabel('Y distance [km]', fontsize=10)
     if (i > 2) & (i < 4):

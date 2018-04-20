@@ -185,7 +185,7 @@ V_all = []
 DAC_U_M = []
 DAC_V_M = []
 good_mask = []
-sample_win = np.arange(18, 45, 1)   # started at 20
+sample_win = np.arange(18, 50, 1)   # started at 20
 for k0 in range(np.size(sample_win)):
     k = sample_win[k0]
     k_out = k
@@ -303,7 +303,7 @@ for k0 in range(np.size(sample_win)):
 
     # normalized error averaged over the grid points to give one value per grid cell
     error_test = np.nanmean(norm_error, axis=2)
-    good_prof = np.where(error_test <= 0.1)
+    good_prof = np.where(error_test <= 0.075)
 
     # mapping for DAC vectors 
     d_lon_in = dac_lon[time_in_2]
@@ -407,7 +407,7 @@ if sa > 0:
               'Sigma_Theta_All': sigma_theta_all, 'U_g_All': U_all, 'V_g_All': V_all, 'lon_grid_All': lon_all,
               'lat_grid_All': lat_all, 'mask': good_mask, 'dac_u_map': DAC_U_M, 'dac_v_map': DAC_V_M,
               'd_sigma_dx': d_dx_sigma, 'd_sigma_dy': d_dy_sigma}
-    output = open('/Users/jake/Documents/geostrophic_turbulence/BATS_obj_map_L35_W4_apr18.pkl', 'wb')
+    output = open('/Users/jake/Documents/geostrophic_turbulence/BATS_obj_map_L35_W4_apr19.pkl', 'wb')
     pickle.dump(mydict, output)
     output.close()
 

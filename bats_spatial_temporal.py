@@ -5,19 +5,26 @@ import matplotlib.pyplot as plt
 import datetime
 from netCDF4 import Dataset
 import pickle
-import seawater as sw
+import gsw
 import glob
 from toolkit import plot_pro
 
+GD = Dataset('BATs_2015_gridded_apr04.nc', 'r')
+df_lon = pd.DataFrame(GD['Longitude'][:], index=GD['grid'][:], columns=GD['dive_list'][:])
+df_lat = pd.DataFrame(GD['Latitude'][:], index=GD['grid'][:], columns=GD['dive_list'][:])
+df_lon[df_lon < -500] = np.nan
+df_lat[df_lat < -500] = np.nan
 # physical parameters
 g = 9.81
 rho0 = 1027
-bin_depth = np.concatenate([np.arange(0, 150, 10), np.arange(150, 300, 10), np.arange(300, 5000, 20)])
-ref_lat = 31.7
-ref_lon = -64.2
-grid = bin_depth[1:-1]
-grid_p = sw.pres(grid, ref_lat)
+bin_depth = GD.variables['grid'][:]
+ref_lon = np.nanmean(df_lon)
+ref_lat = np.nanmean(df_lat)
+grid = bin_depth
+grid_p = gsw.p_from_z(-1 * grid, ref_lat)
 z = -1 * grid
+sz_g = grid.shape[0]
+f_ref = np.pi * np.sin(np.deg2rad(ref_lat)) / (12 * 1800)
 
 # --- LOAD bathymetry
 bath = '/Users/jake/Desktop/bats/bats_bathymetry/GEBCO_2014_2D_-67.7_29.8_-59.9_34.8.nc'
@@ -28,12 +35,9 @@ bath_z = bath_fid.variables['elevation'][:]
 levels_b = [-5250, -5000, -4750, -4500, -4250, -4000, -3500, -3000, -2500, -2000, -1500, -1000, -500, 0]
 
 # --- LOAD gridded dives (gridded dives)
-GD = Dataset('BATs_2015_gridded_apr04.nc', 'r')
 df_den = pd.DataFrame(GD['Density'][:], index=GD['grid'][:], columns=GD['dive_list'][:])
 df_theta = pd.DataFrame(GD['Theta'][:], index=GD['grid'][:], columns=GD['dive_list'][:])
 df_s = pd.DataFrame(GD['Absolute Salinity'][:], index=GD['grid'][:], columns=GD['dive_list'][:])
-df_lon = pd.DataFrame(GD['Longitude'][:], index=GD['grid'][:], columns=GD['dive_list'][:])
-df_lat = pd.DataFrame(GD['Latitude'][:], index=GD['grid'][:], columns=GD['dive_list'][:])
 time_rec_all = GD.variables['time_start_stop'][:]
 dac_u = GD.variables['DAC_u'][:]
 dac_v = GD.variables['DAC_v'][:]
@@ -41,8 +45,6 @@ dac_v = GD.variables['DAC_v'][:]
 df_den[df_den < 0] = np.nan
 df_theta[df_theta < 0] = np.nan
 df_s[df_s < 0] = np.nan
-df_lon[df_lon < -500] = np.nan
-df_lat[df_lat < -500] = np.nan
 dac_u[dac_u < -100] = np.nan
 dac_v[dac_v < -100] = np.nan
 
@@ -113,7 +115,7 @@ for i in range(len(sat_days[0:40])):
 ax.scatter(ref_lon, ref_lat)
 ax.scatter(df_lon, df_lat, color='k', s=0.1)
 ax.set_xlabel('Lon')
-ax.set_xlabel('Lat')
+ax.set_ylabel('Lat')
 ax.set_title('Altika Track and DG BATS15 sampling pattern')
 # ax.axis([l_lon, u_lon, l_lat, u_lat])
 w = 1 / np.cos(np.deg2rad(ref_lat))
@@ -124,7 +126,7 @@ f, ax = plt.subplots()
 for k in range(len(dx)):
     ax.plot(dx[k], Jsla[k], linewidth=0.75)
     ax.scatter(dx[k], Jsla[k], s=1)
-ax.set_xlabel('SLA [m]')
+ax.set_ylabel('SLA [m]')
 ax.set_xlabel('Distance [km]')
 ax.set_title('Along-Track SLA near BATS')
 plot_pro(ax)
@@ -167,13 +169,35 @@ fig0, (ax0, ax1) = plt.subplots(2, 1, sharex=True)
 ax0.plot(Time_dt, np.zeros(len(time_rec_all)), color='k')
 ax0.plot(Time_dt[0:-1:2], dac_u[0:-1:2])
 ax0.set_title('DAC$_u$')
+ax0.set_ylabel('[m/s]')
 ax1.plot(Time_dt, np.zeros(len(time_rec_all)), color='k')
 ax1.plot(Time_dt[0:-1:2], dac_v[0:-1:2])
 ax1.set_title('DAC$_v$')
+ax1.set_ylabel('[m/s]')
 ax0.set_ylim([-.2, .2])
 ax1.set_ylim([-.2, .2])
 ax0.grid()
 plot_pro(ax1)
+
+# ---- LOAD IN MAPPING ----- mean velocity profile
+pkl_file = open('/Users/jake/Documents/geostrophic_turbulence/BATS_obj_map_L35_W4_apr19.pkl', 'rb')
+bats_map = pickle.load(pkl_file)
+pkl_file.close()
+sz_g = grid.shape[0]
+U = np.transpose(bats_map['U_g'][0][:, 0:sz_g])
+V = np.transpose(bats_map['V_g'][0][:, 0:sz_g])
+U2 = np.transpose(bats_map['U_g'][20][:, 0:sz_g])
+V2 = np.transpose(bats_map['V_g'][20][:, 0:sz_g])
+f, ax = plt.subplots()
+ax.plot(np.nanmean(U, axis=1), grid, color='r', label='U$_{spr}$')
+ax.plot(np.nanmean(V, axis=1), grid, color='k', label='V$_{spr}$')
+ax.plot(np.nanmean(U2, axis=1), grid, color='r', linestyle='-.', label='U$_{sum}$')
+ax.plot(np.nanmean(V2, axis=1), grid, color='k', linestyle='-.', label='U$_{sum}$')
+ax.set_xlabel('[m/s]')
+ax.set_ylabel('Depth [m]')
+ax.set_title('Average Mapped U, V Velocity profiles (Spring and Summer) ')
+ax.invert_yaxis()
+plot_pro(ax)
 
 # ---- TEMPERATURE on depth surfaces with time ----
 # depth = 3000

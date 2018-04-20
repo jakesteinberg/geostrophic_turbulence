@@ -168,7 +168,7 @@ bdg_c = bats_trans['c'][:]
 bdg_f = bats_trans['f']
 
 # -------- LOAD IN MAPPING
-pkl_file = open('/Users/jake/Documents/geostrophic_turbulence/BATS_obj_map_L35_W4_apr18.pkl', 'rb')
+pkl_file = open('/Users/jake/Documents/geostrophic_turbulence/BATS_obj_map_L35_W4_apr19.pkl', 'rb')
 bats_map = pickle.load(pkl_file)
 pkl_file.close()
 
@@ -185,7 +185,7 @@ good_prof_u_out = []
 good_prof_v_out = []
 good_prof_vt_out = []
 KE_i_out = []
-lr = range(0, 25)  # range(15, 20)
+lr = range(0, 30)  # range(15, 20)
 avg_KE_U = np.nan * np.zeros((len(lr), nmodes))
 avg_KE_V = np.nan * np.zeros((len(lr), nmodes))
 avg_KE = np.nan * np.zeros((len(lr), nmodes))
@@ -203,6 +203,8 @@ prof_x3_out = []
 prof_y3_out = []
 x1_out = []
 y1_out = []
+mode_z_frac_out = []
+dg_mode_z_frac_out = []
 for m in range(len(lr)):
     map_t_itera = lr[m]
     Time = bats_map['time'][map_t_itera]
@@ -276,6 +278,26 @@ for m in range(len(lr)):
         else:
             good_prof_v[i] = 0  # flag empty profile as noisy as well
 
+    # --- VERTICAL STRUCTURE OF UN-MAPPED TRANSECT VELOCITY PROFILES
+    AGz_t = np.zeros([nmodes, V_t3.shape[1]])
+    V_t_m = np.nan * np.zeros([np.size(grid), V_t3.shape[1]])
+    HKE_V_t_per_mass = np.nan * np.zeros([nmodes, V_t3.shape[1]])
+    good_prof_vt = np.ones(V_t3.shape[1])
+    for i in range(V_t3.shape[1]):
+        # fit to velocity profiles
+        this_vv = V_t3[:, i].copy()
+        ivv = np.where(~np.isnan(this_vv))
+        if ivv[0].size > 1:
+            AGz_t[:, i] = np.squeeze(
+                np.linalg.lstsq(np.squeeze(Gz_t[ivv, :]), np.transpose(np.atleast_2d(this_vv[ivv])))[0])
+            V_t_m[:, i] = np.squeeze(np.matrix(Gz_t) * np.transpose(np.matrix(AGz_t[:, i])))
+            HKE_V_t_per_mass[:, i] = AGz_t[:, i] * AGz_t[:, i]
+            ival = np.where(HKE_V_t_per_mass[modest, i] >= HKE_noise_threshold)
+            if np.size(ival) > 0:
+                good_prof_vt[i] = 0  # flag profile as noisy
+        else:
+            good_prof_vt[i] = 0  # flag empty profile as noisy as well
+
     # --- TOTAL ENERGY
     # --- total water column KE for each profile
     TKE_per_mass = (1 / 2) * (HKE_U_per_mass + HKE_V_per_mass)
@@ -317,6 +339,18 @@ for m in range(len(lr)):
     TKE_surface_mode2 = (1 / 2) * (
             (AGz_U[mode2, :] ** 2) * (Gz[z_surf, mode2] ** 2) + (AGz_V[mode2, :] ** 2) * (Gz[z_surf, mode2] ** 2))
 
+    # --- FRACTIONS IN MODES AT EACH DEPTH
+    mode_z_frac = np.nan * np.zeros((len(grid), 5))
+    dg_mode_z_frac = np.nan * np.zeros((len(grid), 5))
+    # loop over each depth
+    for j in range(len(grid)):
+        # loop over first few modes
+        for mn in range(5):
+            mode_z_frac[j, mn] = 0.5 * (
+                        (AGz_U[mn, :].mean() ** 2) * (Gz[j, mn] ** 2) + (AGz_V[mn, :].mean() ** 2) * (Gz[j, mn] ** 2))
+            dg_mode_z_frac[j, mn] = 0.5 * (
+                        (AGz_t[mn, :].mean() ** 2) * (Gz[j, mn] ** 2) + (AGz_t[mn, :].mean() ** 2) * (Gz[j, mn] ** 2))
+
     # --- ALTIMETERY
     sa_u = SA.variables['ugos'][:, (sa_lat >= lal) & (sa_lat <= lam), (sa_lon >= lol) & (sa_lon <= lom)]
     sa_v = SA.variables['vgos'][:, (sa_lat >= lal) & (sa_lat <= lam), (sa_lon >= lol) & (sa_lon <= lom)]
@@ -335,26 +369,6 @@ for m in range(len(lr)):
     U_i[mask[0], mask[1]] = U_all[mask[0], mask[1], test_lev]
     V_i[mask[0], mask[1]] = V_all[mask[0], mask[1], test_lev]
     TKE_surface_map = (1 / 2) * (U_i[:, :] ** 2 + V_i[:, :] ** 2)
-
-    # --- VERTICAL STRUCTURE OF UN-MAPPED TRANSECT VELOCITY PROFILES
-    AGz_t = np.zeros([nmodes, V_t3.shape[1]])
-    V_t_m = np.nan * np.zeros([np.size(grid), V_t3.shape[1]])
-    HKE_V_t_per_mass = np.nan * np.zeros([nmodes, V_t3.shape[1]])
-    good_prof_vt = np.ones(V_t3.shape[1])
-    for i in range(V_t3.shape[1]):
-        # fit to velocity profiles
-        this_vv = V_t3[:, i].copy()
-        ivv = np.where(~np.isnan(this_vv))
-        if ivv[0].size > 1:
-            AGz_t[:, i] = np.squeeze(
-                np.linalg.lstsq(np.squeeze(Gz_t[ivv, :]), np.transpose(np.atleast_2d(this_vv[ivv])))[0])
-            V_t_m[:, i] = np.squeeze(np.matrix(Gz_t) * np.transpose(np.matrix(AGz_t[:, i])))
-            HKE_V_t_per_mass[:, i] = AGz_t[:, i] * AGz_t[:, i]
-            ival = np.where(HKE_V_t_per_mass[modest, i] >= HKE_noise_threshold)
-            if np.size(ival) > 0:
-                good_prof_vt[i] = 0  # flag profile as noisy
-        else:
-            good_prof_vt[i] = 0  # flag empty profile as noisy as well
 
     U_out.append(U)
     V_out.append(V)
@@ -385,9 +399,11 @@ for m in range(len(lr)):
     prof_y3_out.append(prof_y3)
     x1_out.append(x1)
     y1_out.append(y1)
+    mode_z_frac_out.append(mode_z_frac)
+    dg_mode_z_frac_out.append(dg_mode_z_frac)
 
 # from time windows select one to plot/evaluate
-inn = 0
+inn = 20
 AGz_U = AGz_U_out[inn]
 AGz_V = AGz_V_out[inn]
 AGz_t = AGz_t_out[inn]
@@ -406,6 +422,42 @@ prof_x3 = prof_x3_out[inn]
 prof_y3 = prof_y3_out[inn]
 x1 = x1_out[inn]
 y1 = y1_out[inn]
+mode_z_frac = mode_z_frac_out[inn]
+
+# --- energy partition by mode with depth (MAP)
+f, ax = plt.subplots(3, 3, sharex=True, sharey=True)
+axl1 = [0, 0, 0, 1, 1, 1, 2, 2, 2]
+axl2 = [0, 1, 2, 0, 1, 2, 0, 1, 2]
+colors = ['r', 'b', 'g', 'k']
+for ii in range(9):
+    normi = np.sum(mode_z_frac_out[ii], axis=1)
+    for i in range(3):
+        ax[axl1[ii], axl2[ii]].plot(mode_z_frac_out[ii][:, i] / normi, grid, linewidth=2, color=colors[i],
+                                    label='n=' + str(i))
+    ax[axl1[ii], axl2[ii]].set_title('(' + str(Time_out_s[ii]) + ' - ' + str(Time_out_e[ii]) + ')', fontsize=10)
+    ax[axl1[ii], axl2[ii]].invert_yaxis()
+    ax[axl1[ii], axl2[ii]].grid()
+handles, labels = ax[axl1[ii], axl2[ii]].get_legend_handles_labels()
+ax[axl1[ii], axl2[ii]].legend(handles[0:3], labels[0:3], fontsize=10)
+ax[axl1[ii], axl2[ii]].grid()
+plt.suptitle('Fractional Contribution to KE of Modes 0-2 at each depth')
+plot_pro(ax[axl1[ii], axl2[ii]])
+
+# --- energy partition by mode with depth (DG)
+f, ax = plt.subplots(3, 3, sharex=True, sharey=True)
+axl1 = [0, 0, 0, 1, 1, 1, 2, 2, 2]
+axl2 = [0, 1, 2, 0, 1, 2, 0, 1, 2]
+colors = ['r', 'b', 'g', 'k']
+for ii in range(9):
+    normi = np.sum(dg_mode_z_frac_out[ii], axis=1)
+    for i in range(3):
+        ax[axl1[ii], axl2[ii]].plot(dg_mode_z_frac_out[ii][:, i] / normi, grid, linewidth=1, linestyle='--',
+                                    color=colors[i])
+    ax[axl1[ii], axl2[ii]].invert_yaxis()
+    ax[axl1[ii], axl2[ii]].grid()
+ax[axl1[ii], axl2[ii]].grid()
+plt.suptitle('Fractional Contribution to KE of Modes0-2 at each depth')
+plot_pro(ax[axl1[ii], axl2[ii]])
 
 # --- prep for energy spectra
 dk = f_ref / c[1]
@@ -594,7 +646,7 @@ if plot_eta > 0:
     ax2.grid()
     # plot_pro(ax2)
     # f.savefig('/Users/jake/Desktop/bats/dg035_15_Eta_a.png',dpi = 300)
-    # plt.show()    
+    # plt.show()
 
     max_plot = 3
     # f, (ax1, ax2) = plt.subplots(1, 2, sharey=True)
@@ -643,12 +695,12 @@ if plot_eng > 0:
     # -- AVG KE 1/2(U^2 + V^2)
     ax0.plot(1000 * f_ref / c[1:], avg_KE[inn, 1:] / dk, 'g', label=r'KE$_{u_{map}}$', linewidth=2)
     ax0.scatter(1000 * f_ref / c[1:], avg_KE[inn, 1:] / dk, color='g', s=20)  # map KE
-    ax0.plot([10**-2, 1000 * f_ref / c[1]], avg_KE[inn, 0:2] / dk, 'g', linewidth=2)
+    ax0.plot([10 ** -2, 1000 * f_ref / c[1]], avg_KE[inn, 0:2] / dk, 'g', linewidth=2)
 
     # -- AVG KE FROM DG TRANSECTS WITHIN THIS TIME WINDOW
     ax0.plot(1000 * f_ref / c[1:], avg_KE_V_t[inn, 1:] / dk, 'k', label=r'KE$_{u_{trans}}$', linewidth=2)
     ax0.scatter(1000 * f_ref / c[1:], avg_KE_V_t[inn, 1:] / dk, color='k', s=20)  # map KE
-    ax0.plot([10**-2, 1000 * f_ref / c[1]], avg_KE_V_t[inn, 0:2] / dk, 'k', linewidth=2)
+    ax0.plot([10 ** -2, 1000 * f_ref / c[1]], avg_KE_V_t[inn, 0:2] / dk, 'k', linewidth=2)
 
     # -- AVG KE 1/2(U^2)
     ax0.plot(1000 * f_ref / c[1:], avg_KE_U[inn, 1:] / dk, 'g', label=r'KE$_{u_{map}}$', linewidth=1, linestyle='--')
@@ -662,12 +714,12 @@ if plot_eng > 0:
     # -- AVG KE 1/2(U^2 + V^2) FROM ALL MAPPING
     ax1.plot(1000 * f_ref / c[1:], np.nanmean(avg_KE[:, 1:], axis=0) / dk, 'g', label=r'KE$_{map}$', linewidth=2)
     ax1.scatter(1000 * f_ref / c[1:], np.nanmean(avg_KE[:, 1:], axis=0) / dk, color='g', s=20)  # map KE
-    ax1.plot([10**-2, 1000 * f_ref / c[1]], np.nanmean(avg_KE[:, 0:2], axis=0) / dk, 'g', linewidth=2)
+    ax1.plot([10 ** -2, 1000 * f_ref / c[1]], np.nanmean(avg_KE[:, 0:2], axis=0) / dk, 'g', linewidth=2)
 
     # -- AVG KE FROM ALL DG TRANSECTS
     ax1.plot(1000 * bdg_f / bdg_c[1:], bdg_ke[1:] / (bdg_f / bdg_c[1]), 'k', label='KE$_{trans}$', linewidth=2)
     ax1.scatter(1000 * bdg_f / bdg_c[1:], bdg_ke[1:] / (bdg_f / bdg_c[1]), color='k', s=20)  # DG KE
-    ax1.plot([10**-2, 1000 * bdg_f / bdg_c[1]], bdg_ke[0:2] / (bdg_f / bdg_c[1]), 'k', linewidth=2)
+    ax1.plot([10 ** -2, 1000 * bdg_f / bdg_c[1]], bdg_ke[0:2] / (bdg_f / bdg_c[1]), 'k', linewidth=2)
 
     # PE_p = ax0.plot(1000 * bdg_f / bdg_c[1:], bdg_pe[1:] / (bdg_f / bdg_c[1]), 'b', label='PE$_{trans}$')
     # ax0.scatter(1000 * bdg_f / bdg_c[1:], bdg_pe[1:] / (bdg_f / bdg_c[1]), color='b', s=10)  # DG KE
