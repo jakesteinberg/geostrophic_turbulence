@@ -512,8 +512,8 @@ for main in range(4):
                         # etaW[j] = (sigma_theta_avg[j] - np.nanmean(sigmathetaW[iwv])) / ddz_avg_sigma[j]
                         # eta_thetaW[j] = (theta_avg[j] - np.nanmean(thetaW[iwv])) / ddz_avg_theta[j]
                         # -- isopycnal position is position on this single profile
-                        etaW[j] = (sigma_theta_avg[j] - df_den_set.iloc[j, i]) / ddz_avg_sigma[j]
-                        eta_thetaW[j] = (ct_avg[j] - df_ct_set.iloc[j, i]) / ddz_avg_ct[j]
+                        etaW[j] = (sigma_theta_avg[j] - df_den_set.iloc[j, i + 1]) / ddz_avg_sigma[j]
+                        eta_thetaW[j] = (ct_avg[j] - df_ct_set.iloc[j, i + 1]) / ddz_avg_ct[j]
                 # END LOOP OVER EACH BIN_DEPTH
 
             # OUTPUT FOR EACH TRANSECT (at least 2 DIVES)
@@ -658,7 +658,7 @@ if sa > 0:
     mydict = {'bin_depth': grid, 'Sigma_Theta': Sigma_Theta_f, 'Eta': Eta, 'Eta_theta': Eta_theta, 'V': V,
               'V_lon': vel_lon, 'V_lat': vel_lat, 'Time': Time, 'Info': Info, 'Sigma_Theta_Levels': sigth_levels,
               'Sigma_Theta_Depths': Isopyc_depth}
-    output = open('/Users/jake/Desktop/bats/dep15_transect_profiles_apr23.pkl', 'wb')
+    output = open('/Users/jake/Desktop/bats/dep15_transect_profiles_may01.pkl', 'wb')
     pickle.dump(mydict, output)
     output.close()
 

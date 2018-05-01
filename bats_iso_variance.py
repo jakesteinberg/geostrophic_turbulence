@@ -92,7 +92,7 @@ t_e = datetime.date.fromordinal(np.int(np.max(time_rec_all)))
 # ---- LOAD IN TRANSECT TO PROFILE DATA COMPILED IN BATS_TRANSECTS.PY
 # pkl_file = open('/Users/jake/Desktop/bats/transect_profiles_mar12_2.pkl', 'rb')
 # pkl_file = open('/Users/jake/Desktop/bats/dep15_transect_profiles_mar23.pkl', 'rb')
-pkl_file = open('/Users/jake/Desktop/bats/dep15_transect_profiles_apr04.pkl', 'rb')
+pkl_file = open('/Users/jake/Desktop/bats/dep15_transect_profiles_may01.pkl', 'rb')
 bats_trans = pickle.load(pkl_file)
 pkl_file.close()
 Time = bats_trans['Time']
@@ -490,9 +490,9 @@ if plot_eta > 0:
     ax2.set_ylabel('Depth [m]', fontsize=12)
     ax0.set_xlabel('Cross-Track Velocity, U [m/s]', fontsize=12)
     ax0.invert_yaxis()
-    ax0.grid()
     ax2.grid()
-    plot_pro(ax1)
+    ax1.grid()
+    plot_pro(ax0)
     # f.savefig('/Users/jake/Desktop/bats/dg035_15_Eta_a.png',dpi = 300)
     # plt.show()    
 
@@ -574,10 +574,10 @@ if plot_mode > 0:
     yf_0 = scipy.fftpack.fft(order_0_AGz_grid)
     yf_1 = scipy.fftpack.fft(order_1_AGz_grid)
     xf = np.linspace(0.0, 1.0 / (2.0 * T), N / 2)
-    f, ax = plt.subplots()
-    ax.plot(xf, 2.0/N * np.abs(yf_0[:N//2]), 'r')
-    ax.plot(xf, 2.0 / N * np.abs(yf_1[:N // 2]), 'b')
-    plot_pro(ax)
+    # f, ax = plt.subplots()
+    # ax.plot(xf, 2.0/N * np.abs(yf_0[:N//2]), 'r')
+    # ax.plot(xf, 2.0 / N * np.abs(yf_1[:N // 2]), 'b')
+    # plot_pro(ax)
 
     fm, (ax1, ax2) = plt.subplots(2, 1)
     for mo in range(3):
@@ -662,8 +662,10 @@ if plot_mode_corr > 0:
                 covzi[k] = (innz[k, 0] - iz_mean) * (innz[k, 1] - iz_mean)
             corr_z_i[j, dd] = (1 / (nz * variancez)) * np.sum(covzi)
     f, (ax1, ax2) = plt.subplots(1, 2)
-    pa = ax1.pcolor(dist_win, t_win, corr_i, vmin=-1, vmax=1)
-    paz = ax2.pcolor(dist_win, t_win, corr_z_i, vmin=-1, vmax=1)
+    cmap = plt.cm.get_cmap("viridis")
+    cmap.set_over('w')  # ('#E6E6E6')
+    pa = ax1.pcolor(dist_win, t_win, corr_i, vmin=-1, vmax=1, cmap='viridis')
+    paz = ax2.pcolor(dist_win, t_win, corr_z_i, vmin=-1, vmax=1, cmap='viridis')
     ax1.set_xlabel('Spatial Separation [km]')
     ax2.set_xlabel('Spatial Separation [km]')
     ax1.set_ylabel('Time Lag [days]')
@@ -674,32 +676,38 @@ if plot_mode_corr > 0:
 
 
 # --- FRACTIONS of ENERGY IN MODES AT EACH DEPTH
-dg_mode_ke_z_frac = np.nan * np.zeros((num_profs, len(grid), 2))
-dg_mode_pe_z_frac = np.nan * np.zeros((num_profs, len(grid), 2))
+dg_mode_ke_z_frac = np.nan * np.zeros((num_profs, len(grid), 3))
+dg_mode_pe_z_frac = np.nan * np.zeros((num_profs, len(grid), 4))
 # - loop over each profile
-for pp in range(3):
+for pp in range(100, 160):
     # - loop over each depth
     for j in range(len(grid)):
         # loop over first few modes
-        for mn in range(2):
-            dg_mode_ke_z_frac[pp, j, mn] = 0.5 * (
-                    (AGz[mn, pp] ** 2) * (Gz[j, mn] ** 2) + (AGz[mn, pp] ** 2) * (Gz[j, mn] ** 2))
-            dg_mode_pe_z_frac[pp, j, mn] = 0.5 * (
-                    (AG[mn, pp].mean() ** 2) * (G[j, mn] ** 2) + (AG[mn, pp].mean() ** 2) * (G[j, mn] ** 2))
-
-# TODO fix computation of KE (not squared), compute PE...AG*c
+        for mn in range(3):
+            dg_mode_ke_z_frac[pp, j, mn] = (AGz[mn, pp] ** 2) * (Gz[j, mn] ** 2)
+        for mn in range(1, 4):
+            dg_mode_pe_z_frac[pp, j, mn] = 0.5 * (AG[mn, pp] ** 2) * N2[j] * (G[j, mn] ** 2)
 
 f, (ax0, ax1) = plt.subplots(1, 2, sharey=True)
 colors = ['r', 'b', 'g', 'k']
-for pp in range(3):
-    normi_ke = np.nansum(dg_mode_ke_z_frac[pp, :, :], axis=1)  # total ke at each depth
-    normi_pe = np.nansum(dg_mode_pe_z_frac[pp, :, :], axis=1)  # total ke at each depth
-    for i in range(2):
-        ax0.plot(dg_mode_ke_z_frac[pp, :, i] / normi_ke, grid, linewidth=2, color=colors[i], label='n=' + str(i))
-        ax1.plot(dg_mode_pe_z_frac[pp, :, i] / normi_pe, grid, linewidth=2, color=colors[i], label='n=' + str(i))
+normi_ke = np.nansum(np.nanmean(dg_mode_ke_z_frac[:, :, :], axis=0), axis=1)  # total ke at each depth
+normi_pe = np.nansum(np.nanmean(dg_mode_pe_z_frac[:, :, :], axis=0), axis=1)  # total ke at each depth
+avg_ke_frac = np.nanmean(dg_mode_ke_z_frac[:, :, :], axis=0)
+avg_pe_frac = np.nanmean(dg_mode_pe_z_frac[:, :, :], axis=0)
+for i in range(3):
+    ax0.plot(avg_ke_frac[:, i], grid, linewidth=1, color=colors[i], label='n=' + str(i))
+    ax0.plot(dg_mode_ke_z_frac[ed_in_2 - 1, :, i][0, :], grid, linewidth=1, color=colors[i], linestyle='--')
+handles, labels = ax0.get_legend_handles_labels()
+ax0.legend(handles, labels, fontsize=12)
+for i in range(1, 4):
+    ax1.plot(avg_pe_frac[:, i], grid, linewidth=1, color=colors[i], label='n=' + str(i))
+    ax1.plot(dg_mode_pe_z_frac[ed_in_2 - 1, :, i][0, :], grid, linewidth=1, color=colors[i], linestyle='--')
+handles, labels = ax1.get_legend_handles_labels()
+ax1.legend(handles, labels, fontsize=12)
 ax0.set_title('KE')
 ax1.set_title('PE')
 ax0.invert_yaxis()
+ax0.grid()
 plot_pro(ax1)
 
 # --- AVERAGE ENERGY
@@ -805,17 +813,17 @@ if plot_eng > 0:
     # ax0.scatter(sx_c_om,ke_om_v[1:]/dk_om,color='c',s=10) # DG KE
 
     # -- Eddy energies
-    PE_e = ax0.plot(sc_x, PE_ed[1:] / dk, color='c', label='eddy PE', linewidth=2)
-    KE_e = ax0.plot(sc_x, KE_ed[1:] / dk, color='y', label='eddy KE', linewidth=2)
-    KE_e = ax0.plot([10**-2, 1000 * f_ref / c[1]], KE_ed[0:2] / dk, color='y', label='eddy KE', linewidth=2)
+    # PE_e = ax0.plot(sc_x, PE_ed[1:] / dk, color='c', label='eddy PE', linewidth=2)
+    # KE_e = ax0.plot(sc_x, KE_ed[1:] / dk, color='y', label='eddy KE', linewidth=2)
+    # KE_e = ax0.plot([10**-2, 1000 * f_ref / c[1]], KE_ed[0:2] / dk, color='y', label='eddy KE', linewidth=2)
 
     # -- Slope fits
-    # ax0.plot(10 ** x_53, 10 ** y_g_53, color='k', linewidth=1, linestyle='--')
-    # ax0.plot(10 ** x_3, 10 ** y_g_3, color='k', linewidth=1, linestyle='--')
-    # # ax0.plot(10 ** x_3_2, 10 ** y_g_ke, color='k', linewidth=1.5, linestyle='--')
-    # ax0.text(10 ** x_53[0] - .012, 10 ** y_g_53[0], str(float("{0:.2f}".format(slope1[0]))), fontsize=10)
-    # ax0.text(10 ** x_3[0] + .085, 10 ** y_g_3[0], str(float("{0:.2f}".format(slope2[0]))), fontsize=10)
-    # # ax0.text(10 ** x_3_2[3] + .05, 10 ** y_g_ke[3], str(float("{0:.2f}".format(slope_ke[0]))), fontsize=10)
+    ax0.plot(10 ** x_53, 10 ** y_g_53, color='k', linewidth=1, linestyle='--')
+    ax0.plot(10 ** x_3, 10 ** y_g_3, color='k', linewidth=1, linestyle='--')
+    # ax0.plot(10 ** x_3_2, 10 ** y_g_ke, color='k', linewidth=1.5, linestyle='--')
+    ax0.text(10 ** x_53[0] - .012, 10 ** y_g_53[0], str(float("{0:.2f}".format(slope1[0]))), fontsize=10)
+    ax0.text(10 ** x_3[0] + .085, 10 ** y_g_3[0], str(float("{0:.2f}".format(slope2[0]))), fontsize=10)
+    # ax0.text(10 ** x_3_2[3] + .05, 10 ** y_g_ke[3], str(float("{0:.2f}".format(slope_ke[0]))), fontsize=10)
 
     # ax0.scatter(vert_wave[ipoint] * 1000, one[ipoint], color='b', s=7)
     # ax0.plot([xx[ipoint], xx[ipoint]], [10 ** (-4), 4 * 10 ** (-4)], color='k', linewidth=2)
