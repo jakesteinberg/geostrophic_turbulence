@@ -170,6 +170,8 @@ profile_list = profile_list[ok]
 target = np.array([[5, 7], [1, 3], [11, 13], [7, 9]])
 # outputs from all loops
 N2_out = np.ones((np.size(grid), 2))
+sigth_levels = np.concatenate([np.arange(23, 27.5, 0.5), np.arange(27.2, 27.8, 0.2), np.arange(27.7, 27.9, 0.02)])
+Isopyc_depth = []
 Eta = []
 Eta_theta = []
 Eta_ct = []
@@ -336,8 +338,6 @@ for main in range(4):
         shear = np.nan * np.zeros((np.size(grid), np.size(this_set) - 1))
         eta = np.nan * np.zeros((np.size(grid), np.size(this_set) - 1))
         eta_theta = np.nan * np.zeros((np.size(grid), np.size(this_set) - 1))
-        sigth_levels = np.concatenate(
-            [np.arange(23, 27.5, 0.5), np.arange(27.2, 27.8, 0.2), np.arange(27.7, 27.9, 0.02)])
         isopycdep = np.nan * np.zeros((np.size(sigth_levels), np.size(this_set)))
         isopycx = np.nan * np.zeros((np.size(sigth_levels), np.size(this_set)))
         Vbt = np.nan * np.zeros(np.size(this_set))
@@ -628,6 +628,7 @@ for main in range(4):
         # OUTPUT V_g AND Eta from each transect collection so that it PE and KE can be computed 
         # size (m,n) is gridded depths and number of profiles 
         if np.size(Eta) < 1:
+            Isopyc_depth = isopycdep
             Eta = eta
             Eta_theta = eta_theta
             V = V_g[:, :-1]
@@ -637,6 +638,7 @@ for main in range(4):
             Info = info  # need dive number and lat/lon
             Sigma_Theta_f = sigma_theta_out
         else:
+            Isopyc_depth = np.concatenate((Isopyc_depth, isopycdep), axis=1)
             Eta = np.concatenate((Eta, eta), axis=1)
             Eta_theta = np.concatenate((Eta_theta, eta_theta), axis=1)
             V = np.concatenate((V, V_g[:, :-1]), axis=1)
@@ -654,8 +656,9 @@ for main in range(4):
 sa = 1
 if sa > 0:
     mydict = {'bin_depth': grid, 'Sigma_Theta': Sigma_Theta_f, 'Eta': Eta, 'Eta_theta': Eta_theta, 'V': V,
-              'V_lon': vel_lon, 'V_lat': vel_lat, 'Time': Time, 'Info': Info}
-    output = open('/Users/jake/Desktop/bats/dep15_transect_profiles_apr04.pkl', 'wb')
+              'V_lon': vel_lon, 'V_lat': vel_lat, 'Time': Time, 'Info': Info, 'Sigma_Theta_Levels': sigth_levels,
+              'Sigma_Theta_Depths': Isopyc_depth}
+    output = open('/Users/jake/Desktop/bats/dep15_transect_profiles_apr23.pkl', 'wb')
     pickle.dump(mydict, output)
     output.close()
 

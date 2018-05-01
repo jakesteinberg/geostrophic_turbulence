@@ -438,21 +438,23 @@ if plot_v_struct > 0:
 # 2015 - dives 62, 63 ,64
 ed_prof_in = np.where(((profile_list) >= 62) & ((profile_list) <= 64))[0]
 ed_in = np.where(((Info2[0, :] - 35000) >= 62) & ((Info2[0, :] - 35000) <= 64))[0]
+ed_in_2 = np.where(((Info2[0, :] - 35000) > 62) & ((Info2[0, :] - 35000) < 64))[0]
 ed_time_s = datetime.date.fromordinal(np.int(Time2[ed_in[0]]))
 ed_time_e = datetime.date.fromordinal(np.int(Time2[ed_in[-1] + 1]))
 # --- time series
 mission_start = datetime.date.fromordinal(np.int(Time.min()))
 mission_end = datetime.date.fromordinal(np.int(Time.max()))
 
-f, ax = plt.subplots()
-for i in range(len(ed_prof_in)):
-    ax.plot(df_ct.iloc[:, ed_prof_in[i]], grid)
-ax.plot(ct_avg, grid, color='k')
-ax.set_xlabel('T [degrees]')
-ax.set_ylabel('Depth [m]')
-ax.set_xlim([0, 20])
-ax.invert_yaxis()
-plot_pro(ax)
+# --- EDDY TEMPERATURE ANOMALY
+# f, ax = plt.subplots()
+# for i in range(len(ed_prof_in)):
+#     ax.plot(df_ct.iloc[:, ed_prof_in[i]], grid)
+# ax.plot(ct_avg, grid, color='k')
+# ax.set_xlabel('T [degrees]')
+# ax.set_ylabel('Depth [m]')
+# ax.set_xlim([0, 20])
+# ax.invert_yaxis()
+# plot_pro(ax)
 
 
 # --- PLOT ETA / EOF
@@ -539,7 +541,7 @@ for i in range(len(sbt_in)):
     sb_dt.append(datetime.datetime(np.int(sbt_in[i]), np.int((sbt_in[i] - np.int(sbt_in[i])) * 12), np.int(
         ((sbt_in[i] - np.int(sbt_in[i])) * 12 - np.int((sbt_in[i] - np.int(sbt_in[i])) * 12)) * 30)))
 
-plot_mode = 1
+plot_mode = 0
 if plot_mode > 0:
     window_size, poly_order = 9, 2
     fm, ax = plt.subplots()
@@ -670,12 +672,43 @@ if plot_mode_corr > 0:
     f.colorbar(pa)
     plot_pro(ax2)
 
+
+# --- FRACTIONS of ENERGY IN MODES AT EACH DEPTH
+dg_mode_ke_z_frac = np.nan * np.zeros((num_profs, len(grid), 2))
+dg_mode_pe_z_frac = np.nan * np.zeros((num_profs, len(grid), 2))
+# - loop over each profile
+for pp in range(3):
+    # - loop over each depth
+    for j in range(len(grid)):
+        # loop over first few modes
+        for mn in range(2):
+            dg_mode_ke_z_frac[pp, j, mn] = 0.5 * (
+                    (AGz[mn, pp] ** 2) * (Gz[j, mn] ** 2) + (AGz[mn, pp] ** 2) * (Gz[j, mn] ** 2))
+            dg_mode_pe_z_frac[pp, j, mn] = 0.5 * (
+                    (AG[mn, pp].mean() ** 2) * (G[j, mn] ** 2) + (AG[mn, pp].mean() ** 2) * (G[j, mn] ** 2))
+
+# TODO fix computation of KE (not squared), compute PE...AG*c
+
+f, (ax0, ax1) = plt.subplots(1, 2, sharey=True)
+colors = ['r', 'b', 'g', 'k']
+for pp in range(3):
+    normi_ke = np.nansum(dg_mode_ke_z_frac[pp, :, :], axis=1)  # total ke at each depth
+    normi_pe = np.nansum(dg_mode_pe_z_frac[pp, :, :], axis=1)  # total ke at each depth
+    for i in range(2):
+        ax0.plot(dg_mode_ke_z_frac[pp, :, i] / normi_ke, grid, linewidth=2, color=colors[i], label='n=' + str(i))
+        ax1.plot(dg_mode_pe_z_frac[pp, :, i] / normi_pe, grid, linewidth=2, color=colors[i], label='n=' + str(i))
+ax0.set_title('KE')
+ax1.set_title('PE')
+ax0.invert_yaxis()
+plot_pro(ax1)
+
+# --- AVERAGE ENERGY
 avg_PE = np.nanmean(PE_per_mass, 1)
 good_prof_i = good_ke_prof  # np.where(good_prof > 0)
 avg_KE = np.nanmean(HKE_per_mass[:, np.where(good_ke_prof > 0)[0]], 1)
 # --- eddy kinetic and potential energy
-PE_ed = np.nanmean(PE_per_mass[:, ed_in[0]:ed_in[-1] + 2], axis=1)
-KE_ed = np.nanmean(HKE_per_mass[:, ed_in[0]:ed_in[-1] + 2], axis=1)
+PE_ed = np.nanmean(PE_per_mass[:, ed_in[0]:ed_in[-1]], axis=1)
+KE_ed = np.nanmean(HKE_per_mass[:, ed_in[0]:ed_in[-1]], axis=1)
 
 # --- ENERGY parameters
 f_ref = np.pi * np.sin(np.deg2rad(ref_lat)) / (12 * 1800)
@@ -752,7 +785,7 @@ pkl_file = open('/Users/jake/Desktop/abaco/abaco_outputs_2.pkl', 'rb')
 abaco_energies = pickle.load(pkl_file)
 pkl_file.close()
 
-plot_eng = 0
+plot_eng = 1
 if plot_eng > 0:
     fig0, ax0 = plt.subplots()
     PE_p = ax0.plot(sc_x, avg_PE[1:] / dk, color='#B22222', label='APE$_{DG}$', linewidth=3)
@@ -774,14 +807,15 @@ if plot_eng > 0:
     # -- Eddy energies
     PE_e = ax0.plot(sc_x, PE_ed[1:] / dk, color='c', label='eddy PE', linewidth=2)
     KE_e = ax0.plot(sc_x, KE_ed[1:] / dk, color='y', label='eddy KE', linewidth=2)
+    KE_e = ax0.plot([10**-2, 1000 * f_ref / c[1]], KE_ed[0:2] / dk, color='y', label='eddy KE', linewidth=2)
 
     # -- Slope fits
-    ax0.plot(10 ** x_53, 10 ** y_g_53, color='k', linewidth=1, linestyle='--')
-    ax0.plot(10 ** x_3, 10 ** y_g_3, color='k', linewidth=1, linestyle='--')
-    # ax0.plot(10 ** x_3_2, 10 ** y_g_ke, color='k', linewidth=1.5, linestyle='--')
-    ax0.text(10 ** x_53[0] - .012, 10 ** y_g_53[0], str(float("{0:.2f}".format(slope1[0]))), fontsize=10)
-    ax0.text(10 ** x_3[0] + .085, 10 ** y_g_3[0], str(float("{0:.2f}".format(slope2[0]))), fontsize=10)
-    # ax0.text(10 ** x_3_2[3] + .05, 10 ** y_g_ke[3], str(float("{0:.2f}".format(slope_ke[0]))), fontsize=10)
+    # ax0.plot(10 ** x_53, 10 ** y_g_53, color='k', linewidth=1, linestyle='--')
+    # ax0.plot(10 ** x_3, 10 ** y_g_3, color='k', linewidth=1, linestyle='--')
+    # # ax0.plot(10 ** x_3_2, 10 ** y_g_ke, color='k', linewidth=1.5, linestyle='--')
+    # ax0.text(10 ** x_53[0] - .012, 10 ** y_g_53[0], str(float("{0:.2f}".format(slope1[0]))), fontsize=10)
+    # ax0.text(10 ** x_3[0] + .085, 10 ** y_g_3[0], str(float("{0:.2f}".format(slope2[0]))), fontsize=10)
+    # # ax0.text(10 ** x_3_2[3] + .05, 10 ** y_g_ke[3], str(float("{0:.2f}".format(slope_ke[0]))), fontsize=10)
 
     # ax0.scatter(vert_wave[ipoint] * 1000, one[ipoint], color='b', s=7)
     # ax0.plot([xx[ipoint], xx[ipoint]], [10 ** (-4), 4 * 10 ** (-4)], color='k', linewidth=2)

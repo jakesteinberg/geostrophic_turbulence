@@ -63,7 +63,73 @@ Eta_theta = bats_trans['Eta_theta']
 V = bats_trans['V']
 UV_lon = bats_trans['V_lon']
 UV_lat = bats_trans['V_lat']
+UV_x = 1852 * 60 * np.cos(np.deg2rad(ref_lat)) * (UV_lon - ref_lon)
+UV_y = 1852 * 60 * (UV_lat - ref_lat)
+UV_d = np.sqrt(UV_x**2 + UV_y**2) / 1000
 # the ordering that these lists are compiled is by transect no., not by time
+
+#$ --- CORRELATIONS OF DISPLACEMENTS IN TIME AND SPACE
+x_range = np.arange(0, 70, 10)
+t_range = np.arange(np.min(Time), np.max(Time), 10)
+simi = np.nan*np.zeros((len(t_range), len(x_range)))
+simi_count = np.nan*np.zeros((len(t_range), len(x_range)))
+for i in range(len(x_range)-1):
+    for j in range(len(t_range)-1):
+        p_in = np.where((Time > t_range[j]) & (Time < t_range[j + 1]) & (UV_d > x_range[i]) & (UV_d < x_range[i + 1]))
+        simi_count[j, i] = len(p_in[0])
+        simi[j, i] = np.nanmean(Eta[65, p_in[0]])
+
+# define each box as all points that fall within a time and space lag
+dist_win = np.arange(0, 110, 10)
+t_win = np.arange(0, 100, 5)
+# tile times and distance lags
+x_tile = np.tile(UV_x, (len(UV_x), 1))
+y_tile = np.tile(UV_y, (len(UV_y), 1))
+time_tile = np.tile(Time, (len(Time), 1))
+dist = np.sqrt((x_tile - x_tile.T) ** 2 + (y_tile - y_tile.T) ** 2) / 1000
+time_lag = np.abs(time_tile - time_tile.T)
+# loop over difference depths
+f, ax = plt.subplots(2, 2, sharex=True, sharey=True)
+cmap = plt.cm.get_cmap("viridis")
+cmap.set_over('w')  # ('#E6E6E6')
+axl1 = [0, 0, 1, 1]
+axl2 = [0, 1, 0, 1]
+levs = np.array([40, 65, 115, 165])
+for tt in range(4):
+    # data
+    Eta_cor = Eta[levs[tt], :]
+    # try to compute lagged auto-correlation for all points within a given distance
+    # returns a tuple of coordinate pairs where distance criteria are met
+    corr_i = np.nan * np.zeros((len(t_win), len(dist_win)))
+    for dd in range(len(dist_win) - 1):
+        dist_small_i = np.where((dist > dist_win[dd]) & (dist < dist_win[dd + 1]))
+        time_in = np.unique(time_lag[dist_small_i[0], dist_small_i[1]])
+
+        AG_out = np.nan * np.zeros([len(dist_small_i[0]), 3])
+        for i in range(len(dist_small_i[0])):
+            AG_out[i, :] = [Eta_cor[dist_small_i[0][i]], Eta_cor[dist_small_i[1][i]],
+                            time_lag[dist_small_i[0][i], dist_small_i[1][i]]]
+        no_doub, no_doub_i = np.unique(AG_out[:, 2], return_index=True)
+        AG_out2 = AG_out[no_doub_i, :]
+        for j in range(len(t_win) - 1):
+            inn = AG_out2[((AG_out2[:, 2] > t_win[j]) & (AG_out2[:, 2] < t_win[j + 1])), 0:3]
+            if len(inn) > 3:
+                i_mean = np.nanmean(np.unique(inn[:, 0:2]))
+                n = len(inn[:, 0:2])
+                variance = np.nanvar(np.unique(inn[:, 0:2]))
+                covi = np.nan * np.zeros(len(inn[:, 0]))
+                for k in range(len(inn[:, 0])):
+                    covi[k] = (inn[k, 0] - i_mean) * (inn[k, 1] - i_mean)
+                corr_i[j, dd] = (1 / (n * variance)) * np.nansum(covi)
+
+    corr_i[np.isnan(corr_i)] = 100
+    pa = ax[axl1[tt], axl2[tt]].pcolor(dist_win, t_win, corr_i, vmin=-1, vmax=1, cmap='viridis')
+    ax[axl1[tt], axl2[tt]].set_title('Isopycnal Vertical Displacement Correlation at ' + str(grid[levs[tt]]) + 'm')
+    ax[axl1[tt], axl2[tt]].set_xlabel('Horizontal Separation [km]')
+    ax[axl1[tt], axl2[tt]].set_ylabel('Temporal Separation [Days]')
+cbar_ax = f.add_axes([0.925, 0.15, 0.02, 0.7])
+f.colorbar(pa, cax=cbar_ax)
+plot_pro(ax[axl1[tt], axl2[tt]])
 
 # --- LOAD SATELLITE ALTIMETRY
 Jtime = []
@@ -188,14 +254,19 @@ U = np.transpose(bats_map['U_g'][0][:, 0:sz_g])
 V = np.transpose(bats_map['V_g'][0][:, 0:sz_g])
 U2 = np.transpose(bats_map['U_g'][20][:, 0:sz_g])
 V2 = np.transpose(bats_map['V_g'][20][:, 0:sz_g])
+t_spr = datetime.date.fromordinal(np.int(np.mean(bats_map['time'][0])))
+t_sum = datetime.date.fromordinal(np.int(np.max(bats_map['time'][20])))
+
 f, ax = plt.subplots()
-ax.plot(np.nanmean(U, axis=1), grid, color='r', label='U$_{spr}$')
-ax.plot(np.nanmean(V, axis=1), grid, color='k', label='V$_{spr}$')
-ax.plot(np.nanmean(U2, axis=1), grid, color='r', linestyle='-.', label='U$_{sum}$')
-ax.plot(np.nanmean(V2, axis=1), grid, color='k', linestyle='-.', label='U$_{sum}$')
+ax.plot(np.nanmean(U, axis=1), grid, color='r', label='U$_{spr}$' + str(t_spr))
+ax.plot(np.nanmean(V, axis=1), grid, color='k', label='V$_{spr}$' + str(t_spr))
+ax.plot(np.nanmean(U2, axis=1), grid, color='r', linestyle='-.', label='U$_{sum}$' + str(t_sum))
+ax.plot(np.nanmean(V2, axis=1), grid, color='k', linestyle='-.', label='U$_{sum}$' + str(t_sum))
+handles, labels = ax.get_legend_handles_labels()
+ax.legend(handles, labels, fontsize=10)
 ax.set_xlabel('[m/s]')
 ax.set_ylabel('Depth [m]')
-ax.set_title('Average Mapped U, V Velocity profiles (Spring and Summer) ')
+ax.set_title('BATS15 Avg. Mapped U, V Velocity profiles (Spring and Summer) ')
 ax.invert_yaxis()
 plot_pro(ax)
 
