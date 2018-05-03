@@ -46,7 +46,7 @@ deep_shr_max = 0.1  # maximum allowed deep shear [m/s/km]
 deep_shr_max_dep = 3500  # minimum depth for which shear is limited [m]
 
 # ---- LOAD IN TRANSECT TO PROFILE DATA COMPILED IN BATS_TRANSECTS.PY
-pkl_file = open('/Users/jake/Desktop/bats/dep15_transect_profiles_apr04.pkl', 'rb')
+pkl_file = open('/Users/jake/Desktop/bats/dep15_transect_profiles_may01.pkl', 'rb')
 bats_trans = pickle.load(pkl_file)
 pkl_file.close()
 Time_t = bats_trans['Time']
@@ -185,7 +185,7 @@ good_prof_u_out = []
 good_prof_v_out = []
 good_prof_vt_out = []
 KE_i_out = []
-lr = range(0, 30)  # range(15, 20)
+lr = range(0, 32)  # range(15, 20)
 avg_KE_U = np.nan * np.zeros((len(lr), nmodes))
 avg_KE_V = np.nan * np.zeros((len(lr), nmodes))
 avg_KE = np.nan * np.zeros((len(lr), nmodes))
@@ -195,10 +195,14 @@ Time_out_s = []
 Time_out_e = []
 TKE_surface_map_out = []
 TKE_surface_out = []
+TKE_t_surface_out =[]
 SAT_STKE_out = []
 avg_surf_KE_m0 = []
 avg_surf_KE_m1 = []
 avg_surf_KE_m2 = []
+avg_surf_KE_t_m0 = []
+avg_surf_KE_t_m1 = []
+avg_surf_KE_t_m2 = []
 prof_x3_out = []
 prof_y3_out = []
 x1_out = []
@@ -319,13 +323,17 @@ for m in range(len(lr)):
     z_surf = 0
     u_sum = np.nan * np.zeros(num_profs)
     v_sum = np.nan * np.zeros(num_profs)
+    v_t_sum = np.nan * np.zeros(V_t3.shape[1])
     # sum the KE from each mode at each profile location
     for i in range(num_profs):
         u_sum[i] = np.sum((AGz_U[:, i] ** 2) * (Gz[z_surf, :] ** 2))
         v_sum[i] = np.sum((AGz_V[:, i] ** 2) * (Gz[z_surf, :] ** 2))
+    for i in range(V_t3.shape[1]):
+        v_t_sum[i] = np.sum((AGz_t[:, i] ** 2) * (Gz[z_surf, :] ** 2))
     # --- AVGERAGE TKE at z_surf at each location
     dk = f_ref / c[1]
     TKE_surface = (1 / 2) * (u_sum + v_sum)
+    TKE_t_surface = (1 / 2) * v_t_sum
     # -- fraction of TKE
     TKE_frac = TKE_surface * (grid[1] - grid[0]) / TKE
     # -- fractions in modes (at surface)
@@ -338,6 +346,9 @@ for m in range(len(lr)):
     mode2 = 2
     TKE_surface_mode2 = (1 / 2) * (
             (AGz_U[mode2, :] ** 2) * (Gz[z_surf, mode2] ** 2) + (AGz_V[mode2, :] ** 2) * (Gz[z_surf, mode2] ** 2))
+    TKE_surface_mode0_t = (1 / 2) * ((AGz_t[mode0, :] ** 2) * (Gz[z_surf, mode0] ** 2))
+    TKE_surface_mode1_t = (1 / 2) * ((AGz_t[mode1, :] ** 2) * (Gz[z_surf, mode1] ** 2))
+    TKE_surface_mode2_t = (1 / 2) * ((AGz_t[mode2, :] ** 2) * (Gz[z_surf, mode2] ** 2))
 
     # --- FRACTIONS IN MODES AT EACH DEPTH
     mode_z_frac = np.nan * np.zeros((len(grid), 5))
@@ -349,7 +360,7 @@ for m in range(len(lr)):
             mode_z_frac[j, mn] = 0.5 * (
                         (AGz_U[mn, :].mean() ** 2) * (Gz[j, mn] ** 2) + (AGz_V[mn, :].mean() ** 2) * (Gz[j, mn] ** 2))
             dg_mode_z_frac[j, mn] = 0.5 * (
-                        (AGz_t[mn, :].mean() ** 2) * (Gz[j, mn] ** 2) + (AGz_t[mn, :].mean() ** 2) * (Gz[j, mn] ** 2))
+                        (AGz_t[mn, :].mean() ** 2) * (Gz[j, mn] ** 2))
 
     # --- ALTIMETERY
     sa_u = SA.variables['ugos'][:, (sa_lat >= lal) & (sa_lat <= lam), (sa_lon >= lol) & (sa_lon <= lom)]
@@ -387,8 +398,12 @@ for m in range(len(lr)):
     avg_surf_KE_m0.append(TKE_surface_mode0)
     avg_surf_KE_m1.append(TKE_surface_mode1)
     avg_surf_KE_m2.append(TKE_surface_mode2)
+    avg_surf_KE_t_m0.append(TKE_surface_mode0_t)
+    avg_surf_KE_t_m1.append(TKE_surface_mode1_t)
+    avg_surf_KE_t_m2.append(TKE_surface_mode2_t)
     TKE_surface_map_out.append(TKE_surface_map)
     TKE_surface_out.append(TKE_surface)
+    TKE_t_surface_out.append(TKE_t_surface)
     AGz_U_out.append(AGz_U)
     AGz_V_out.append(AGz_V)
     AGz_t_out.append(AGz_t)
@@ -403,7 +418,7 @@ for m in range(len(lr)):
     dg_mode_z_frac_out.append(dg_mode_z_frac)
 
 # from time windows select one to plot/evaluate
-inn = 20
+inn = 0
 AGz_U = AGz_U_out[inn]
 AGz_V = AGz_V_out[inn]
 AGz_t = AGz_t_out[inn]
@@ -414,10 +429,14 @@ KE_i = KE_i_out[inn]
 TKE = np.trapz(KE_i, grid, axis=1)  # integrate KE in depth
 SA_TKE = SAT_STKE_out[inn]
 TKE_surface = TKE_surface_out[inn]
+TKE_t_surface = TKE_t_surface_out[inn]
 TKE_surface_map = TKE_surface_map_out[inn]
 TKE_surface_mode0 = avg_surf_KE_m0[inn]
 TKE_surface_mode1 = avg_surf_KE_m1[inn]
 TKE_surface_mode2 = avg_surf_KE_m2[inn]
+TKE_surface_mode0_t = avg_surf_KE_t_m0[inn]
+TKE_surface_mode1_t = avg_surf_KE_t_m1[inn]
+TKE_surface_mode2_t = avg_surf_KE_t_m2[inn]
 prof_x3 = prof_x3_out[inn]
 prof_y3 = prof_y3_out[inn]
 x1 = x1_out[inn]
@@ -693,12 +712,12 @@ if plot_eng > 0:
     # PE_p = ax0.plot(sc_x,avg_PE[1:]/dk,color='#B22222',label='PE',linewidth=1.5)
 
     # -- AVG KE 1/2(U^2 + V^2)
-    ax0.plot(1000 * f_ref / c[1:], avg_KE[inn, 1:] / dk, 'g', label=r'KE$_{u_{map}}$', linewidth=2)
+    ax0.plot(1000 * f_ref / c[1:], avg_KE[inn, 1:] / dk, 'g', label=r'KE$_{map}$', linewidth=2)
     ax0.scatter(1000 * f_ref / c[1:], avg_KE[inn, 1:] / dk, color='g', s=20)  # map KE
     ax0.plot([10 ** -2, 1000 * f_ref / c[1]], avg_KE[inn, 0:2] / dk, 'g', linewidth=2)
 
     # -- AVG KE FROM DG TRANSECTS WITHIN THIS TIME WINDOW
-    ax0.plot(1000 * f_ref / c[1:], avg_KE_V_t[inn, 1:] / dk, 'k', label=r'KE$_{u_{trans}}$', linewidth=2)
+    ax0.plot(1000 * f_ref / c[1:], avg_KE_V_t[inn, 1:] / dk, 'k', label=r'KE$_{trans}$', linewidth=2)
     ax0.scatter(1000 * f_ref / c[1:], avg_KE_V_t[inn, 1:] / dk, color='k', s=20)  # map KE
     ax0.plot([10 ** -2, 1000 * f_ref / c[1]], avg_KE_V_t[inn, 0:2] / dk, 'k', linewidth=2)
 
@@ -721,8 +740,8 @@ if plot_eng > 0:
     ax1.scatter(1000 * bdg_f / bdg_c[1:], bdg_ke[1:] / (bdg_f / bdg_c[1]), color='k', s=20)  # DG KE
     ax1.plot([10 ** -2, 1000 * bdg_f / bdg_c[1]], bdg_ke[0:2] / (bdg_f / bdg_c[1]), 'k', linewidth=2)
 
-    # PE_p = ax0.plot(1000 * bdg_f / bdg_c[1:], bdg_pe[1:] / (bdg_f / bdg_c[1]), 'b', label='PE$_{trans}$')
-    # ax0.scatter(1000 * bdg_f / bdg_c[1:], bdg_pe[1:] / (bdg_f / bdg_c[1]), color='b', s=10)  # DG KE
+    PE_p = ax1.plot(1000 * bdg_f / bdg_c[1:], bdg_pe[1:] / (bdg_f / bdg_c[1]), 'r', label='PE$_{trans}$')
+    ax1.scatter(1000 * bdg_f / bdg_c[1:], bdg_pe[1:] / (bdg_f / bdg_c[1]), color='r', s=10)  # DG KE
 
     # limits/scales
     ax0.plot([3 * 10 ** -1, 3 * 10 ** 0], [1.5 * 10 ** 1, 1.5 * 10 ** -2], color='k', linewidth=0.75)

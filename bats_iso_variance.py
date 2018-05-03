@@ -1,7 +1,7 @@
 # BATS
 # take velocity and displacement profiles and compute energy spectra / explore mode amplitude variability
 import numpy as np
-import matplotlib
+import matplotlib as mpl
 import matplotlib.pyplot as plt
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 import gsw
@@ -438,7 +438,7 @@ if plot_v_struct > 0:
 # 2015 - dives 62, 63 ,64
 ed_prof_in = np.where(((profile_list) >= 62) & ((profile_list) <= 64))[0]
 ed_in = np.where(((Info2[0, :] - 35000) >= 62) & ((Info2[0, :] - 35000) <= 64))[0]
-ed_in_2 = np.where(((Info2[0, :] - 35000) > 62) & ((Info2[0, :] - 35000) < 64))[0]
+ed_in_2 = np.where(((Info2[0, :] - 35000) > 61) & ((Info2[0, :] - 35000) < 63))[0]
 ed_time_s = datetime.date.fromordinal(np.int(Time2[ed_in[0]]))
 ed_time_e = datetime.date.fromordinal(np.int(Time2[ed_in[-1] + 1]))
 # --- time series
@@ -458,6 +458,7 @@ mission_end = datetime.date.fromordinal(np.int(Time.max()))
 
 
 # --- PLOT ETA / EOF
+noisy_profs = np.where(AGz[4, :] < -0.1)[0]
 plot_eta = 0
 if plot_eta > 0:
     f, (ax2, ax1, ax0) = plt.subplots(1, 3, sharey=True)
@@ -467,7 +468,6 @@ if plot_eta > 0:
     ax2.set_xlabel(r'$\sigma_{\theta} - \overline{\sigma_{\theta}}$', fontsize=12)
     ax2.set_title("DG35 BATS: " + str(mission_start) + ' - ' + str(mission_end))
     ax2.text(0.1, 4000, str(len(Time2)) + ' profiles', fontsize=10)
-    noisy_profs = np.where(AGz[4, :] < -0.1)[0]
     for j in range(num_profs):
         ax1.plot(Eta2[:, j], grid, color='#4682B4', linewidth=1.25)
         ax1.plot(Eta_m[:, j], grid, color='k', linestyle='--', linewidth=.75)
@@ -676,39 +676,120 @@ if plot_mode_corr > 0:
 
 
 # --- FRACTIONS of ENERGY IN MODES AT EACH DEPTH
-dg_mode_ke_z_frac = np.nan * np.zeros((num_profs, len(grid), 3))
-dg_mode_pe_z_frac = np.nan * np.zeros((num_profs, len(grid), 4))
+dg_mode_ke_z_frac = np.nan * np.zeros((num_profs, len(grid), 6))
+dg_mode_pe_z_frac = np.nan * np.zeros((num_profs, len(grid), 7))
+tke_tot_z = np.nan * np.zeros((len(grid), num_profs))
+pe_tot_z = np.nan * np.zeros((len(grid), num_profs))
+tke_m0_z = np.nan * np.zeros((len(grid), num_profs))
+tke_m1_z = np.nan * np.zeros((len(grid), num_profs))
+tke_m2_z = np.nan * np.zeros((len(grid), num_profs))
+tke_m3_z = np.nan * np.zeros((len(grid), num_profs))
+tke_m4_z = np.nan * np.zeros((len(grid), num_profs))
+pe_m1_z = np.nan * np.zeros((len(grid), num_profs))
+pe_m2_z = np.nan * np.zeros((len(grid), num_profs))
+pe_m3_z = np.nan * np.zeros((len(grid), num_profs))
+pe_m4_z = np.nan * np.zeros((len(grid), num_profs))
+pe_m5_z = np.nan * np.zeros((len(grid), num_profs))
 # - loop over each profile
-for pp in range(100, 160):
+ed_in_2 = ed_in_2 + 1
+for pp in np.append(np.arange(5, 42), np.arange(140, 160)):
     # - loop over each depth
     for j in range(len(grid)):
-        # loop over first few modes
-        for mn in range(3):
-            dg_mode_ke_z_frac[pp, j, mn] = (AGz[mn, pp] ** 2) * (Gz[j, mn] ** 2)
-        for mn in range(1, 4):
-            dg_mode_pe_z_frac[pp, j, mn] = 0.5 * (AG[mn, pp] ** 2) * N2[j] * (G[j, mn] ** 2)
+        tke_tot_z[j, pp] = np.sum(0.5 * ((AGz[0:20, pp] ** 2) * (Gz[j, 0:20] ** 2)))  # ke sum over all modes at depths z
+        pe_tot_z[j, pp] = np.sum(0.5 * ((AG[0:20, pp] ** 2) * N2[j] * (G[j, 0:20] ** 2)))  # pe sum over all modes at depths z
+        tke_m0_z[j, pp] = 0.5 * ((AGz[0, pp] ** 2) * (Gz[j, 0] ** 2))  # ke mode 0 contribution to tke at depths z
+        tke_m1_z[j, pp] = 0.5 * ((AGz[1, pp] ** 2) * (Gz[j, 1] ** 2))  # ke mode 1 contribution to tke at depths z
+        tke_m2_z[j, pp] = 0.5 * ((AGz[2, pp] ** 2) * (Gz[j, 2] ** 2))  # ke mode 2 contribution to tke at depths z
+        tke_m3_z[j, pp] = 0.5 * ((AGz[3, pp] ** 2) * (Gz[j, 3] ** 2))  # ke mode 3 contribution to tke at depths z
+        tke_m4_z[j, pp] = 0.5 * ((AGz[4, pp] ** 2) * (Gz[j, 4] ** 2))  # ke mode 3 contribution to tke at depths z
+        pe_m1_z[j, pp] = 0.5 * ((AG[1, pp] ** 2) * N2[j] * (G[j, 1] ** 2))  # pe mode 1 contribution to tke at depths z
+        pe_m2_z[j, pp] = 0.5 * ((AG[2, pp] ** 2) * N2[j] * (G[j, 2] ** 2))  # pe mode 1 contribution to tke at depths z
+        pe_m3_z[j, pp] = 0.5 * ((AG[3, pp] ** 2) * N2[j] * (G[j, 3] ** 2))  # pe mode 1 contribution to tke at depths z
+        pe_m4_z[j, pp] = 0.5 * ((AG[4, pp] ** 2) * N2[j] * (G[j, 4] ** 2))  # pe mode 1 contribution to tke at depths z
+        pe_m5_z[j, pp] = 0.5 * ((AG[5, pp] ** 2) * N2[j] * (G[j, 5] ** 2))  # pe mode 1 contribution to tke at depths z
 
-f, (ax0, ax1) = plt.subplots(1, 2, sharey=True)
-colors = ['r', 'b', 'g', 'k']
-normi_ke = np.nansum(np.nanmean(dg_mode_ke_z_frac[:, :, :], axis=0), axis=1)  # total ke at each depth
-normi_pe = np.nansum(np.nanmean(dg_mode_pe_z_frac[:, :, :], axis=0), axis=1)  # total ke at each depth
-avg_ke_frac = np.nanmean(dg_mode_ke_z_frac[:, :, :], axis=0)
-avg_pe_frac = np.nanmean(dg_mode_pe_z_frac[:, :, :], axis=0)
-for i in range(3):
-    ax0.plot(avg_ke_frac[:, i], grid, linewidth=1, color=colors[i], label='n=' + str(i))
-    ax0.plot(dg_mode_ke_z_frac[ed_in_2 - 1, :, i][0, :], grid, linewidth=1, color=colors[i], linestyle='--')
-handles, labels = ax0.get_legend_handles_labels()
-ax0.legend(handles, labels, fontsize=12)
-for i in range(1, 4):
-    ax1.plot(avg_pe_frac[:, i], grid, linewidth=1, color=colors[i], label='n=' + str(i))
-    ax1.plot(dg_mode_pe_z_frac[ed_in_2 - 1, :, i][0, :], grid, linewidth=1, color=colors[i], linestyle='--')
-handles, labels = ax1.get_legend_handles_labels()
-ax1.legend(handles, labels, fontsize=12)
-ax0.set_title('KE')
-ax1.set_title('PE')
+        # # loop over first few modes
+        # for mn in range(6):
+        #     dg_mode_ke_z_frac[pp, j, mn] = 0.5 * (AGz[mn, pp] ** 2) * (Gz[j, mn] ** 2)
+        # for mn in range(1, 7):
+        #     dg_mode_pe_z_frac[pp, j, mn] = 0.5 * (AG[mn, pp] ** 2) * N2[j] * (G[j, mn] ** 2)
+
+f, (ax0, ax1, ax2, ax3) = plt.subplots(1, 4, sharey=True)
+colors = ['#00BFFF', '#F4A460', '#00FF7F', '#FA8072', '#708090']
+# background ke
+ax0.fill_betweenx(grid, 0, np.nanmean(tke_m0_z / tke_tot_z, axis=1),
+                  label='Mode 0', color=colors[0])
+ax0.fill_betweenx(grid, np.nanmean(tke_m0_z / tke_tot_z, axis=1),
+                  np.nanmean((tke_m0_z + tke_m1_z) / tke_tot_z, axis=1),
+                  label='Mode 1', color=colors[1])
+ax0.fill_betweenx(grid, np.nanmean((tke_m0_z + tke_m1_z) / tke_tot_z, axis=1),
+                  np.nanmean((tke_m0_z + tke_m1_z + tke_m2_z) / tke_tot_z, axis=1),
+                  label='Mode 1', color=colors[2])
+ax0.fill_betweenx(grid, np.nanmean((tke_m0_z + tke_m1_z + tke_m2_z) / tke_tot_z, axis=1),
+                  np.nanmean((tke_m0_z + tke_m1_z + tke_m2_z + tke_m3_z) / tke_tot_z, axis=1),
+                  label='Mode 1', color=colors[3])
+ax0.fill_betweenx(grid, np.nanmean((tke_m0_z + tke_m1_z + tke_m2_z + tke_m3_z) / tke_tot_z, axis=1),
+                  np.nanmean((tke_m0_z + tke_m1_z + tke_m2_z + tke_m3_z + tke_m4_z) / tke_tot_z, axis=1),
+                  label='Mode 1', color=colors[4])
+# background pe
+ax2.fill_betweenx(grid, 0, np.nanmean(pe_m1_z / pe_tot_z, axis=1),
+                  label='Mode 0', color=colors[1])
+ax2.fill_betweenx(grid, np.nanmean(pe_m1_z / pe_tot_z, axis=1),
+                  np.nanmean((pe_m1_z + pe_m2_z) / pe_tot_z, axis=1),
+                  label='Mode 1', color=colors[2])
+ax2.fill_betweenx(grid, np.nanmean((pe_m1_z + pe_m2_z) / pe_tot_z, axis=1),
+                  np.nanmean((pe_m1_z + pe_m2_z + pe_m3_z) / pe_tot_z, axis=1),
+                  label='Mode 1', color=colors[3])
+ax2.fill_betweenx(grid, np.nanmean((pe_m1_z + pe_m2_z + pe_m3_z) / pe_tot_z, axis=1),
+                  np.nanmean((pe_m1_z + pe_m2_z + pe_m3_z + pe_m4_z) / pe_tot_z, axis=1),
+                  label='Mode 1', color=colors[4])
+# eddy ke
+ax1.fill_betweenx(grid, 0, tke_m0_z[:, ed_in_2][:, 0] / tke_tot_z[:, ed_in_2][:, 0], label='Mode 0', color=colors[0])
+ax1.fill_betweenx(grid, tke_m0_z[:, ed_in_2][:, 0] / tke_tot_z[:, ed_in_2][:, 0],
+                  (tke_m0_z[:, ed_in_2][:, 0] + tke_m1_z[:, ed_in_2][:, 0]) / tke_tot_z[:, ed_in_2][:, 0],
+                  label='Mode 1', color=colors[1])
+ax1.fill_betweenx(grid, (tke_m0_z[:, ed_in_2][:, 0] + tke_m1_z[:, ed_in_2][:, 0]) / tke_tot_z[:, ed_in_2][:, 0],
+                  (tke_m0_z[:, ed_in_2][:, 0] + tke_m1_z[:, ed_in_2][:, 0] + tke_m2_z[:, ed_in_2][:, 0]) /
+                  tke_tot_z[:, ed_in_2][:, 0], label='Mode 1', color=colors[2])
+ax1.fill_betweenx(grid, (tke_m0_z[:, ed_in_2][:, 0] + tke_m1_z[:, ed_in_2][:, 0] + tke_m2_z[:, ed_in_2][:, 0]) /
+                  tke_tot_z[:, ed_in_2][:, 0],
+                  (tke_m0_z[:, ed_in_2][:, 0] + tke_m1_z[:, ed_in_2][:, 0] + tke_m2_z[:, ed_in_2][:, 0] +
+                   tke_m3_z[:, ed_in_2][:, 0]) / tke_tot_z[:, ed_in_2][:, 0], label='Mode 1', color=colors[3])
+ax1.fill_betweenx(grid, (tke_m0_z[:, ed_in_2][:, 0] + tke_m1_z[:, ed_in_2][:, 0] + tke_m2_z[:, ed_in_2][:, 0] +
+                  tke_m3_z[:, ed_in_2][:, 0]) / tke_tot_z[:, ed_in_2][:, 0],
+                  (tke_m0_z[:, ed_in_2][:, 0] + tke_m1_z[:, ed_in_2][:, 0] + tke_m2_z[:, ed_in_2][:, 0] +
+                  tke_m3_z[:, ed_in_2][:, 0] + tke_m4_z[:, ed_in_2][:, 0]) /
+                  tke_tot_z[:, ed_in_2][:, 0], label='Mode 1', color=colors[4])
+
+
+# background pe
+# ax2.fill_betweenx(grid, 0, avg_pe_frac[:, 1] / normi_pe, label='Mode 1', color=colors[1])
+# ax2.fill_betweenx(grid, avg_pe_frac[:, 1] / normi_pe,
+#                   (avg_pe_frac[:, 1] + avg_pe_frac[:, 2]) / normi_pe, label='Mode 2', color=colors[2])
+# ax2.fill_betweenx(grid, (avg_pe_frac[:, 1] + avg_pe_frac[:, 2]) / normi_pe,
+#                   np.nansum(avg_pe_frac[:, 1:4], axis=1) / normi_pe, label='Mode 3', color=colors[3])
+# eddy pe energy
+# no_pe_ed = np.nansum(dg_mode_pe_z_frac[ed_in_2 - 1, :, :][0, :], axis=1)
+# ax3.fill_betweenx(grid, 0, dg_mode_pe_z_frac[ed_in_2 - 1, :, 1][0, :] / no_pe_ed, label='Mode 1', color=colors[1])
+# ax3.fill_betweenx(grid, dg_mode_pe_z_frac[ed_in_2 - 1, :, 1][0, :] / no_pe_ed,
+#                   (dg_mode_pe_z_frac[ed_in_2 - 1, :, 1][0, :] + dg_mode_pe_z_frac[ed_in_2 - 1, :, 2][0, :]) / no_pe_ed,
+#                   label='Mode 2', color=colors[2])
+# ax3.fill_betweenx(grid,
+#                   (dg_mode_pe_z_frac[ed_in_2 - 1, :, 1][0, :] + dg_mode_pe_z_frac[ed_in_2 - 1, :, 2][0, :]) / no_pe_ed,
+#                   np.nansum(dg_mode_pe_z_frac[ed_in_2 - 1, :, 1:4][0, :], axis=1) / no_pe_ed,
+#                   label='Mode 3', color=colors[3])
+# handles, labels = ax2.get_legend_handles_labels()
+# ax2.legend(handles, labels, fontsize=12)
+ax0.set_xlim([0, 1])
+ax0.set_title('Mean KE Partition')
+ax1.set_title('Eddy KE Partition')
+ax2.set_title('Mean PE Partition')
+ax3.set_title('Eddy PE Partition')
 ax0.invert_yaxis()
 ax0.grid()
-plot_pro(ax1)
+ax1.grid()
+ax2.grid()
+plot_pro(ax3)
 
 # --- AVERAGE ENERGY
 avg_PE = np.nanmean(PE_per_mass, 1)
@@ -743,8 +824,8 @@ slope1 = np.polyfit(x_53, y_53, 1)
 x_3 = np.log10(xx[ipoint-1:])
 y_3 = np.log10(yy[ipoint-1:])
 slope2 = np.polyfit(x_3, y_3, 1)
-x_3_2 = np.log10(xx[0:50])
-y_3_2 = np.log10(yy2[0:50])
+x_3_2 = np.log10(xx[0:55])
+y_3_2 = np.log10(yy2[0:55])
 slope_ke = np.polyfit(x_3_2, y_3_2, 1)
 
 y_g_53 = np.polyval(slope1, x_53)
@@ -793,17 +874,18 @@ pkl_file = open('/Users/jake/Desktop/abaco/abaco_outputs_2.pkl', 'rb')
 abaco_energies = pickle.load(pkl_file)
 pkl_file.close()
 
-plot_eng = 1
+plot_eng = 0
 if plot_eng > 0:
     fig0, ax0 = plt.subplots()
-    PE_p = ax0.plot(sc_x, avg_PE[1:] / dk, color='#B22222', label='APE$_{DG}$', linewidth=3)
+    # PE_p = ax0.plot(sc_x, avg_PE[1:] / dk, color='#B22222', label='APE$_{DG}$', linewidth=3)
+    # ax0.scatter(sc_x, avg_PE[1:] / dk, color='#B22222', s=20)  # DG PE
     # PE_sta_p = ax0.plot(1000 * sta_bats_f / sta_bats_c[1:], np.nanmean(sta_bats_pe[1:], axis=1) / sta_bats_dk,
     #                     color='#FF8C00',
     #                     label='APE$_{ship}$', linewidth=1.5)
-    ax0.scatter(sc_x, avg_PE[1:] / dk, color='#B22222', s=20)  # DG PE
+
     KE_p = ax0.plot(1000 * f_ref / c[1:], avg_KE[1:] / dk, 'g', label='KE$_{DG}$', linewidth=3)
     ax0.scatter(sc_x, avg_KE[1:] / dk, color='g', s=20)  # DG KE
-    KE_p = ax0.plot([10**-2, 1000 * f_ref / c[1]], avg_KE[0:2] / dk, 'g', label='KE$_{DG}$', linewidth=3) # DG KE_0
+    KE_p = ax0.plot([10**-2, 1000 * f_ref / c[1]], avg_KE[0:2] / dk, 'g', linewidth=3) # DG KE_0
     ax0.scatter(10**-2, avg_KE[0] / dk, color='g', s=25, facecolors='none')  # DG KE_0
 
     # -- Obj. Map
@@ -818,12 +900,12 @@ if plot_eng > 0:
     # KE_e = ax0.plot([10**-2, 1000 * f_ref / c[1]], KE_ed[0:2] / dk, color='y', label='eddy KE', linewidth=2)
 
     # -- Slope fits
-    ax0.plot(10 ** x_53, 10 ** y_g_53, color='k', linewidth=1, linestyle='--')
-    ax0.plot(10 ** x_3, 10 ** y_g_3, color='k', linewidth=1, linestyle='--')
-    # ax0.plot(10 ** x_3_2, 10 ** y_g_ke, color='k', linewidth=1.5, linestyle='--')
-    ax0.text(10 ** x_53[0] - .012, 10 ** y_g_53[0], str(float("{0:.2f}".format(slope1[0]))), fontsize=10)
-    ax0.text(10 ** x_3[0] + .085, 10 ** y_g_3[0], str(float("{0:.2f}".format(slope2[0]))), fontsize=10)
-    # ax0.text(10 ** x_3_2[3] + .05, 10 ** y_g_ke[3], str(float("{0:.2f}".format(slope_ke[0]))), fontsize=10)
+    # ax0.plot(10 ** x_53, 10 ** y_g_53, color='k', linewidth=1, linestyle='--')
+    # ax0.plot(10 ** x_3, 10 ** y_g_3, color='k', linewidth=1, linestyle='--')
+    ax0.plot(10 ** x_3_2, 10 ** y_g_ke, color='k', linewidth=1.5, linestyle='--')
+    # ax0.text(10 ** x_53[0] - .012, 10 ** y_g_53[0], str(float("{0:.2f}".format(slope1[0]))), fontsize=10)
+    # ax0.text(10 ** x_3[0] + .085, 10 ** y_g_3[0], str(float("{0:.2f}".format(slope2[0]))), fontsize=10)
+    ax0.text(10 ** x_3_2[3] + .05, 10 ** y_g_ke[3], str(float("{0:.2f}".format(slope_ke[0]))), fontsize=12)
 
     # ax0.scatter(vert_wave[ipoint] * 1000, one[ipoint], color='b', s=7)
     # ax0.plot([xx[ipoint], xx[ipoint]], [10 ** (-4), 4 * 10 ** (-4)], color='k', linewidth=2)
@@ -839,8 +921,8 @@ if plot_eng > 0:
              str(r'$c_5/f$ = ') + str(float("{0:.1f}".format(1 / sc_x[4]))) + 'km', fontsize=12)
 
     # GM
-    ax0.plot(sc_x, PE_GM / dk, linestyle='--', color='#B22222', linewidth=0.75)
-    ax0.text(sc_x[0] - .01, PE_GM[1] / dk, r'$PE_{GM}$', fontsize=12)
+    # ax0.plot(sc_x, PE_GM / dk, linestyle='--', color='#B22222', linewidth=0.75)
+    # ax0.text(sc_x[0] - .01, PE_GM[1] / dk, r'$PE_{GM}$', fontsize=12)
     # ax0.plot(np.array([10**-2, 10]), [PE_SD / dk, PE_SD / dk], linestyle='--', color='k', linewidth=0.75)
 
     # Limits/scales
