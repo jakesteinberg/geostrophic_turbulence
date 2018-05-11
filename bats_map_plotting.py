@@ -60,6 +60,14 @@ df_lat_all[df_lat_all < -500] = np.nan
 dac_u[dac_u < -500] = np.nan
 dac_v[dac_v < -500] = np.nan
 
+# -------------- LOOK INTO DENSITY VARIATIONS AT 1000M
+f, ax = plt.subplots()
+ax.scatter(time_rec_all_dt, df_den.iloc[65, :], s=3)
+ax.set_xlabel('Date')
+ax.set_ylabel('Potential Density at 1000m')
+ax.invert_yaxis
+plot_pro(ax)
+
 # -------------- LOAD IN MAPPED U/V, AND DENSITY
 pkl_file = open('/Users/jake/Documents/geostrophic_turbulence/BATS_obj_map_L35_W4_apr19.pkl', 'rb')  # _2
 bats_map = pickle.load(pkl_file)
@@ -229,17 +237,17 @@ x1, y1 = np.meshgrid(x_grid / 1000, y_grid / 1000)
 f, ax = plt.subplots(3, 3)
 axl1 = [0, 0, 0, 1, 1, 1, 2, 2, 2]
 axl2 = [0, 1, 2, 0, 1, 2, 0, 1, 2]
-cmp = plt.cm.get_cmap("viridis")
+cmp = plt.cm.get_cmap("viridis_r")
 cmp.set_over('w')  # ('#E6E6E6')
 cmp.set_under('w')
 tt = np.arange(time_t, time_t + 20)
-den_min = 27.38
-den_max = 27.58
-# den_min = 27.41
-# den_max = 27.61
+# den_min = 27.38
+# den_max = 27.58
+den_min = 27.47
+den_max = 27.67
 
 for i in range(9):
-    this_t = tt[i]  # tt[i]
+    this_t = tt[i + 8]  # tt[i]
     t_s = datetime.date.fromordinal(np.int(Time[this_t][0]))
     t_e = datetime.date.fromordinal(np.int(Time[this_t][1]))
     t_in_all = np.where((time_rec_all > Time[this_t][0]) & (time_rec_all < Time[this_t][1]))[0]

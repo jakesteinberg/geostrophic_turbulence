@@ -6,20 +6,43 @@ import gsw
 
 
 def make_bin_gen(bin_depth, depth_d, temp_d, salin_d):
-    bin_up = bin_depth[0:-2]
-    bin_down = bin_depth[2:]
-    bin_cen = bin_depth[1:-1]
-    temp_g_dive = np.empty(np.size(bin_cen)+1)
-    salin_g_dive = np.empty(np.size(bin_cen)+1)
-    temp_g_dive[0] = np.nanmean(temp_d[depth_d < bin_cen[0]])
-    salin_g_dive[0] = np.nanmean(salin_d[depth_d < bin_cen[0]])
-    for i in range(1, np.size(bin_cen)):
-        dp_in_d = (depth_d > bin_up[i]) & (depth_d < bin_down[i])
+    # max depth attained
+    dep_max = np.round(depth_d.max())
+    deepest_bin = find_nearest(bin_depth, dep_max)[0]
 
+    if deepest_bin == (len(bin_depth) - 1):
+        bin_up = bin_depth[0:(deepest_bin - 1)]
+        bin_down = bin_depth[2:(deepest_bin + 1)]
+        bin_cen = bin_depth[1:deepest_bin]
+
+    temp_g = -999*np.ones(np.size(bin_depth))
+    salin_g = -999*np.ones(np.size(bin_depth))
+    # -- Case z = 0
+    dp_in_d_1 = depth_d < bin_cen[0]
+    if np.sum(dp_in_d_1) >= 2:
+        temp_g[0] = np.nanmean(temp_d[dp_in_d_1])
+        salin_g[0] = np.nanmean(salin_d[dp_in_d_1])
+    # -- Case z > 0
+    # bin_up = bin_depth[0:-2]
+    # bin_down = bin_depth[2:]
+    # bin_cen = bin_depth[1:-1]
+    # temp_g_dive = np.empty(np.size(bin_cen)+1)
+    # salin_g_dive = np.empty(np.size(bin_cen)+1)
+    # temp_g_dive[0] = np.nanmean(temp_d[depth_d < bin_cen[0]])
+    # salin_g_dive[0] = np.nanmean(salin_d[depth_d < bin_cen[0]])
+    for j in range(np.size(bin_cen)):
+        i = j + 1
+        dp_in_d = (depth_d > bin_up[j]) & (depth_d < bin_down[j])
         if dp_in_d.size > 2:
-            temp_g_dive[i] = np.nanmean(temp_d[dp_in_d])
-            salin_g_dive[i] = np.nanmean(salin_d[dp_in_d])
-    return temp_g_dive, salin_g_dive
+            temp_g[i] = np.nanmean(temp_d[dp_in_d])
+            salin_g[i] = np.nanmean(salin_d[dp_in_d])
+    # -- Case last_bin
+    dp_in_d_e = (depth_d > bin_cen[-1]) & (depth_d < bin_cen[-1] + 75)
+    if dp_in_d.size > 2:
+        temp_g[-1] = np.nanmean(temp_d[dp_in_d_e])
+        salin_g[-1] = np.nanmean(salin_d[dp_in_d_e])
+
+    return temp_g, salin_g
 
 
 def make_bin(bin_depth, depth_d, depth_c, temp_d, temp_c, salin_d, salin_c, x_g_d, x_g_c, y_g_d, y_g_c):

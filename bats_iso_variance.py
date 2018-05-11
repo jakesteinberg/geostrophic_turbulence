@@ -714,7 +714,34 @@ for pp in np.append(np.arange(5, 42), np.arange(140, 160)):
         # for mn in range(1, 7):
         #     dg_mode_pe_z_frac[pp, j, mn] = 0.5 * (AG[mn, pp] ** 2) * N2[j] * (G[j, mn] ** 2)
 
-f, (ax0, ax1, ax2, ax3) = plt.subplots(1, 4, sharey=True)
+f, ax = plt.subplots(5, 1, sharex=True)
+dps = [0, 40, 65, 115, 165]
+colo = ['r', 'g', 'b', 'k', 'c']
+ppe = ed_in_2 - 1
+count = 0
+for i in dps:
+    for pp in range(60):
+        ax[count].plot(np.array([0, 1, 2, 3, 4]),
+                       np.array([tke_m0_z[i, pp], tke_m1_z[i, pp], tke_m2_z[i, pp], tke_m3_z[i, pp], tke_m4_z[i, pp]]),
+                       color='b', linewidth=0.5)
+        if pp > 58:
+            ax[count].plot(np.array([0, 1, 2, 3, 4]),
+                           np.array([tke_m0_z[i, ppe], tke_m1_z[i, ppe],
+                                     tke_m2_z[i, ppe], tke_m3_z[i, ppe], tke_m4_z[i, ppe]]),
+                            color='r', linewidth=1.75)
+    if count < 2:
+        ax[count].set_ylim([0, 0.02])
+    else:
+        ax[count].set_ylim([0, 0.005])
+    ax[count].set_ylabel(r'KE [m$^2$/s$^2$]')
+    ax[count].grid()
+    ax[count].set_title('KE at ' + str(grid[i]) + 'm', fontsize='10')
+    count = count + 1
+ax[count - 1].set_xlabel('Mode Number')
+ax[count - 1].grid()
+plot_pro(ax[count - 1])
+
+f, (ax0, ax1) = plt.subplots(1, 2, sharey=True)
 colors = ['#00BFFF', '#F4A460', '#00FF7F', '#FA8072', '#708090']
 # background ke
 ax0.fill_betweenx(grid, 0, np.nanmean(tke_m0_z / tke_tot_z, axis=1),
@@ -732,17 +759,17 @@ ax0.fill_betweenx(grid, np.nanmean((tke_m0_z + tke_m1_z + tke_m2_z + tke_m3_z) /
                   np.nanmean((tke_m0_z + tke_m1_z + tke_m2_z + tke_m3_z + tke_m4_z) / tke_tot_z, axis=1),
                   label='Mode 1', color=colors[4])
 # background pe
-ax2.fill_betweenx(grid, 0, np.nanmean(pe_m1_z / pe_tot_z, axis=1),
-                  label='Mode 0', color=colors[1])
-ax2.fill_betweenx(grid, np.nanmean(pe_m1_z / pe_tot_z, axis=1),
-                  np.nanmean((pe_m1_z + pe_m2_z) / pe_tot_z, axis=1),
-                  label='Mode 1', color=colors[2])
-ax2.fill_betweenx(grid, np.nanmean((pe_m1_z + pe_m2_z) / pe_tot_z, axis=1),
-                  np.nanmean((pe_m1_z + pe_m2_z + pe_m3_z) / pe_tot_z, axis=1),
-                  label='Mode 1', color=colors[3])
-ax2.fill_betweenx(grid, np.nanmean((pe_m1_z + pe_m2_z + pe_m3_z) / pe_tot_z, axis=1),
-                  np.nanmean((pe_m1_z + pe_m2_z + pe_m3_z + pe_m4_z) / pe_tot_z, axis=1),
-                  label='Mode 1', color=colors[4])
+# ax2.fill_betweenx(grid, 0, np.nanmean(pe_m1_z / pe_tot_z, axis=1),
+#                   label='Mode 0', color=colors[1])
+# ax2.fill_betweenx(grid, np.nanmean(pe_m1_z / pe_tot_z, axis=1),
+#                   np.nanmean((pe_m1_z + pe_m2_z) / pe_tot_z, axis=1),
+#                   label='Mode 1', color=colors[2])
+# ax2.fill_betweenx(grid, np.nanmean((pe_m1_z + pe_m2_z) / pe_tot_z, axis=1),
+#                   np.nanmean((pe_m1_z + pe_m2_z + pe_m3_z) / pe_tot_z, axis=1),
+#                   label='Mode 1', color=colors[3])
+# ax2.fill_betweenx(grid, np.nanmean((pe_m1_z + pe_m2_z + pe_m3_z) / pe_tot_z, axis=1),
+#                   np.nanmean((pe_m1_z + pe_m2_z + pe_m3_z + pe_m4_z) / pe_tot_z, axis=1),
+#                   label='Mode 1', color=colors[4])
 # eddy ke
 ax1.fill_betweenx(grid, 0, tke_m0_z[:, ed_in_2][:, 0] / tke_tot_z[:, ed_in_2][:, 0], label='Mode 0', color=colors[0])
 ax1.fill_betweenx(grid, tke_m0_z[:, ed_in_2][:, 0] / tke_tot_z[:, ed_in_2][:, 0],
@@ -750,46 +777,31 @@ ax1.fill_betweenx(grid, tke_m0_z[:, ed_in_2][:, 0] / tke_tot_z[:, ed_in_2][:, 0]
                   label='Mode 1', color=colors[1])
 ax1.fill_betweenx(grid, (tke_m0_z[:, ed_in_2][:, 0] + tke_m1_z[:, ed_in_2][:, 0]) / tke_tot_z[:, ed_in_2][:, 0],
                   (tke_m0_z[:, ed_in_2][:, 0] + tke_m1_z[:, ed_in_2][:, 0] + tke_m2_z[:, ed_in_2][:, 0]) /
-                  tke_tot_z[:, ed_in_2][:, 0], label='Mode 1', color=colors[2])
+                  tke_tot_z[:, ed_in_2][:, 0], label='Mode 2', color=colors[2])
 ax1.fill_betweenx(grid, (tke_m0_z[:, ed_in_2][:, 0] + tke_m1_z[:, ed_in_2][:, 0] + tke_m2_z[:, ed_in_2][:, 0]) /
                   tke_tot_z[:, ed_in_2][:, 0],
                   (tke_m0_z[:, ed_in_2][:, 0] + tke_m1_z[:, ed_in_2][:, 0] + tke_m2_z[:, ed_in_2][:, 0] +
-                   tke_m3_z[:, ed_in_2][:, 0]) / tke_tot_z[:, ed_in_2][:, 0], label='Mode 1', color=colors[3])
+                   tke_m3_z[:, ed_in_2][:, 0]) / tke_tot_z[:, ed_in_2][:, 0], label='Mode 3', color=colors[3])
 ax1.fill_betweenx(grid, (tke_m0_z[:, ed_in_2][:, 0] + tke_m1_z[:, ed_in_2][:, 0] + tke_m2_z[:, ed_in_2][:, 0] +
                   tke_m3_z[:, ed_in_2][:, 0]) / tke_tot_z[:, ed_in_2][:, 0],
                   (tke_m0_z[:, ed_in_2][:, 0] + tke_m1_z[:, ed_in_2][:, 0] + tke_m2_z[:, ed_in_2][:, 0] +
                   tke_m3_z[:, ed_in_2][:, 0] + tke_m4_z[:, ed_in_2][:, 0]) /
-                  tke_tot_z[:, ed_in_2][:, 0], label='Mode 1', color=colors[4])
-
-
-# background pe
-# ax2.fill_betweenx(grid, 0, avg_pe_frac[:, 1] / normi_pe, label='Mode 1', color=colors[1])
-# ax2.fill_betweenx(grid, avg_pe_frac[:, 1] / normi_pe,
-#                   (avg_pe_frac[:, 1] + avg_pe_frac[:, 2]) / normi_pe, label='Mode 2', color=colors[2])
-# ax2.fill_betweenx(grid, (avg_pe_frac[:, 1] + avg_pe_frac[:, 2]) / normi_pe,
-#                   np.nansum(avg_pe_frac[:, 1:4], axis=1) / normi_pe, label='Mode 3', color=colors[3])
-# eddy pe energy
-# no_pe_ed = np.nansum(dg_mode_pe_z_frac[ed_in_2 - 1, :, :][0, :], axis=1)
-# ax3.fill_betweenx(grid, 0, dg_mode_pe_z_frac[ed_in_2 - 1, :, 1][0, :] / no_pe_ed, label='Mode 1', color=colors[1])
-# ax3.fill_betweenx(grid, dg_mode_pe_z_frac[ed_in_2 - 1, :, 1][0, :] / no_pe_ed,
-#                   (dg_mode_pe_z_frac[ed_in_2 - 1, :, 1][0, :] + dg_mode_pe_z_frac[ed_in_2 - 1, :, 2][0, :]) / no_pe_ed,
-#                   label='Mode 2', color=colors[2])
-# ax3.fill_betweenx(grid,
-#                   (dg_mode_pe_z_frac[ed_in_2 - 1, :, 1][0, :] + dg_mode_pe_z_frac[ed_in_2 - 1, :, 2][0, :]) / no_pe_ed,
-#                   np.nansum(dg_mode_pe_z_frac[ed_in_2 - 1, :, 1:4][0, :], axis=1) / no_pe_ed,
-#                   label='Mode 3', color=colors[3])
-# handles, labels = ax2.get_legend_handles_labels()
-# ax2.legend(handles, labels, fontsize=12)
+                  tke_tot_z[:, ed_in_2][:, 0], label='Mode 4', color=colors[4])
 ax0.set_xlim([0, 1])
+handles, labels = ax1.get_legend_handles_labels()
+ax1.legend(handles, labels, fontsize=12)
 ax0.set_title('Mean KE Partition')
 ax1.set_title('Eddy KE Partition')
-ax2.set_title('Mean PE Partition')
-ax3.set_title('Eddy PE Partition')
+ax0.set_xlabel('Fraction')
+ax1.set_xlabel('Fraction')
+ax0.set_ylabel('Depth [m]')
+# ax2.set_title('Mean PE Partition')
+# ax3.set_title('Eddy PE Partition')
 ax0.invert_yaxis()
 ax0.grid()
-ax1.grid()
-ax2.grid()
-plot_pro(ax3)
+# ax1.grid()
+# ax2.grid()
+plot_pro(ax1)
 
 # --- AVERAGE ENERGY
 avg_PE = np.nanmean(PE_per_mass, 1)
@@ -832,6 +844,7 @@ y_g_53 = np.polyval(slope1, x_53)
 y_g_3 = np.polyval(slope2, x_3)
 y_g_ke = np.polyval(slope_ke, x_3_2)
 
+# --- cascade rates
 vert_wave = sc_x / 1000
 alpha = 10
 ak0 = xx[ipoint] / 1000
