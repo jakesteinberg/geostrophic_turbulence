@@ -58,6 +58,7 @@ pkl_file.close()
 Time = bats_trans['Time']
 Info = bats_trans['Info']
 Sigma_Theta = bats_trans['Sigma_Theta']
+N2 = (-9.82 / 1027) * np.gradient(np.nanmean(Sigma_Theta, axis=1), -1 * bats_trans['bin_depth'])
 Eta = bats_trans['Eta']
 Eta_theta = bats_trans['Eta_theta']
 V = bats_trans['V']
@@ -81,7 +82,7 @@ for i in range(len(x_range)-1):
 
 # define each box as all points that fall within a time and space lag
 dist_win = np.arange(0, 110, 10)
-t_win = np.arange(0, 100, 5)
+t_win = np.arange(0, 80, 5)
 # tile times and distance lags
 x_tile = np.tile(UV_x, (len(UV_x), 1))
 y_tile = np.tile(UV_y, (len(UV_y), 1))
@@ -97,7 +98,7 @@ axl2 = [0, 1, 0, 1]
 levs = np.array([40, 65, 115, 165])
 for tt in range(4):
     # data
-    Eta_cor = Eta[levs[tt], :]
+    Eta_cor = (Eta[levs[tt], :] ** 2) * N2[levs[tt]]
     # try to compute lagged auto-correlation for all points within a given distance
     # returns a tuple of coordinate pairs where distance criteria are met
     corr_i = np.nan * np.zeros((len(t_win), len(dist_win)))
@@ -113,7 +114,7 @@ for tt in range(4):
         AG_out2 = AG_out[no_doub_i, :]
         for j in range(len(t_win) - 1):
             inn = AG_out2[((AG_out2[:, 2] > t_win[j]) & (AG_out2[:, 2] < t_win[j + 1])), 0:3]
-            if len(inn) > 3:
+            if len(inn) >= 3:
                 i_mean = np.nanmean(np.unique(inn[:, 0:2]))
                 n = len(inn[:, 0:2])
                 variance = np.nanvar(np.unique(inn[:, 0:2]))
@@ -124,7 +125,7 @@ for tt in range(4):
 
     corr_i[np.isnan(corr_i)] = 100
     pa = ax[axl1[tt], axl2[tt]].pcolor(dist_win, t_win, corr_i, vmin=-1, vmax=1, cmap='viridis')
-    ax[axl1[tt], axl2[tt]].set_title('Isopycnal Vertical Displacement Correlation at ' + str(grid[levs[tt]]) + 'm')
+    ax[axl1[tt], axl2[tt]].set_title(r'$\xi^2 N^2$ Correlation at ' + str(grid[levs[tt]]) + 'm')
     ax[axl1[tt], axl2[tt]].set_xlabel('Horizontal Separation [km]')
     ax[axl1[tt], axl2[tt]].set_ylabel('Temporal Separation [Days]')
 cbar_ax = f.add_axes([0.925, 0.15, 0.02, 0.7])
@@ -250,23 +251,26 @@ pkl_file = open('/Users/jake/Documents/geostrophic_turbulence/BATS_obj_map_L35_W
 bats_map = pickle.load(pkl_file)
 pkl_file.close()
 sz_g = grid.shape[0]
-U = np.transpose(bats_map['U_g'][0][:, 0:sz_g])
-V = np.transpose(bats_map['V_g'][0][:, 0:sz_g])
-U2 = np.transpose(bats_map['U_g'][20][:, 0:sz_g])
-V2 = np.transpose(bats_map['V_g'][20][:, 0:sz_g])
+U_mean = np.nan * np.zeros((len(grid), len(bats_map['U_g'])))
+V_mean = np.nan * np.zeros((len(grid), len(bats_map['U_g'])))
+for i in range(len(bats_map['U_g'])):
+    U_mean[:, i] = np.transpose(np.nanmean(bats_map['U_g'][i], axis=0))
+    V_mean[:, i] = np.transpose(np.nanmean(bats_map['V_g'][i], axis=0))
+
+U = np.nanmean(U_mean, axis=1)
+V = np.nanmean(V_mean, axis=1)
 t_spr = datetime.date.fromordinal(np.int(np.mean(bats_map['time'][0])))
 t_sum = datetime.date.fromordinal(np.int(np.max(bats_map['time'][20])))
 
 f, ax = plt.subplots()
-ax.plot(np.nanmean(U, axis=1), grid, color='r', label='U$_{spr}$' + str(t_spr))
-ax.plot(np.nanmean(V, axis=1), grid, color='k', label='V$_{spr}$' + str(t_spr))
-ax.plot(np.nanmean(U2, axis=1), grid, color='r', linestyle='-.', label='U$_{sum}$' + str(t_sum))
-ax.plot(np.nanmean(V2, axis=1), grid, color='k', linestyle='-.', label='U$_{sum}$' + str(t_sum))
+ax.plot(U, grid, color='r', label='U$_{avg}$')
+ax.plot(V, grid, color='k', label='V$_{avg}$')
 handles, labels = ax.get_legend_handles_labels()
 ax.legend(handles, labels, fontsize=10)
+ax.set_xlim([-.12, 0])
 ax.set_xlabel('[m/s]')
 ax.set_ylabel('Depth [m]')
-ax.set_title('BATS15 Avg. Mapped U, V Velocity profiles (Spring and Summer) ')
+ax.set_title('BATS15 Mean U, V Velocity profiles')
 ax.invert_yaxis()
 plot_pro(ax)
 

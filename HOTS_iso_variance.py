@@ -211,9 +211,9 @@ handles, labels = ax.get_legend_handles_labels()
 ax.legend(handles, labels, fontsize=14)
 # ax.axis([10 ** -2, 10 ** 1, 10 ** (-4), 10 ** 3])
 ax.axis([8 * 10 ** -1, 10 ** 2, 3 * 10 ** (-4), 10 ** 3])
-ax.set_xlabel(r'Scaled Vertical Wavenumber = (Rossby Radius)$^{-1}$ = $\frac{f}{c_n}$ [$km^{-1}$]', fontsize=14)
+ax.set_xlabel('Mode Number', fontsize=14)
 ax.set_ylabel('Spectral Density', fontsize=18)  # ' (and Hor. Wavenumber)')
-ax.set_title('HOTS, BATS Hydrography PE', fontsize=20)
+ax.set_title('ALOHA, BATS Hydrography PE', fontsize=20)
 plot_pro(ax)
 
 

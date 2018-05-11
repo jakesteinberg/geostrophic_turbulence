@@ -847,8 +847,10 @@ y_g_ke = np.polyval(slope_ke, x_3_2)
 # --- cascade rates
 vert_wave = sc_x / 1000
 alpha = 10
-ak0 = xx[ipoint] / 1000
-E0 = np.mean(yy[ipoint - 3:ipoint + 4])
+ipoint2 = 6
+yy_tot = (avg_PE[1:] / dk) + (avg_KE[1:] / dk)
+ak0 = xx[ipoint2] / 1000
+E0 = np.mean(yy_tot[ipoint2 - 3:ipoint2 + 4])
 ak = vert_wave / ak0
 one = E0 * ((ak ** (5 * alpha / 3)) * (1 + ak ** (4 * alpha / 3))) ** (-1 / alpha)
 # -  enstrophy/energy transfers
@@ -883,7 +885,7 @@ sta_hots_c = SH['out'][0][0][3]
 sta_hots_f = SH['out'][0][0][2]
 sta_hots_dk = SH['out']['dk'][0][0]
 # LOAD ABACO
-pkl_file = open('/Users/jake/Desktop/abaco/abaco_outputs_2.pkl', 'rb')
+pkl_file = open('/Users/jake/Documents/geostrophic_turbulence/ABACO_2017_energy.pkl', 'rb')
 abaco_energies = pickle.load(pkl_file)
 pkl_file.close()
 
@@ -995,7 +997,7 @@ if plot_eng > 0:
 
 # --- SAVE BATS ENERGIES DG TRANSECTS
 # write python dict to a file
-sa = 1
+sa = 0
 if sa > 0:
     my_dict = {'depth': grid, 'KE': avg_KE, 'PE': avg_PE, 'c': c, 'f': f_ref}
     output = open('/Users/jake/Documents/geostrophic_turbulence/BATs_DG_2015_energy.pkl', 'wb')
@@ -1006,7 +1008,7 @@ if sa > 0:
 
 # -------------------------
 # PE COMPARISON BETWEEN HOTS, BATS_SHIP, AND BATS_DG
-plot_comp = 0
+plot_comp = 1
 if plot_comp > 0:
     fig00, ax0 = plt.subplots()
     ax0.plot([3 * 10 ** -1, 3 * 10 ** 0], [1.5 * 10 ** 1, 1.5 * 10 ** -2], color='k', linewidth=0.75)
@@ -1055,15 +1057,17 @@ if plot_comp > 0:
     fig02, ax0 = plt.subplots()
     mode_num = np.arange(1, 61, 1)
     PE_ab = ax0.plot(mode_num, abaco_energies['avg_PE'][1:] / (abaco_energies['f_ref'] / abaco_energies['c'][1]),
-                     label=r'APE ABACO$_{DG}$', linewidth=2, color='r')
+                     label=r'APE ABACO$_{DG}$', linewidth=2.5, color='r')
     KE_ab = ax0.plot(mode_num, abaco_energies['avg_KE'][1:] / (abaco_energies['f_ref'] / abaco_energies['c'][1]),
-                     label=r'KE ABACO$_{DG}$', linewidth=2, color='g')
+                     label=r'KE ABACO$_{DG}$', linewidth=2.5, color='g')
     # PE_sta_hots = ax0.plot(mode_num,sta_hots_pe[1:]/sta_hots_dk,label=r'HOTS$_{ship}$',linewidth=2)
-    PE_p2 = ax0.plot(mode_num, 4 * avg_PE[1:] / dk, label=r'APE BATS$_{DG}$', color='#F08080', linewidth=1)
-    KE_p2 = ax0.plot(mode_num, avg_KE[1:] / dk, 'g', label=r'KE BATS$_{DG}$', color='#90EE90', linewidth=1)
-    ax0.set_xlabel('Mode Number', fontsize=16)
-    ax0.set_ylabel('Spectral Density', fontsize=16)
-    ax0.set_title('ABACO / BATS Comparison', fontsize=18)
+    PE_p2 = ax0.plot(mode_num, avg_PE[1:] / dk, label=r'APE BATS$_{DG}$', color='#F08080', linewidth=1.5)
+    KE_p2 = ax0.plot(mode_num, avg_KE[1:] / dk, 'g', label=r'KE BATS$_{DG}$', color='#90EE90', linewidth=1.5)
+    ax0.plot([10 ** 1, 10 ** 2], [10 ** 1, 10 ** -2], color='k', linewidth=0.75)
+    ax0.text(1.2 * 10 ** 1, 1.3 * 10 ** 1, '-3', fontsize=11)
+    ax0.set_xlabel('Mode Number', fontsize=18)
+    ax0.set_ylabel('Spectral Density', fontsize=18)
+    ax0.set_title('ABACO, BATS Deepglider PE, KE', fontsize=20)
     ax0.set_yscale('log')
     ax0.set_xscale('log')
     # ax0.axis([8*10**-1, 10**2, 3*10**(-4), 2*10**(3)])
