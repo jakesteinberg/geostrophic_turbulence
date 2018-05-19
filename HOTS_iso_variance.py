@@ -20,6 +20,8 @@ h_time = np.concatenate([HD1['days'][:], HD2['days'][:]]) + 726011  # days from 
 h_s[h_s < 0] = np.nan
 h_temp[h_temp < 0] = np.nan
 
+# ----
+
 # reference grid
 GD = Dataset('/Users/jake/Documents/geostrophic_turbulence/BATs_2015_gridded_apr04.nc', 'r')
 grid = np.concatenate([GD.variables['grid'][:], np.arange(GD.variables['grid'][:][-1] + 20, 4700, 20)])
