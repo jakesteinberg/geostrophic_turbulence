@@ -91,7 +91,7 @@ omega = 0
 mmax = 60
 nmodes = mmax + 1
 eta_fit_dep_min = 50
-eta_fit_dep_max = 4200
+eta_fit_dep_max = 4000
 
 # -- computer vertical mode shapes
 G, Gz, c = vertical_modes(N2, grid, omega, mmax)
@@ -141,6 +141,18 @@ sta_bats_f = np.pi * np.sin(np.deg2rad(31.6)) / (12 * 1800)
 sta_bats_dk = sta_bats_f / sta_bats_c[1]
 sta_bats_n2 = np.nanmean(SB['N2_per_season'], axis=1)
 PE_SD_bats, PE_GM_bats = PE_Tide_GM(rho0, sta_bats_depth, nmodes, np.transpose(np.atleast_2d(sta_bats_n2)), sta_bats_f)
+
+# load in Station PAPA PE Comparison
+pkl_file = open('/Users/jake/Documents/baroclinic_modes/Line_P/canada_DFO/papa_energy_spectra_jun13.pkl', 'rb')
+SP = pickle.load(pkl_file)
+pkl_file.close()
+sta_papa_depth = SP['depth']
+sta_papa_pe = SP['PE']
+sta_papa_c = SP['c']
+sta_papa_f = np.pi * np.sin(np.deg2rad(49.98)) / (12 * 1800)
+sta_papa_dk = sta_bats_f / sta_bats_c[1]
+sta_papa_n2 = SP['N2']
+PE_SD_papa, PE_GM_papa = PE_Tide_GM(rho0, sta_papa_depth, nmodes, np.transpose(np.atleast_2d(sta_papa_n2)), sta_papa_f)
 
 # f, (ax0, ax1, ax2) = plt.subplots(1, 3)
 # ax0.scatter(SA, CT, s=3)
@@ -193,6 +205,9 @@ PE_p = ax.plot(mode_num, avg_PE[1:] / dk, color='#B22222', label='APE$_{ALOHA}$'
 # BATS
 PE_sta_p = ax.plot(mode_num, np.nanmean(sta_bats_pe[1:], axis=1) / sta_bats_dk,
                    color='#FF8C00', label='APE$_{BATS}$', linewidth=2)  # 1000 * sta_bats_f / sta_bats_c[1:]
+# PAPA
+PE_sta_papa_p = ax.plot(mode_num, np.nanmean(sta_papa_pe[1:], axis=1) / sta_papa_dk,
+                   color='g', label='APE$_{PAPA}$', linewidth=2)
 # GM
 # ax.plot(sc_x, PE_GM / dk, linestyle='--', color='#B22222', linewidth=0.75)
 # ax.plot(1000 * sta_bats_f / sta_bats_c[1:], PE_GM_bats / sta_bats_dk, linestyle='--', color='#FF8C00', linewidth=0.75)
@@ -215,7 +230,7 @@ ax.legend(handles, labels, fontsize=14)
 ax.axis([8 * 10 ** -1, 10 ** 2, 3 * 10 ** (-4), 10 ** 3])
 ax.set_xlabel('Mode Number', fontsize=14)
 ax.set_ylabel('Spectral Density', fontsize=18)  # ' (and Hor. Wavenumber)')
-ax.set_title('ALOHA, BATS Hydrography PE', fontsize=20)
+ax.set_title('ALOHA, BATS, PAPA Hydrography PE', fontsize=20)
 plot_pro(ax)
 
 

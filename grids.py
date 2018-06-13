@@ -10,18 +10,28 @@ def make_bin_gen(bin_depth, depth_d, temp_d, salin_d):
     dep_max = np.round(depth_d.max())
     deepest_bin = find_nearest(bin_depth, dep_max)[0]
 
-    if deepest_bin == (len(bin_depth) - 1):
-        bin_up = bin_depth[0:(deepest_bin - 1)]
-        bin_down = bin_depth[2:(deepest_bin + 1)]
-        bin_cen = bin_depth[1:deepest_bin]
+    bin_up = bin_depth[0:(deepest_bin - 1)]
+    bin_down = bin_depth[2:(deepest_bin + 1)]
+    bin_cen = bin_depth[1:deepest_bin]
+
+    # if deepest_bin == (len(bin_depth) - 1):
+    #     bin_up = bin_depth[0:(deepest_bin - 1)]
+    #     bin_down = bin_depth[2:(deepest_bin + 1)]
+    #     bin_cen = bin_depth[1:deepest_bin]
+    # else:
+    #     bin_up = bin_depth[0:(deepest_bin - 1)]
+    #     bin_down = bin_depth[2:(deepest_bin + 1)]
+    #     bin_cen = bin_depth[1:deepest_bin]
 
     temp_g = -999*np.ones(np.size(bin_depth))
     salin_g = -999*np.ones(np.size(bin_depth))
+
     # -- Case z = 0
     dp_in_d_1 = depth_d < bin_cen[0]
     if np.sum(dp_in_d_1) >= 2:
         temp_g[0] = np.nanmean(temp_d[dp_in_d_1])
         salin_g[0] = np.nanmean(salin_d[dp_in_d_1])
+
     # -- Case z > 0
     # bin_up = bin_depth[0:-2]
     # bin_down = bin_depth[2:]
@@ -36,11 +46,13 @@ def make_bin_gen(bin_depth, depth_d, temp_d, salin_d):
         if dp_in_d.size > 2:
             temp_g[i] = np.nanmean(temp_d[dp_in_d])
             salin_g[i] = np.nanmean(salin_d[dp_in_d])
+
     # -- Case last_bin
-    dp_in_d_e = (depth_d > bin_cen[-1]) & (depth_d < bin_cen[-1] + 75)
-    if dp_in_d.size > 2:
-        temp_g[-1] = np.nanmean(temp_d[dp_in_d_e])
-        salin_g[-1] = np.nanmean(salin_d[dp_in_d_e])
+    if deepest_bin == (len(bin_depth) - 1):
+        dp_in_d_e = (depth_d > bin_cen[-1]) & (depth_d < bin_cen[-1] + 75)
+        if dp_in_d.size > 2:
+            temp_g[-1] = np.nanmean(temp_d[dp_in_d_e])
+            salin_g[-1] = np.nanmean(salin_d[dp_in_d_e])
 
     return temp_g, salin_g
 
