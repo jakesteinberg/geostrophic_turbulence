@@ -96,8 +96,8 @@ class Glider(object):
             dac_u_out.append(gd['depth_avg_curr_east'][:])
             dac_v_out.append(gd['depth_avg_curr_north'][:])
             dac_v_out.append(gd['depth_avg_curr_north'][:])
-            profile_tags.append(gd['log_DIVE'][:])
-            profile_tags.append(gd['log_DIVE'][:] + 0.5)
+            profile_tags.append(np.float(gd['log_DIVE'][:]))
+            profile_tags.append(np.float(gd['log_DIVE'][:]) + np.float(0.5))
 
             # max depth attained
             d_test = -1*gsw.z_from_p(press, np.nanmean(gd['latitude'][:]))
@@ -197,26 +197,26 @@ class Glider(object):
 
         return sa, ct, sig0
 
-    def transect_cross_section(self, bin_depth, sig0, lon, lat, dac_u, dac_v, profile_tags):
-        sigth_levels = np.concatenate(
-            [np.arange(23, 27.5, 0.5), np.arange(27.2, 27.8, 0.2), np.arange(27.7, 27.9, 0.02)])
+    def transect_cross_section(self, bin_depth, sig0, lon, lat, dac_u, dac_v, profile_tags, sigth_levels):
         deep_shr_max = 0.1
         deep_shr_max_dep = 3500
 
-        if self.num_profs < 5:
-            order_set = [0, 2]  # go from 0,2 (because each transect only has 2 dives)
-        elif (self.num_profs > 5) & (self.num_profs < 7):
-            order_set = [0, 2, 4]  # go from 0,2,4 (because each transect only has 3 dives)
-        elif (self.num_profs > 7) & (self.num_profs < 9):
-            order_set = [0, 2, 4, 6]  # go from 0,2,4,6 (because each transect only has 4 dives)
-        elif (self.num_profs > 9) & (self.num_profs < 11):
-            order_set = [0, 2, 4, 6, 8]
-        elif (self.num_profs > 11) & (self.num_profs < 13):
-            order_set = [0, 2, 4, 6, 8, 10]
-        elif (self.num_profs > 13) & (self.num_profs < 15):
-            order_set = [0, 2, 4, 6, 8, 10, 12]
-        else:
-            order_set = [0, 2, 4, 6, 8, 10, 12, 14]
+        order_set = np.arange(0, self.num_profs, 2)
+
+        # if self.num_profs < 5:
+        #     order_set = [0, 2]  # go from 0,2 (because each transect only has 2 dives)
+        # elif (self.num_profs > 5) & (self.num_profs < 7):
+        #     order_set = [0, 2, 4]  # go from 0,2,4 (because each transect only has 3 dives)
+        # elif (self.num_profs > 7) & (self.num_profs < 9):
+        #     order_set = [0, 2, 4, 6]  # go from 0,2,4,6 (because each transect only has 4 dives)
+        # elif (self.num_profs > 9) & (self.num_profs < 11):
+        #     order_set = [0, 2, 4, 6, 8]
+        # elif (self.num_profs > 11) & (self.num_profs < 13):
+        #     order_set = [0, 2, 4, 6, 8, 10]
+        # elif (self.num_profs > 13) & (self.num_profs < 15):
+        #     order_set = [0, 2, 4, 6, 8, 10, 12]
+        # else:
+        #     order_set = [0, 2, 4, 6, 8, 10, 12, 14]
 
         info = np.nan * np.zeros((3, self.num_profs - 1))
         sigma_theta_out = np.nan * np.zeros((np.size(bin_depth), self.num_profs - 1))
@@ -448,7 +448,7 @@ class Glider(object):
                 mwe_lon[m] = lon[np.where(np.isfinite(lon[:, m]))[0], m][-1]
                 mwe_lat[m] = lat[np.where(np.isfinite(lat[:, m]))[0], m][-1]
 
-        return ds, dist, v_g, vbt, isopycdep, isopycx, sigth_levels, mwe_lon, mwe_lat
+        return ds, dist, v_g, vbt, isopycdep, isopycx, mwe_lon, mwe_lat
 
     def plot_cross_section(self, bin_depth, ds, v_g, dist, profile_tags, isopycdep, isopycx, sigth_levels, time):
             sns.set(context="notebook", style="whitegrid", rc={"axes.axisbelow": False})
@@ -484,7 +484,7 @@ class Glider(object):
             plt.tight_layout()
             plot_pro(ax0)
 
-    def plot_plan_view(self, mwe_lon, mwe_lat, dac_u, dac_v, ref_lat, limits, path):
+    def plot_plan_view(self, mwe_lon, mwe_lat, dac_u, dac_v, ref_lat, profile_tags, time, limits, path):
         # bathymetry
         bath = path
         bath_fid = Dataset(bath, 'r')
@@ -499,8 +499,14 @@ class Glider(object):
         bc = ax.contourf(bath_lon, bath_lat, bath_z, levels, cmap='Blues_r', extend='both', zorder=0)
         matplotlib.rcParams['contour.negative_linestyle'] = 'solid'
         ax.plot(mwe_lon, mwe_lat, color='k')
-        ax.quiver(mwe_lon, mwe_lat, dac_u, dac_v, color='r', scale=4, headwidth=3, headlength=2, width=.005)
+        for i in range(0, len(mwe_lat)-1, 2):
+            ax.text(mwe_lon[i] - 0.1, mwe_lat[i] + 0.02, str(profile_tags[i]), color='m', fontsize=7)
+        ax.quiver(mwe_lon, mwe_lat, dac_u, dac_v, color='r', scale=6, headwidth=4, headlength=2, width=.0025)
         w = 1 / np.cos(np.deg2rad(ref_lat))
         ax.axis(limits)
         ax.set_aspect(w)
+        t_s = datetime.date.fromordinal(np.int(time[0, 0]))
+        t_e = datetime.date.fromordinal(np.int(time[0, -1]))
+        ax.set_title(self.ID + '  ' + self.project + '  ' + np.str(
+            t_s.month) + '/' + np.str(t_s.day) + ' - ' + np.str(t_e.month) + '/' + np.str(t_e.day), fontsize=14)
         plot_pro(ax)
