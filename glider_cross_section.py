@@ -82,8 +82,12 @@ class Glider(object):
             pitch_c = np.where((pitch > 1) & (np.abs(press - np.nanmax(press)) < 25))[0][0]
             temp_d.append(gd['temperature'][0:pitch_d])
             temp_d.append(gd['temperature'][pitch_c:])
-            sal_d.append(gd['salinity'][0:pitch_d])
-            sal_d.append(gd['salinity'][pitch_c:])
+            if (gd.glider == 30) & (gd.dive_number == 60):
+                sal_d.append(gd['salinity_raw'][0:pitch_d])
+                sal_d.append(gd['salinity'][pitch_c:])
+            else:
+                sal_d.append(gd['salinity'][0:pitch_d])
+                sal_d.append(gd['salinity'][pitch_c:])
             depth_d.append(-1*gsw.z_from_p(press[0:pitch_d], np.nanmean(gd['latitude'][:])))
             depth_d.append(-1*gsw.z_from_p(press[pitch_c:], np.nanmean(gd['latitude'][:])))
             time_d.append(gd['ctd_time'][0:pitch_d])
@@ -148,6 +152,10 @@ class Glider(object):
                         lat_g[-1, k] = np.nanmean(lat[dp_in_d_e])
                         time_g[-1, k] = np.nanmean(time[dp_in_d_e])
 
+            for i in range(2):
+                temp_g[:, i] = nanseg_interp(bin_depth, temp_g[:, i])
+                sal_g[:, i] = nanseg_interp(bin_depth, sal_g[:, i])
+
             if np.size(s_out) < 1:
                 s_out = sal_g
                 t_out = temp_g
@@ -160,10 +168,6 @@ class Glider(object):
                 lon_out = np.concatenate((lon_out, lon_g), axis=1)
                 lat_out = np.concatenate((lat_out, lat_g), axis=1)
                 time_out = np.concatenate((time_out, time_g), axis=1)
-
-        for i in range(self.num_profs):
-            t_out[:, i] = nanseg_interp(bin_depth, t_out[:, i])
-            s_out[:, i] = nanseg_interp(bin_depth, s_out[:, i])
 
         return time_out, lon_out, lat_out, t_out, s_out, dac_u_out, dac_v_out, profile_tags
 
@@ -190,33 +194,20 @@ class Glider(object):
         sa = np.nan * np.ones(np.shape(temp))
         ct = np.nan * np.ones(np.shape(temp))
         sig0 = np.nan * np.ones(np.shape(temp))
+        N2 = np.nan * np.ones(np.shape(temp))
         for i in range(self.num_profs):
             sa[:, i] = gsw.SA_from_SP(sal[:, i], press, lon[:, i], lat[:, i])
             ct[:, i] = gsw.CT_from_t(sa[:, i], temp[:, i], press)
             sig0[:, i] = gsw.sigma0(sa[:, i], ct[:, i])
+            N2[1:, i] = gsw.Nsquared(sa[:, i], ct[:, i], press, lat=ref_lat)[0]
 
-        return sa, ct, sig0
+        return sa, ct, sig0, N2
 
     def transect_cross_section(self, bin_depth, sig0, lon, lat, dac_u, dac_v, profile_tags, sigth_levels):
         deep_shr_max = 0.1
         deep_shr_max_dep = 3500
 
         order_set = np.arange(0, self.num_profs, 2)
-
-        # if self.num_profs < 5:
-        #     order_set = [0, 2]  # go from 0,2 (because each transect only has 2 dives)
-        # elif (self.num_profs > 5) & (self.num_profs < 7):
-        #     order_set = [0, 2, 4]  # go from 0,2,4 (because each transect only has 3 dives)
-        # elif (self.num_profs > 7) & (self.num_profs < 9):
-        #     order_set = [0, 2, 4, 6]  # go from 0,2,4,6 (because each transect only has 4 dives)
-        # elif (self.num_profs > 9) & (self.num_profs < 11):
-        #     order_set = [0, 2, 4, 6, 8]
-        # elif (self.num_profs > 11) & (self.num_profs < 13):
-        #     order_set = [0, 2, 4, 6, 8, 10]
-        # elif (self.num_profs > 13) & (self.num_profs < 15):
-        #     order_set = [0, 2, 4, 6, 8, 10, 12]
-        # else:
-        #     order_set = [0, 2, 4, 6, 8, 10, 12, 14]
 
         info = np.nan * np.zeros((3, self.num_profs - 1))
         sigma_theta_out = np.nan * np.zeros((np.size(bin_depth), self.num_profs - 1))
@@ -298,15 +289,15 @@ class Glider(object):
             for j in range(np.size(bin_depth)):
                 # find array of indices for M / W sampling
                 if i < 2:
-                    # c_i_m = np.arange(i, i + 3)
-                    c_i_m = []  # omit partial "M" estimate
+                    c_i_m = np.arange(i, i + 3)
+                    # c_i_m = []  # omit partial "M" estimate
                     c_i_w = np.arange(i, i + 4)
                 elif (i >= 2) and (i < self.num_profs - 2):
                     c_i_m = np.arange(i - 1, i + 3)
                     c_i_w = np.arange(i, i + 4)
                 elif i >= self.num_profs - 2:
-                    # c_i_m = np.arange(i - 1, self.num_profs)
-                    c_i_m = []  # omit partial "M" estimated
+                    c_i_m = np.arange(i - 1, self.num_profs)
+                    # c_i_m = []  # omit partial "M" estimated
                     c_i_w = []
                 nm = np.size(c_i_m)
                 nw = np.size(c_i_w)
@@ -483,6 +474,21 @@ class Glider(object):
             plt.colorbar(vc, label='[m/s]')
             plt.tight_layout()
             plot_pro(ax0)
+
+    def plot_t_s(self, ct, sa):
+        sa_gr = np.arange(32, 38, 0.1)
+        ct_gr = np.arange(1, 30, 0.5)
+        X, Y = np.meshgrid(sa_gr, ct_gr)
+        sig0_gr = gsw.sigma0(X, Y)
+        levs = np.arange(np.round(np.min(sig0_gr), 1), np.max(sig0_gr), 0.2)
+        f, ax = plt.subplots()
+        dc = ax.contour(sa_gr, ct_gr, sig0_gr, levs, colors='k', linewidth=0.25)
+        ax.clabel(dc, inline=1, fontsize=7, fmt='%1.2f', color='k')
+        for i in range(self.num_profs):
+            ax.plot(sa[:, i], ct[:, i])
+        ax.axis([np.round(np.nanmin(sa), 1) - .2, np.round(np.nanmax(sa), 1) + .2,
+                 np.round(np.nanmin(ct), 1) - .5, np.round(np.nanmax(ct), 1) + .5])
+        plot_pro(ax)
 
     def plot_plan_view(self, mwe_lon, mwe_lat, dac_u, dac_v, ref_lat, profile_tags, time, limits, path):
         # bathymetry

@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 from netCDF4 import Dataset
 from toolkit import plot_pro
 
-limits = [-128.5, -123.75, 46, 50]
+limits = [-128.5, -124, 47, 50]
 ref_lat = 48.5
 
 bathy_path = '/Users/jake/Documents/Cuddy_tailored/DG_wa_coast/smith_sandwell_wa_coast.nc'
@@ -47,7 +47,8 @@ bath_z[bath_z >= -40] = 100
 f_h = fff / (-1 * bath_z)
 f_h[f_h <= 0] = np.nan
 # levels_f_h = np.arange(np.nanmin(f_h), np.nanmax(f_h), (np.nanmax(f_h) - np.nanmin(f_h))/50)
-levels_f_h = np.concatenate([np.arange(2*10**-8, 1*10**-7, 2*10**-8), np.arange(1*10**-7, 1*10**-6, 2*10**-7)])
+levels_f_h = np.arange(2*10**-8, 4*10**-7, 1*10**-8)
+# levels_f_h = np.concatenate([np.arange(2*10**-8, 1*10**-7, 2*10**-8), np.arange(1*10**-7, 1*10**-6, 2*10**-7)])
 
 f, ax = plt.subplots()
 bc = ax.contourf(bath_lon, bath_lat, bath_z, levels, cmap='Blues_r', extend='both', zorder=0)
@@ -57,4 +58,9 @@ ax.plot(state_hist[:, 0], state_hist[:, 1], color='#FFD700')
 w = 1 / np.cos(np.deg2rad(ref_lat))
 ax.axis(limits)
 ax.set_aspect(w)
+ax.set_xlabel('Lon')
+ax.set_ylabel('Lat')
+ax.set_title('Contours of f/H (Cuddy path in yellow)')
+ax.text(-125, 45.5, 'Contours Evenly Spaced', fontsize=9)
+ax.grid()
 plot_pro(ax)
