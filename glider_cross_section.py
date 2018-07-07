@@ -90,8 +90,16 @@ class Glider(object):
                 sal_d.append(gd['salinity'][pitch_c:])
             depth_d.append(-1*gsw.z_from_p(press[0:pitch_d], np.nanmean(gd['latitude'][:])))
             depth_d.append(-1*gsw.z_from_p(press[pitch_c:], np.nanmean(gd['latitude'][:])))
-            time_d.append(gd['ctd_time'][0:pitch_d])
-            time_d.append(gd['ctd_time'][pitch_c:])
+
+            secs_per_day = 86400.0
+            datenum_start = 719163  # jan 1 1970
+            start_time = gd.start_time
+            time_ctd = gd['ctd_time']
+            time_from = time_ctd - start_time
+            time_corr = datenum_start + start_time / (60 * 60 * 24) + time_from / secs_per_day
+            time_d.append(time_corr[0:pitch_d])
+            time_d.append(time_corr[pitch_c:])
+
             lon_d.append(gd['longitude'][0:pitch_d])
             lon_d.append(gd['longitude'][pitch_c:])
             lat_d.append(gd['latitude'][0:pitch_d])
@@ -170,24 +178,6 @@ class Glider(object):
                 time_out = np.concatenate((time_out, time_g), axis=1)
 
         return time_out, lon_out, lat_out, t_out, s_out, dac_u_out, dac_v_out, profile_tags
-
-    def time_conversion(self, time):
-        secs_per_day = 86400.0
-        datenum_start = 719163  # jan 1 1970
-
-        time_out = np.nan * np.ones(np.shape(time))
-        count = 0
-        for i in range(len(self.files)):
-            dive_file = Dataset(self.files[i], 'r')
-            start_time = dive_file.start_time
-            ctd_time_1 = time[:, i] - start_time
-            ctd_time_2 = time[:, i + 1] - start_time
-
-            time_out[:, count] = datenum_start + start_time / (60 * 60 * 24) + ctd_time_1 / secs_per_day
-            count = count + 1
-            time_out[:, count] = datenum_start + start_time / (60 * 60 * 24) + ctd_time_2 / secs_per_day
-            count = count + 1
-        return time_out
 
     def density(self, bin_depth, ref_lat, temp, sal, lon, lat):
         press = gsw.p_from_z(-1*bin_depth, ref_lat)
