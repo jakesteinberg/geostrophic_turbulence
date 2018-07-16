@@ -1,12 +1,14 @@
 import numpy as np
+import matplotlib
 import matplotlib.pyplot as plt
 from netCDF4 import Dataset
 import pickle
 import glob
 import gsw
+from scipy.signal import savgol_filter
 from grids import make_bin_gen
 from toolkit import plot_pro, nanseg_interp
-from mode_decompositions import vertical_modes, eta_fit, PE_Tide_GM
+from mode_decompositions import vertical_modes, vertical_modes_f, eta_fit, PE_Tide_GM
 
 file_list = glob.glob('/Users/jake/Documents/baroclinic_modes/Line_P/canada_DFO/*.txt')
 
@@ -89,6 +91,9 @@ sig0_anom = sig0 - np.tile(sig0_avg[:, np.newaxis], (1, num_profiles))
 
 ddz_avg_sigma = np.gradient(sig0_avg, z)
 N2 = gsw.Nsquared(SA_avg, CT_avg, grid_p, lat=ref_lat)[0]
+window_size = 15
+poly_order = 3
+N2 = savgol_filter(N2, window_size, poly_order)
 N2 = np.concatenate(([0], N2))
 # N2 is one value less than grid_p
 # N2[N2 < 0] = np.nan
@@ -107,7 +112,18 @@ eta_fit_dep_min = 50
 eta_fit_dep_max = 4000
 
 # -- computer vertical mode shapes
-G, Gz, c = vertical_modes(N2, bin_depth, omega, mmax)
+G, Gz, c, epsilon = vertical_modes(N2, bin_depth, omega, mmax)
+
+# --- compute alternate vertical modes
+bc_bot = 1  # 1 = flat, 2 = rough
+grid2 = np.concatenate([np.arange(0, 150, 10), np.arange(150, 300, 10), np.arange(300, 4500, 10)])
+n2_interp = np.interp(grid2, bin_depth, N2)
+F_int_g2, F_g2, c_ff, norm_constant, epsilon2 = vertical_modes_f(n2_interp, grid2, omega, mmax, bc_bot)
+F = np.nan * np.ones((np.size(bin_depth), mmax + 1))
+F_int = np.nan * np.ones((np.size(bin_depth), mmax + 1))
+for i in range(mmax + 1):
+    F[:, i] = np.interp(bin_depth, grid2, F_g2[:, i])
+    F_int[:, i] = np.interp(bin_depth, grid2, F_int_g2[:, i])
 
 # -- project modes onto eta profiles
 AG, eta_m, Neta_m, PE_per_mass = eta_fit(num_profiles, bin_depth, nmodes, N2, G, c, eta,
@@ -149,6 +165,38 @@ ax.axis([8 * 10 ** -1, 10 ** 2, 3 * 10 ** (-4), 10 ** 3])
 ax.set_xlabel('Mode Number', fontsize=14)
 ax.set_ylabel('Spectral Density', fontsize=18)  # ' (and Hor. Wavenumber)')
 ax.set_title('PAPA Hydrography PE', fontsize=20)
+plot_pro(ax)
+
+# -- mode interactions
+cmap = matplotlib.cm.get_cmap('Greys')
+f, (ax1, ax2) = plt.subplots(1, 2, sharex=True, sharey=True)
+ax1.pcolor(epsilon2[0, :, :], cmap=cmap, vmin=0, vmax=3)
+ax1.set_title('mode 0')
+plt.xticks(np.arange(0.5, 3.5, 1), ('0', '1', '2'))
+plt.yticks(np.arange(0.5, 3.5, 1), ('0', '1', '2'))
+ax2.pcolor(epsilon2[1, :, :], cmap=cmap, vmin=0, vmax=3)
+ax2.set_title('mode 1')
+plt.xticks(np.arange(0.5, 3.5, 1), ('0', '1', '2'))
+plt.yticks(np.arange(0.5, 3.5, 1), ('0', '1', '2'))
+
+c_map_ax = f.add_axes([0.92, 0.1, 0.02, 0.8])
+norm = matplotlib.colors.Normalize(vmin=0, vmax=4)
+cb1 = matplotlib.colorbar.ColorbarBase(c_map_ax, cmap=cmap, norm=norm, orientation='vertical')
+cb1.set_label('Epsilon')
+ax2.grid()
+plot_pro(ax2)
+
+f, ax = plt.subplots()
+ax.plot(Gz[:, 0], bin_depth, linestyle='--', color='r')
+ax.plot(Gz[:, 1], bin_depth, linestyle='--', color='b')
+ax.plot(Gz[:, 2], bin_depth, linestyle='--', color='g')
+ax.plot(Gz[:, 3], bin_depth, linestyle='--', color='m')
+ax.plot(N2 * 30000, bin_depth, color='k')
+ax.plot(F[:, 0], bin_depth, color='r')
+ax.plot(F[:, 1], bin_depth, color='b')
+ax.plot(F[:, 2], bin_depth, color='g')
+ax.plot(F[:, 3], bin_depth, color='m')
+ax.invert_yaxis()
 plot_pro(ax)
 
 # --- SAVE

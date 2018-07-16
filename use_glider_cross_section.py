@@ -9,15 +9,15 @@ from toolkit import find_nearest
 # -----------------------------------------------------------------------------------------
 #        SG NUMBER,  DIVE NUMBERS,                DIVE FILE PATH
 # -----------------------------------------------------------------------------------------
-# -- DG WA Coast
+# ---- DG WA Coast
 # x = Glider(30, np.arange(53, 65), '/Users/jake/Documents/Cuddy_tailored/DG_wa_coast/2006')
 # x = Glider(30, np.arange(46, 50), '/Users/jake/Documents/Cuddy_tailored/DG_wa_coast/2006')
-# -- DG ABACO 2017
-# x = Glider(38, np.arange(66, 77), '/Users/jake/Documents/baroclinic_modes/DG/ABACO_2017/sg037')
-# -- DG ABACO 2017
-x = Glider(37, np.arange(20, 33), '/Users/jake/Documents/baroclinic_modes/DG/ABACO_2018/sg037')
-# x = Glider(39, np.arange(12, 20), '/Users/jake/Documents/baroclinic_modes/DG/ABACO_2018/sg039')
-# -- DG BATS 2015
+# ---- DG ABACO 2017
+x = Glider(38, np.arange(67, 78), '/Users/jake/Documents/baroclinic_modes/DG/ABACO_2017/sg038')
+# ---- DG ABACO 2017
+# x = Glider(37, np.arange(25, 40), '/Users/jake/Documents/baroclinic_modes/DG/ABACO_2018/sg037')
+# x = Glider(39, np.arange(35, 38), '/Users/jake/Documents/baroclinic_modes/DG/ABACO_2018/sg039')
+# ---- DG BATS 2015
 # x = Glider(35, np.arange(58, 64), '/Users/jake/Documents/baroclinic_modes/DG/sg035_BATS_2015')
 
 # -- match max dive depth to bin_depth
@@ -35,10 +35,6 @@ d_time, lon, lat, t, s, dac_u, dac_v, profile_tags = x.make_bin(bin_depth)
 ref_lat = np.nanmean(lat)
 
 # -------------------
-# time conversion to datetime
-# d_time = x.time_conversion(time)
-
-# -------------------
 # try to make sg030 dive 60 better (interpolate across adjacent dives to fill in salinity values)
 if np.int(x.ID[3:]) == 30:
     check = np.where(x.dives == 60)[0]
@@ -53,7 +49,7 @@ if np.int(x.ID[3:]) == 30:
             dy2 = 1.852 * 60 * (lat[i, this + 1] - lat[i, this])  # meridional sfc disp [km]
             dist2 = np.sqrt(dx2**2 + dy2**2)
             s[i, 2 * check[0] + 1] = np.interp(np.array([0]),
-                                            np.array([dist1, dist2]), np.array([s[i, this - 1], s[i, this + 1]]))
+                                               np.array([dist1, dist2]), np.array([s[i, this - 1], s[i, this + 1]]))
 
 # -------------------
 # computation of absolute salinity, conservative temperature, and potential density anomaly
@@ -64,7 +60,7 @@ sa, ct, sig0, N2 = x.density(bin_depth, ref_lat, t, s, lon, lat)
 sigth_levels = np.concatenate(
     [np.arange(23, 26.5, 0.5), np.arange(26.2, 27.2, 0.2),
      np.arange(27.2, 27.8, 0.2), np.arange(27.7, 27.8, 0.02), np.arange(27.8, 27.9, 0.01)])
-ds, dist, v_g, vbt, isopycdep, isopycx, mwe_lon, mwe_lat = x.transect_cross_section(
+ds, dist, v_g, vbt, isopycdep, isopycx, mwe_lon, mwe_lat, DACe_MW, DACn_MW = x.transect_cross_section(
     bin_depth, sig0, lon, lat, dac_u, dac_v, profile_tags, sigth_levels)
 
 # -------------------
@@ -84,7 +80,8 @@ x.plot_cross_section(bin_depth, ds, v_g, dist, profile_tags, isopycdep, isopycx,
 # x.plot_plan_view(mwe_lon, mwe_lat, dac_u, dac_v, ref_lat, profile_tags, d_time,
 #                  [-128.5, -123.75, 46.5, 48.5], bathy_path)
 bathy_path = '/Users/jake/Documents/baroclinic_modes/DG/ABACO_2017/OceanWatch_smith_sandwell.nc'
-x.plot_plan_view(mwe_lon, mwe_lat, dac_u, dac_v, ref_lat, profile_tags, d_time, [-77.5, -73.5, 25.5, 27], bathy_path)
+x.plot_plan_view(mwe_lon, mwe_lat, DACe_MW, DACn_MW,
+                 ref_lat, profile_tags, d_time, [-77.5, -73.5, 25.5, 27], bathy_path)
 
 # plot t/s
 x.plot_t_s(ct, sa)
@@ -92,3 +89,5 @@ x.plot_t_s(ct, sa)
 # vehicle pitch: 'eng_pitchAng'
 # DAC_u: 'depth_avg_curr_east'
 # DAC_v: 'depth_avg_curr_north'
+
+# todo need to improve the average DAC over a M/W section (should be an average of DACs)

@@ -62,14 +62,20 @@ def vertical_modes(N2_0, Depth, omega, mmax):
     G = np.zeros(np.shape(wmodes))
     for i in range(m):
         dw_dz = np.gradient(wmodes[:, i], z)
-        norm_constant = np.sqrt(np.trapz(dw_dz * dw_dz, z) / z[-1])
+        norm_constant = np.sqrt(np.trapz((dw_dz * dw_dz), (-1 * z)) / (-1 * z[-1]))
         # norm_constant = np.abs(np.trapz(dw_dz * dw_dz, z) / Depth.max())
         if dw_dz[0] < 0:
             norm_constant = -1 * norm_constant
         Gz[:, i] = dw_dz / norm_constant
         G[:, i] = wmodes[:, i] / norm_constant
 
-    return G, Gz, c
+    epsilon = np.nan * np.zeros((2, 3, 3))
+    for i in range(0, 2):  # i modes
+        for j in range(0, 3):  # j modes
+            for m in range(0, 3):  # k modes
+                epsilon[i, j, m] = np.trapz((Gz[:, i] * Gz[:, j] * Gz[:, m]), z) / (z[-1])
+
+    return G, Gz, c, epsilon
 
 
 def vertical_modes_f(N2_0, depth, omega, mmax, bc_bot):
@@ -159,7 +165,13 @@ def vertical_modes_f(N2_0, depth, omega, mmax, bc_bot):
         G[:, i] = (1 / N2_inter) * np.gradient(wmodes[:, i], z) / norm_constant
         # G[:, i] = cumtrapz(wmodes[:, i], z, initial=0) / norm_constant
 
-    return G, F, c, norm_constant
+    epsilon = np.nan * np.zeros((2, 3, 3))
+    for i in range(0, 2):  # i modes
+        for j in range(0, 3):  # j modes
+            for m in range(0, 3):  # k modes
+                epsilon[i, j, m] = np.trapz((F[:, i] * F[:, j] * F[:, m]), z) / (z[-1])
+
+    return G, F, c, norm_constant, epsilon
 
 
 def PE_Tide_GM(rho0, Depth, nmodes, N2, f_ref):

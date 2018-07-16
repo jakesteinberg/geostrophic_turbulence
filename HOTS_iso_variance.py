@@ -1,4 +1,5 @@
 import numpy as np
+import matplotlib
 import matplotlib.pyplot as plt
 import datetime
 import gsw
@@ -7,7 +8,7 @@ from netCDF4 import Dataset
 from scipy.signal import savgol_filter
 from grids import make_bin_gen
 from toolkit import plot_pro, nanseg_interp, find_nearest
-from mode_decompositions import vertical_modes, eta_fit, PE_Tide_GM
+from mode_decompositions import vertical_modes, vertical_modes_f, eta_fit, PE_Tide_GM
 
 ref_lat = 24 + (45 / 60)
 ref_lon = 158 - 360
@@ -94,7 +95,17 @@ eta_fit_dep_min = 50
 eta_fit_dep_max = 4000
 
 # -- computer vertical mode shapes
-G, Gz, c = vertical_modes(N2, grid, omega, mmax)
+G, Gz, c, epsilon = vertical_modes(N2, grid, omega, mmax)
+# --- compute alternate vertical modes
+bc_bot = 1  # 1 = flat, 2 = rough
+grid2 = np.concatenate([np.arange(0, 150, 10), np.arange(150, 300, 10), np.arange(300, 4500, 10)])
+n2_interp = np.interp(grid2, grid, N2)
+F_int_g2, F_g2, c_ff, norm_constant, epsilon2 = vertical_modes_f(n2_interp, grid2, omega, mmax, bc_bot)
+F = np.nan * np.ones((np.size(grid), mmax + 1))
+F_int = np.nan * np.ones((np.size(grid), mmax + 1))
+for i in range(mmax + 1):
+    F[:, i] = np.interp(grid, grid2, F_g2[:, i])
+    F_int[:, i] = np.interp(grid, grid2, F_int_g2[:, i])
 
 # -- project modes onto eta profiles
 AG, eta_m, Neta_m, PE_per_mass = eta_fit(num_profs, grid, nmodes, N2, G, c, eta, eta_fit_dep_min, eta_fit_dep_max)
@@ -140,6 +151,7 @@ sta_bats_c = SB['c']
 sta_bats_f = np.pi * np.sin(np.deg2rad(31.6)) / (12 * 1800)
 sta_bats_dk = sta_bats_f / sta_bats_c[1]
 sta_bats_n2 = np.nanmean(SB['N2_per_season'], axis=1)
+G_B, Gz_B, c_B, epsilon_B = vertical_modes(sta_bats_n2, SB['depth'], omega, mmax)
 PE_SD_bats, PE_GM_bats = PE_Tide_GM(rho0, sta_bats_depth, nmodes, np.transpose(np.atleast_2d(sta_bats_n2)), sta_bats_f)
 
 # load in Station PAPA PE Comparison
@@ -152,6 +164,7 @@ sta_papa_c = SP['c']
 sta_papa_f = np.pi * np.sin(np.deg2rad(49.98)) / (12 * 1800)
 sta_papa_dk = sta_bats_f / sta_bats_c[1]
 sta_papa_n2 = SP['N2']
+G_P, Gz_P, c_P, epsilon_P = vertical_modes(sta_papa_n2, SP['depth'], omega, mmax)
 PE_SD_papa, PE_GM_papa = PE_Tide_GM(rho0, sta_papa_depth, nmodes, np.transpose(np.atleast_2d(sta_papa_n2)), sta_papa_f)
 
 # f, (ax0, ax1, ax2) = plt.subplots(1, 3)
@@ -233,4 +246,65 @@ ax.set_ylabel('Spectral Density', fontsize=18)  # ' (and Hor. Wavenumber)')
 ax.set_title('ALOHA, BATS, PAPA Hydrography PE', fontsize=20)
 plot_pro(ax)
 
+cmap = matplotlib.cm.get_cmap('Blues')
+f, arm = plt.subplots(3, 2, sharex=True, sharey=True)
+vmi = 0
+vma = 2.5
+arm[0, 0].pcolor(epsilon[0, :, :], cmap=cmap, vmin=vmi, vmax=vma)
+arm[0, 0].set_title('HOTS mode 0')
+plt.xticks(np.arange(0.5, 3.5, 1), ('0', '1', '2'))
+plt.yticks(np.arange(0.5, 3.5, 1), ('0', '1', '2'))
+arm[0, 1].pcolor(epsilon[1, :, :], cmap=cmap, vmin=vmi, vmax=vma)
+arm[0, 1].set_title('HOTS mode 1')
+plt.xticks(np.arange(0.5, 3.5, 1), ('0', '1', '2'))
+plt.yticks(np.arange(0.5, 3.5, 1), ('0', '1', '2'))
+
+arm[1, 0].pcolor(epsilon_B[0, :, :], cmap=cmap, vmin=vmi, vmax=vma)
+arm[1, 0].set_title('BATS mode 0')
+plt.xticks(np.arange(0.5, 3.5, 1), ('0', '1', '2'))
+plt.yticks(np.arange(0.5, 3.5, 1), ('0', '1', '2'))
+arm[1, 1].pcolor(epsilon_B[1, :, :], cmap=cmap, vmin=vmi, vmax=vma)
+arm[1, 1].set_title('BATS mode 1')
+plt.xticks(np.arange(0.5, 3.5, 1), ('0', '1', '2'))
+plt.yticks(np.arange(0.5, 3.5, 1), ('0', '1', '2'))
+
+arm[2, 0].pcolor(epsilon_P[0, :, :], cmap=cmap, vmin=vmi, vmax=vma)
+arm[2, 0].set_title('PAPA mode 0')
+plt.xticks(np.arange(0.5, 3.5, 1), ('0', '1', '2'))
+plt.yticks(np.arange(0.5, 3.5, 1), ('0', '1', '2'))
+arm[2, 1].pcolor(epsilon_P[1, :, :], cmap=cmap, vmin=vmi, vmax=vma)
+arm[2, 1].set_title('PAPA mode 1')
+plt.xticks(np.arange(0.5, 3.5, 1), ('0', '1', '2'))
+plt.yticks(np.arange(0.5, 3.5, 1), ('0', '1', '2'))
+
+c_map_ax = f.add_axes([0.933, 0.1, 0.02, 0.8])
+norm = matplotlib.colors.Normalize(vmin=vmi, vmax=vma)
+cb1 = matplotlib.colorbar.ColorbarBase(c_map_ax, cmap=cmap, norm=norm, orientation='vertical')
+cb1.set_label('Epsilon')
+arm[1, 1].grid()
+plot_pro(arm[1, 1])
+
+f, ax = plt.subplots()
+ax.plot(Gz[:, 0], grid, linestyle='--', color='r')
+ax.plot(Gz[:, 1], grid, linestyle='--', color='b')
+ax.plot(Gz[:, 2], grid, linestyle='--', color='g')
+ax.plot(Gz[:, 3], grid, linestyle='--', color='m')
+ax.plot(N2 * 30000, grid, color='k')
+ax.plot(F[:, 0], grid, color='r')
+ax.plot(F[:, 1], grid, color='b')
+ax.plot(F[:, 2], grid, color='g')
+ax.plot(F[:, 3], grid, color='m')
+ax.set_title('HOTS Vertical Modes')
+ax.invert_yaxis()
+plot_pro(ax)
+
+f, ax = plt.subplots()
+ax.plot(N2, grid, label='HOTS', linewidth=2)
+ax.plot(sta_bats_n2, SB['depth'], label='BATS', linewidth=2)
+ax.plot(sta_papa_n2, SP['depth'], label='PAPA', linewidth=2)
+ax.set_title('Station N2')
+handles, labels = ax.get_legend_handles_labels()
+ax.legend(handles, labels, fontsize=14)
+ax.invert_yaxis()
+plot_pro(ax)
 

@@ -6,8 +6,8 @@ import matplotlib
 import matplotlib.pyplot as plt
 from toolkit import plot_pro, cart2pol, pol2cart, nanseg_interp
 
-x7 = Glider(37, np.arange(5, 33), '/Users/jake/Documents/baroclinic_modes/DG/ABACO_2018/sg037')
-x9 = Glider(39, np.arange(5, 32), '/Users/jake/Documents/baroclinic_modes/DG/ABACO_2018/sg039')
+x7 = Glider(37, np.arange(8, 39), '/Users/jake/Documents/baroclinic_modes/DG/ABACO_2018/sg037')
+x9 = Glider(39, np.arange(8, 38), '/Users/jake/Documents/baroclinic_modes/DG/ABACO_2018/sg039')
 
 bin_depth = np.concatenate((np.arange(0, 300, 5), np.arange(300, 1000, 10), np.arange(1000, 4710, 20)))  # shallower
 
@@ -93,5 +93,5 @@ for i in range(len(profile_tags_9)):
 # ax2.grid()
 # ax.axis([np.round(np.nanmin(sa_9), 1) - .2, np.round(np.nanmax(sa_9), 1) + .2,
 #          np.round(np.nanmin(ct_9), 1) - .5, np.round(np.nanmax(ct_9), 1) + .5])
-ax.axis([35, 35.15, 1.6, 3])
+ax.axis([35, 35.2, 1.6, 3.5])
 plot_pro(ax)

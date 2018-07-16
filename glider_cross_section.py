@@ -207,6 +207,8 @@ class Glider(object):
         isopycdep = np.nan * np.zeros((np.size(sigth_levels), self.num_profs))
         isopycx = np.nan * np.zeros((np.size(sigth_levels), self.num_profs))
         vbt = np.nan * np.zeros(self.num_profs)
+        DACe_MW = np.nan * np.zeros(self.num_profs)
+        DACn_MW = np.nan * np.zeros(self.num_profs)
         ds = np.nan * np.zeros(self.num_profs)
         dist = np.nan * np.zeros(np.shape(lon))
         dist_st = 0
@@ -235,11 +237,22 @@ class Glider(object):
 
             distance = distance + np.nanmedian(xx)  # 0.5*ds # distance for each velocity estimate
             ds[i] = distance
-            DACe = dac_u[i]  # zonal depth averaged current [m/s]
-            DACn = dac_v[i]  # meridional depth averaged current [m/s]
+            # DACe = dac_u[i]  # zonal depth averaged current [m/s]
+            # DACn = dac_v[i]  # meridional depth averaged current [m/s]
+            if i < 2:
+                DACe = np.nanmean([[dac_u[i]], [dac_u[i + 2]]])
+                DACn = np.nanmean([[dac_v[i]], [dac_v[i + 2]]])
+            elif (i >= 2) and (i < self.num_profs - 2):
+                DACe = np.nanmean([[dac_u[i - 1]], [dac_u[i]], [dac_u[i + 2]]])
+                DACn = np.nanmean([[dac_v[i - 1]], [dac_v[i]], [dac_v[i + 2]]])
+            elif i >= self.num_profs - 2:
+                DACe = np.nanmean([[dac_u[i - 1]], [dac_u[i]]])
+                DACn = np.nanmean([[dac_v[i - 1]], [dac_v[i]]])
             mag_DAC, ang_DAC = cart2pol(DACe, DACn)
             DACat, DACpot = pol2cart(mag_DAC, ang_DAC - ang_sfc_m)
             vbt[i] = DACpot  # across-track barotropic current comp (>0 to left)
+            DACe_MW[i] = DACe.copy()
+            DACn_MW[i] = DACn.copy()
 
             # W
             if i >= order_set[-1]:
@@ -252,6 +265,8 @@ class Glider(object):
                 lat_finish = lat[0, i + 3]
                 DACe = np.nanmean([[dac_u[i]], [dac_u[i + 2]]])  # zonal depth averaged current [m/s]
                 DACn = np.nanmean([[dac_v[i]], [dac_v[i + 2]]])  # meridional depth averaged current [m/s]
+            DACe_MW[i + 1] = DACe.copy()
+            DACn_MW[i + 1] = DACn.copy()
             lat_ref = 0.5 * (lat_start + lat_finish)
             f_w = np.pi * np.sin(np.deg2rad(lat_ref)) / (12 * 1800)  # Coriolis parameter [s^-1]
             dxs = 1.852 * 60 * np.cos(np.deg2rad(lat_ref)) * (lon_finish - lon_start)  # zonal sfc disp [km]
@@ -429,7 +444,7 @@ class Glider(object):
                 mwe_lon[m] = lon[np.where(np.isfinite(lon[:, m]))[0], m][-1]
                 mwe_lat[m] = lat[np.where(np.isfinite(lat[:, m]))[0], m][-1]
 
-        return ds, dist, v_g, vbt, isopycdep, isopycx, mwe_lon, mwe_lat
+        return ds, dist, v_g, vbt, isopycdep, isopycx, mwe_lon, mwe_lat, DACe_MW, DACn_MW
 
     def plot_cross_section(self, bin_depth, ds, v_g, dist, profile_tags, isopycdep, isopycx, sigth_levels, time):
             sns.set(context="notebook", style="whitegrid", rc={"axes.axisbelow": False})
@@ -497,7 +512,7 @@ class Glider(object):
         ax.plot(mwe_lon, mwe_lat, color='k')
         for i in range(0, len(mwe_lat)-1, 2):
             ax.text(mwe_lon[i] - 0.1, mwe_lat[i] + 0.02, str(profile_tags[i]), color='m', fontsize=7)
-        ax.quiver(mwe_lon, mwe_lat, dac_u, dac_v, color='r', scale=6, headwidth=4, headlength=2, width=.0025)
+        ax.quiver(mwe_lon, mwe_lat, dac_u, dac_v, color='r', scale=2, headwidth=2, headlength=2, width=.0025)
         w = 1 / np.cos(np.deg2rad(ref_lat))
         ax.axis(limits)
         ax.set_aspect(w)

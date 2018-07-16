@@ -1,7 +1,7 @@
 # BATS
 # take velocity and displacement profiles and compute energy spectra / explore mode amplitude variability
 import numpy as np
-import matplotlib as mpl
+import matplotlib
 import matplotlib.pyplot as plt
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 import gsw
@@ -168,15 +168,15 @@ poly_order = 3
 N2 = savgol_filter(N2, window_size, poly_order)
 
 # --- compute vertical mode shapes
-G, Gz, c = vertical_modes(N2, grid, omega, mmax)
+G, Gz, c, epsilon = vertical_modes(N2, grid, omega, mmax)
 
 # --- compute alternate vertical modes
-bc_bot = 2  # 1 = flat, 2 = rough
+bc_bot = 1  # 1 = flat, 2 = rough
 grid2 = np.concatenate([np.arange(0, 150, 10), np.arange(150, 300, 10), np.arange(300, 4500, 10)])
 n2_interp = np.interp(grid2, grid, N2)
-F_int_g2, F_g2, c_ff, norm_constant = vertical_modes_f(n2_interp, grid2, omega, mmax, bc_bot)
-F = np.nan * np.ones(G.shape)
-F_int = np.nan * np.ones(G.shape)
+F_int_g2, F_g2, c_ff, norm_constant, epsilon2 = vertical_modes_f(n2_interp, grid2, omega, mmax, bc_bot)
+F = np.nan * np.ones((np.size(grid), mmax + 1))
+F_int = np.nan * np.ones((np.size(grid), mmax + 1))
 for i in range(mmax + 1):
     F[:, i] = np.interp(grid, grid2, F_g2[:, i])
     F_int[:, i] = np.interp(grid, grid2, F_int_g2[:, i])
@@ -388,7 +388,7 @@ fvu2 = np.sum((eof1[:, 0] - bc2*min_p2)**2)/np.sum((eof1 - np.mean(eof1))**2)
 # ---------------------------------------------------------------------
 
 # --- PLOT V STRUCTURE
-plot_v_struct = 0
+plot_v_struct = 1
 if plot_v_struct > 0:
     f, (ax, ax2, ax3, ax4) = plt.subplots(1, 4, sharey=True)
     for i in range(nq):
@@ -409,7 +409,6 @@ if plot_v_struct > 0:
             ax4.plot(F_int[:, i] + np.nanmax(np.abs(F_int[:, i])), grid)
         else:
             ax4.plot(F_int[:, i], grid)
-
         ax4.plot(G[:, i], grid, c='k', linestyle='--', linewidth=0.5)
         # ax4.plot(Gz[:, i], grid, c='k', linestyle='--', linewidth=0.5)
         # ax4.plot(F_2[:, i], grid, label='Mode' + str(i))
@@ -433,6 +432,25 @@ if plot_v_struct > 0:
     ax.grid()
     ax2.grid()
     plot_pro(ax3)
+
+# -- mode interactions
+cmap = matplotlib.cm.get_cmap('Greys')
+f, (ax1, ax2) = plt.subplots(1, 2, sharex=True, sharey=True)
+ax1.pcolor(epsilon2[0, :, :], cmap=cmap, vmin=0, vmax=3)
+ax1.set_title('mode 0')
+plt.xticks(np.arange(0.5, 3.5, 1), ('0', '1', '2'))
+plt.yticks(np.arange(0.5, 3.5, 1), ('0', '1', '2'))
+ax2.pcolor(epsilon2[1, :, :], cmap=cmap, vmin=0, vmax=3)
+ax2.set_title('mode 1')
+plt.xticks(np.arange(0.5, 3.5, 1), ('0', '1', '2'))
+plt.yticks(np.arange(0.5, 3.5, 1), ('0', '1', '2'))
+
+c_map_ax = f.add_axes([0.933, 0.1, 0.02, 0.8])
+norm = matplotlib.colors.Normalize(vmin=0, vmax=4)
+cb1 = matplotlib.colorbar.ColorbarBase(c_map_ax, cmap=cmap, norm=norm, orientation='vertical')
+cb1.set_label('Epsilon')
+ax2.grid()
+plot_pro(ax2)
 
 # --- Isolate eddy dives
 # 2015 - dives 62, 63 ,64
@@ -1008,7 +1026,7 @@ if sa > 0:
 
 # -------------------------
 # PE COMPARISON BETWEEN HOTS, BATS_SHIP, AND BATS_DG
-plot_comp = 1
+plot_comp = 0
 if plot_comp > 0:
     fig00, ax0 = plt.subplots()
     ax0.plot([3 * 10 ** -1, 3 * 10 ** 0], [1.5 * 10 ** 1, 1.5 * 10 ** -2], color='k', linewidth=0.75)
