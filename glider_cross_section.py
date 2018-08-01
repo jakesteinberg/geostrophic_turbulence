@@ -62,6 +62,7 @@ class Glider(object):
     def make_bin(self, bin_depth):
         t_out = []
         s_out = []
+        o2_out = []
         lon_out = []
         lat_out = []
         time_out = []
@@ -82,6 +83,12 @@ class Glider(object):
             pitch_c = np.where((pitch > 1) & (np.abs(press - np.nanmax(press)) < 25))[0][0]
             temp_d.append(gd['temperature'][0:pitch_d])
             temp_d.append(gd['temperature'][pitch_c:])
+            if 'aanderaa4330_instrument_dissolved_oxygen' in gd.variables:
+                o2_d = []
+                o2_inter = gd['aanderaa4330_instrument_dissolved_oxygen'][:]
+                o2_d.append(o2_inter.data[0:pitch_d])
+                o2_d.append(o2_inter.data[pitch_c:])
+            # exceptions
             if (gd.glider == 30) & (gd.dive_number == 60):
                 sal_d.append(gd['salinity_raw'][0:pitch_d])
                 sal_d.append(gd['salinity'][pitch_c:])
@@ -124,6 +131,8 @@ class Glider(object):
             lon_g = np.nan * np.ones((np.size(bin_depth), 2))
             lat_g = np.nan * np.ones((np.size(bin_depth), 2))
             time_g = np.nan * np.ones((np.size(bin_depth), 2))
+            if 'aanderaa4330_instrument_dissolved_oxygen' in gd.variables:
+                o2_g = np.nan * np.ones((np.size(bin_depth), 2))
 
             for k in range(2):
                 temp = temp_d[k]
@@ -132,6 +141,9 @@ class Glider(object):
                 lon = lon_d[k]
                 lat = lat_d[k]
                 time = time_d[k]
+                if 'aanderaa4330_instrument_dissolved_oxygen' in gd.variables:
+                    o2 = o2_d[k]
+
                 # -- Case z = 0
                 dp_in_d_1 = depth < bin_cen[0]
                 if np.size(dp_in_d_1) >= 2:
@@ -140,6 +152,8 @@ class Glider(object):
                     lon_g[0, k] = np.nanmean(lon[dp_in_d_1])
                     lat_g[0, k] = np.nanmean(lat[dp_in_d_1])
                     time_g[0, k] = np.nanmean(time[dp_in_d_1])
+                    if 'aanderaa4330_instrument_dissolved_oxygen' in gd.variables:
+                        o2_g[0, k] = np.nanmean(o2[dp_in_d_1])
                 # -- Case z > 0
                 for j in range(np.size(bin_cen)):
                     i = j + 1
@@ -150,6 +164,8 @@ class Glider(object):
                         lon_g[i, k] = np.nanmean(lon[dp_in_d])
                         lat_g[i, k] = np.nanmean(lat[dp_in_d])
                         time_g[i, k] = np.nanmean(time[dp_in_d])
+                        if 'aanderaa4330_instrument_dissolved_oxygen' in gd.variables:
+                            o2_g[i, k] = np.nanmean(o2[dp_in_d])
                 # -- Case last_bin
                 if deepest_bin == (len(bin_depth) - 1):
                     dp_in_d_e = (depth > bin_cen[-1]) & (depth < bin_cen[-1] + 75)
@@ -159,7 +175,8 @@ class Glider(object):
                         lon_g[-1, k] = np.nanmean(lon[dp_in_d_e])
                         lat_g[-1, k] = np.nanmean(lat[dp_in_d_e])
                         time_g[-1, k] = np.nanmean(time[dp_in_d_e])
-
+                        if 'aanderaa4330_instrument_dissolved_oxygen' in gd.variables:
+                            o2_g[-1, k] = np.nanmean(o2[dp_in_d_e])
             for i in range(2):
                 temp_g[:, i] = nanseg_interp(bin_depth, temp_g[:, i])
                 sal_g[:, i] = nanseg_interp(bin_depth, sal_g[:, i])
@@ -170,14 +187,27 @@ class Glider(object):
                 lon_out = lon_g
                 lat_out = lat_g
                 time_out = time_g
+                if 'aanderaa4330_instrument_dissolved_oxygen' in gd.variables:
+                    o2_out = o2_g
             else:
                 s_out = np.concatenate((s_out, sal_g), axis=1)
                 t_out = np.concatenate((t_out, temp_g), axis=1)
                 lon_out = np.concatenate((lon_out, lon_g), axis=1)
                 lat_out = np.concatenate((lat_out, lat_g), axis=1)
                 time_out = np.concatenate((time_out, time_g), axis=1)
+                if 'aanderaa4330_instrument_dissolved_oxygen' in gd.variables:
+                    o2_out = np.concatenate((o2_out, o2_g), axis=1)
 
-        return time_out, lon_out, lat_out, t_out, s_out, dac_u_out, dac_v_out, profile_tags
+        if 'aanderaa4330_instrument_dissolved_oxygen' in gd.variables:
+            out = {'time': time_out, 'lon': lon_out, 'lat': lat_out,
+                   'temp': t_out, 'sal': s_out, 'o2': o2_out,
+                   'dac_u': dac_u_out, 'dac_v': dac_v_out, 'profs': profile_tags}
+            return out
+        else:
+            out = {'time': time_out, 'lon': lon_out, 'lat': lat_out,
+                   'temp': t_out, 'sal': s_out,
+                   'dac_u': dac_u_out, 'dac_v': dac_v_out, 'profs': profile_tags}
+            return out
 
     def density(self, bin_depth, ref_lat, temp, sal, lon, lat):
         press = gsw.p_from_z(-1*bin_depth, ref_lat)
@@ -493,9 +523,10 @@ class Glider(object):
             ax.plot(sa[:, i], ct[:, i])
         ax.axis([np.round(np.nanmin(sa), 1) - .2, np.round(np.nanmax(sa), 1) + .2,
                  np.round(np.nanmin(ct), 1) - .5, np.round(np.nanmax(ct), 1) + .5])
+        ax.grid()
         plot_pro(ax)
 
-    def plot_plan_view(self, mwe_lon, mwe_lat, dac_u, dac_v, ref_lat, profile_tags, time, limits, path):
+    def plot_plan_view(self, lon, lat, mwe_lon, mwe_lat, dac_u, dac_v, ref_lat, profile_tags, time, limits, path):
         # bathymetry
         bath = path
         bath_fid = Dataset(bath, 'r')
@@ -509,7 +540,8 @@ class Glider(object):
         f, ax = plt.subplots()
         bc = ax.contourf(bath_lon, bath_lat, bath_z, levels, cmap='Blues_r', extend='both', zorder=0)
         matplotlib.rcParams['contour.negative_linestyle'] = 'solid'
-        ax.plot(mwe_lon, mwe_lat, color='k')
+        # ax.plot(mwe_lon, mwe_lat, color='k')
+        ax.scatter(lon, lat, s=2, color='k')
         for i in range(0, len(mwe_lat)-1, 2):
             ax.text(mwe_lon[i] - 0.1, mwe_lat[i] + 0.02, str(profile_tags[i]), color='m', fontsize=7)
         ax.quiver(mwe_lon, mwe_lat, dac_u, dac_v, color='r', scale=2, headwidth=2, headlength=2, width=.0025)
@@ -520,4 +552,5 @@ class Glider(object):
         t_e = datetime.date.fromordinal(np.int(time[0, -1]))
         ax.set_title(self.ID + '  ' + self.project + '  ' + np.str(
             t_s.month) + '/' + np.str(t_s.day) + ' - ' + np.str(t_e.month) + '/' + np.str(t_e.day), fontsize=14)
+        ax.grid()
         plot_pro(ax)

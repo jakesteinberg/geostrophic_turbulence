@@ -560,7 +560,7 @@ omega = 0  # frequency zeroed for geostrophic modes
 mmax = 60  # highest baroclinic mode to be calculated
 nmodes = mmax + 1
 
-G, Gz, c = vertical_modes(np.nanmean(N2, axis=1), grid, omega, mmax)
+G, Gz, c, epsilon = vertical_modes(np.nanmean(N2, axis=1), grid, omega, mmax)
 
 # sample plots of G and Gz
 sam_pl = 0
@@ -766,7 +766,7 @@ for i in range(adcp_np):
     else:
         good_prof[i] = 1  # flag empty profile as noisy as well
 
-# ------ PLOT VELOCITY PROFILES AND COMPARE -------
+# ------ PLOT VELOCITY PROFILES AND COMPARE -------------------------------------------
 f, (ax2, ax3) = plt.subplots(1, 2)
 # for i in range(adcp_np):    
 #     if good_prof[i] < 2:
@@ -809,6 +809,7 @@ ax3.axis([-400, 400, 0, 5000])
 ax3.invert_yaxis()
 plot_pro(ax3)
 
+# -----------------------------------------------------------------------------------------
 # ------------ ENERGY SPECTRA
 avg_PE = np.nanmean(PE_per_mass, 1)
 avg_PE_theta = np.nanmean(PE_theta_per_mass, 1)
@@ -1017,7 +1018,7 @@ plot_pro(ax3)
 
 # --- SAVE
 # write python dict to a file
-savee = 1
+savee = 0
 if savee > 0:
     mydict = {'bin_depth': grid, 'sigma_theta': df_den, 'salin': df_s, 'theta': df_t, 'eta': df_eta,
               'eta_m': Eta_m, 'avg_PE': avg_PE, 'avg_KE': avg_KE_dg, 'ADCP_KE': avg_KE_adcp,

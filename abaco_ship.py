@@ -3,14 +3,26 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import glob
-import scipy.io as si
 import datetime 
-import seawater as sw
+import gsw
 import pickle
 from toolkit import unq_searchsorted, plot_pro
+# import scipy.io as si
 
-file_list = glob.glob('/Users/jake/Desktop/abaco/abaco_ship_may_2017/ab*.cnv')
+# --- ctd
+file_list = glob.glob('/Users/jake/Desktop/abaco/abaco_ship_may_2017/ctd/ab*.cnv')
+# file_list = glob.glob('/Users/jake/Desktop/abaco/abaco_ship_feb_2016/ctd/*.cnv')
+# file_list = glob.glob('/Users/jake/Desktop/abaco/abaco_ship_feb_2015/ctd/*.cnv')
+# file_list = glob.glob('/Users/jake/Desktop/abaco/abaco_ship_oct_2015/ctd/*.cnv')
+# file_list = glob.glob('/Users/jake/Desktop/abaco/abaco_ship_mar_2014/ctd/*.cnv')
+# --- ladcp
+adcp_list = glob.glob('/Users/jake/Desktop/abaco/abaco_ship_may_2017/ladcp/AB*.vel')
+# adcp_list = glob.glob('/Users/jake/Desktop/abaco/abaco_ship_feb_2016/ladcp/AB*d.vel')
+# adcp_list = glob.glob('/Users/jake/Desktop/abaco/abaco_ship_feb_2015/ladcp/AB*d.vel')
+# adcp_list = glob.glob('/Users/jake/Desktop/abaco/abaco_ship_oct_2015/ladcp/AB*d.vel')
+# adcp_list = glob.glob('/Users/jake/Desktop/abaco/abaco_ship_mar_2014/ladcp/AB*d.vel')
 
+# ---- just 2017
 # name 0 = scan: Scan Count
 # name 1 = timeJ: Julian Days
 # name 2 = timeS: Time, Elapsed [seconds]
@@ -29,55 +41,145 @@ file_list = glob.glob('/Users/jake/Desktop/abaco/abaco_ship_may_2017/ab*.cnv')
 # name 15 = sbeox1ML/L: Oxygen, SBE 43, 2 [ml/l]
 # name 16 = flag: flag
 
+# ---- seemingly all except 2017
+# name 0 = scan: Scan Count
+# name 1 = timeS: Time, Elapsed [seconds]
+# name 2 = depSM: Depth [salt water, m]
+# name 3 = prDM: Pressure, Digiquartz [db]
+# name 4 = t090C: Temperature [ITS-90, deg C]
+# name 5 = t190C: Temperature, 2 [ITS-90, deg C]
+# name 6 = c0S/m: Conductivity [S/m]
+# name 7 = c1S/m: Conductivity, 2 [S/m]
+# name 8 = sbeox0V: Oxygen raw, SBE 43 [V]
+# name 9 = sbeox1V: Oxygen raw, SBE 43, 2 [V]
+# name 10 = latitude: Latitude [deg]
+# name 11 = longitude: Longitude [deg]
+# name 12 = sbeox0dOV/dT: Oxygen, SBE 43 [dov/dt]
+# name 13 = sbeox1dOV/dT: Oxygen, SBE 43, 2 [dov/dt]
+# name 14 = sbeox0ML/L: Oxygen, SBE 43 [ml/l]
+# name 15 = sbeox1ML/L: Oxygen, SBE 43, 2 [ml/l]
+# name 16 = potemp090C: Potential Temperature [ITS-90, deg C]
+# name 17 = potemp190C: Potential Temperature, 2 [ITS-90, deg C]
+# name 18 = sal00: Salinity, Practical [PSU]
+# name 19 = sal11: Salinity, Practical, 2 [PSU]
+
+Data = []
+for m in range(len(file_list)):
+    this_file = file_list[m]
+    count_r = 0
+    f = open(this_file, encoding="ISO-8859-1")
+    initial = f.readlines()
+    for line in initial:  # loops over each row
+        by_line = line.strip().split("\t")
+        by_item = by_line[0].split()
+        if len(by_item) > 1:
+            item_test0 = by_item[0]
+            item_test1 = by_item[1]
+            item_test2 = by_item[-1]
+            if item_test0[0].isdigit() & item_test1[0].isdigit() & item_test2[0].isdigit():
+                count = 0  # count for each column value
+                data = np.nan * np.zeros((1, len(by_item)))  # one row's worth of data
+                for i in by_item:  # each element in the row
+                    data[0, count] = np.float(i)  # data = one row's worth of data
+                    count = count + 1
+                if count_r < 1:  # deal with first element of storage vs. all others
+                    data_out = data
+                data_out = np.concatenate((data_out, data), axis=0)
+                count_r = count_r + 1
+    Data.append(data_out)
+
 # bin_press = np.arange(0,5200,5)
 # bin_press = np.concatenate([np.arange(0,150,5), np.arange(150,300,10), np.arange(300,5200,20)])
-bin_depth = np.concatenate([np.arange(0,150,10), np.arange(150,300,10), np.arange(300,5000,20)])
-bin_press = sw.pres(bin_depth,26.5)
-T1 = np.nan*np.ones( (np.size(bin_press),np.size(file_list)-10) )
-S1 = np.nan*np.ones( (np.size(bin_press),np.size(file_list)-10) )
-T2 = np.nan*np.ones( (np.size(bin_press),np.size(file_list)-10) )
-S2 = np.nan*np.ones( (np.size(bin_press),np.size(file_list)-10) )
-lat = np.nan*np.ones( (np.size(bin_press),np.size(file_list)-10) )
-lon = np.nan*np.ones( (np.size(bin_press),np.size(file_list)-10) )
-for i in range(np.size(file_list)-10):
-    load_dat = np.transpose(np.loadtxt(file_list[i],dtype='float64',skiprows=330,usecols=(np.arange(0,16)),unpack='True'))
-    dep = sw.dpth(load_dat[:,3],26.5)
-    for j in range(2,np.size(bin_depth)-1):
-        p_in = np.where( (dep >= bin_press[j-1]) & (dep <= bin_press[j+1])  )
-        
-        this_S = load_dat[p_in,8:10]
-        S_bad = np.where(this_S[0] < 32)
-        this_S[0][S_bad[0],S_bad[1]] = np.nan
-        
-        this_T = load_dat[p_in,4:6]
-        T_bad = np.where(this_T[0] < 0)
-        this_T[0][T_bad[0],T_bad[1]] = np.nan
-        
-        T1[j,i] = np.nanmean(this_T[0][:,0] )
-        S1[j,i] = np.nanmean(this_S[0][:,0] )
-        T2[j,i] = np.nanmean(this_T[0][:,1] )
-        S2[j,i] = np.nanmean(this_S[0][:,1] )
-        lat[j,i] = np.nanmean(load_dat[p_in,10])
-        lon[j,i] = np.nanmean(load_dat[p_in,11])
-        
+bin_depth = np.concatenate([np.arange(0, 150, 10), np.arange(150, 300, 10), np.arange(300, 5500, 20)])
+bin_press = gsw.p_from_z(-1 * bin_depth, 26.5*np.ones(len(bin_depth)))
+T1 = np.nan*np.ones((np.size(bin_press), np.size(file_list)))
+S1 = np.nan*np.ones((np.size(bin_press), np.size(file_list)))
+T2 = np.nan*np.ones((np.size(bin_press), np.size(file_list)))
+S2 = np.nan*np.ones((np.size(bin_press), np.size(file_list)))
+O1 = np.nan*np.ones((np.size(bin_press), np.size(file_list)))
+O2 = np.nan*np.ones((np.size(bin_press), np.size(file_list)))
+SA = np.nan*np.ones((np.size(bin_press), np.size(file_list)))
+CT = np.nan*np.ones((np.size(bin_press), np.size(file_list)))
+sig0 = np.nan*np.ones((np.size(bin_press), np.size(file_list)))
+lat = np.nan*np.ones((np.size(bin_press), np.size(file_list)))
+lon = np.nan*np.ones((np.size(bin_press), np.size(file_list)))
+# --- load in each profile and bin average following bin_press spacing
+for i in range(np.size(file_list)):
+    # skip rows = 330
+    # load_dat = np.transpose(np.loadtxt(file_list[i], dtype='float64', skiprows=330,
+    #                                    usecols=(np.arange(0, 16)), unpack='True'))
+    load_dat = Data[i]
+    dep = -1 * gsw.z_from_p(load_dat[:, 3], load_dat[:, 10])  # all others?
+    # dep = -1 * gsw.z_from_p(load_dat[:, 2], load_dat[:, 9])     # oct 2015
+    for j in range(2, np.size(bin_depth)-1):
+        p_in = np.where((dep >= bin_press[j-1]) & (dep <= bin_press[j+1]))[0]
 
-plot_plan = 0
+        # this_S = load_dat[p_in, 18:20]  # --- all others?
+        this_S = load_dat[p_in, 8:10]   # --- may 2017
+        # this_S = load_dat[p_in, 7:9]      # --- oct 2015
+        S_bad = np.where(this_S < 32)
+        if np.size(S_bad) > 0:
+            this_S[S_bad[0], S_bad[1]] = np.nan
+        
+        this_T = load_dat[p_in, 4:6]  # --- all others?
+        # this_T = load_dat[p_in, 3:5]    # --- oct 2015
+        T_bad = np.where(this_T < 0)
+        if np.size(T_bad) > 0:
+            this_T[T_bad[0], T_bad[1]] = np.nan
+
+        # this_O = load_dat[p_in, 23:25]  # --- all others?
+        this_O = load_dat[p_in, 14:16]    # --- may 2017 (in units of ml/l)
+        # this_O = load_dat[p_in, 3:5]    # --- oct 2015
+        O_bad = np.where(this_O < 0)
+        if np.size(O_bad) > 0:
+            this_O[O_bad[0], O_bad[1]] = np.nan
+
+        this_lon = load_dat[p_in, 11]  # --- all others?
+        # this_lon = load_dat[p_in, 10]    # --- oct 2015
+        lon_bad = np.where((np.abs(this_lon) < 50) | (np.abs(this_lon) > 82))
+        if np.size(lon_bad) > 0:
+            this_lon[lon_bad[0]] = np.nan
+
+        this_lat = load_dat[p_in, 10]  # --- all others?
+        # this_lat = load_dat[p_in, 9]     # --- oct 2015
+        lat_bad = np.where((np.abs(this_lat) < 20) | (np.abs(this_lat) > 30))
+        if np.size(lat_bad) > 0:
+            this_lat[lat_bad[0]] = np.nan
+
+        # two CTDs
+        T1[j, i] = np.nanmean(this_T[:, 0])
+        S1[j, i] = np.nanmean(this_S[:, 0])
+        O1[j, i] = np.nanmean(this_O[:, 0])
+        T2[j, i] = np.nanmean(this_T[:, 1])
+        S2[j, i] = np.nanmean(this_S[:, 1])
+        O2[j, i] = np.nanmean(this_O[:, 1])
+        lat[j, i] = np.nanmean(this_lat)
+        lon[j, i] = np.nanmean(this_lon)
+
+    SA[:, i] = gsw.SA_from_SP(S1[:, i], bin_press, lon[:, i], lat[:, i])
+    CT[:, i] = gsw.CT_from_t(S1[:, i], T1[:, i], bin_press)
+    sig0[:, i] = gsw.sigma0(SA[:, i], CT[:, i])
+
+plot_plan = 1
 if plot_plan > 0:
-    fig, (ax1,ax2) = plt.subplots(1,2,sharey=True)        
+    fig, (ax1,ax2) = plt.subplots(1, 2, sharey=True)
     for k in range(np.size(file_list)-20):    
-        ax1.scatter(T1[:,k],bin_depth,s=1)
-        ax2.scatter(S1[:,k],bin_depth,s=1)        
-    ax1.axis([0,25, 0, 5000]) 
+        ax1.scatter(CT[:, k], bin_depth, s=1)
+        ax2.scatter(SA[:, k], bin_depth, s=1)
+    ax1.axis([0, 25, 0, 5500])
+    ax1.set_xlabel('Conservative Temperature')
+    ax1.set_ylabel('Depth')
     ax1.grid()
-    ax2.axis([34,37, 0, 5000])  
-    ax2.invert_yaxis()  
-    ax2.grid()   
-    plt.show()
+    ax2.axis([34, 37, 0, 5500])
+    ax2.set_xlabel('Absolute Salinity')
+    ax2.set_ylabel('Depth')
+    ax2.invert_yaxis()
+    plot_pro(ax2)
     # fig.savefig('/Users/jake/Desktop/abaco/abaco_ship_may_2017/T1_profiles.png',dpi = 300)   
     # plt.close()
 
-### compute distance to closest point on transect
-dist_grid_s = np.arange(2,800,0.005)
+# --- compute distance to closest point on transect ---
+dist_grid_s = np.arange(2, 800, 0.005)
 lat_in = 26.5
 lon_in = -77  
 x_grid = (lon - lon_in)*(1852*60*np.cos(np.deg2rad(26.5)))/1000
@@ -87,22 +189,22 @@ number_profiles = sz[1]
 dist_dive = np.zeros(np.shape(x_grid))
 for i in range(number_profiles):
     for j in range(np.size(bin_press)):
-        all_dist = np.sqrt( ( x_grid[j,i] - dist_grid_s )**2 + ( y_grid[j,i] - 0 )**2 )
-        if np.isnan(x_grid[j,i]):
-            dist_dive[j,i] = float('nan')
+        all_dist = np.sqrt((x_grid[j, i] - dist_grid_s)**2 + (y_grid[j, i] - 0)**2)
+        if np.isnan(x_grid[j, i]) | np.isnan(y_grid[j, i]):
+            dist_dive[j, i] = float('nan')
         else: 
             closest_dist_dive_i = np.where(all_dist == all_dist.min())
-            dist_dive[j,i] = dist_grid_s[closest_dist_dive_i[0]]
+            dist_dive[j, i] = dist_grid_s[closest_dist_dive_i[0]]
 
-### compute theta and potential density
-bin_press_grid = np.repeat(  np.transpose(np.array([bin_press])),number_profiles,axis=1 )
-bin_depth_grid = np.repeat(  np.transpose(np.array([bin_depth])),number_profiles,axis=1 )
-theta_grid = sw.ptmp(S1, T1, bin_press_grid, pr=0)
-den_grid = sw.pden(S1, T1, bin_press_grid, pr=1) - 1000
-theta_grid_2 = sw.ptmp(S2, T2, bin_press_grid, pr=0)
-den_grid_2 = sw.pden(S2, T2, bin_press_grid, pr=1) - 1000
- 
-######### velocity estimates 
+# --- compute theta and potential density
+# bin_press_grid = np.repeat(np.transpose(np.array([bin_press])), number_profiles, axis=1)
+# bin_depth_grid = np.repeat(np.transpose(np.array([bin_depth])), number_profiles, axis=1)
+# theta_grid = sw.ptmp(S1, T1, bin_press_grid, pr=0)
+# den_grid = sw.pden(S1, T1, bin_press_grid, pr=1) - 1000
+# theta_grid_2 = sw.ptmp(S2, T2, bin_press_grid, pr=0)
+# den_grid_2 = sw.pden(S2, T2, bin_press_grid, pr=1) - 1000
+
+# --- velocity estimates
 #   depth_units      =  meters 
 #   velocity_units   =  cm_per_sec   
 #   data_column_1    =  z_depth 
@@ -110,28 +212,28 @@ den_grid_2 = sw.pden(S2, T2, bin_press_grid, pr=1) - 1000
 #   data_column_3    =  v_water_velocity_component 
 #   data_column_4    =  error_velocity 
 
-adcp_list = glob.glob('/Users/jake/Desktop/abaco/abaco_ship_may_2017/AB*.vel')
-dac_bin_dep = np.float64(np.arange(0,5500,10))
-u = np.nan*np.ones( (np.size(dac_bin_dep),np.size(adcp_list)-10) )
-v = np.nan*np.ones( (np.size(dac_bin_dep),np.size(adcp_list)-10) )
-lat_uv = np.nan*np.ones( np.size(adcp_list)-10 )
-lon_uv = np.nan*np.ones( np.size(adcp_list)-10 )
-time_uv = np.nan*np.ones( np.size(adcp_list)-10 )
-for i in range(np.size(adcp_list)-10):
-    test3 = open(adcp_list[i], 'r') 
+dac_bin_dep = np.float64(np.arange(0, 5500, 10))
+u = np.nan*np.ones((np.size(dac_bin_dep), np.size(adcp_list)))
+v = np.nan*np.ones((np.size(dac_bin_dep), np.size(adcp_list)))
+lat_uv = np.nan*np.ones(np.size(adcp_list))
+lon_uv = np.nan*np.ones(np.size(adcp_list))
+time_uv = np.nan*np.ones(np.size(adcp_list))
+for i in range(np.size(adcp_list)):
+    # test3 = open(adcp_list[i], 'r')  # for 2017
+    test3 = open(adcp_list[i], 'r', encoding="ISO-8859-1")  # for all others
     line1 = test3.readline()
     line2 = test3.readline()
     line3 = test3.readline()
     line_x = test3.read(1400)
     line4 = test3.readline()
     test3.close()
-    load_dat = np.genfromtxt(adcp_list[i],skip_header=75,usecols=(0,1,2,3))
-    a,b = unq_searchsorted(load_dat[:,0],dac_bin_dep)
-    u[np.where(b)[0],i] = load_dat[:,1]
-    v[np.where(b)[0],i] = load_dat[:,2]
-    lat_uv[i] = int(line2[4:6]) + np.float64( line2[7:14] )/60
-    lon_uv[i] = -1*(int(line3[4:6]) + np.float64( line3[7:14] )/60)
-    time_uv[i] = np.float64(line4[5:16])
+    load_dat = np.genfromtxt(adcp_list[i], skip_header=75, usecols=(0, 1, 2, 3))
+    a, b = unq_searchsorted(load_dat[:, 0], dac_bin_dep)
+    u[np.where(b)[0], i] = load_dat[:, 1]
+    v[np.where(b)[0], i] = load_dat[:, 2]
+    lat_uv[i] = int(line2[4:6]) + np.float64(line2[8:14])/60  # 7:14, except 2017 = 8:14
+    lon_uv[i] = -1*(int(line3[4:6]) + np.float64(line3[8:14])/60)  # 7:14, except 2017 = 8:14
+    time_uv[i] = np.float64(line4[7:16])  # 11:19 for 2014, 7:16 for 2017, 8:16 for others
      
 # fig, ax = plt.subplots()
 # ax.scatter(lon,lat,s=2,color='r')
@@ -139,20 +241,20 @@ for i in range(np.size(adcp_list)-10):
 # ax.grid()
 # plt.show()
       
-# compute cross-shore distance and plot geostrophic velocity         
-cast_lon = np.nanmean(lon,axis=0) 
-cast_lat = np.nanmean(lat,axis=0) 
+# compute cross-shore distance and plot (non)-geostrophic velocity
+cast_lon = np.nanmean(lon, axis=0)
+cast_lat = np.nanmean(lat, axis=0)
 ctd_x = (cast_lon - lon_in)*(1852*60*np.cos(np.deg2rad(26.5)))
 ctd_y = (cast_lat - lat_in)*(1852*60)
-adcp_in = np.where(lat_uv>26.45)
-V = v[:,adcp_in[0]]
-U = u[:,adcp_in[0]]
+adcp_in = np.where(lat_uv > 26.45)
+V = v[:, adcp_in[0]]
+U = u[:, adcp_in[0]]
 # closest pos on line to adcp site 
 adcp_x = (lon_uv[adcp_in] - lon_in)*(1852*60*np.cos(np.deg2rad(26.5)))
 adcp_y = (lat_uv[adcp_in] - lat_in)*(1852*60)
-adcp_dist=np.zeros(np.size(adcp_x))
+adcp_dist = np.zeros(np.size(adcp_x))
 for i in range(np.size(adcp_in[0])):
-    all_dist = np.sqrt( ( adcp_x[i]/1000 - dist_grid_s )**2 + ( adcp_y[i]/1000 - 0 )**2 )
+    all_dist = np.sqrt((adcp_x[i]/1000 - dist_grid_s)**2 + (adcp_y[i]/1000 - 0)**2)
     if np.isnan(adcp_x[i]):
         adcp_dist[i] = float('nan')
     else: 
@@ -166,40 +268,51 @@ for i in range(np.size(adcp_in[0])):
 # plot_pro(ax)
 
 matlab_datenum = 731965.04835648148
-t_s = datetime.date.fromordinal(int( np.min(time_uv) )) + datetime.timedelta(days=matlab_datenum%1) - datetime.timedelta(days = 366)
-t_e = datetime.date.fromordinal(int( np.max(time_uv) )) + datetime.timedelta(days=matlab_datenum%1) - datetime.timedelta(days = 366)
+t_s = datetime.date.fromordinal(int(np.min(time_uv))) + datetime.timedelta(days=matlab_datenum%1) - datetime.timedelta(days=366)
+t_e = datetime.date.fromordinal(int(np.max(time_uv))) + datetime.timedelta(days=matlab_datenum%1) - datetime.timedelta(days=366)
 
 
-fig, (ax1,ax2) = plt.subplots(1,2) 
-ax1.scatter(cast_lon,cast_lat,s=2,color='r')
-ax1.scatter(lon_uv[adcp_in],lat_uv[adcp_in],s=2,color='k')
+fig, (ax1, ax2) = plt.subplots(1, 2)
+ax1.scatter(cast_lon, cast_lat, s=2, color='r')
+ax1.scatter(lon_uv[adcp_in], lat_uv[adcp_in], s=2, color='k')
 ax1.grid()
-lv = np.arange(-60,60,5)
-lv2 = np.arange(-60,60,10)
-dn_lv = np.concatenate( (np.arange(25,27.8,0.2),np.arange(27.8,28,0.025)))
+lv = np.arange(-60, 60, 5)
+lv2 = np.arange(-60, 60, 10)
+dn_lv = np.concatenate((np.arange(25, 27.8, 0.2), np.arange(27.8, 28, 0.025)))
 order = np.argsort(adcp_dist)
-ad = ax2.contourf(adcp_dist[order],dac_bin_dep,V[:,order],levels=lv)
-ax2.contour(adcp_dist[order],dac_bin_dep,V[:,order],levels=lv2,colors='k')
-den_c = ax2.contour(dist_dive,bin_depth_grid, den_grid,levels=dn_lv,colors='r' ,linewidth=.75)
-ax2.clabel(den_c, fontsize=6, inline=1,fmt='%.4g',spacing=10) 
-ax2.set_title('ABACO SHIP: ' + np.str(t_s.month) + '/' + np.str(t_s.day) + '/' + np.str(t_s.year) + ' - ' + np.str(t_e.month) + '/' + np.str(t_e.day) + '/' + np.str(t_e.year))
-ax2.axis([0, 500, 0, 5000]) 
+ad = ax2.contourf(adcp_dist[order], dac_bin_dep, V[:, order], levels=lv)
+ax2.contour(adcp_dist[order], dac_bin_dep, V[:, order], levels=lv2, colors='k')
+den_c = ax2.contour(dist_dive, np.tile(bin_depth[:, None], (1, number_profiles)), sig0,
+                    levels=dn_lv, colors='r', linewidth=.75)
+ax2.clabel(den_c, fontsize=6, inline=1, fmt='%.4g', spacing=10)
+ax2.set_title('ABACO SHIP: ' + np.str(t_s.month) + '/' +
+              np.str(t_s.day) + '/' + np.str(t_s.year) + ' - ' + np.str(t_e.month) +
+              '/' + np.str(t_e.day) + '/' + np.str(t_e.year))
+ax1.axis([-77.5, -68, 26.4, 26.6])
+ax1.set_xlabel('Lon')
+ax1.set_ylabel('Lat')
+ax2.axis([0, np.nanmax(dist_dive), 0, 5500])
+ax2.set_xlabel('Km offshore')
+ax2.set_ylabel('Depth')
 ax2.invert_yaxis() 
 plt.colorbar(ad, label='[cm/s]')
 plot_pro(ax2)
 # plt.close()
 
-### SAVE 
+# --- SAVE ---
 # write python dict to a file
 sa = 1
 if sa > 0:
-    mydict = {'bin_depth': bin_depth,'adcp_depth': dac_bin_dep,'adcp_u': U,'adcp_v': V,
-        'adcp_lon': lon_uv[adcp_in], 'adcp_lat': lat_uv[adcp_in], 'adcp_dist': adcp_dist,
-        'den_grid': den_grid, 'den_grid_2': den_grid_2, 'den_dist': dist_dive, 
-        'salin_grid': S1,'salin_grid_2': S2,'theta_grid': theta_grid, 'theta_grid_2': theta_grid_2,
-        'adcp_lon': lon_uv[adcp_in], 'adcp_lat': lat_uv[adcp_in], 'cast_lon': cast_lon, 'cast_lat': cast_lat }
-    output = open('/Users/jake/Desktop/abaco/ship_adcp.pkl', 'wb')
+    mydict = {'bin_depth': bin_depth, 'adcp_depth': dac_bin_dep, 'adcp_u': U, 'adcp_v': V,
+              'adcp_lon': lon_uv[adcp_in], 'adcp_lat': lat_uv[adcp_in], 'adcp_dist': adcp_dist,
+              'den_grid': sig0, 'den_dist': dist_dive, 'SA': SA, 'CT': CT, 'cast_lon': cast_lon, 'cast_lat': cast_lat,
+              'time_uv': time_uv, 'oxygen1': O1, 'oxygen2': O2}
+    output = open('/Users/jake/Documents/baroclinic_modes/Shipboard/ABACO/ship_ladcp_' + str(t_s) + '.pkl', 'wb')
     pickle.dump(mydict, output)
     output.close()
 
-      
+
+# to change
+# salinity indices
+# encoding specification on adcp files
+# time columns for adcp

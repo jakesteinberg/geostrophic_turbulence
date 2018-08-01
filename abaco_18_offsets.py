@@ -6,8 +6,8 @@ import matplotlib
 import matplotlib.pyplot as plt
 from toolkit import plot_pro, cart2pol, pol2cart, nanseg_interp
 
-x7 = Glider(37, np.arange(8, 39), '/Users/jake/Documents/baroclinic_modes/DG/ABACO_2018/sg037')
-x9 = Glider(39, np.arange(8, 38), '/Users/jake/Documents/baroclinic_modes/DG/ABACO_2018/sg039')
+x7 = Glider(37, np.arange(8, 45), '/Users/jake/Documents/baroclinic_modes/DG/ABACO_2018/sg037')
+x9 = Glider(39, np.arange(8, 43), '/Users/jake/Documents/baroclinic_modes/DG/ABACO_2018/sg039')
 
 bin_depth = np.concatenate((np.arange(0, 300, 5), np.arange(300, 1000, 10), np.arange(1000, 4710, 20)))  # shallower
 

@@ -13,10 +13,10 @@ from toolkit import find_nearest
 # x = Glider(30, np.arange(53, 65), '/Users/jake/Documents/Cuddy_tailored/DG_wa_coast/2006')
 # x = Glider(30, np.arange(46, 50), '/Users/jake/Documents/Cuddy_tailored/DG_wa_coast/2006')
 # ---- DG ABACO 2017
-x = Glider(38, np.arange(67, 78), '/Users/jake/Documents/baroclinic_modes/DG/ABACO_2017/sg038')
-# ---- DG ABACO 2017
-# x = Glider(37, np.arange(25, 40), '/Users/jake/Documents/baroclinic_modes/DG/ABACO_2018/sg037')
-# x = Glider(39, np.arange(35, 38), '/Users/jake/Documents/baroclinic_modes/DG/ABACO_2018/sg039')
+# x = Glider(38, np.arange(67, 78), '/Users/jake/Documents/baroclinic_modes/DG/ABACO_2017/sg038')
+# ---- DG ABACO 2018
+x = Glider(37, np.arange(20, 31), '/Users/jake/Documents/baroclinic_modes/DG/ABACO_2018/sg037')
+# x = Glider(39, np.arange(35, 48), '/Users/jake/Documents/baroclinic_modes/DG/ABACO_2018/sg039')
 # ---- DG BATS 2015
 # x = Glider(35, np.arange(58, 64), '/Users/jake/Documents/baroclinic_modes/DG/sg035_BATS_2015')
 
@@ -31,7 +31,18 @@ bin_depth = np.concatenate((np.arange(0, 300, 5), np.arange(300, 1000, 10), np.a
 
 # -------------------
 # vertical bin averaging separation of dive-climb cycle into two profiles (extractions from nc files)
-d_time, lon, lat, t, s, dac_u, dac_v, profile_tags = x.make_bin(bin_depth)
+Binned = x.make_bin(bin_depth)
+d_time = Binned['time']
+lon = Binned['lon']
+lat = Binned['lat']
+t = Binned['temp']
+s = Binned['sal']
+dac_u = Binned['dac_u']
+dac_v = Binned['dac_v']
+profile_tags = Binned['profs']
+if 'o2' in Binned.keys():
+    o2 = Binned['o2']
+# d_time, lon, lat, t, s, dac_u, dac_v, profile_tags = x.make_bin(bin_depth)
 ref_lat = np.nanmean(lat)
 
 # -------------------
@@ -68,7 +79,7 @@ ds, dist, v_g, vbt, isopycdep, isopycx, mwe_lon, mwe_lat, DACe_MW, DACn_MW = x.t
 N2_avg = np.nanmean(N2, axis=1)
 N2_avg[N2_avg < 0] = 0
 N2_avg[0] = 1
-G, Gz, c = vertical_modes(N2_avg, bin_depth, 0, 30)
+G, Gz, c, epsilon = vertical_modes(N2_avg, bin_depth, 0, 30)
 
 # -------------------
 # PLOTTING
@@ -80,7 +91,7 @@ x.plot_cross_section(bin_depth, ds, v_g, dist, profile_tags, isopycdep, isopycx,
 # x.plot_plan_view(mwe_lon, mwe_lat, dac_u, dac_v, ref_lat, profile_tags, d_time,
 #                  [-128.5, -123.75, 46.5, 48.5], bathy_path)
 bathy_path = '/Users/jake/Documents/baroclinic_modes/DG/ABACO_2017/OceanWatch_smith_sandwell.nc'
-x.plot_plan_view(mwe_lon, mwe_lat, DACe_MW, DACn_MW,
+x.plot_plan_view(lon, lat, mwe_lon, mwe_lat, DACe_MW, DACn_MW,
                  ref_lat, profile_tags, d_time, [-77.5, -73.5, 25.5, 27], bathy_path)
 
 # plot t/s
