@@ -1,9 +1,11 @@
 
 import numpy as np
+import glob
+import pickle
+import matplotlib.pyplot as plt
 from glider_cross_section import Glider
 from mode_decompositions import vertical_modes
-from netCDF4 import Dataset
-from toolkit import find_nearest
+from toolkit import plot_pro
 
 # DIVE SELECTION
 # -----------------------------------------------------------------------------------------
@@ -15,8 +17,8 @@ from toolkit import find_nearest
 # ---- DG ABACO 2017
 # x = Glider(38, np.arange(67, 78), '/Users/jake/Documents/baroclinic_modes/DG/ABACO_2017/sg038')
 # ---- DG ABACO 2018
-x = Glider(37, np.arange(20, 31), '/Users/jake/Documents/baroclinic_modes/DG/ABACO_2018/sg037')
-# x = Glider(39, np.arange(35, 48), '/Users/jake/Documents/baroclinic_modes/DG/ABACO_2018/sg039')
+x = Glider(37, np.arange(50, 62), '/Users/jake/Documents/baroclinic_modes/DG/ABACO_2018/sg037')
+# x = Glider(39, np.arange(56, 58), '/Users/jake/Documents/baroclinic_modes/DG/ABACO_2018/sg039')
 # ---- DG BATS 2015
 # x = Glider(35, np.arange(58, 64), '/Users/jake/Documents/baroclinic_modes/DG/sg035_BATS_2015')
 
@@ -71,8 +73,45 @@ sa, ct, sig0, N2 = x.density(bin_depth, ref_lat, t, s, lon, lat)
 sigth_levels = np.concatenate(
     [np.arange(23, 26.5, 0.5), np.arange(26.2, 27.2, 0.2),
      np.arange(27.2, 27.8, 0.2), np.arange(27.7, 27.8, 0.02), np.arange(27.8, 27.9, 0.01)])
-ds, dist, v_g, vbt, isopycdep, isopycx, mwe_lon, mwe_lat, DACe_MW, DACn_MW = x.transect_cross_section(
+ds, dist, v_g, vbt, isopycdep, isopycx, mwe_lon, mwe_lat, DACe_MW, DACn_MW, profile_tags_per = x.transect_cross_section(
     bin_depth, sig0, lon, lat, dac_u, dac_v, profile_tags, sigth_levels)
+
+
+# def group_consecutives(vals, step=1):
+#     """Return list of consecutive lists of numbers from vals (number list)."""
+#     run = []
+#     result = [run]
+#     expect = None
+#     for v in vals:
+#         if (v == expect) or (expect is None):
+#             run.append(v)
+#         else:
+#             run = [v]
+#             result.append(run)
+#         expect = v + step
+#     return result
+#
+#
+# # separate dives into unique transects
+# target_test = 1000000 * x.target[:, 0] + np.round(x.target[:, 1], 3)
+# unique_targets = np.unique(target_test)
+# transects = []
+# for m in range(len(unique_targets)):
+#     indices = np.where(target_test == unique_targets[m])[0]
+#     transects.append(group_consecutives(indices, step=1))
+#
+# for n in range(0, 1):  # len(transects)):
+#     this_transect = transects[n][0]
+#     index_start = 2 * this_transect[0]
+#     index_end = 2 * (this_transect[-1] + 1)
+#     order_set = np.arange(0, 2*len(this_transect), 2)
+#     sig0_t = sig0[:, index_start:index_end]
+#     lon_t = lon[:, index_start:index_end]
+#     lat_t = lat[:, index_start:index_end]
+#     dac_u_t = dac_u[index_start:index_end]
+#     dac_v_t = dac_u[index_start:index_end]
+#     profile_tags_t = profile_tags[index_start:index_end]
+
 
 # -------------------
 # vertical modes
@@ -84,21 +123,58 @@ G, Gz, c, epsilon = vertical_modes(N2_avg, bin_depth, 0, 30)
 # -------------------
 # PLOTTING
 # plot cross section
-x.plot_cross_section(bin_depth, ds, v_g, dist, profile_tags, isopycdep, isopycx, sigth_levels, d_time)
+x.plot_cross_section(bin_depth, ds[1], v_g[1], dist[1], profile_tags_per[1],
+                     isopycdep[1], isopycx[1], sigth_levels, d_time)
 
 # plot plan view
 # bathy_path = '/Users/jake/Documents/Cuddy_tailored/DG_wa_coast/smith_sandwell_wa_coast.nc'
 # x.plot_plan_view(mwe_lon, mwe_lat, dac_u, dac_v, ref_lat, profile_tags, d_time,
 #                  [-128.5, -123.75, 46.5, 48.5], bathy_path)
 bathy_path = '/Users/jake/Documents/baroclinic_modes/DG/ABACO_2017/OceanWatch_smith_sandwell.nc'
-x.plot_plan_view(lon, lat, mwe_lon, mwe_lat, DACe_MW, DACn_MW,
-                 ref_lat, profile_tags, d_time, [-77.5, -73.5, 25.5, 27], bathy_path)
+x.plot_plan_view(lon, lat, mwe_lon[1], mwe_lat[1], DACe_MW[1], DACn_MW[1],
+                 ref_lat, profile_tags_per[1], d_time, [-77.5, -73.5, 25.5, 27], bathy_path)
 
 # plot t/s
-x.plot_t_s(ct, sa)
+# x.plot_t_s(ct, sa)
+
+# COMPARISON OF O2
+o2_comp = 0
+if o2_comp > 0:
+    file_list = glob.glob('/Users/jake/Documents/baroclinic_modes/Shipboard/ABACO/ship*.pkl')
+    s_o2 = []
+    s_sa = []
+    s_ct = []
+    s_dep = []
+    f, ax = plt.subplots()
+    for i in range(len(file_list)):
+        pkl_file = open(file_list[i], 'rb')
+        ship_adcp = pickle.load(pkl_file)
+        pkl_file.close()
+        s_dep.append(ship_adcp['bin_depth'])
+        s_o2.append(ship_adcp['oxygen1'])
+        s_ct.append(ship_adcp['CT'])
+        s_sa.append(ship_adcp['SA'])
+        for j in range(s_o2[i].shape[1]):
+            # if (ship_adcp['den_dist'][i][j] < 400) & (np.nanmax(s_o2[i][:, j]) > 240):
+            #     ax.plot(s_o2[i][:, j], s_dep[i], color='k', label='Cast', linewidth=1.5)
+            if (ship_adcp['den_dist'][i][j] < 400) & (ship_adcp['den_dist'][i][j] > 50):
+                ax.plot(s_sa[i][:, j], s_ct[i][:, j], color='k', label='Cast', linewidth=1.5)
+    for k in range(len(profile_tags)):
+        # ax.plot(o2[:, k], bin_depth, color='g', linewidth=0.6, label='Glider')
+        ax.plot(sa[:, k], ct[:, k], color='g', linewidth=0.6, label='Glider')
+    # ax.set_xlim([120, 275])
+    ax.set_xlim([35, 35.5])
+    ax.set_ylim([1, 11])
+    handles, labels = ax.get_legend_handles_labels()
+    ax.legend([handles[0], handles[-1]], [labels[0], labels[-1]], fontsize=12)
+    # ax.set_xlabel('Dissolved Oxygen [$\mu$mol / kg]')
+    ax.set_xlabel('SA')
+    ax.set_ylabel('CT')
+    ax.set_title('T/S Comparison: ' + str(x.ID) + 'dives:' + str(x.dives[0]) + ':' + str(x.dives[-1]) + ', and ABACO Casts (2014-2017)')
+    # ax.invert_yaxis()
+    ax.grid()
+    plot_pro(ax)
 
 # vehicle pitch: 'eng_pitchAng'
 # DAC_u: 'depth_avg_curr_east'
 # DAC_v: 'depth_avg_curr_north'
-
-# todo need to improve the average DAC over a M/W section (should be an average of DACs)

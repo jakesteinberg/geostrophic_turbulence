@@ -1,6 +1,7 @@
 # read ABACO shipboard ctd 
 
 import numpy as np
+from scipy.io import netcdf
 import matplotlib.pyplot as plt
 import glob
 import datetime 
@@ -162,7 +163,7 @@ for i in range(np.size(file_list)):
 
 plot_plan = 1
 if plot_plan > 0:
-    fig, (ax1,ax2) = plt.subplots(1, 2, sharey=True)
+    fig, (ax1, ax2) = plt.subplots(1, 2, sharey=True)
     for k in range(np.size(file_list)-20):    
         ax1.scatter(CT[:, k], bin_depth, s=1)
         ax2.scatter(SA[:, k], bin_depth, s=1)
@@ -301,7 +302,7 @@ plot_pro(ax2)
 
 # --- SAVE ---
 # write python dict to a file
-sa = 1
+sa = 0
 if sa > 0:
     mydict = {'bin_depth': bin_depth, 'adcp_depth': dac_bin_dep, 'adcp_u': U, 'adcp_v': V,
               'adcp_lon': lon_uv[adcp_in], 'adcp_lat': lat_uv[adcp_in], 'adcp_dist': adcp_dist,

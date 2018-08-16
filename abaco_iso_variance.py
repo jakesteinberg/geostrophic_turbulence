@@ -13,7 +13,8 @@ import scipy.io as si
 import pickle
 from scipy.signal import savgol_filter
 import matplotlib.gridspec as gridspec
-# functions I've written 
+# functions I've written
+from glider_cross_section import Glider
 from grids import make_bin
 from mode_decompositions import vertical_modes, PE_Tide_GM
 from toolkit import plot_pro, find_nearest
@@ -67,7 +68,7 @@ time_rec = []
 time_rec_2 = np.zeros([dg_list.shape[0], 2])
 
 # plot controls 
-plot_plan = 0
+plot_plan = 1
 plot_cross = 0
 plot_eta = 0
 plot_eng = 0
@@ -95,6 +96,30 @@ if plot_plan > 0:
     fig0.colorbar(bc, cax=cax, label='[m]')
     ax0.set_xlabel('Longitude')
     ax0.set_ylabel('Latitude')
+
+# -------------------------------------------------------------------------------------------------
+# Update to use glider package
+x = Glider(37, np.arange(45, 80), '/Users/jake/Documents/baroclinic_modes/DG/ABACO_2017/sg037')
+
+# Vertically Bin
+Binned = x.make_bin(grid)
+d_time = Binned['time']
+lon = Binned['lon']
+lat = Binned['lat']
+t = Binned['temp']
+s = Binned['sal']
+dac_u = Binned['dac_u']
+dac_v = Binned['dac_v']
+profile_tags = Binned['profs']
+if 'o2' in Binned.keys():
+    o2 = Binned['o2']
+ref_lat = np.nanmean(lat)
+
+# Compute density
+sa, ct, sig0, N2 = x.density(grid, ref_lat, t, s, lon, lat)
+
+# Need a generic Transect Mapping routine (one that will separate sets of dives into transects)
+# Reference Transects to a Lat/Lon
 
 # loop over each dive 
 count = 0
@@ -205,12 +230,12 @@ for i in dg_list:
     # plot plan view action if needed     
     if plot_plan > 0:
         if glid_num > 37:
-            dg1 = ax0.scatter(1000 * x_grid_dive / (1852 * 60 * np.cos(np.deg2rad(26.5))) + lon_in,
+            dg = ax0.scatter(1000 * x_grid_dive / (1852 * 60 * np.cos(np.deg2rad(26.5))) + lon_in,
                               1000 * y_grid_dive / (1852 * 60) + lat_in, s=2, color='#FFD700', zorder=1, label='DG38')
             ax0.scatter(1000 * x_grid_climb / (1852 * 60 * np.cos(np.deg2rad(26.5))) + lon_in,
                         1000 * y_grid_climb / (1852 * 60) + lat_in, s=2, color='#FFD700', zorder=1)
         else:
-            dg2 = ax0.scatter(1000 * x_grid_dive / (1852 * 60 * np.cos(np.deg2rad(26.5))) + lon_in,
+            dg = ax0.scatter(1000 * x_grid_dive / (1852 * 60 * np.cos(np.deg2rad(26.5))) + lon_in,
                               1000 * y_grid_dive / (1852 * 60) + lat_in, s=2, color='#B22222', zorder=1, label='DG37')
             ax0.scatter(1000 * x_grid_climb / (1852 * 60 * np.cos(np.deg2rad(26.5))) + lon_in,
                         1000 * y_grid_climb / (1852 * 60) + lat_in, s=2, color='#B22222', zorder=1)
@@ -230,10 +255,11 @@ if plot_plan > 0:
     ax0.set_title('Nine ABACO Transects (DG37,38 - 57 dive-cycles): ' +
                   np.str(t_s.month) + '/' + np.str(t_s.day) + ' - ' + np.str(t_e.month) + '/' + np.str(t_e.day))
     handles, labels = ax0.get_legend_handles_labels()
-    ax0.legend(handles=[dg1, dg2, sp])  # ,[np.unique(labels)],fontsize=10)
+    ax0.legend(handles=[dg, sp])  # ,[np.unique(labels)],fontsize=10)
     plt.tight_layout()
-    fig0.savefig('/Users/jake/Desktop/abaco/plan_2.png', dpi=200)
-    plt.close()
+    plot_pro(ax0)
+    # fig0.savefig('/Users/jake/Desktop/abaco/plan_2.png', dpi=200)
+    # plt.close()
 
 # --------------------------------------------------------
 sz = df_den.shape
@@ -1061,14 +1087,14 @@ a_a_std_2 = savgol_filter(abaco_std_eta, window_size, poly_order)
 b_a_std_2 = savgol_filter(bats_std_eta, window_size, poly_order)
 h_a_std_2 = savgol_filter(hots_std_eta, window_size, poly_order)
 
-f, ax = plt.subplots()
-plt.plot(a_a_e_2, grid, color='k')
-plt.plot(b_a_e_2, bats_eta_prof['bin_depth'], color='b')
-plt.plot(h_a_e_2, sta_hots_depth, color='r')
-
-plt.plot(a_a_e_2 + a_a_std_2, grid, color='k', linestyle='--')
-plt.plot(b_a_e_2 + b_a_std_2, bats_eta_prof['bin_depth'], color='b', linestyle='--')
-plt.plot(h_a_e_2 + h_a_std_2, sta_hots_depth, color='r', linestyle='--')
-ax.axis([0, 600, 0, 4000])
-ax.invert_yaxis()
-plot_pro(ax)
+# f, ax = plt.subplots()
+# plt.plot(a_a_e_2, grid, color='k')
+# plt.plot(b_a_e_2, bats_eta_prof['bin_depth'], color='b')
+# plt.plot(h_a_e_2, sta_hots_depth, color='r')
+#
+# plt.plot(a_a_e_2 + a_a_std_2, grid, color='k', linestyle='--')
+# plt.plot(b_a_e_2 + b_a_std_2, bats_eta_prof['bin_depth'], color='b', linestyle='--')
+# plt.plot(h_a_e_2 + h_a_std_2, sta_hots_depth, color='r', linestyle='--')
+# ax.axis([0, 600, 0, 4000])
+# ax.invert_yaxis()
+# plot_pro(ax)
