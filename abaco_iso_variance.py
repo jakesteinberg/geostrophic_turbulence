@@ -19,6 +19,7 @@ from grids import make_bin
 from mode_decompositions import vertical_modes, PE_Tide_GM
 from toolkit import plot_pro, find_nearest
 
+# -------------------------------------------------------------------------------------------------------------------
 # --- BATHYMETRY
 bath = '/Users/jake/Desktop/abaco/abaco_bathymetry/GEBCO_2014_2D_-79.275_22.25_-67.975_29.1.nc'
 bath_fid = Dataset(bath, 'r')
@@ -26,24 +27,70 @@ bath_lon = bath_fid['lon'][:]
 bath_lat = bath_fid['lat'][:]
 bath_z = bath_fid['elevation'][:]
 
+# -------------------------------------------------------------------------------------------------------------------
 # --- GLIDER NC FILES
-dg037_list = glob.glob('/Users/jake/Documents/baroclinic_modes/DG/ABACO_2017/sg037/p*.nc')
-dg038_list = glob.glob('/Users/jake/Documents/baroclinic_modes/DG/ABACO_2017/sg038/p*.nc')  # 50-72
-# dg_list = np.concatenate([dg037_list[45:],dg038_list[50:72]])
-dg_list = np.array(dg037_list[45:])
-# dg_list = dg038_list[50:72]
-
-# -----------------------
+# dg037_list = glob.glob('/Users/jake/Documents/baroclinic_modes/DG/ABACO_2017/sg037/p*.nc')
+# dg038_list = glob.glob('/Users/jake/Documents/baroclinic_modes/DG/ABACO_2017/sg038/p*.nc')  # 50-72
+# # - code written to analyze one glider at a time
+# # dg_list = np.concatenate([dg037_list[45:],dg038_list[50:72]])
+# dg_list = np.array(dg037_list[45:])
+# # dg_list = dg038_list[50:72]
+# -------------------------------------------------------------------------------------------------
+# USING GLIDER PACKAGE
+x = Glider(37, np.arange(45, 80), '/Users/jake/Documents/baroclinic_modes/DG/ABACO_2017/sg037')
+# x = Glider(39, np.arange(20, 55), '/Users/jake/Documents/baroclinic_modes/DG/ABACO_2018/sg039')
+# -------------------------------------------------------------------------------------------------------------------
 # --- LOAD ABACO SHIPBOARD CTD DATA
-pkl_file = open('/Users/jake/Desktop/abaco/ship_adcp.pkl', 'rb')
+ship_files = glob.glob('/Users/jake/Documents/baroclinic_modes/SHIPBOARD/ABACO/ship_ladcp*.pkl')
+# all shipboard casts
+for i in range(len(ship_files)):
+    pkl_file = open(ship_files[i], 'rb')
+    abaco_ship = pickle.load(pkl_file)
+    pkl_file.close()
+    if i < 1:
+        time_key = np.int(ship_files[i][-14:-10]) * np.ones(abaco_ship['oxygen1'].shape[1])
+        ship_o2_1 = abaco_ship['oxygen1']
+        ship_o2_2 = abaco_ship['oxygen2']
+        ship_SA = abaco_ship['SA']
+        ship_CT = abaco_ship['CT']
+        ship_lon = abaco_ship['cast_lon']
+        ship_lat = abaco_ship['cast_lat']
+        # adcp_depth = abaco_ship['adcp_depth']
+        # adcp_dist = abaco_ship['adcp_dist']
+        # adcp_v = abaco_ship['adcp_v']
+    else:
+        time_key = np.concatenate((time_key, np.int(ship_files[i][-14:-10]) * np.ones(abaco_ship['oxygen1'].shape[1])))
+        ship_o2_1 = np.concatenate((ship_o2_1, abaco_ship['oxygen1']), axis=1)
+        ship_o2_2 = np.concatenate((ship_o2_2, abaco_ship['oxygen2']), axis=1)
+        ship_SA = np.concatenate((ship_SA, abaco_ship['SA']), axis=1)
+        ship_CT = np.concatenate((ship_CT, abaco_ship['CT']), axis=1)
+        ship_lon = np.concatenate((ship_lon, abaco_ship['cast_lon']))
+        ship_lat = np.concatenate((ship_lat, abaco_ship['cast_lat']))
+        # adcp_dist = np.concatenate((adcp_dist, abaco_ship['adcp_dist']))
+        # adcp_v = np.concatenate((adcp_v, abaco_ship['adcp_v']), axis=1)
+
+# current analysis
+pkl_file = open('/Users/jake/Documents/baroclinic_modes/SHIPBOARD/ABACO/ship_ladcp_2017-05-08.pkl', 'rb')
 abaco_ship = pickle.load(pkl_file)
 pkl_file.close()
 
+ship_den = abaco_ship['den_grid']
+ship_theta = abaco_ship['CT']
+ship_salin = abaco_ship['SA']
+ship_dist_0 = abaco_ship['den_dist']
+ship_dist = np.nanmean(ship_dist_0, axis=0)
+ship_depth_0 = abaco_ship['bin_depth']
+ship_depth = np.repeat(np.transpose(np.array([abaco_ship['bin_depth']])), np.shape(ship_den)[1], axis=1)
+adcp_dist = abaco_ship['adcp_dist']
+adcp_depth = abaco_ship['adcp_depth']
+adcp_v = abaco_ship['adcp_v']
+
+# -------------------------------------------------------------------------------------------------------------------
 # --- LOAD NEARBY ARGO CTD DATA
 pkl_file = open('/Users/jake/Desktop/argo/deep_argo_nwa.pkl', 'rb')
 abaco_argo = pickle.load(pkl_file)
 pkl_file.close()
-
+# -------------------------------------------------------------------------------------------------------------------
 # --- GRID / SPATIAL PARAMETERS
 ref_lat = 26.5
 ref_lon = -76
@@ -57,7 +104,7 @@ grid = np.concatenate([GD.variables['grid'][:], np.arange(GD.variables['grid'][:
 grid_p = gsw.p_from_z(-1 * grid, ref_lat)
 den_grid = np.arange(24.5, 28, 0.02)
 dist_grid_s = np.arange(2, 125, 0.005)
-dist_grid = np.arange(20, 125, 4)
+dist_grid = np.arange(22, 150, 4)
 
 # output dataframe 
 df_t = pd.DataFrame()
@@ -65,18 +112,16 @@ df_s = pd.DataFrame()
 df_d = pd.DataFrame()
 df_den = pd.DataFrame()
 time_rec = []
-time_rec_2 = np.zeros([dg_list.shape[0], 2])
+time_rec_2 = np.zeros([len(x.files), 2])
 
 # plot controls 
-plot_plan = 1
+plot_plan = 0
 plot_cross = 0
 plot_eta = 0
 plot_eng = 0
 
-# -----------------------------------------------------
-# --- iterate for each dive cycle ---
-
-# prep plan view plot of dive locations 
+# -------------------------------------------------------------------------------------------------------------------
+# prep plan view plot of dive locations
 if plot_plan > 0:
     levels = [-5250, -5000, -4750, -4500, -4250, -4000, -3500, -3000, -2500, -2000, -1500, -1000, -500, 0]
     fig0, ax0 = plt.subplots()
@@ -98,9 +143,6 @@ if plot_plan > 0:
     ax0.set_ylabel('Latitude')
 
 # -------------------------------------------------------------------------------------------------
-# Update to use glider package
-x = Glider(37, np.arange(45, 80), '/Users/jake/Documents/baroclinic_modes/DG/ABACO_2017/sg037')
-
 # Vertically Bin
 Binned = x.make_bin(grid)
 d_time = Binned['time']
@@ -114,174 +156,58 @@ profile_tags = Binned['profs']
 if 'o2' in Binned.keys():
     o2 = Binned['o2']
 ref_lat = np.nanmean(lat)
-
+# -------------------------------------------------------------------------------------------------
 # Compute density
 sa, ct, sig0, N2 = x.density(grid, ref_lat, t, s, lon, lat)
 
-# Need a generic Transect Mapping routine (one that will separate sets of dives into transects)
-# Reference Transects to a Lat/Lon
+# -----------------------------------------------------------------------------------------------
+# compute M/W sections and compute velocity
+# USING X.TRANSECT_CROSS_SECTION_1 (THIS WILL SEPARATE TRANSECTS BY TARGET OF EACH DIVE)
+sigth_levels = np.concatenate(
+    [np.arange(23, 26.5, 0.5), np.arange(26.2, 27.2, 0.2),
+     np.arange(27.2, 27.8, 0.2), np.arange(27.7, 27.8, 0.02), np.arange(27.8, 27.9, 0.01)])
+ds, dist, v_g, vbt, isopycdep, isopycx, mwe_lon, mwe_lat, DACe_MW, DACn_MW, profile_tags_per = \
+    x.transect_cross_section_1(grid, sig0, lon, lat, dac_u, dac_v, profile_tags, sigth_levels)
 
-# loop over each dive 
-count = 0
-for i in dg_list:
-    nc_fid = Dataset(i, 'r')
-    glid_num = nc_fid.glider
-    dive_num = nc_fid.dive_number
+# -----------------------------------------------------------------------------------------------
+# PLOTTING cross section
+# choose which transect
+transect_no = 1
+x.plot_cross_section(grid, ds[transect_no], v_g[transect_no], dist[transect_no],
+                     profile_tags_per[transect_no], isopycdep[transect_no], isopycx[transect_no],
+                     sigth_levels, d_time)
+# -----------------------------------------------------------------------------------------------
+# PLOTTING PLAN VIEW
+# ABACO
+bathy_path = '/Users/jake/Documents/baroclinic_modes/DG/ABACO_2017/OceanWatch_smith_sandwell.nc'
+x.plot_plan_view(lon, lat, mwe_lon[transect_no], mwe_lat[transect_no],
+                 DACe_MW[transect_no], DACn_MW[transect_no],
+                 ref_lat, profile_tags_per[transect_no], d_time, [-77.5, -73.5, 25.5, 27], bathy_path)
 
-    lat = nc_fid.variables['latitude'][:]
-    lon = nc_fid.variables['longitude'][:]
-    x = (lon - lon_in) * (1852 * 60 * np.cos(np.deg2rad(26.5)))
-    y = (lat - lat_in) * (1852 * 60)
+# -----------------------------------------------------------------------------------------------
+# unpack velocity profiles from transect analysis
+dg_v_0 = v_g[0].copy()
+dg_v_lon = mwe_lon[0][0:-1].copy()
+dg_v_lat = mwe_lat[0][0:-1].copy()
+for i in range(1, len(v_g)):
+    dg_v_0 = np.concatenate((dg_v_0, v_g[i][:, 0:-1]), axis=1)
+    dg_v_lon = np.concatenate((dg_v_lon, mwe_lon[i][0:-1]))
+    dg_v_lat = np.concatenate((dg_v_lat, mwe_lat[i][0:-1]))
 
-    press = nc_fid.variables['ctd_pressure'][:]
-    ctd_epoch_time = nc_fid.variables['ctd_time'][:]
-    temp = nc_fid.variables['temperature'][:]
-    salin = nc_fid.variables['salinity'][:]
-    pitch_ang = nc_fid.variables['eng_pitchAng'][:]
-    depth = -1 * gsw.z_from_p(press, ref_lat)
-    SA = gsw.SA_from_SP(salin, press, ref_lon * np.ones(len(salin)), ref_lat * np.ones(len(salin)))
-    CT = gsw.CT_from_t(SA, temp, press)
-
-    # time conversion 
-    secs_per_day = 86400.0
-    dive_start_time = nc_fid.start_time
-    ctd_time = ctd_epoch_time - dive_start_time
-    datenum_start = 719163  # jan 1 1970
-
-    # put on distance/density grid (1 column per profile)
-    max_d = np.where(depth == depth.max())
-    max_d_ind = max_d[0]
-    pitch_ang_sub1 = pitch_ang[0:max_d_ind[0]]
-    pitch_ang_sub2 = pitch_ang[max_d_ind[0]:]
-    dive_mask_i = np.where(pitch_ang_sub1 < 0)
-    dive_mask = dive_mask_i[0][:]
-    climb_mask_i = np.where(pitch_ang_sub2 > 0)
-    climb_mask = climb_mask_i[0][:] + max_d_ind[0] - 1
-
-    # dive/climb time midpoints
-    time_dive = ctd_time[dive_mask]
-    time_climb = ctd_time[climb_mask]
-
-    serial_date_time_dive = datenum_start + dive_start_time / (60 * 60 * 24) + np.median(time_dive) / secs_per_day
-    serial_date_time_climb = datenum_start + dive_start_time / (60 * 60 * 24) + np.median(time_climb) / secs_per_day
-    time_rec_2[count, :] = np.array([serial_date_time_dive, serial_date_time_climb])
-    if np.sum(time_rec) < 1:
-        time_rec = np.concatenate([[serial_date_time_dive], [serial_date_time_climb]])
-    else:
-        time_rec = np.concatenate([time_rec, [serial_date_time_dive], [serial_date_time_climb]])
-
-    # interpolate (bin_average) to smooth and place T/S on vertical depth grid 
-    CT_grid_dive, CT_grid_climb, SA_grid_dive, SA_grid_climb, x_grid_dive, x_grid_climb, \
-    y_grid_dive, y_grid_climb = make_bin(grid, depth[dive_mask], depth[climb_mask], CT[dive_mask], CT[climb_mask],
-                                         SA[dive_mask], SA[climb_mask], x[dive_mask], x[climb_mask],
-                                         y[dive_mask], y[climb_mask])
-
-    # theta_grid_dive = sw.ptmp(salin_grid_dive, temp_grid_dive, grid_p, pr=0)
-    # theta_grid_climb = sw.ptmp(salin_grid_climb, temp_grid_climb, grid_p, pr=0)
-
-    # compute distance to closest point on transect
-    dist_dive = np.zeros(np.size(x_grid_dive))
-    dist_climb = np.zeros(np.size(y_grid_dive))
-    for j in range(np.size(x_grid_dive)):
-        all_dist_dive = np.sqrt((x_grid_dive[j] - dist_grid_s) ** 2 + (y_grid_dive[j] - 0) ** 2)
-        all_dist_climb = np.sqrt((x_grid_climb[j] - dist_grid_s) ** 2 + (y_grid_climb[j] - 0) ** 2)
-        # dive
-        if np.isnan(x_grid_dive[j]):
-            dist_dive[j] = float('nan')
-        else:
-            closest_dist_dive_i = np.where(all_dist_dive == all_dist_dive.min())
-            dist_dive[j] = dist_grid_s[closest_dist_dive_i[0]]
-        # climb 
-        if np.isnan(x_grid_climb[j]):
-            dist_climb[j] = float('nan')
-        else:
-            closest_dist_climb_i = np.where(all_dist_climb == all_dist_climb.min())
-            dist_climb[j] = dist_grid_s[closest_dist_climb_i[0]]
-
-    # create dataframes where each column is a profile
-    t_data_d = pd.DataFrame(CT_grid_dive, index=grid, columns=[glid_num * 1000 + dive_num])
-    t_data_c = pd.DataFrame(CT_grid_climb, index=grid, columns=[glid_num * 1000 + dive_num + .5])
-    s_data_d = pd.DataFrame(SA_grid_dive, index=grid, columns=[glid_num * 1000 + dive_num])
-    s_data_c = pd.DataFrame(SA_grid_climb, index=grid, columns=[glid_num * 1000 + dive_num + .5])
-    d_data_d = pd.DataFrame(dist_dive, index=grid, columns=[glid_num * 1000 + dive_num])
-    d_data_c = pd.DataFrame(np.flipud(dist_climb), index=grid, columns=[glid_num * 1000 + dive_num + .5])
-
-    if df_t.size < 1:
-        df_t = pd.concat([t_data_d, t_data_c], axis=1)
-        df_s = pd.concat([s_data_d, s_data_c], axis=1)
-        df_d = pd.concat([d_data_d, d_data_c], axis=1)
-    else:
-        df_t = pd.concat([df_t, t_data_d, t_data_c], axis=1)
-        df_s = pd.concat([df_s, s_data_d, s_data_c], axis=1)
-        df_d = pd.concat([df_d, d_data_d, d_data_c], axis=1)
-
-    # if interpolating on a depth grid, interpolate density 
-    if grid[10] - grid[9] > 1:
-        # sw.pden(salin_grid_dive, temp_grid_dive, grid_p, pr=0) - 1000
-        den_grid_dive = gsw.sigma0(SA_grid_dive, CT_grid_dive)
-        den_grid_climb = gsw.sigma0(SA_grid_climb, CT_grid_climb)
-        den_data_d = pd.DataFrame(den_grid_dive, index=grid, columns=[glid_num * 1000 + dive_num])
-        den_data_c = pd.DataFrame(den_grid_climb, index=grid, columns=[glid_num * 1000 + dive_num + .5])
-        if df_t.size < 1:
-            df_den = pd.concat([den_data_d, den_data_c], axis=1)
-        else:
-            df_den = pd.concat([df_den, den_data_d, den_data_c], axis=1)
-
-    # plot plan view action if needed     
-    if plot_plan > 0:
-        if glid_num > 37:
-            dg = ax0.scatter(1000 * x_grid_dive / (1852 * 60 * np.cos(np.deg2rad(26.5))) + lon_in,
-                              1000 * y_grid_dive / (1852 * 60) + lat_in, s=2, color='#FFD700', zorder=1, label='DG38')
-            ax0.scatter(1000 * x_grid_climb / (1852 * 60 * np.cos(np.deg2rad(26.5))) + lon_in,
-                        1000 * y_grid_climb / (1852 * 60) + lat_in, s=2, color='#FFD700', zorder=1)
-        else:
-            dg = ax0.scatter(1000 * x_grid_dive / (1852 * 60 * np.cos(np.deg2rad(26.5))) + lon_in,
-                              1000 * y_grid_dive / (1852 * 60) + lat_in, s=2, color='#B22222', zorder=1, label='DG37')
-            ax0.scatter(1000 * x_grid_climb / (1852 * 60 * np.cos(np.deg2rad(26.5))) + lon_in,
-                        1000 * y_grid_climb / (1852 * 60) + lat_in, s=2, color='#B22222', zorder=1)
-        ax0.scatter(1000 * dist_dive / (1852 * 60 * np.cos(np.deg2rad(26.5))) + lon_in,
-                    np.zeros(np.size(dist_dive)) + lat_in, s=0.75, color='k')
-        ax0.scatter(1000 * dist_climb / (1852 * 60 * np.cos(np.deg2rad(26.5))) + lon_in,
-                    np.zeros(np.size(dist_climb)) + lat_in, s=0.75, color='k')
-        ax0.text(1000 * (np.median(dist_grid) - 20) / (1852 * 60 * np.cos(np.deg2rad(26.5))) + lon_in,
-                 lat_in - .3, '~ 125km', fontsize=12, color='w')
-    count = count + 1
-
-# --------------- end of for loop running over each dive
-if plot_plan > 0:
-    sp = ax0.scatter(abaco_ship['cast_lon'], abaco_ship['cast_lat'], s=4, color='#7CFC00', label='Ship')
-    t_s = datetime.date.fromordinal(np.int(np.min(time_rec[0])))
-    t_e = datetime.date.fromordinal(np.int(np.max(time_rec[-1])))
-    ax0.set_title('Nine ABACO Transects (DG37,38 - 57 dive-cycles): ' +
-                  np.str(t_s.month) + '/' + np.str(t_s.day) + ' - ' + np.str(t_e.month) + '/' + np.str(t_e.day))
-    handles, labels = ax0.get_legend_handles_labels()
-    ax0.legend(handles=[dg, sp])  # ,[np.unique(labels)],fontsize=10)
-    plt.tight_layout()
-    plot_pro(ax0)
-    # fig0.savefig('/Users/jake/Desktop/abaco/plan_2.png', dpi=200)
-    # plt.close()
-
-# --------------------------------------------------------
-sz = df_den.shape
+# ---------------------------------------------------------------------------------------------------------
+sz = sig0.shape
+time_rec = np.nanmean(d_time, axis=0)
 num_profs = sz[1]
 time_min = np.min(time_rec)
 time_max = np.max(time_rec)
 time_mid = 10.5 * (time_max - time_min) + time_min
 
-# compute average density/temperature as a function of distance offshore       
+# compute average density/temperature as a function of distance offshore
+# need a reference point (seems to make sense to plot everything as a function of longitude)
+df_d = (lon - lon_in) * (1852 * 60 * np.cos(np.deg2rad(26.5))) / 1000
 
-# compare to shipboard data 
-ship_den = abaco_ship['den_grid']
-ship_den_2 = abaco_ship['den_grid_2']
-ship_theta = abaco_ship['theta_grid']
-ship_theta_2 = abaco_ship['theta_grid_2']
-ship_salin = abaco_ship['salin_grid']
-ship_salin_2 = abaco_ship['salin_grid_2']
-ship_dist_0 = abaco_ship['den_dist']
-ship_dist = np.nanmean(ship_dist_0, axis=0)
-ship_depth_0 = abaco_ship['bin_depth']
-ship_depth = np.repeat(np.transpose(np.array([abaco_ship['bin_depth']])), np.shape(ship_den)[1], axis=1)
-
+# ---------------------------------------------------------------------------------------------------------
+# USING GLIDER PROFILES COMPUTE AVERATE T/S/RHO AT INCREASING EASTWARD DISTANCE
 count = 0
 mean_dist = np.nanmean(df_d, 0)
 profs_per_avg = np.zeros(np.shape(dist_grid))
@@ -291,19 +217,21 @@ sigma_avg_grid = np.zeros([np.size(grid), np.size(dist_grid)])
 for i in dist_grid:
     mask = (mean_dist > i - 10) & (mean_dist < i + 10)
     profs_per_avg[count] = np.sum(mask)
-    CT_avg_grid[:, count] = np.nanmean(df_t[df_t.columns[mask]], 1)
-    SA_avg_grid[:, count] = np.nanmean(df_s[df_s.columns[mask]], 1)
-    sigma_avg_grid[:, count] = np.nanmean(df_den[df_den.columns[mask]], 1)
+    CT_avg_grid[:, count] = np.nanmean(ct[:, mask], 1)  # np.nanmean(df_t[df_t.columns[mask]], 1)
+    SA_avg_grid[:, count] = np.nanmean(sa[:, mask], 1)  # np.nanmean(df_s[df_s.columns[mask]], 1)
+    sigma_avg_grid[:, count] = np.nanmean(sig0[:, mask], 1)  # np.nanmean(df_den[df_den.columns[mask]], 1)
     count = count + 1
 
-# --------------------------------------------------
+# ---------------------------------------------------------------------------------------------------------
+import_dg = si.loadmat('/Users/jake/Documents/geostrophic_turbulence/ABACO_dg_transect_9.mat')
+dg_data = import_dg['out_t']
+
+# ---------------------------------------------------------------------------------------------------------
 # --- mean density profile as a function of distance offshore (avg profile changes (and represents the linear trend))
-c2s = plt.cm.jet(np.linspace(0, 1, 31))
+c2s = plt.cm.jet(np.linspace(0, 1, 33))
 c2_ship = plt.cm.jet(np.linspace(0, 1, 11))
-rho_comp = 0
-rho_z_comp = 0
 if plot_cross > 0:
-    # plan view and comparison across platforms 
+    # plan view and comparison across platforms
     gs = gridspec.GridSpec(3, 4)
     ax1 = plt.subplot(gs[0, :])
     ax2 = plt.subplot(gs[1:, 0:2])
@@ -326,8 +254,6 @@ if plot_cross > 0:
         lat = nc_fid.variables['latitude'][:]
         lon = nc_fid.variables['longitude'][:]
         ax1.scatter(lon, lat, s=1, color='#A0522D')
-    import_dg = si.loadmat('/Users/jake/Documents/geostrophic_turbulence/ABACO_dg_transect_9.mat')
-    dg_data = import_dg['out_t']
     ax1.plot(dg_data['dac_lon'][0][0], dg_data['dac_lat'][0][0], color='y', linewidth=2)
     ax1.text(-75.3, 26.66, 'DG38: 67-77', fontsize=12, color='y')
     ax1.scatter(dg_data['dac_lon'][0][0], dg_data['dac_lat'][0][0], s=15, color='y')
@@ -376,26 +302,28 @@ if plot_cross > 0:
     ax3.grid()
     plot_pro(ax3)
 
+rho_comp = 1
 if rho_comp > 0:
+    f = plt.subplots()
     gs = gridspec.GridSpec(4, 4)
     ax1 = plt.subplot(gs[0:2, :])
     ax2 = plt.subplot(gs[2:, 0:2])
     ax3 = plt.subplot(gs[2:, 2:])
+
+    den_levels = np.append(np.arange(25, 27.78, .4), np.arange(27.78, 27.9, .02))
+
     # cross section density T/S profile comparisons 
     ax1.pcolor(dist_grid, grid, sigma_avg_grid, vmin=25, vmax=28)
     # ax1.contour(dist_grid,grid,t_avg_grid,colors='k',levels=[2,3,4,5,6,7,8,10,12,16,20])
-    den_c = ax1.contour(dist_grid, grid, sigma_avg_grid, colors='k',
-                        levels=np.append(np.arange(25, 27.78, .4), np.arange(27.78, 27.9, .02)),
-                        linewidth=.35)  # [25,26,26.5,27,27.2,27.4,27.6,27.7,27.75,27.8,27.85,27.875,27.9])
+    den_c = ax1.contour(dist_grid, grid, sigma_avg_grid, colors='k', levels= den_levels, linewidth=.35, label='DG')
     # ax1.clabel(den_c, fontsize=6, inline=1,fmt='%.4g',spacing=10)  
-    den_ship = ax1.contour(ship_dist, ship_depth_0, ship_den, colors='r',
-                           levels=np.append(np.arange(25, 27.78, .4), np.arange(27.78, 27.9, .02)), linewidth=.75)
+    den_ship = ax1.contour(ship_dist, ship_depth_0, ship_den, colors='r', levels=den_levels, linewidth=.75)
     ax1.clabel(den_ship, fontsize=6, inline=1, fmt='%.4g', spacing=-50)
-    for i in range(28, 34):
-        ax1.plot(dg_data['Isopyc_x'][0][0][i, :], dg_data['Isopyc_dep'][0][0][i, :], color='k', linewidth=0.75)
-        ax1.text(dg_data['Isopyc_x'][0][0][i, -1] + 7, dg_data['Isopyc_dep'][0][0][i, -1],
-                 str(np.round(np.squeeze(dg_data['sig_th_lev'][0][0][i]), decimals=2)), fontsize=7)
-    ax1.text(200, 3500, 'DG38 - Long Transect')
+    # for i in range(28, 34):
+    #     ax1.plot(dg_data['Isopyc_x'][0][0][i, :], dg_data['Isopyc_dep'][0][0][i, :], color='k', linewidth=0.75)
+    #     ax1.text(dg_data['Isopyc_x'][0][0][i, -1] + 7, dg_data['Isopyc_dep'][0][0][i, -1],
+    #               str(np.round(np.squeeze(dg_data['sig_th_lev'][0][0][i]), decimals=2)), fontsize=7)
+    # ax1.text(200, 3500, 'DG38 - Long Transect')
     ax1.axis([0, 250, 0, 5000])
     # ax1.set_xlabel('Distance Offshore [km]')
     ax1.set_ylabel('Depth [m]')
@@ -414,10 +342,9 @@ if rho_comp > 0:
     for i in range(10):
         ax2.plot(ship_salin[:, i], ship_theta[:, i], color=c2_ship[i, :], linestyle='--', linewidth=0.75)
         # ax2.plot(np.nanmean(abaco_argo['salin'][1:-1],axis=1),np.nanmean(abaco_argo['theta'][1:-1],axis=1),color='k')
-    ax2.axis([34.8, 36.75, 1.5, 22])
+    ax2.axis([35, 36.5, 1.5, 17])
     ax2.set_ylabel('Potential Temp.', fontsize=12)
     ax2.set_xlabel('Salinity', fontsize=12)
-    ax2.grid()
 
     TT, SS = np.meshgrid(np.arange(0, 2.8, .001), np.arange(34.4, 35, .001))
     DD = gsw.sigma0(SS, TT)  # sw.pden(SS, TT, np.zeros(np.shape(TT)), 0) - 1000
@@ -435,9 +362,11 @@ if rho_comp > 0:
     handles, labels = ax3.get_legend_handles_labels()
     ax3.legend([handles[0], handles[-1]], [labels[0], labels[-1]], fontsize=12)
     ax3.set_xlabel('Salinity', fontsize=12)
-    ax3.axis([34.86, 34.93, 1.7, 2.52])
+    ax3.axis([35.025, 35.15, 1.6, 3.25])
+    # ax3.axis([34.86, 34.93, 1.7, 2.52])
     plot_pro(ax3)
 
+rho_z_comp = 0
 if rho_z_comp > 0:
     # argo noodling
     argo_press = abaco_argo['bin_press']
@@ -497,15 +426,19 @@ N2 = np.zeros(np.shape(sigma_avg_grid))
 for i in range(np.size(dist_grid)):
     N2[1:, i] = gsw.Nsquared(SA_avg_grid[:, i], CT_avg_grid[:, i], grid_p, lat=ref_lat)[0]
     # np.squeeze(sw.bfrq(salin_avg_grid[:, i], theta_avg_grid[:, i], grid_p, lat=26.5)[0])
-# f,ax = plt.subplots()
-# ax.plot(N2[:,5],grid_p)
-# ax.plot(N2[:,7],grid_p)
-# plot_pro(ax)    
 lz = np.where(N2 < 0)
 lnan = np.isnan(N2)
 N2[lz] = 0
 N2[lnan] = 0
 N = np.sqrt(N2)
+
+c2_n2 = plt.cm.plasma(np.linspace(0, 1, 33))
+f, ax = plt.subplots()
+for i in range(np.size(dist_grid)):
+    ax.plot(N2[:, i], grid_p, color=c2_n2[i, :])
+ax.grid()
+ax.invert_yaxis()
+plot_pro(ax)
 
 # find closest average profile to subtract to find eta     
 eta = np.zeros([np.size(grid), np.size(dist_grid)])
@@ -517,69 +450,51 @@ eta_theta = np.zeros([np.size(grid), np.size(dist_grid)])
 df_eta_theta = pd.DataFrame()
 closest_rec = np.nan * np.zeros([np.size(mean_dist)])
 
+# ---------------------------------------------------------------------------------------------------------
+# COMPUTE ANOMALIES AND ETA ... DEEP salinity offset
 # subset = np.where((df_den.columns > 37057) & (df_den.columns < 37064)) # 58-63
-# --- test for deep salinity offset
-f, (ax1, ax2) = plt.subplots(1, 2, sharey=True)
+# f, (ax1, ax2) = plt.subplots(1, 2, sharey=True)
 count = 0
 for i in range(np.size(mean_dist)):
     dist_test = np.abs(mean_dist[i] - dist_grid)  # distance between this profile and every other on dist_grid
-    closest_i = np.where(dist_test == dist_test.min())  # find closest dist_grid station to this profile
-    closest_rec[i] = np.int(closest_i[0])
+    closest_i = np.where(dist_test == dist_test.min())[0][0]  # find closest dist_grid station to this profile
+    closest_rec[i] = np.int(closest_i)
 
-    theta_anom = (df_t[df_t.columns[i]] - np.squeeze(CT_avg_grid[:, closest_i[0]]))
-    salin_anom = (df_s[df_s.columns[i]] - np.squeeze(SA_avg_grid[:, closest_i[0]]))
-    sigma_anom = (df_den[df_den.columns[i]] - np.squeeze(sigma_avg_grid[:, closest_i[0]]))
-    eta = (df_den[df_den.columns[i]] - np.squeeze(sigma_avg_grid[:, closest_i[0]])) / np.squeeze(
-        ddz_avg_sigma[:, closest_i[0]])
-    eta_theta = (df_t[df_t.columns[i]] - np.squeeze(CT_avg_grid[:, closest_i[0]])) / np.squeeze(
-        ddz_avg_CT[:, closest_i[0]])
+    # theta_anom = (df_t[df_t.columns[i]] - np.squeeze(CT_avg_grid[:, closest_i[0]]))
+    # salin_anom = (df_s[df_s.columns[i]] - np.squeeze(SA_avg_grid[:, closest_i[0]]))
+    # sigma_anom = (df_den[df_den.columns[i]] - np.squeeze(sigma_avg_grid[:, closest_i[0]]))
+    # eta = (df_den[df_den.columns[i]] - np.squeeze(sigma_avg_grid[:, closest_i[0]])) / np.squeeze(
+    #     ddz_avg_sigma[:, closest_i[0]])
+    # eta_theta = (df_t[df_t.columns[i]] - np.squeeze(CT_avg_grid[:, closest_i[0]])) / np.squeeze(
+    #     ddz_avg_CT[:, closest_i[0]])
+
+    theta_anom = ct[:, i] - CT_avg_grid[:, closest_i]
+    salin_anom = sa[:, i] - SA_avg_grid[:, closest_i]
+    sigma_anom = sig0[:, i] - sigma_avg_grid[:, closest_i]
+    eta = (sig0[:, i] - sig0[:, closest_i]) / np.squeeze(ddz_avg_sigma[:, closest_i])
+    eta_theta = (ct[:, i] - ct[:, closest_i]) / np.squeeze(ddz_avg_CT[:, closest_i])
+
     if count < 1:
-        df_theta_anom = pd.DataFrame(theta_anom, index=grid, columns=[df_t.columns[i]])
-        df_salin_anom = pd.DataFrame(salin_anom, index=grid, columns=[df_s.columns[i]])
-        df_sigma_anom = pd.DataFrame(sigma_anom, index=grid, columns=[df_t.columns[i]])
-        df_eta = pd.DataFrame(eta, index=grid, columns=[df_den.columns[i]])
-        df_eta_theta = pd.DataFrame(eta_theta, index=grid, columns=[df_den.columns[i]])
+        df_theta_anom = pd.DataFrame(theta_anom, index=grid, columns=[profile_tags[i]])  # theta_anom = ct[:, i] - ct[:, closest_i]
+        df_salin_anom = pd.DataFrame(salin_anom, index=grid, columns=[profile_tags[i]])
+        df_sigma_anom = pd.DataFrame(sigma_anom, index=grid, columns=[profile_tags[i]])
+        df_eta = pd.DataFrame(eta, index=grid, columns=[profile_tags[i]])
+        df_eta_theta = pd.DataFrame(eta_theta, index=grid, columns=[profile_tags[i]])
     else:
-        df_theta_anom2 = pd.DataFrame(theta_anom, index=grid, columns=[df_t.columns[i]])
-        df_salin_anom2 = pd.DataFrame(salin_anom, index=grid, columns=[df_s.columns[i]])
-        df_sigma_anom2 = pd.DataFrame(sigma_anom, index=grid, columns=[df_t.columns[i]])
-        eta2 = pd.DataFrame(eta, index=grid, columns=[df_t.columns[i]])
-        eta3 = pd.DataFrame(eta_theta, index=grid, columns=[df_t.columns[i]])
+        df_theta_anom2 = pd.DataFrame(theta_anom, index=grid, columns=[profile_tags[i]])
+        df_salin_anom2 = pd.DataFrame(salin_anom, index=grid, columns=[profile_tags[i]])
+        df_sigma_anom2 = pd.DataFrame(sigma_anom, index=grid, columns=[profile_tags[i]])
+        eta2 = pd.DataFrame(eta, index=grid, columns=[profile_tags[i]])
+        eta3 = pd.DataFrame(eta_theta, index=grid, columns=[profile_tags[i]])
 
         df_theta_anom = pd.concat([df_theta_anom, df_theta_anom2], axis=1)
         df_salin_anom = pd.concat([df_salin_anom, df_salin_anom2], axis=1)
         df_sigma_anom = pd.concat([df_sigma_anom, df_sigma_anom2], axis=1)
         df_eta = pd.concat([df_eta, eta2], axis=1)
         df_eta_theta = pd.concat([df_eta_theta, eta3], axis=1)
-
-    if df_s.columns[i] > 38000:
-        if time_rec[i] < time_mid:
-            ax1.plot(df_theta_anom.iloc[:, i], grid, 'r', linewidth=.5, label='38')
-            ax2.plot(df_salin_anom.iloc[:, i], grid, 'r', linewidth=.5, label='38')
-    else:
-        if time_rec[i] < time_mid:
-            ax1.plot(df_theta_anom.iloc[:, i], grid, 'b', linewidth=.5, label='37')
-            ax2.plot(df_salin_anom.iloc[:, i], grid, 'b', linewidth=.5, label='37')
-
     count = count + 1
-ax1.set_xlabel('Deg. C')
-ax1.set_title(r'$\theta - \overline{\theta}$')
-ax1.axis([-1.5, 1.5, 0, 5000])
-ax1.grid()
-ax1.invert_yaxis()
-ax1.set_ylabel('Depth [m]')
-handles, labels = ax1.get_legend_handles_labels()
-ax1.legend([handles[0], handles[-1]], [labels[0], labels[-1]], fontsize=10)
-ax2.set_title('Salinity Anomaly')
-ax2.set_xlabel('PSU')
-ax2.axis([-.25, .25, 0, 5000])
-ax2.grid()
-ax2.invert_yaxis()
-handles, labels = ax2.get_legend_handles_labels()
-ax2.legend([handles[0], handles[-1]], [labels[0], labels[-1]], fontsize=10)
-plot_pro(ax2)
-# f.savefig('/Users/jake/Desktop/abaco/dg037_8_anoms.png',dpi = 300)
 
+# ---------------------------------------------------------------------------------------------------------
 # ------- Eta_fit / Mode Decomposition --------------
 # define G grid 
 omega = 0  # frequency zeroed for geostrophic modes
@@ -588,30 +503,7 @@ nmodes = mmax + 1
 
 G, Gz, c, epsilon = vertical_modes(np.nanmean(N2, axis=1), grid, omega, mmax)
 
-# sample plots of G and Gz
-sam_pl = 0
-if sam_pl > 0:
-    f, (ax1, ax2) = plt.subplots(1, 2, sharey=True)
-    # colors = plt.cm.tab10(np.arange(0,5,1))
-    colors = '#C24704', '#D9CC3C', '#A0E0BA', '#00ADA7'
-    for i in range(4):
-        gp = ax1.plot(G[:, i] / np.max(grid), grid, label='Mode ' + str(i), color=colors[i], linewidth=3)
-        ax2.plot(Gz[:, i], grid, color=colors[i], linewidth=3)
-    n2p = ax1.plot((np.sqrt(np.nanmean(N2, axis=1)) * (1800 / np.pi)) / 10, grid, color='k', label='N(z) [10 cph]')
-    ax1.grid()
-    ax1.axis([-1, 1, 0, 5000])
-    ax1.set_ylabel('Depth [m]', fontsize=16)
-    ax1.set_xlabel('Vert. Displacement Stucture', fontsize=14)
-    ax1.set_title(r"$G_n$(z) Modes Shapes ($\sim \xi$)", fontsize=20)
-    handles, labels = ax1.get_legend_handles_labels()
-    ax1.legend([handles[-1], handles[0], handles[1], handles[2], handles[3]],
-               [labels[-1], labels[0], labels[1], labels[2], labels[3]], fontsize=12)
-    ax2.axis([-4, 4, 0, 5000])
-    ax2.set_xlabel('Vert. Structure of Hor. Velocity', fontsize=14)
-    ax2.set_title(r"$G_n$'(z) Mode Shapes ($\sim u$)", fontsize=20)
-    ax2.invert_yaxis()
-    plot_pro(ax2)
-
+# ---------------------------------------------------------------------------------------------------------
 # first taper fit above and below min/max limits
 # Project modes onto each eta (find fitted eta)
 # Compute PE 
@@ -657,7 +549,33 @@ for i in range(num_profs):
         PE_per_mass[:, i] = (1 / 2) * AG[:, i] * AG[:, i] * c * c
         PE_theta_per_mass[:, i] = (1 / 2) * AG_theta[:, i] * AG_theta[:, i] * c * c
 
-    # add fitted Eta to this ......
+# ---------------------------------------------------------------------------------------------------------
+# PLOTTING
+# sample plots of G and Gz
+sam_pl = 0
+if sam_pl > 0:
+    f, (ax1, ax2) = plt.subplots(1, 2, sharey=True)
+    # colors = plt.cm.tab10(np.arange(0,5,1))
+    colors = '#C24704', '#D9CC3C', '#A0E0BA', '#00ADA7'
+    for i in range(4):
+        gp = ax1.plot(G[:, i] / np.max(grid), grid, label='Mode ' + str(i), color=colors[i], linewidth=3)
+        ax2.plot(Gz[:, i], grid, color=colors[i], linewidth=3)
+    n2p = ax1.plot((np.sqrt(np.nanmean(N2, axis=1)) * (1800 / np.pi)) / 10, grid, color='k', label='N(z) [10 cph]')
+    ax1.grid()
+    ax1.axis([-1, 1, 0, 5000])
+    ax1.set_ylabel('Depth [m]', fontsize=16)
+    ax1.set_xlabel('Vert. Displacement Stucture', fontsize=14)
+    ax1.set_title(r"$G_n$(z) Modes Shapes ($\sim \xi$)", fontsize=20)
+    handles, labels = ax1.get_legend_handles_labels()
+    ax1.legend([handles[-1], handles[0], handles[1], handles[2], handles[3]],
+               [labels[-1], labels[0], labels[1], labels[2], labels[3]], fontsize=12)
+    ax2.axis([-4, 4, 0, 5000])
+    ax2.set_xlabel('Vert. Structure of Hor. Velocity', fontsize=14)
+    ax2.set_title(r"$G_n$'(z) Mode Shapes ($\sim u$)", fontsize=20)
+    ax2.invert_yaxis()
+    plot_pro(ax2)
+
+# add fitted Eta to this ......
 if plot_eta > 0:
     f, (ax1, ax2) = plt.subplots(1, 2, sharey=True)
     for i in range(np.size(mean_dist)):  # range(np.size(subset[0])): #
@@ -698,25 +616,18 @@ if plot_eta > 0:
     # f.savefig('/Users/jake/Desktop/abaco/dg037_8_eta.png',dpi = 300)
     # plt.close()
 
+# ---------------------------------------------------------------------------------------------------------
 # ------------ DG Geostrophic Velocity Profiles
-import_ke = si.loadmat('/Users/jake/Documents/geostrophic_turbulence/ABACO_V_energy.mat')
-ke_data = import_ke['out']
-ke = ke_data['KE'][0][0]
-dg_bin = ke_data['bin_depth'][0][0]
-dg_v_0 = ke_data['V_g'][0][0]
-# dg_v = np.concatenate((dg_v_0[:, 0:28], dg_v_0[:, 29:]), axis=1)
-# dg_v_m = ke_data['V_m'][0][0]
 good_v = np.zeros(np.shape(dg_v_0)[1], dtype=bool)
 for i in range(np.shape(dg_v_0)[1]):
-    dv_dz = np.gradient(dg_v_0[:, i], -1 * dg_bin[:, 0])
+    dv_dz = np.gradient(dg_v_0[:, i], -1 * grid)
     if (np.nanmax(np.abs(dv_dz)) < 0.0016) & ((i < 28) | (i > 28)):
         good_v[i] = True
 dg_v = dg_v_0[:, good_v]
-dg_dep = ke_data['Depth'][0][0]
 dg_np = np.shape(dg_v)[1]
-
-HKE_noise_threshold = 1e-4
+# ---------------------------------------------------------------------------------------------------------
 # -- DG V - HKE est.
+HKE_noise_threshold = 1e-5
 dg_AGz = np.zeros([nmodes, dg_np])
 dg_v_m_2 = np.nan * np.zeros([np.size(grid), dg_np])
 dg_HKE_per_mass = np.nan * np.zeros([nmodes, dg_np])
@@ -724,7 +635,7 @@ modest = np.arange(11, nmodes)
 dg_good_prof = np.zeros(dg_np)
 for i in range(dg_np):
     # fit to velocity profiles
-    this_V = np.interp(grid, np.squeeze(dg_bin), dg_v[:, i])
+    this_V = dg_v[:, i].copy()  # np.interp(grid, np.squeeze(dg_bin), dg_v[:, i])
     iv = np.where(~np.isnan(this_V))
     if iv[0].size > 1:
         dg_AGz[:, i] = np.squeeze(
@@ -737,33 +648,10 @@ for i in range(dg_np):
     else:
         dg_good_prof[i] = 1  # flag empty profile as noisy as well
 
-# HKE_noise_threshold_strict = 1e-4  # 1e-5
-# # --- DG V - HKE est. (different noise threshold)
-# dg_AGz_s = np.zeros([nmodes, dg_np])
-# dg_v_m_2_s = np.nan * np.zeros([np.size(grid), dg_np])
-# dg_HKE_per_mass_s = np.nan * np.zeros([nmodes, dg_np])
-# dg_good_prof_s = np.zeros(dg_np)
-# for i in range(dg_np):
-#     # fit to velocity profiles
-#     this_V = np.interp(grid, np.squeeze(dg_bin), dg_v[:, i])
-#     iv = np.where(~np.isnan(this_V))
-#     if iv[0].size > 1:
-#         dg_AGz_s[:, i] = np.squeeze(
-#             np.linalg.lstsq(np.squeeze(Gz[iv, :]), np.transpose(np.atleast_2d(this_V[iv])))[0])  # Gz(iv,:)\V_g(iv,ip)
-#         dg_v_m_2_s[:, i] = np.squeeze(np.matrix(Gz) * np.transpose(np.matrix(dg_AGz[:, i])))  # Gz*AGz[:,i];
-#         dg_HKE_per_mass_s[:, i] = dg_AGz[:, i] * dg_AGz[:, i]
-#         ival = np.where(dg_HKE_per_mass_s[modest, i] >= HKE_noise_threshold_strict)
-#         if np.size(ival) > 0:
-#             dg_good_prof_s[i] = 1  # flag profile as noisy
-#     else:
-#         dg_good_prof_s[i] = 1  # flag empty profile as noisy as well
-
+# ---------------------------------------------------------------------------------------------------------
 # --- SHIP ADCP HKE est.
 # find adcp profiles that are deep enough and fit baroclinic modes to these 
 HKE_noise_threshold_adcp = 1e-5
-adcp_dist = abaco_ship['adcp_dist']
-adcp_depth = abaco_ship['adcp_depth']
-adcp_v = abaco_ship['adcp_v']
 check = np.zeros(np.size(adcp_dist))
 for i in range(np.size(adcp_dist)):
     check[i] = adcp_depth[np.where(~np.isnan(adcp_v[:, i]))[0][-1]]
@@ -782,9 +670,10 @@ for i in range(adcp_np):
     this_V = np.interp(grid, adcp_depth, this_V_0)
     iv = np.where(~np.isnan(this_V))
     if iv[0].size > 1:
-        AGz[:, i] = np.squeeze(
-            np.linalg.lstsq(np.squeeze(Gz[iv, :]), np.transpose(np.atleast_2d(this_V[iv])))[0])  # Gz(iv,:)\V_g(iv,ip)
-        V_m[:, i] = np.squeeze(np.matrix(Gz) * np.transpose(np.matrix(AGz[:, i])))  # Gz*AGz[:,i];
+        # Gz(iv,:)\V_g(iv,ip)
+        # Gz*AGz[:,i];
+        AGz[:, i] = np.squeeze(np.linalg.lstsq(np.squeeze(Gz[iv, :]), np.transpose(np.atleast_2d(this_V[iv])))[0])
+        V_m[:, i] = np.squeeze(np.matrix(Gz) * np.transpose(np.matrix(AGz[:, i])))
         HKE_per_mass[:, i] = AGz[:, i] * AGz[:, i]
         ival = np.where(HKE_per_mass[modest, i] >= HKE_noise_threshold_adcp)
         if np.size(ival) > 0:
@@ -793,19 +682,19 @@ for i in range(adcp_np):
         good_prof[i] = 1  # flag empty profile as noisy as well
 
 # ------ PLOT VELOCITY PROFILES AND COMPARE -------------------------------------------
-f, (ax2, ax3) = plt.subplots(1, 2)
-# for i in range(adcp_np):    
-#     if good_prof[i] < 2:
-#         ad1 = ax1.plot(V[:,i],adcp_depth,color='#CD853F')
-#         ax1.plot(V_m[:,i],grid,color='k',linewidth=0.75)
-#     else:
-#         ax1.plot(V[:,i],adcp_depth,color='r')  
+f, (ax1, ax2, ax3) = plt.subplots(1, 3)
+for i in range(adcp_np):
+    if good_prof[i] < 2:
+        ad1 = ax1.plot(V[:,i],adcp_depth,color='#CD853F')
+        ax1.plot(V_m[:,i],grid,color='k',linewidth=0.75)
+    else:
+        ax1.plot(V[:,i],adcp_depth,color='r')
 for i in range(dg_np):
     if dg_good_prof[i] < 2:  # dg_quiet[0][i] < 1:
-        ad1 = ax2.plot(dg_v[:, i], dg_bin, color='#CD853F')
+        ad1 = ax2.plot(dg_v[:, i], grid, color='#CD853F')
         ax2.plot(dg_v_m_2[:, i], grid, color='k', linestyle='--', linewidth=0.75)
     else:
-        ax2.plot(dg_v[:, i], dg_bin, color='r')
+        ax2.plot(dg_v[:, i], grid, color='r')
 ax1.axis([-.6, .6, 0, 5000])
 ax1.set_xlabel('Meridional Velocity [m/s]', fontsize=14)
 ax2.set_ylabel('Depth [m]', fontsize=14)
@@ -816,8 +705,6 @@ ax1.grid()
 ax2.axis([-.6, .6, 0, 5000])
 ax2.set_xlabel('Cross-Track Velocity [m/s]', fontsize=14)
 ax2.set_title('Geostrophic Velocity', fontsize=18)  # (' + str(dg_np) + ' profiles)')
-# ax2.text(-.25,5150,'Noise Thresh. = '+ str(HKE_noise_threshold_strict),fontsize=8) 
-# ax2.text(-.25,5300,'Noisy = '+ str(np.sum(dg_good_prof_s)),fontsize=8)         
 ax2.invert_yaxis()
 ax2.grid()
 
@@ -831,7 +718,7 @@ for i in range(np.size(mean_dist)):  # range(np.size(subset[0])): #
 ax3.plot([0, 0], [0, 5500], '--k')
 ax3.set_title('Vertical Displacement', fontsize=18)  # (' + str(num_profs) + ' profiles)') # dg37
 ax3.set_xlabel('Vertical Isopycal Displacement [m]', fontsize=14)
-ax3.axis([-400, 400, 0, 5000])
+ax3.axis([-600, 600, 0, 5000])
 ax3.invert_yaxis()
 plot_pro(ax3)
 
@@ -851,36 +738,28 @@ sc_x = 1000 * f_ref / c[1:]
 PE_SD, PE_GM = PE_Tide_GM(rho0, grid, nmodes, N2, f_ref)
 k_h = 1e3 * (f_ref / c[1:]) * np.sqrt(avg_KE_dg[1:] / avg_PE[1:])
 
-# TESTING ADCP DG/KE DIFFERENCES     
-f1, ax = plt.subplots()
-# for i in range(dg_np):
-#     if dg_good_prof[i] < 1:
-#         ax.plot(sc_x,dg_HKE_per_mass[1:,i]/dk,color='k')
-#     else:
-#         ax.plot(sc_x,dg_HKE_per_mass[1:,i]/dk,color='r')
-# for i in range(adcp_np):
-#     if good_prof[i] < 1:
-#         ax.plot(sc_x,HKE_per_mass[1:,i]/dk,color='#8FBC8F')
-#     else:
-#         ax.plot(sc_x,HKE_per_mass[1:,i]/dk,color='g') 
+# TESTING ADCP DG/KE DIFFERENCES
+plot_energy_limits = 0
+if plot_energy_limits > 0:
+    f1, ax = plt.subplots()
+    PE_ref = ax.plot(sc_x, avg_PE[1:] / dk, color='k', label=r'PE$_{dg}$', linewidth=1)
+    KE_adcp = ax.plot(sc_x, avg_KE_adcp[1:] / dk, color='g', label=r'KE$_{adcp}$', linewidth=2)
+    # KE_dg_strict = ax.plot(sc_x, avg_KE_dg_strict[1:] / dk, color='#B22222', label=r'KE$_{1e-5}$', linewidth=2)
+    KE_dg = ax.plot(sc_x, avg_KE_dg[1:] / dk, color='#FF8C00', label=r'KE$_{1e-4}$', linewidth=2)
+    KE_dg_all = ax.plot(sc_x, avg_KE_dg_all[1:] / dk, color='#DAA520', label=r'KE$_{all}$', linewidth=2)
+    ax.set_title('KE Noise Threshold Comparison')
+    ax.set_xlabel('vertical wavenumber')
+    ax.set_ylabel('variance per vert. wavenumber')
+    ax.set_yscale('log')
+    ax.set_xscale('log')
+    ax.axis([10 ** -2, 1.5 * 10 ** 1, 10 ** (-6), 10 ** (3)])
+    handles, labels = ax.get_legend_handles_labels()
+    ax.legend(handles, labels, fontsize=10)
+    ax.axis([10 ** -2, 1.5 * 10 ** 1, 10 ** (-4), 10 ** (3)])
+    plot_pro(ax)
 
-PE_ref = ax.plot(sc_x, avg_PE[1:] / dk, color='k', label=r'PE$_{dg}$', linewidth=1)
-KE_adcp = ax.plot(sc_x, avg_KE_adcp[1:] / dk, color='g', label=r'KE$_{adcp}$', linewidth=2)
-# KE_dg_strict = ax.plot(sc_x, avg_KE_dg_strict[1:] / dk, color='#B22222', label=r'KE$_{1e-5}$', linewidth=2)
-KE_dg = ax.plot(sc_x, avg_KE_dg[1:] / dk, color='#FF8C00', label=r'KE$_{1e-4}$', linewidth=2)
-KE_dg_all = ax.plot(sc_x, avg_KE_dg_all[1:] / dk, color='#DAA520', label=r'KE$_{all}$', linewidth=2)
-ax.set_title('KE Noise Threshold Comparison')
-ax.set_xlabel('vertical wavenumber')
-ax.set_ylabel('variance per vert. wavenumber')
-ax.set_yscale('log')
-ax.set_xscale('log')
-ax.axis([10 ** -2, 1.5 * 10 ** 1, 10 ** (-6), 10 ** (3)])
-handles, labels = ax.get_legend_handles_labels()
-ax.legend(handles, labels, fontsize=10)
-ax.axis([10 ** -2, 1.5 * 10 ** 1, 10 ** (-4), 10 ** (3)])
-plot_pro(ax)
-
-if plot_eng > 0:
+plot_energy = 1
+if plot_energy > 0:
     fig0, ax0 = plt.subplots()
     PE_p = ax0.plot(sc_x, avg_PE[1:] / dk, color='#B22222', label=r'PE$_{dg}$', linewidth=1.5)
     ax0.scatter(sc_x, avg_PE[1:] / dk, color='#B22222', s=15)
@@ -891,10 +770,9 @@ if plot_eng > 0:
              color='k', linewidth=0.75)
     ax0.text(3.3 * 10 ** -1, 1.3 * 10 ** 1, '-3', fontsize=12)
     ax0.text(3.3 * 10 ** -2, 6 * 10 ** 2, '-5/3', fontsize=12)
-    ax0.plot([1000 * f_ref / c[1], 1000 * f_ref / c[-2]], [1000 * f_ref / c[1], 1000 * f_ref / c[-2]], linestyle='--',
-             color='k', linewidth=0.8)
-    # ax0.text( 1000*f_ref/c[1]-.001, 1000*f_ref/c[1]-0.01, r'f/c$_m$',fontsize=10)
-    ax0.text(1000 * f_ref / c[-2] + .1, 1000 * f_ref / c[-2], r'f/c$_m$', fontsize=10)
+    # ax0.plot([1000 * f_ref / c[1], 1000 * f_ref / c[-2]], [1000 * f_ref / c[1], 1000 * f_ref / c[-2]], linestyle='--',
+    #          color='k', linewidth=0.8)
+    # ax0.text(1000 * f_ref / c[-2] + .1, 1000 * f_ref / c[-2], r'f/c$_m$', fontsize=10)
     ax0.plot(sc_x, PE_GM / dk, linestyle='--', color='#B22222', linewidth=1)
     ax0.text(sc_x[0] - .009, PE_GM[0] / dk, r'$PE_{GM}$', fontsize=12)
     # KE 
@@ -903,10 +781,10 @@ if plot_eng > 0:
     # ax0.scatter(1000*ke_data['f_ref'][0][0][0]/ke_data['c'][0][0][1:],ke[1:]/(dk_ke/1000),color='#483D8B',s=6)
     KE_dg = ax0.plot(sc_x, avg_KE_dg[1:] / dk, color='g', label=r'KE$_{dg}$', linewidth=1.75)
     ax0.scatter(sc_x, avg_KE_dg[1:] / dk, color='g', s=15)
-    # KE_adcp = ax0.plot(sc_x,avg_KE_adcp[1:]/dk,color='m',label=r'KE$_{adcp}$',linewidth=1.75)
+    KE_adcp = ax0.plot(sc_x, avg_KE_adcp[1:]/dk, color='m', label=r'KE$_{adcp}$', linewidth=1.75)
     # --- ke/pe ratio
-    k_h_p = ax0.plot(sc_x, k_h, color='k', label=r'DG$_{k_h}$')
-    ax0.text(sc_x[0] - .008, k_h[0] + .01, r'$k_{h}$', fontsize=10)
+    # k_h_p = ax0.plot(sc_x, k_h, color='k', label=r'DG$_{k_h}$')
+    # ax0.text(sc_x[0] - .008, k_h[0] + .01, r'$k_{h}$', fontsize=10)
     # --- plot tailoring
     ax0.set_yscale('log')
     ax0.set_xscale('log')
@@ -939,7 +817,7 @@ if plot_eng > 0:
     ax0.set_ylabel('Scaled Dynamic Mode (cG) Amplitude')
     ax0.legend(handles, labels, fontsize=10)
     ax0.grid()
-    fig0.savefig('/Users/jake/Desktop/abaco/dg037_8_mode_amp.png', dpi=300)
+    # fig0.savefig('/Users/jake/Desktop/abaco/dg037_8_mode_amp.png', dpi=300)
 
 # ------ EOF MODE SHAPESSSSS
 # - find EOFs of dynamic horizontal current (v) mode amplitudes _____DG_____
@@ -997,50 +875,52 @@ EOFetashape1_BTpBC1 = G[:, 1:3] * V_AGqa[0:2, 0]  # truncated 2 mode shape of EO
 EOFetashape2_BTpBC1 = G[:, 1:3] * V_AGqa[0:2, 1]  # truncated 2 mode shape of EOF#2
 
 # --- plot mode shapes
-max_plot = 3
-f, (ax1, ax2, ax3) = plt.subplots(1, 3)
-n2p = ax1.plot((np.sqrt(np.nanmean(N2, axis=1)) * (1800 / np.pi)), grid, color='k', label='N(z) [cph]')
-colors = plt.cm.Dark2(np.arange(0, 4, 1))
+plot_mode_shapes = 0
+if plot_mode_shapes > 0:
+    max_plot = 3
+    f, (ax1, ax2, ax3) = plt.subplots(1, 3)
+    n2p = ax1.plot((np.sqrt(np.nanmean(N2, axis=1)) * (1800 / np.pi)), grid, color='k', label='N(z) [cph]')
+    colors = plt.cm.Dark2(np.arange(0, 4, 1))
 
-for ii in range(max_plot):
-    ax1.plot(Gz[:, ii], grid, color='#2F4F4F', linestyle='--')
-    p_eof = ax1.plot(-EOFshape_adcp[:, ii], grid, color=colors[ii, :], label='EOF # = ' + str(ii + 1), linewidth=2)
-handles, labels = ax1.get_legend_handles_labels()
-ax1.legend(handles, labels, fontsize=10)
-ax1.axis([-4, 4, 0, 5000])
-ax1.invert_yaxis()
-ax1.set_title('ABACO EOF Mode Shapes (ADCP)')
-ax1.set_ylabel('Depth [m]')
-ax1.set_xlabel('Hor. Vel. Mode Shapes (ADCP)')
-ax1.grid()
+    for ii in range(max_plot):
+        ax1.plot(Gz[:, ii], grid, color='#2F4F4F', linestyle='--')
+        p_eof = ax1.plot(-EOFshape_adcp[:, ii], grid, color=colors[ii, :], label='EOF # = ' + str(ii + 1), linewidth=2)
+    handles, labels = ax1.get_legend_handles_labels()
+    ax1.legend(handles, labels, fontsize=10)
+    ax1.axis([-4, 4, 0, 5000])
+    ax1.invert_yaxis()
+    ax1.set_title('ABACO EOF Mode Shapes (ADCP)')
+    ax1.set_ylabel('Depth [m]')
+    ax1.set_xlabel('Hor. Vel. Mode Shapes (ADCP)')
+    ax1.grid()
 
-for ii in range(max_plot):
-    ax2.plot(Gz[:, ii], grid, color='#2F4F4F', linestyle='--')
-    if ii < 1:
-        p_eof = ax2.plot(-EOFshape_dg[:, ii], grid, color=colors[ii, :], label='EOF # = ' + str(ii + 1), linewidth=2)
-    elif (ii > 0) & (ii < 2):
-        p_eof = ax2.plot(EOFshape_dg[:, ii], grid, color=colors[ii, :], label='EOF # = ' + str(ii + 1), linewidth=2)
-    else:
-        p_eof = ax2.plot(-EOFshape_dg[:, ii], grid, color=colors[ii, :], label='EOF # = ' + str(ii + 1), linewidth=2)
-handles, labels = ax2.get_legend_handles_labels()
-ax2.legend(handles, labels, fontsize=10)
-ax2.axis([-4, 4, 0, 5000])
-ax2.invert_yaxis()
-ax2.set_title('EOF Mode Shapes (DG)')
-ax2.set_xlabel('Hor. Vel. Mode Shapes (DG)')
-ax2.grid()
+    for ii in range(max_plot):
+        ax2.plot(Gz[:, ii], grid, color='#2F4F4F', linestyle='--')
+        if ii < 1:
+            p_eof = ax2.plot(-EOFshape_dg[:, ii], grid, color=colors[ii, :], label='EOF # = ' + str(ii + 1), linewidth=2)
+        elif (ii > 0) & (ii < 2):
+            p_eof = ax2.plot(EOFshape_dg[:, ii], grid, color=colors[ii, :], label='EOF # = ' + str(ii + 1), linewidth=2)
+        else:
+            p_eof = ax2.plot(-EOFshape_dg[:, ii], grid, color=colors[ii, :], label='EOF # = ' + str(ii + 1), linewidth=2)
+    handles, labels = ax2.get_legend_handles_labels()
+    ax2.legend(handles, labels, fontsize=10)
+    ax2.axis([-4, 4, 0, 5000])
+    ax2.invert_yaxis()
+    ax2.set_title('EOF Mode Shapes (DG)')
+    ax2.set_xlabel('Hor. Vel. Mode Shapes (DG)')
+    ax2.grid()
 
-for ii in range(max_plot):
-    ax3.plot(G[:, ii + 1] / np.max(grid), grid, color='#2F4F4F', linestyle='--')
-    p_eof_eta = ax3.plot(-EOFetashape[:, ii] / np.max(grid), grid, color=colors[ii, :], label='EOF # = ' + str(ii + 1),
-                         linewidth=2)
-handles, labels = ax3.get_legend_handles_labels()
-ax3.legend(handles, labels, fontsize=10)
-ax3.axis([-.7, .7, 0, 5000])
-ax3.set_title('EOF Mode Shapes (DG)')
-ax3.set_xlabel('Vert. Disp. Mode Shapes')
-ax3.invert_yaxis()
-plot_pro(ax3)
+    for ii in range(max_plot):
+        ax3.plot(G[:, ii + 1] / np.max(grid), grid, color='#2F4F4F', linestyle='--')
+        p_eof_eta = ax3.plot(-EOFetashape[:, ii] / np.max(grid), grid, color=colors[ii, :],
+                             label='EOF # = ' + str(ii + 1), linewidth=2)
+    handles, labels = ax3.get_legend_handles_labels()
+    ax3.legend(handles, labels, fontsize=10)
+    ax3.axis([-.7, .7, 0, 5000])
+    ax3.set_title('EOF Mode Shapes (DG)')
+    ax3.set_xlabel('Vert. Disp. Mode Shapes')
+    ax3.invert_yaxis()
+    plot_pro(ax3)
 
 # --- SAVE
 # write python dict to a file
@@ -1098,3 +978,152 @@ h_a_std_2 = savgol_filter(hots_std_eta, window_size, poly_order)
 # ax.axis([0, 600, 0, 4000])
 # ax.invert_yaxis()
 # plot_pro(ax)
+
+# ---------------------------------------------------------------------------------------------------
+# REPLACED BY GLIDER PACKAGE TRANSECT ANALYSIS
+# # loop over each dive
+# count = 0
+# for i in dg_list:
+#     nc_fid = Dataset(i, 'r')
+#     glid_num = nc_fid.glider
+#     dive_num = nc_fid.dive_number
+#
+#     lat = nc_fid.variables['latitude'][:]
+#     lon = nc_fid.variables['longitude'][:]
+#     x = (lon - lon_in) * (1852 * 60 * np.cos(np.deg2rad(26.5)))
+#     y = (lat - lat_in) * (1852 * 60)
+#
+#     press = nc_fid.variables['ctd_pressure'][:]
+#     ctd_epoch_time = nc_fid.variables['ctd_time'][:]
+#     temp = nc_fid.variables['temperature'][:]
+#     salin = nc_fid.variables['salinity'][:]
+#     pitch_ang = nc_fid.variables['eng_pitchAng'][:]
+#     depth = -1 * gsw.z_from_p(press, ref_lat)
+#     SA = gsw.SA_from_SP(salin, press, ref_lon * np.ones(len(salin)), ref_lat * np.ones(len(salin)))
+#     CT = gsw.CT_from_t(SA, temp, press)
+#
+#     # time conversion
+#     secs_per_day = 86400.0
+#     dive_start_time = nc_fid.start_time
+#     ctd_time = ctd_epoch_time - dive_start_time
+#     datenum_start = 719163  # jan 1 1970
+#
+#     # put on distance/density grid (1 column per profile)
+#     max_d = np.where(depth == depth.max())
+#     max_d_ind = max_d[0]
+#     pitch_ang_sub1 = pitch_ang[0:max_d_ind[0]]
+#     pitch_ang_sub2 = pitch_ang[max_d_ind[0]:]
+#     dive_mask_i = np.where(pitch_ang_sub1 < 0)
+#     dive_mask = dive_mask_i[0][:]
+#     climb_mask_i = np.where(pitch_ang_sub2 > 0)
+#     climb_mask = climb_mask_i[0][:] + max_d_ind[0] - 1
+#
+#     # dive/climb time midpoints
+#     time_dive = ctd_time[dive_mask]
+#     time_climb = ctd_time[climb_mask]
+#
+#     serial_date_time_dive = datenum_start + dive_start_time / (60 * 60 * 24) + np.median(time_dive) / secs_per_day
+#     serial_date_time_climb = datenum_start + dive_start_time / (60 * 60 * 24) + np.median(time_climb) / secs_per_day
+#     time_rec_2[count, :] = np.array([serial_date_time_dive, serial_date_time_climb])
+#     if np.sum(time_rec) < 1:
+#         time_rec = np.concatenate([[serial_date_time_dive], [serial_date_time_climb]])
+#     else:
+#         time_rec = np.concatenate([time_rec, [serial_date_time_dive], [serial_date_time_climb]])
+#
+#     # interpolate (bin_average) to smooth and place T/S on vertical depth grid
+#     CT_grid_dive, CT_grid_climb, SA_grid_dive, SA_grid_climb, x_grid_dive, x_grid_climb, \
+#     y_grid_dive, y_grid_climb = make_bin(grid, depth[dive_mask], depth[climb_mask], CT[dive_mask], CT[climb_mask],
+#                                          SA[dive_mask], SA[climb_mask], x[dive_mask], x[climb_mask],
+#                                          y[dive_mask], y[climb_mask])
+#
+#     # theta_grid_dive = sw.ptmp(salin_grid_dive, temp_grid_dive, grid_p, pr=0)
+#     # theta_grid_climb = sw.ptmp(salin_grid_climb, temp_grid_climb, grid_p, pr=0)
+#
+#     # compute distance to closest point on transect
+#     dist_dive = np.zeros(np.size(x_grid_dive))
+#     dist_climb = np.zeros(np.size(y_grid_dive))
+#     for j in range(np.size(x_grid_dive)):
+#         all_dist_dive = np.sqrt((x_grid_dive[j] - dist_grid_s) ** 2 + (y_grid_dive[j] - 0) ** 2)
+#         all_dist_climb = np.sqrt((x_grid_climb[j] - dist_grid_s) ** 2 + (y_grid_climb[j] - 0) ** 2)
+#         # dive
+#         if np.isnan(x_grid_dive[j]):
+#             dist_dive[j] = float('nan')
+#         else:
+#             closest_dist_dive_i = np.where(all_dist_dive == all_dist_dive.min())
+#             dist_dive[j] = dist_grid_s[closest_dist_dive_i[0]]
+#         # climb
+#         if np.isnan(x_grid_climb[j]):
+#             dist_climb[j] = float('nan')
+#         else:
+#             closest_dist_climb_i = np.where(all_dist_climb == all_dist_climb.min())
+#             dist_climb[j] = dist_grid_s[closest_dist_climb_i[0]]
+#
+#     # create dataframes where each column is a profile
+#     t_data_d = pd.DataFrame(CT_grid_dive, index=grid, columns=[glid_num * 1000 + dive_num])
+#     t_data_c = pd.DataFrame(CT_grid_climb, index=grid, columns=[glid_num * 1000 + dive_num + .5])
+#     s_data_d = pd.DataFrame(SA_grid_dive, index=grid, columns=[glid_num * 1000 + dive_num])
+#     s_data_c = pd.DataFrame(SA_grid_climb, index=grid, columns=[glid_num * 1000 + dive_num + .5])
+#     d_data_d = pd.DataFrame(dist_dive, index=grid, columns=[glid_num * 1000 + dive_num])
+#     d_data_c = pd.DataFrame(np.flipud(dist_climb), index=grid, columns=[glid_num * 1000 + dive_num + .5])
+#
+#     if df_t.size < 1:
+#         df_t = pd.concat([t_data_d, t_data_c], axis=1)
+#         df_s = pd.concat([s_data_d, s_data_c], axis=1)
+#         df_d = pd.concat([d_data_d, d_data_c], axis=1)
+#     else:
+#         df_t = pd.concat([df_t, t_data_d, t_data_c], axis=1)
+#         df_s = pd.concat([df_s, s_data_d, s_data_c], axis=1)
+#         df_d = pd.concat([df_d, d_data_d, d_data_c], axis=1)
+#
+#     # if interpolating on a depth grid, interpolate density
+#     if grid[10] - grid[9] > 1:
+#         # sw.pden(salin_grid_dive, temp_grid_dive, grid_p, pr=0) - 1000
+#         den_grid_dive = gsw.sigma0(SA_grid_dive, CT_grid_dive)
+#         den_grid_climb = gsw.sigma0(SA_grid_climb, CT_grid_climb)
+#         den_data_d = pd.DataFrame(den_grid_dive, index=grid, columns=[glid_num * 1000 + dive_num])
+#         den_data_c = pd.DataFrame(den_grid_climb, index=grid, columns=[glid_num * 1000 + dive_num + .5])
+#         if df_t.size < 1:
+#             df_den = pd.concat([den_data_d, den_data_c], axis=1)
+#         else:
+#             df_den = pd.concat([df_den, den_data_d, den_data_c], axis=1)
+#
+#     # plot plan view action if needed
+#     if plot_plan > 0:
+#         if glid_num > 37:
+#             dg = ax0.scatter(1000 * x_grid_dive / (1852 * 60 * np.cos(np.deg2rad(26.5))) + lon_in,
+#                               1000 * y_grid_dive / (1852 * 60) + lat_in, s=2, color='#FFD700', zorder=1, label='DG38')
+#             ax0.scatter(1000 * x_grid_climb / (1852 * 60 * np.cos(np.deg2rad(26.5))) + lon_in,
+#                         1000 * y_grid_climb / (1852 * 60) + lat_in, s=2, color='#FFD700', zorder=1)
+#         else:
+#             dg = ax0.scatter(1000 * x_grid_dive / (1852 * 60 * np.cos(np.deg2rad(26.5))) + lon_in,
+#                               1000 * y_grid_dive / (1852 * 60) + lat_in, s=2, color='#B22222', zorder=1, label='DG37')
+#             ax0.scatter(1000 * x_grid_climb / (1852 * 60 * np.cos(np.deg2rad(26.5))) + lon_in,
+#                         1000 * y_grid_climb / (1852 * 60) + lat_in, s=2, color='#B22222', zorder=1)
+#         ax0.scatter(1000 * dist_dive / (1852 * 60 * np.cos(np.deg2rad(26.5))) + lon_in,
+#                     np.zeros(np.size(dist_dive)) + lat_in, s=0.75, color='k')
+#         ax0.scatter(1000 * dist_climb / (1852 * 60 * np.cos(np.deg2rad(26.5))) + lon_in,
+#                     np.zeros(np.size(dist_climb)) + lat_in, s=0.75, color='k')
+#         ax0.text(1000 * (np.median(dist_grid) - 20) / (1852 * 60 * np.cos(np.deg2rad(26.5))) + lon_in,
+#                  lat_in - .3, '~ 125km', fontsize=12, color='w')
+#     count = count + 1
+#
+# # --------------- end of for loop running over each dive
+# if plot_plan > 0:
+#     sp = ax0.scatter(abaco_ship['cast_lon'], abaco_ship['cast_lat'], s=4, color='#7CFC00', label='Ship')
+#     t_s = datetime.date.fromordinal(np.int(np.min(time_rec[0])))
+#     t_e = datetime.date.fromordinal(np.int(np.max(time_rec[-1])))
+#     ax0.set_title('Nine ABACO Transects (DG37,38 - 57 dive-cycles): ' +
+#                   np.str(t_s.month) + '/' + np.str(t_s.day) + ' - ' + np.str(t_e.month) + '/' + np.str(t_e.day))
+#     handles, labels = ax0.get_legend_handles_labels()
+#     ax0.legend(handles=[dg, sp])  # ,[np.unique(labels)],fontsize=10)
+#     plt.tight_layout()
+#     plot_pro(ax0)
+#     # fig0.savefig('/Users/jake/Desktop/abaco/plan_2.png', dpi=200)
+#     # plt.close()
+
+# ------------ OLD DG Geostrophic Velocity Profiles
+# import_ke = si.loadmat('/Users/jake/Documents/geostrophic_turbulence/ABACO_V_energy.mat')
+# ke_data = import_ke['out']
+# ke = ke_data['KE'][0][0]
+# dg_bin = ke_data['bin_depth'][0][0]
+# dg_v_0 = ke_data['V_g'][0][0]

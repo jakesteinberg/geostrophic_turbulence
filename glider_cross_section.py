@@ -54,9 +54,10 @@ class Glider(object):
             dep[m] = np.nanmax(gd['ctd_depth'][:])
             tgts = gd['log_TGT_LATLONG'][:]
             target[m, 0] = 10*np.int(tgts[0]) + 1*np.int(tgts[1]) + (1/60)*(10*np.int(tgts[2]) + 1*np.int(tgts[3])) + \
-                0.001*(10*np.int(tgts[5]) + 1*np.int(tgts[6]))
-            target[m, 1] = 10*np.int(tgts[10]) + 1*np.int(tgts[11]) + \
-                (1/60)*(10*np.int(tgts[12]) + 1*np.int(tgts[13])) + 0.001*(10*np.int(tgts[15]) + 1*np.int(tgts[16]))
+                (1/100)*(1/60)*(10*np.int(tgts[5]) + 1*np.int(tgts[6]))
+            target[m, 1] = 10*np.int(tgts[10]) + 1*np.int(tgts[11]) + (1/60)*(10*np.int(tgts[12]) +
+                                                                              1*np.int(tgts[13])) + \
+                (1/100)*(1/60)*(10*np.int(tgts[15]) + 1*np.int(tgts[16]))
         self.avg_dep = np.nanmean(dep)
         self.target = target
 
@@ -230,7 +231,11 @@ class Glider(object):
 
         return sa, ct, sig0, N2
 
-    def transect_cross_section(self, bin_depth, sig0_0, lon_0, lat_0, dac_u_0, dac_v_0, profile_tags_0, sigth_levels):
+    # this function will parse a set of dive-climb cycles into transects that are each bounded by glider targets. The
+    # target associated with each dive-climb cycle is used to separate profiles into transects that are terminated when
+    # glider target changes (when it reaches a targets and begins to head towards a new one). If transects are repeated,
+    # each occupation of the line is treated as its own transect
+    def transect_cross_section_1(self, bin_depth, sig0_0, lon_0, lat_0, dac_u_0, dac_v_0, profile_tags_0, sigth_levels):
         deep_shr_max = 0.1
         deep_shr_max_dep = 3500
 
@@ -256,7 +261,8 @@ class Glider(object):
         transects = []
         for m in range(len(unique_targets)):
             indices = np.where(target_test == unique_targets[m])[0]
-            transects.append(group_consecutives(indices, step=1))
+            if len(indices) > 1:
+                transects.append(group_consecutives(indices, step=1))
 
         ds_out = []
         dist_out = []
@@ -269,279 +275,278 @@ class Glider(object):
         DACe_MW_out = []
         DACn_MW_out = []
         profile_tags_out = []
-        for n in range(len(transects)):
-            this_transect = transects[n][0]
-            index_start = 2 * this_transect[0]
-            index_end = 2 * (this_transect[-1] + 1)
-            order_set = np.arange(0, 2 * len(this_transect), 2)
-            sig0 = sig0_0[:, index_start:index_end]
-            lon = lon_0[:, index_start:index_end]
-            lat = lat_0[:, index_start:index_end]
-            dac_u = dac_u_0[index_start:index_end]
-            dac_v = dac_v_0[index_start:index_end]
-            profile_tags = profile_tags_0[index_start:index_end]
+        for n in range(len(transects)):  # loop over all transect segments
+            for o in range(len(transects[n])):  # loop over all times a glider executed that segment
+                this_transect = transects[n][o]
+                index_start = 2 * this_transect[0]
+                index_end = 2 * (this_transect[-1] + 1)
+                order_set = np.arange(0, 2 * len(this_transect), 2)
+                sig0 = sig0_0[:, index_start:index_end]
+                lon = lon_0[:, index_start:index_end]
+                lat = lat_0[:, index_start:index_end]
+                dac_u = dac_u_0[index_start:index_end]
+                dac_v = dac_v_0[index_start:index_end]
+                profile_tags = profile_tags_0[index_start:index_end]
 
-            # TEST
-            # ____________________________________________________________________________________
+                # ____________________________________________________________________________________
+                # order_set = np.arange(0, self.num_profs, 2)
 
-            # order_set = np.arange(0, self.num_profs, 2)
+                info = np.nan * np.zeros((3, len(profile_tags) - 1))
+                sigma_theta_out = np.nan * np.zeros((np.size(bin_depth), len(profile_tags) - 1))
+                shear = np.nan * np.zeros((np.size(bin_depth), len(profile_tags) - 1))
+                # eta = np.nan * np.zeros((np.size(grid), np.size(this_set) - 1))
+                # eta_theta = np.nan * np.zeros((np.size(grid), np.size(this_set) - 1))
+                isopycdep = np.nan * np.zeros((np.size(sigth_levels), len(profile_tags)))
+                isopycx = np.nan * np.zeros((np.size(sigth_levels), len(profile_tags)))
+                vbt = np.nan * np.zeros(len(profile_tags))
+                DACe_MW = np.nan * np.zeros(len(profile_tags))
+                DACn_MW = np.nan * np.zeros(len(profile_tags))
+                ds = np.nan * np.zeros(len(profile_tags))
+                dist = np.nan * np.zeros(np.shape(lon))
+                dist_st = 0
+                distance = 0
+                for i in order_set:
+                    # M
+                    lon_start = lon[0, i]  # start position of dive i along the transect
+                    lat_start = lat[0, i]
+                    lon_finish = lon[0, i + 1]  # end position of dive i along the transect
+                    lat_finish = lat[0, i + 1]
+                    lat_ref = 0.5 * (lat_start + lat_finish)
+                    f_m = np.pi * np.sin(np.deg2rad(lat_ref)) / (12 * 1800)  # Coriolis parameter [s^-1]
+                    dxs_m = 1.852 * 60 * np.cos(np.deg2rad(lat_ref)) * (lon_finish - lon_start)  # zonal sfc disp [km]
+                    dys_m = 1.852 * 60 * (lat_finish - lat_start)  # meridional sfc disp [km]
+                    ds_a, ang_sfc_m = cart2pol(dxs_m, dys_m)
 
-            info = np.nan * np.zeros((3, len(profile_tags) - 1))
-            sigma_theta_out = np.nan * np.zeros((np.size(bin_depth), len(profile_tags) - 1))
-            shear = np.nan * np.zeros((np.size(bin_depth), len(profile_tags) - 1))
-            # eta = np.nan * np.zeros((np.size(grid), np.size(this_set) - 1))
-            # eta_theta = np.nan * np.zeros((np.size(grid), np.size(this_set) - 1))
-            isopycdep = np.nan * np.zeros((np.size(sigth_levels), len(profile_tags)))
-            isopycx = np.nan * np.zeros((np.size(sigth_levels), len(profile_tags)))
-            vbt = np.nan * np.zeros(len(profile_tags))
-            DACe_MW = np.nan * np.zeros(len(profile_tags))
-            DACn_MW = np.nan * np.zeros(len(profile_tags))
-            ds = np.nan * np.zeros(len(profile_tags))
-            dist = np.nan * np.zeros(np.shape(lon))
-            dist_st = 0
-            distance = 0
-            for i in order_set:
-                # M
-                lon_start = lon[0, i]  # start position of dive i along the transect
-                lat_start = lat[0, i]
-                lon_finish = lon[0, i + 1]  # end position of dive i along the transect
-                lat_finish = lat[0, i + 1]
-                lat_ref = 0.5 * (lat_start + lat_finish)
-                f_m = np.pi * np.sin(np.deg2rad(lat_ref)) / (12 * 1800)  # Coriolis parameter [s^-1]
-                dxs_m = 1.852 * 60 * np.cos(np.deg2rad(lat_ref)) * (lon_finish - lon_start)  # zonal sfc disp [km]
-                dys_m = 1.852 * 60 * (lat_finish - lat_start)  # meridional sfc disp [km]
-                ds_a, ang_sfc_m = cart2pol(dxs_m, dys_m)
+                    dx = 1.852 * 60 * np.cos(np.deg2rad(lat_ref)) * \
+                        (np.concatenate([lon[:, i], np.flipud(lon[:, i + 1])]) - lon[0, i])
+                    dy = 1.852 * 60 * (np.concatenate([lat[:, i], np.flipud(np.array(lat[:, i + 1]))]) - lat[0, i])
+                    ss, ang = cart2pol(dx, dy)
+                    xx, yy = pol2cart(ss, ang - ang_sfc_m)
+                    length1 = np.size(lon[:, i])
+                    dist[:, i] = dist_st + xx[0:length1]
+                    dist[:, i + 1] = dist_st + np.flipud(xx[length1:])
+                    dist_st = dist_st + ds_a
 
-                dx = 1.852 * 60 * np.cos(np.deg2rad(lat_ref)) * (np.concatenate([lon[:, i], np.flipud(lon[:, i + 1])])
-                                                                 - lon[0, i])
-                dy = 1.852 * 60 * (np.concatenate([lat[:, i], np.flipud(np.array(lat[:, i + 1]))]) - lat[0, i])
-                ss, ang = cart2pol(dx, dy)
-                xx, yy = pol2cart(ss, ang - ang_sfc_m)
-                length1 = np.size(lon[:, i])
-                dist[:, i] = dist_st + xx[0:length1]
-                dist[:, i + 1] = dist_st + np.flipud(xx[length1:])
-                dist_st = dist_st + ds_a
-
-                distance = distance + np.nanmedian(xx)  # 0.5*ds # distance for each velocity estimate
-                ds[i] = distance
-                # DACe = dac_u[i]  # zonal depth averaged current [m/s]
-                # DACn = dac_v[i]  # meridional depth averaged current [m/s]
-                if i < 2:
-                    DACe = np.nanmean([[dac_u[i]], [dac_u[i + 2]]])
-                    DACn = np.nanmean([[dac_v[i]], [dac_v[i + 2]]])
-                elif (i >= 2) and (i < len(profile_tags) - 2):
-                    DACe = np.nanmean([[dac_u[i - 1]], [dac_u[i]], [dac_u[i + 2]]])
-                    DACn = np.nanmean([[dac_v[i - 1]], [dac_v[i]], [dac_v[i + 2]]])
-                elif i >= len(profile_tags) - 2:
-                    DACe = np.nanmean([[dac_u[i - 1]], [dac_u[i]]])
-                    DACn = np.nanmean([[dac_v[i - 1]], [dac_v[i]]])
-                mag_DAC, ang_DAC = cart2pol(DACe, DACn)
-                DACat, DACpot = pol2cart(mag_DAC, ang_DAC - ang_sfc_m)
-                vbt[i] = DACpot  # across-track barotropic current comp (>0 to left)
-                DACe_MW[i] = DACe.copy()
-                DACn_MW[i] = DACn.copy()
-
-                # W
-                if i >= order_set[-1]:
-                    lon_finish = lon[0, -1]
-                    lat_finish = lon[0, -1]
-                    DACe = np.nanmean([[dac_u[i]], [dac_u[-1]]])  # zonal depth averaged current [m/s]
-                    DACn = np.nanmean([[dac_v[i]], [dac_v[-1]]])  # meridional depth averaged current [m/s]
-                else:
-                    lon_finish = lon[0, i + 3]
-                    lat_finish = lat[0, i + 3]
-                    DACe = np.nanmean([[dac_u[i]], [dac_u[i + 2]]])  # zonal depth averaged current [m/s]
-                    DACn = np.nanmean([[dac_v[i]], [dac_v[i + 2]]])  # meridional depth averaged current [m/s]
-                DACe_MW[i + 1] = DACe.copy()
-                DACn_MW[i + 1] = DACn.copy()
-                lat_ref = 0.5 * (lat_start + lat_finish)
-                f_w = np.pi * np.sin(np.deg2rad(lat_ref)) / (12 * 1800)  # Coriolis parameter [s^-1]
-                dxs = 1.852 * 60 * np.cos(np.deg2rad(lat_ref)) * (lon_finish - lon_start)  # zonal sfc disp [km]
-                dys = 1.852 * 60 * (lat_finish - lat_start)  # meridional sfc disp [km]
-                ds_w, ang_sfc_w = cart2pol(dxs, dys)
-                distance = distance + (ds_a - np.nanmedian(xx))  # distance for each velocity estimate
-                ds[i + 1] = distance
-                mag_DAC, ang_DAC = cart2pol(DACe, DACn)
-                DACat, DACpot = pol2cart(mag_DAC, ang_DAC - ang_sfc_w)
-                vbt[i + 1] = DACpot  # across-track barotropic current comp (>0 to left)
-
-                shearM = np.nan * np.zeros(np.size(bin_depth))
-                shearW = np.nan * np.zeros(np.size(bin_depth))
-                etaM = np.nan * np.zeros(np.size(bin_depth))
-                etaW = np.nan * np.zeros(np.size(bin_depth))
-                eta_thetaM = np.nan * np.zeros(np.size(bin_depth))
-                eta_thetaW = np.nan * np.zeros(np.size(bin_depth))
-                sigma_theta_pa_M = np.nan * np.zeros(np.size(bin_depth))
-                sigma_theta_pa_W = np.nan * np.zeros(np.size(bin_depth))
-                lon_pa_M = np.nan * np.zeros(np.size(bin_depth))
-                lon_pa_W = np.nan * np.zeros(np.size(bin_depth))
-                lat_pa_M = np.nan * np.zeros(np.size(bin_depth))
-                lat_pa_W = np.nan * np.zeros(np.size(bin_depth))
-                # LOOP OVER EACH BIN_DEPTH
-                for j in range(np.size(bin_depth)):
-                    # find array of indices for M / W sampling
+                    distance = distance + np.nanmedian(xx)  # 0.5*ds # distance for each velocity estimate
+                    ds[i] = distance
+                    # DACe = dac_u[i]  # zonal depth averaged current [m/s]
+                    # DACn = dac_v[i]  # meridional depth averaged current [m/s]
                     if i < 2:
-                        c_i_m = np.arange(i, i + 3)
-                        # c_i_m = []  # omit partial "M" estimate
-                        c_i_w = np.arange(i, i + 4)
+                        DACe = np.nanmean([[dac_u[i]], [dac_u[i + 2]]])
+                        DACn = np.nanmean([[dac_v[i]], [dac_v[i + 2]]])
                     elif (i >= 2) and (i < len(profile_tags) - 2):
-                        c_i_m = np.arange(i - 1, i + 3)
-                        c_i_w = np.arange(i, i + 4)
+                        DACe = np.nanmean([[dac_u[i - 1]], [dac_u[i]], [dac_u[i + 2]]])
+                        DACn = np.nanmean([[dac_v[i - 1]], [dac_v[i]], [dac_v[i + 2]]])
                     elif i >= len(profile_tags) - 2:
-                        c_i_m = np.arange(i - 1, len(profile_tags))
-                        # c_i_m = []  # omit partial "M" estimated
-                        c_i_w = []
-                    nm = np.size(c_i_m)
-                    nw = np.size(c_i_w)
+                        DACe = np.nanmean([[dac_u[i - 1]], [dac_u[i]]])
+                        DACn = np.nanmean([[dac_v[i - 1]], [dac_v[i]]])
+                    mag_DAC, ang_DAC = cart2pol(DACe, DACn)
+                    DACat, DACpot = pol2cart(mag_DAC, ang_DAC - ang_sfc_m)
+                    vbt[i] = DACpot  # across-track barotropic current comp (>0 to left)
+                    DACe_MW[i] = DACe.copy()
+                    DACn_MW[i] = DACn.copy()
 
-                    # for M profile compute shear and eta
-                    if nm > 2 and np.size(sig0[j, c_i_m]) > 2:
-                        sigmathetaM = sig0[j, c_i_m]
-                        sigma_theta_pa_M[j] = np.nanmean(sigmathetaM)  # average density across 4 profiles
-                        lon_pa_M[j] = np.nanmean(lon[j, c_i_m])  # avg lat/lon across M/W profiles
-                        lat_pa_M[j] = np.nanmean(lat[j, c_i_m])
-                        # thetaM = theta[j, c_i_m]
-                        # ctM = df_ct_set.iloc[j, c_i_m]
-                        imv = ~np.isnan(np.array(sig0[j, c_i_m]))
-                        c_i_m_in = c_i_m[imv]
+                    # W
+                    if i >= order_set[-1]:
+                        lon_finish = lon[0, -1]
+                        lat_finish = lon[0, -1]
+                        DACe = np.nanmean([[dac_u[i]], [dac_u[-1]]])  # zonal depth averaged current [m/s]
+                        DACn = np.nanmean([[dac_v[i]], [dac_v[-1]]])  # meridional depth averaged current [m/s]
+                    else:
+                        lon_finish = lon[0, i + 3]
+                        lat_finish = lat[0, i + 3]
+                        DACe = np.nanmean([[dac_u[i]], [dac_u[i + 2]]])  # zonal depth averaged current [m/s]
+                        DACn = np.nanmean([[dac_v[i]], [dac_v[i + 2]]])  # meridional depth averaged current [m/s]
+                    DACe_MW[i + 1] = DACe.copy()
+                    DACn_MW[i + 1] = DACn.copy()
+                    lat_ref = 0.5 * (lat_start + lat_finish)
+                    f_w = np.pi * np.sin(np.deg2rad(lat_ref)) / (12 * 1800)  # Coriolis parameter [s^-1]
+                    dxs = 1.852 * 60 * np.cos(np.deg2rad(lat_ref)) * (lon_finish - lon_start)  # zonal sfc disp [km]
+                    dys = 1.852 * 60 * (lat_finish - lat_start)  # meridional sfc disp [km]
+                    ds_w, ang_sfc_w = cart2pol(dxs, dys)
+                    distance = distance + (ds_a - np.nanmedian(xx))  # distance for each velocity estimate
+                    ds[i + 1] = distance
+                    mag_DAC, ang_DAC = cart2pol(DACe, DACn)
+                    DACat, DACpot = pol2cart(mag_DAC, ang_DAC - ang_sfc_w)
+                    vbt[i + 1] = DACpot  # across-track barotropic current comp (>0 to left)
 
-                        if np.size(c_i_m_in) > 1:
-                            xM = 1.852 * 60 * np.cos(np.deg2rad(lat_ref)) * (
-                                    lon[j, c_i_m_in] - lon[j, c_i_m_in[0]])  # E loc [km]
-                            yM = 1.852 * 60 * (
-                                    lat[j, c_i_m_in] - lat[j, c_i_m_in[0]])  # N location [km]
-                            XXM = np.concatenate(
-                                [np.ones((np.size(sigmathetaM[imv]), 1)), np.transpose(np.atleast_2d(np.array(xM))),
-                                 np.transpose(np.atleast_2d(np.array(yM)))], axis=1)
-                            d_anom0M = sigmathetaM[imv] - np.nanmean(sigmathetaM[imv])
-                            ADM = np.squeeze(np.linalg.lstsq(XXM, np.transpose(np.atleast_2d(np.array(d_anom0M))))[0])
-                            drhodxM = ADM[1]  # [zonal gradient [kg/m^3/km]
-                            drhodyM = ADM[2]  # [meridional gradient [kg/m^3km]
-                            drhodsM, ang_drhoM = cart2pol(drhodxM, drhodyM)
-                            drhodatM, drhodpotM = pol2cart(drhodsM, ang_drhoM - ang_sfc_m)
-                            shearM[j] = -self.g * drhodatM / (self.rho0 * f_m)  # shear to port of track [m/s/km]
-                            if (np.abs(shearM[j]) > deep_shr_max) and bin_depth[j] >= deep_shr_max_dep:
-                                shearM[j] = np.sign(shearM[j]) * deep_shr_max
+                    shearM = np.nan * np.zeros(np.size(bin_depth))
+                    shearW = np.nan * np.zeros(np.size(bin_depth))
+                    etaM = np.nan * np.zeros(np.size(bin_depth))
+                    etaW = np.nan * np.zeros(np.size(bin_depth))
+                    eta_thetaM = np.nan * np.zeros(np.size(bin_depth))
+                    eta_thetaW = np.nan * np.zeros(np.size(bin_depth))
+                    sigma_theta_pa_M = np.nan * np.zeros(np.size(bin_depth))
+                    sigma_theta_pa_W = np.nan * np.zeros(np.size(bin_depth))
+                    lon_pa_M = np.nan * np.zeros(np.size(bin_depth))
+                    lon_pa_W = np.nan * np.zeros(np.size(bin_depth))
+                    lat_pa_M = np.nan * np.zeros(np.size(bin_depth))
+                    lat_pa_W = np.nan * np.zeros(np.size(bin_depth))
+                    # LOOP OVER EACH BIN_DEPTH
+                    for j in range(np.size(bin_depth)):
+                        # find array of indices for M / W sampling
+                        if i < 2:
+                            c_i_m = np.arange(i, i + 3)
+                            # c_i_m = []  # omit partial "M" estimate
+                            c_i_w = np.arange(i, i + 4)
+                        elif (i >= 2) and (i < len(profile_tags) - 2):
+                            c_i_m = np.arange(i - 1, i + 3)
+                            c_i_w = np.arange(i, i + 4)
+                        elif i >= len(profile_tags) - 2:
+                            c_i_m = np.arange(i - 1, len(profile_tags))
+                            # c_i_m = []  # omit partial "M" estimated
+                            c_i_w = []
+                        nm = np.size(c_i_m)
+                        nw = np.size(c_i_w)
 
-                            # --- Computation of Eta
-                            # -- isopycnal position is average position of a few dives
-                            # etaM[j] = (sigma_theta_avg[j] - np.nanmean(sigmathetaM[imv])) / ddz_avg_sigma[j]
-                            # eta_thetaM[j] = (theta_avg[j] - np.nanmean(thetaM[imv])) / ddz_avg_theta[j]
-                            # -- isopycnal position is position on this single profile
-                            # etaM[j] = (sigma_theta_avg[j] - sig0[j, i]) / ddz_avg_sigma[j]  # j=dp, i=prof_ind
-                            # eta_thetaM[j] = (ct_avg[j] - df_ct_set.iloc[j, i]) / ddz_avg_ct[j]
+                        # for M profile compute shear and eta
+                        if nm > 2 and np.size(sig0[j, c_i_m]) > 2:
+                            sigmathetaM = sig0[j, c_i_m]
+                            sigma_theta_pa_M[j] = np.nanmean(sigmathetaM)  # average density across 4 profiles
+                            lon_pa_M[j] = np.nanmean(lon[j, c_i_m])  # avg lat/lon across M/W profiles
+                            lat_pa_M[j] = np.nanmean(lat[j, c_i_m])
+                            # thetaM = theta[j, c_i_m]
+                            # ctM = df_ct_set.iloc[j, c_i_m]
+                            imv = ~np.isnan(np.array(sig0[j, c_i_m]))
+                            c_i_m_in = c_i_m[imv]
 
-                    # for W profile compute shear and eta
-                    if nw > 2 and np.size(sig0[j, c_i_w]) > 2:
-                        sigmathetaW = sig0[j, c_i_w]
-                        sigma_theta_pa_W[j] = np.nanmean(sigmathetaW)  # average density across 4 profiles
-                        lon_pa_W[j] = np.nanmean(lon[j, c_i_w])  # avg lat/lon across M/W profiles
-                        lat_pa_W[j] = np.nanmean(lon[j, c_i_w])
-                        # thetaW = df_theta_set.iloc[j, c_i_w]
-                        # ctW = df_theta_set.iloc[j, c_i_w]
-                        iwv = ~np.isnan(np.array(sig0[j, c_i_w]))
-                        c_i_w_in = c_i_w[iwv]
+                            if np.size(c_i_m_in) > 1:
+                                xM = 1.852 * 60 * np.cos(np.deg2rad(lat_ref)) * (
+                                        lon[j, c_i_m_in] - lon[j, c_i_m_in[0]])  # E loc [km]
+                                yM = 1.852 * 60 * (
+                                        lat[j, c_i_m_in] - lat[j, c_i_m_in[0]])  # N location [km]
+                                XXM = np.concatenate(
+                                    [np.ones((np.size(sigmathetaM[imv]), 1)), np.transpose(np.atleast_2d(np.array(xM))),
+                                    np.transpose(np.atleast_2d(np.array(yM)))], axis=1)
+                                d_anom0M = sigmathetaM[imv] - np.nanmean(sigmathetaM[imv])
+                                ADM = np.squeeze(np.linalg.lstsq(XXM, np.transpose(np.atleast_2d(np.array(d_anom0M))))[0])
+                                drhodxM = ADM[1]  # [zonal gradient [kg/m^3/km]
+                                drhodyM = ADM[2]  # [meridional gradient [kg/m^3km]
+                                drhodsM, ang_drhoM = cart2pol(drhodxM, drhodyM)
+                                drhodatM, drhodpotM = pol2cart(drhodsM, ang_drhoM - ang_sfc_m)
+                                shearM[j] = -self.g * drhodatM / (self.rho0 * f_m)  # shear to port of track [m/s/km]
+                                if (np.abs(shearM[j]) > deep_shr_max) and bin_depth[j] >= deep_shr_max_dep:
+                                    shearM[j] = np.sign(shearM[j]) * deep_shr_max
 
-                        if np.sum(c_i_w_in) > 1:
-                            xW = 1.852 * 60 * np.cos(np.deg2rad(lat_ref)) * (
-                                    lon[j, c_i_w_in] - lon[j, c_i_w_in[0]])  # E loc [km]
-                            yW = 1.852 * 60 * (
-                                    lat[j, c_i_w_in] - lat[j, c_i_w_in[0]])  # N location [km]
-                            XXW = np.concatenate(
-                                [np.ones((np.size(sigmathetaW[iwv]), 1)), np.transpose(np.atleast_2d(np.array(xW))),
-                                 np.transpose(np.atleast_2d(np.array(yW)))], axis=1)
-                            d_anom0W = sigmathetaW[iwv] - np.nanmean(sigmathetaW[iwv])
-                            ADW = np.squeeze(np.linalg.lstsq(XXW, np.transpose(np.atleast_2d(np.array(d_anom0W))))[0])
-                            drhodxW = ADW[1]  # [zonal gradient [kg/m^3/km]
-                            drhodyW = ADW[2]  # [meridional gradient [kg/m^3km]
-                            drhodsW, ang_drhoW = cart2pol(drhodxW, drhodyW)
-                            drhodatW, drhodpotW = pol2cart(drhodsW, ang_drhoW - ang_sfc_w)
-                            shearW[j] = -self.g * drhodatW / (self.rho0 * f_w)  # shear to port of track [m/s/km]
-                            if (np.abs(shearW[j]) > deep_shr_max) and bin_depth[j] >= deep_shr_max_dep:
-                                shearW[j] = np.sign(shearW[j]) * deep_shr_max
+                                # --- Computation of Eta
+                                # -- isopycnal position is average position of a few dives
+                                # etaM[j] = (sigma_theta_avg[j] - np.nanmean(sigmathetaM[imv])) / ddz_avg_sigma[j]
+                                # eta_thetaM[j] = (theta_avg[j] - np.nanmean(thetaM[imv])) / ddz_avg_theta[j]
+                                # -- isopycnal position is position on this single profile
+                                # etaM[j] = (sigma_theta_avg[j] - sig0[j, i]) / ddz_avg_sigma[j]  # j=dp, i=prof_ind
+                                # eta_thetaM[j] = (ct_avg[j] - df_ct_set.iloc[j, i]) / ddz_avg_ct[j]
 
-                            # --- Computation of Eta
-                            # -- isopycnal position is average position of a few dives
-                            # etaW[j] = (sigma_theta_avg[j] - np.nanmean(sigmathetaW[iwv])) / ddz_avg_sigma[j]
-                            # eta_thetaW[j] = (theta_avg[j] - np.nanmean(thetaW[iwv])) / ddz_avg_theta[j]
-                            # -- isopycnal position is position on this single profile
-                            # etaW[j] = (sigma_theta_avg[j] - df_den_set.iloc[j, i + 1]) / ddz_avg_sigma[j]
-                            # eta_thetaW[j] = (ct_avg[j] - df_ct_set.iloc[j, i + 1]) / ddz_avg_ct[j]
-                    # END LOOP OVER EACH BIN_DEPTH
+                        # for W profile compute shear and eta
+                        if nw > 2 and np.size(sig0[j, c_i_w]) > 2:
+                            sigmathetaW = sig0[j, c_i_w]
+                            sigma_theta_pa_W[j] = np.nanmean(sigmathetaW)  # average density across 4 profiles
+                            lon_pa_W[j] = np.nanmean(lon[j, c_i_w])  # avg lat/lon across M/W profiles
+                            lat_pa_W[j] = np.nanmean(lon[j, c_i_w])
+                            # thetaW = df_theta_set.iloc[j, c_i_w]
+                            # ctW = df_theta_set.iloc[j, c_i_w]
+                            iwv = ~np.isnan(np.array(sig0[j, c_i_w]))
+                            c_i_w_in = c_i_w[iwv]
 
-                # OUTPUT FOR EACH TRANSECT (at least 2 DIVES)
-                # because this is M/W profiling, for a 3 dive transect, only 5 profiles of shear and eta are compiled
-                sigma_theta_out[:, i] = sigma_theta_pa_M
-                shear[:, i] = shearM
-                # eta[:, i] = etaM
-                # eta_theta[:, i] = eta_thetaM
-                info[0, i] = profile_tags[i]
-                info[1, i] = np.nanmean(lon_pa_M)
-                info[2, i] = np.nanmean(lat_pa_M)
-                if i < len(profile_tags) - 2:
-                    sigma_theta_out[:, i + 1] = sigma_theta_pa_W
-                    shear[:, i + 1] = shearW
-                    # eta[:, i + 1] = etaW
-                    # eta_theta[:, i + 1] = eta_thetaW
-                    info[0, i + 1] = profile_tags[i]
-                    info[1, i + 1] = np.nanmean(lon_pa_W)
-                    info[2, i + 1] = np.nanmean(lat_pa_W)
+                            if np.sum(c_i_w_in) > 1:
+                                xW = 1.852 * 60 * np.cos(np.deg2rad(lat_ref)) * (
+                                        lon[j, c_i_w_in] - lon[j, c_i_w_in[0]])  # E loc [km]
+                                yW = 1.852 * 60 * (
+                                        lat[j, c_i_w_in] - lat[j, c_i_w_in[0]])  # N location [km]
+                                XXW = np.concatenate(
+                                    [np.ones((np.size(sigmathetaW[iwv]), 1)), np.transpose(np.atleast_2d(np.array(xW))),
+                                     np.transpose(np.atleast_2d(np.array(yW)))], axis=1)
+                                d_anom0W = sigmathetaW[iwv] - np.nanmean(sigmathetaW[iwv])
+                                ADW = np.squeeze(np.linalg.lstsq(XXW, np.transpose(np.atleast_2d(np.array(d_anom0W))))[0])
+                                drhodxW = ADW[1]  # [zonal gradient [kg/m^3/km]
+                                drhodyW = ADW[2]  # [meridional gradient [kg/m^3km]
+                                drhodsW, ang_drhoW = cart2pol(drhodxW, drhodyW)
+                                drhodatW, drhodpotW = pol2cart(drhodsW, ang_drhoW - ang_sfc_w)
+                                shearW[j] = -self.g * drhodatW / (self.rho0 * f_w)  # shear to port of track [m/s/km]
+                                if (np.abs(shearW[j]) > deep_shr_max) and bin_depth[j] >= deep_shr_max_dep:
+                                    shearW[j] = np.sign(shearW[j]) * deep_shr_max
 
-                # ISOPYCNAL DEPTHS ON PROFILES ALONG EACH TRANSECT
-                sigthmin = np.nanmin(np.array(sig0[:, i]))
-                sigthmax = np.nanmax(np.array(sig0[:, i]))
-                isigth = np.where((sigth_levels > sigthmin) & (sigth_levels < sigthmax))
-                isopycdep[isigth, i] = np.interp(sigth_levels[isigth], sig0[:, i], bin_depth)
-                isopycx[isigth, i] = np.interp(sigth_levels[isigth], sig0[:, i], dist[:, i])
+                                # --- Computation of Eta
+                                # -- isopycnal position is average position of a few dives
+                                # etaW[j] = (sigma_theta_avg[j] - np.nanmean(sigmathetaW[iwv])) / ddz_avg_sigma[j]
+                                # eta_thetaW[j] = (theta_avg[j] - np.nanmean(thetaW[iwv])) / ddz_avg_theta[j]
+                                # -- isopycnal position is position on this single profile
+                                # etaW[j] = (sigma_theta_avg[j] - df_den_set.iloc[j, i + 1]) / ddz_avg_sigma[j]
+                                # eta_thetaW[j] = (ct_avg[j] - df_ct_set.iloc[j, i + 1]) / ddz_avg_ct[j]
+                        # END LOOP OVER EACH BIN_DEPTH
 
-                sigthmin = np.nanmin(np.array(sig0[:, i + 1]))
-                sigthmax = np.nanmax(np.array(sig0[:, i + 1]))
-                isigth = np.where((sigth_levels > sigthmin) & (sigth_levels < sigthmax))
-                isopycdep[isigth, i + 1] = np.interp(sigth_levels[isigth], sig0[:, i + 1], bin_depth)
-                isopycx[isigth, i + 1] = np.interp(sigth_levels[isigth], sig0[:, i + 1], dist[:, i + 1])
+                    # OUTPUT FOR EACH TRANSECT (at least 2 DIVES)
+                    # because this is M/W profiling, for a 3 dive transect, only 5 profiles of shear and eta are compiled
+                    sigma_theta_out[:, i] = sigma_theta_pa_M
+                    shear[:, i] = shearM
+                    # eta[:, i] = etaM
+                    # eta_theta[:, i] = eta_thetaM
+                    info[0, i] = profile_tags[i]
+                    info[1, i] = np.nanmean(lon_pa_M)
+                    info[2, i] = np.nanmean(lat_pa_M)
+                    if i < len(profile_tags) - 2:
+                        sigma_theta_out[:, i + 1] = sigma_theta_pa_W
+                        shear[:, i + 1] = shearW
+                        # eta[:, i + 1] = etaW
+                        # eta_theta[:, i + 1] = eta_thetaW
+                        info[0, i + 1] = profile_tags[i]
+                        info[1, i + 1] = np.nanmean(lon_pa_W)
+                        info[2, i + 1] = np.nanmean(lat_pa_W)
 
-                # ---- END LOOP OVER EACH DIVE IN TRANSECT
+                    # ISOPYCNAL DEPTHS ON PROFILES ALONG EACH TRANSECT
+                    sigthmin = np.nanmin(np.array(sig0[:, i]))
+                    sigthmax = np.nanmax(np.array(sig0[:, i]))
+                    isigth = np.where((sigth_levels > sigthmin) & (sigth_levels < sigthmax))
+                    isopycdep[isigth, i] = np.interp(sigth_levels[isigth], sig0[:, i], bin_depth)
+                    isopycx[isigth, i] = np.interp(sigth_levels[isigth], sig0[:, i], dist[:, i])
 
-            # FOR EACH TRANSECT COMPUTE GEOSTROPHIC VELOCITY
-            vbc_g = np.nan * np.zeros(np.shape(shear))
-            v_g = np.nan * np.zeros((np.size(bin_depth), len(profile_tags)))
-            for m in range(len(profile_tags) - 1):
-                iq = np.where(~np.isnan(shear[:, m]))
-                if np.size(iq) > 10:
-                    z2 = -bin_depth[iq]
-                    vrel = cumtrapz(0.001 * shear[iq, m], x=z2, initial=0)
-                    vrel_av = np.trapz(vrel / (z2[-1] - z2[0]), x=z2)
-                    vbc = vrel - vrel_av
-                    vbc_g[iq, m] = vbc
-                    v_g[iq, m] = vbt[m] + vbc
-                else:
-                    vbc_g[iq, m] = np.nan
-                    v_g[iq, m] = np.nan
+                    sigthmin = np.nanmin(np.array(sig0[:, i + 1]))
+                    sigthmax = np.nanmax(np.array(sig0[:, i + 1]))
+                    isigth = np.where((sigth_levels > sigthmin) & (sigth_levels < sigthmax))
+                    isopycdep[isigth, i + 1] = np.interp(sigth_levels[isigth], sig0[:, i + 1], bin_depth)
+                    isopycx[isigth, i + 1] = np.interp(sigth_levels[isigth], sig0[:, i + 1], dist[:, i + 1])
 
-            # M/W position in lat/lon (to locate a velocity and eta profile in space)
-            mwe_lon = np.nan * np.zeros(len(vbt))
-            mwe_lat = np.nan * np.zeros(len(vbt))
-            for m in order_set:
-                if m < order_set[-1]:
-                    mwe_lon[m] = lon[np.where(np.isfinite(lon[:, m]))[0], m][-1]
-                    mwe_lat[m] = lat[np.where(np.isfinite(lon[:, m]))[0], m][-1]
-                    mwe_lon[m + 1] = lon[0, m + 1]
-                    mwe_lat[m + 1] = lat[0, m + 1]
-                else:
-                    mwe_lon[m] = lon[np.where(np.isfinite(lon[:, m]))[0], m][-1]
-                    mwe_lat[m] = lat[np.where(np.isfinite(lat[:, m]))[0], m][-1]
+                    # ---- END LOOP OVER EACH DIVE IN TRANSECT
 
-            ds_out.append(ds)
-            dist_out.append(dist)
-            v_g_out.append(v_g)
-            vbt_out.append(vbt)
-            isopycdep_out.append(isopycdep)
-            isopycx_out.append(isopycx)
-            mwe_lon_out.append(mwe_lon)
-            mwe_lat_out.append(mwe_lat)
-            DACe_MW_out.append(DACe_MW)
-            DACn_MW_out.append(DACn_MW)
-            profile_tags_out.append(profile_tags)
+                # FOR EACH TRANSECT COMPUTE GEOSTROPHIC VELOCITY
+                vbc_g = np.nan * np.zeros(np.shape(shear))
+                v_g = np.nan * np.zeros((np.size(bin_depth), len(profile_tags)))
+                for m in range(len(profile_tags) - 1):
+                    iq = np.where(~np.isnan(shear[:, m]))
+                    if np.size(iq) > 10:
+                        z2 = -bin_depth[iq]
+                        vrel = cumtrapz(0.001 * shear[iq, m], x=z2, initial=0)
+                        vrel_av = np.trapz(vrel / (z2[-1] - z2[0]), x=z2)
+                        vbc = vrel - vrel_av
+                        vbc_g[iq, m] = vbc
+                        v_g[iq, m] = vbt[m] + vbc
+                    else:
+                        vbc_g[iq, m] = np.nan
+                        v_g[iq, m] = np.nan
+
+                # M/W position in lat/lon (to locate a velocity and eta profile in space)
+                mwe_lon = np.nan * np.zeros(len(vbt))
+                mwe_lat = np.nan * np.zeros(len(vbt))
+                for m in order_set:
+                    if m < order_set[-1]:
+                        mwe_lon[m] = lon[np.where(np.isfinite(lon[:, m]))[0], m][-1]
+                        mwe_lat[m] = lat[np.where(np.isfinite(lon[:, m]))[0], m][-1]
+                        mwe_lon[m + 1] = lon[0, m + 1]
+                        mwe_lat[m + 1] = lat[0, m + 1]
+                    else:
+                        mwe_lon[m] = lon[np.where(np.isfinite(lon[:, m]))[0], m][-1]
+                        mwe_lat[m] = lat[np.where(np.isfinite(lat[:, m]))[0], m][-1]
+
+                ds_out.append(ds)
+                dist_out.append(dist)
+                v_g_out.append(v_g)
+                vbt_out.append(vbt)
+                isopycdep_out.append(isopycdep)
+                isopycx_out.append(isopycx)
+                mwe_lon_out.append(mwe_lon)
+                mwe_lat_out.append(mwe_lat)
+                DACe_MW_out.append(DACe_MW)
+                DACn_MW_out.append(DACn_MW)
+                profile_tags_out.append(profile_tags)
 
             # everywhere there is a len(profile_tags) there was a self.num_profs
 
@@ -595,6 +600,8 @@ class Glider(object):
             ax.plot(sa[:, i], ct[:, i])
         ax.axis([np.round(np.nanmin(sa), 1) - .2, np.round(np.nanmax(sa), 1) + .2,
                  np.round(np.nanmin(ct), 1) - .5, np.round(np.nanmax(ct), 1) + .5])
+        ax.set_xlabel('Absolute Salinity')
+        ax.set_ylabel('Conservative Temperature')
         ax.grid()
         plot_pro(ax)
 
@@ -602,10 +609,17 @@ class Glider(object):
         # bathymetry
         bath = path
         bath_fid = Dataset(bath, 'r')
-        bath_lon = bath_fid.variables['longitude'][:] - 360
-        bath_lat = bath_fid.variables['latitude'][:]
-        bath_z = bath_fid.variables['ROSE'][:]
-        levels = [-3000, -2500, -2000, -1500, -1000, -500, 0]
+        if 'longitude' in bath_fid.variables:
+            bath_lon = bath_fid.variables['longitude'][:] - 360
+            bath_lat = bath_fid.variables['latitude'][:]
+        elif 'lon' in bath_fid.variables:
+            bath_lon = bath_fid.variables['lon'][:]
+            bath_lat = bath_fid.variables['lat'][:]
+        if 'ROSE' in bath_fid.variables:
+            bath_z = bath_fid.variables['ROSE'][:]
+        elif 'elevation' in bath_fid.variables:
+            bath_z = bath_fid.variables['elevation'][:]
+        levels = [-4000, -3000, -2500, -2000, -1500, -1000, -500, 0]
         cmap = plt.cm.get_cmap("Blues_r")
         cmap.set_over('#808000')  # ('#E6E6E6')
 
@@ -614,8 +628,9 @@ class Glider(object):
         matplotlib.rcParams['contour.negative_linestyle'] = 'solid'
         # ax.plot(mwe_lon, mwe_lat, color='k')
         ax.scatter(lon, lat, s=2, color='k')
+        ax.scatter(mwe_lon, mwe_lat, s=4, color='r')
         for i in range(0, len(mwe_lat)-1, 2):
-            ax.text(mwe_lon[i] - 0.1, mwe_lat[i] + 0.02, str(profile_tags[i]), color='m', fontsize=7)
+            ax.text(mwe_lon[i] - 0.1, mwe_lat[i] + 0.02, str(profile_tags[i]), color='#FFD700', fontsize=9)
         ax.quiver(mwe_lon, mwe_lat, dac_u, dac_v, color='r', scale=2, headwidth=2, headlength=2, width=.0025)
         w = 1 / np.cos(np.deg2rad(ref_lat))
         ax.axis(limits)
@@ -626,3 +641,256 @@ class Glider(object):
             t_s.month) + '/' + np.str(t_s.day) + ' - ' + np.str(t_e.month) + '/' + np.str(t_e.day), fontsize=14)
         ax.grid()
         plot_pro(ax)
+
+    def transect_cross_section_0(self, bin_depth, sig0, lon, lat, dac_u, dac_v, profile_tags, sigth_levels):
+        deep_shr_max = 0.1
+        deep_shr_max_dep = 3500
+
+        order_set = np.arange(0, self.num_profs, 2)
+
+        info = np.nan * np.zeros((3, len(profile_tags) - 1))
+        sigma_theta_out = np.nan * np.zeros((np.size(bin_depth), len(profile_tags) - 1))
+        shear = np.nan * np.zeros((np.size(bin_depth), len(profile_tags) - 1))
+        # eta = np.nan * np.zeros((np.size(grid), np.size(this_set) - 1))
+        # eta_theta = np.nan * np.zeros((np.size(grid), np.size(this_set) - 1))
+        isopycdep = np.nan * np.zeros((np.size(sigth_levels), len(profile_tags)))
+        isopycx = np.nan * np.zeros((np.size(sigth_levels), len(profile_tags)))
+        vbt = np.nan * np.zeros(len(profile_tags))
+        DACe_MW = np.nan * np.zeros(len(profile_tags))
+        DACn_MW = np.nan * np.zeros(len(profile_tags))
+        ds = np.nan * np.zeros(len(profile_tags))
+        dist = np.nan * np.zeros(np.shape(lon))
+        dist_st = 0
+        distance = 0
+        for i in order_set:
+            # M
+            lon_start = lon[0, i]  # start position of dive i along the transect
+            lat_start = lat[0, i]
+            lon_finish = lon[0, i + 1]  # end position of dive i along the transect
+            lat_finish = lat[0, i + 1]
+            lat_ref = 0.5 * (lat_start + lat_finish)
+            f_m = np.pi * np.sin(np.deg2rad(lat_ref)) / (12 * 1800)  # Coriolis parameter [s^-1]
+            dxs_m = 1.852 * 60 * np.cos(np.deg2rad(lat_ref)) * (lon_finish - lon_start)  # zonal sfc disp [km]
+            dys_m = 1.852 * 60 * (lat_finish - lat_start)  # meridional sfc disp [km]
+            ds_a, ang_sfc_m = cart2pol(dxs_m, dys_m)
+
+            dx = 1.852 * 60 * np.cos(np.deg2rad(lat_ref)) * \
+                (np.concatenate([lon[:, i], np.flipud(lon[:, i + 1])]) - lon[0, i])
+            dy = 1.852 * 60 * (np.concatenate([lat[:, i], np.flipud(np.array(lat[:, i + 1]))]) - lat[0, i])
+            ss, ang = cart2pol(dx, dy)
+            xx, yy = pol2cart(ss, ang - ang_sfc_m)
+            length1 = np.size(lon[:, i])
+            dist[:, i] = dist_st + xx[0:length1]
+            dist[:, i + 1] = dist_st + np.flipud(xx[length1:])
+            dist_st = dist_st + ds_a
+
+            distance = distance + np.nanmedian(xx)  # 0.5*ds # distance for each velocity estimate
+            ds[i] = distance
+            # DACe = dac_u[i]  # zonal depth averaged current [m/s]
+            # DACn = dac_v[i]  # meridional depth averaged current [m/s]
+            if i < 2:
+                DACe = np.nanmean([[dac_u[i]], [dac_u[i + 2]]])
+                DACn = np.nanmean([[dac_v[i]], [dac_v[i + 2]]])
+            elif (i >= 2) and (i < len(profile_tags) - 2):
+                DACe = np.nanmean([[dac_u[i - 1]], [dac_u[i]], [dac_u[i + 2]]])
+                DACn = np.nanmean([[dac_v[i - 1]], [dac_v[i]], [dac_v[i + 2]]])
+            elif i >= len(profile_tags) - 2:
+                DACe = np.nanmean([[dac_u[i - 1]], [dac_u[i]]])
+                DACn = np.nanmean([[dac_v[i - 1]], [dac_v[i]]])
+            mag_DAC, ang_DAC = cart2pol(DACe, DACn)
+            DACat, DACpot = pol2cart(mag_DAC, ang_DAC - ang_sfc_m)
+            vbt[i] = DACpot  # across-track barotropic current comp (>0 to left)
+            DACe_MW[i] = DACe.copy()
+            DACn_MW[i] = DACn.copy()
+
+            # W
+            if i >= order_set[-1]:
+                lon_finish = lon[0, -1]
+                lat_finish = lon[0, -1]
+                DACe = np.nanmean([[dac_u[i]], [dac_u[-1]]])  # zonal depth averaged current [m/s]
+                DACn = np.nanmean([[dac_v[i]], [dac_v[-1]]])  # meridional depth averaged current [m/s]
+            else:
+                lon_finish = lon[0, i + 3]
+                lat_finish = lat[0, i + 3]
+                DACe = np.nanmean([[dac_u[i]], [dac_u[i + 2]]])  # zonal depth averaged current [m/s]
+                DACn = np.nanmean([[dac_v[i]], [dac_v[i + 2]]])  # meridional depth averaged current [m/s]
+            DACe_MW[i + 1] = DACe.copy()
+            DACn_MW[i + 1] = DACn.copy()
+            lat_ref = 0.5 * (lat_start + lat_finish)
+            f_w = np.pi * np.sin(np.deg2rad(lat_ref)) / (12 * 1800)  # Coriolis parameter [s^-1]
+            dxs = 1.852 * 60 * np.cos(np.deg2rad(lat_ref)) * (lon_finish - lon_start)  # zonal sfc disp [km]
+            dys = 1.852 * 60 * (lat_finish - lat_start)  # meridional sfc disp [km]
+            ds_w, ang_sfc_w = cart2pol(dxs, dys)
+            distance = distance + (ds_a - np.nanmedian(xx))  # distance for each velocity estimate
+            ds[i + 1] = distance
+            mag_DAC, ang_DAC = cart2pol(DACe, DACn)
+            DACat, DACpot = pol2cart(mag_DAC, ang_DAC - ang_sfc_w)
+            vbt[i + 1] = DACpot  # across-track barotropic current comp (>0 to left)
+
+            shearM = np.nan * np.zeros(np.size(bin_depth))
+            shearW = np.nan * np.zeros(np.size(bin_depth))
+            etaM = np.nan * np.zeros(np.size(bin_depth))
+            etaW = np.nan * np.zeros(np.size(bin_depth))
+            eta_thetaM = np.nan * np.zeros(np.size(bin_depth))
+            eta_thetaW = np.nan * np.zeros(np.size(bin_depth))
+            sigma_theta_pa_M = np.nan * np.zeros(np.size(bin_depth))
+            sigma_theta_pa_W = np.nan * np.zeros(np.size(bin_depth))
+            lon_pa_M = np.nan * np.zeros(np.size(bin_depth))
+            lon_pa_W = np.nan * np.zeros(np.size(bin_depth))
+            lat_pa_M = np.nan * np.zeros(np.size(bin_depth))
+            lat_pa_W = np.nan * np.zeros(np.size(bin_depth))
+            # LOOP OVER EACH BIN_DEPTH
+            for j in range(np.size(bin_depth)):
+                # find array of indices for M / W sampling
+                if i < 2:
+                    c_i_m = np.arange(i, i + 3)
+                    # c_i_m = []  # omit partial "M" estimate
+                    c_i_w = np.arange(i, i + 4)
+                elif (i >= 2) and (i < len(profile_tags) - 2):
+                    c_i_m = np.arange(i - 1, i + 3)
+                    c_i_w = np.arange(i, i + 4)
+                elif i >= len(profile_tags) - 2:
+                    c_i_m = np.arange(i - 1, len(profile_tags))
+                    # c_i_m = []  # omit partial "M" estimated
+                    c_i_w = []
+                nm = np.size(c_i_m)
+                nw = np.size(c_i_w)
+
+                # for M profile compute shear and eta
+                if nm > 2 and np.size(sig0[j, c_i_m]) > 2:
+                    sigmathetaM = sig0[j, c_i_m]
+                    sigma_theta_pa_M[j] = np.nanmean(sigmathetaM)  # average density across 4 profiles
+                    lon_pa_M[j] = np.nanmean(lon[j, c_i_m])  # avg lat/lon across M/W profiles
+                    lat_pa_M[j] = np.nanmean(lat[j, c_i_m])
+                    # thetaM = theta[j, c_i_m]
+                    # ctM = df_ct_set.iloc[j, c_i_m]
+                    imv = ~np.isnan(np.array(sig0[j, c_i_m]))
+                    c_i_m_in = c_i_m[imv]
+
+                    if np.size(c_i_m_in) > 1:
+                        xM = 1.852 * 60 * np.cos(np.deg2rad(lat_ref)) * (
+                                lon[j, c_i_m_in] - lon[j, c_i_m_in[0]])  # E loc [km]
+                        yM = 1.852 * 60 * (
+                                lat[j, c_i_m_in] - lat[j, c_i_m_in[0]])  # N location [km]
+                        XXM = np.concatenate(
+                            [np.ones((np.size(sigmathetaM[imv]), 1)), np.transpose(np.atleast_2d(np.array(xM))),
+                            np.transpose(np.atleast_2d(np.array(yM)))], axis=1)
+                        d_anom0M = sigmathetaM[imv] - np.nanmean(sigmathetaM[imv])
+                        ADM = np.squeeze(np.linalg.lstsq(XXM, np.transpose(np.atleast_2d(np.array(d_anom0M))))[0])
+                        drhodxM = ADM[1]  # [zonal gradient [kg/m^3/km]
+                        drhodyM = ADM[2]  # [meridional gradient [kg/m^3km]
+                        drhodsM, ang_drhoM = cart2pol(drhodxM, drhodyM)
+                        drhodatM, drhodpotM = pol2cart(drhodsM, ang_drhoM - ang_sfc_m)
+                        shearM[j] = -self.g * drhodatM / (self.rho0 * f_m)  # shear to port of track [m/s/km]
+                        if (np.abs(shearM[j]) > deep_shr_max) and bin_depth[j] >= deep_shr_max_dep:
+                            shearM[j] = np.sign(shearM[j]) * deep_shr_max
+
+                        # --- Computation of Eta
+                        # -- isopycnal position is average position of a few dives
+                        # etaM[j] = (sigma_theta_avg[j] - np.nanmean(sigmathetaM[imv])) / ddz_avg_sigma[j]
+                        # eta_thetaM[j] = (theta_avg[j] - np.nanmean(thetaM[imv])) / ddz_avg_theta[j]
+                        # -- isopycnal position is position on this single profile
+                        # etaM[j] = (sigma_theta_avg[j] - sig0[j, i]) / ddz_avg_sigma[j]  # j=dp, i=prof_ind
+                        # eta_thetaM[j] = (ct_avg[j] - df_ct_set.iloc[j, i]) / ddz_avg_ct[j]
+
+                # for W profile compute shear and eta
+                if nw > 2 and np.size(sig0[j, c_i_w]) > 2:
+                    sigmathetaW = sig0[j, c_i_w]
+                    sigma_theta_pa_W[j] = np.nanmean(sigmathetaW)  # average density across 4 profiles
+                    lon_pa_W[j] = np.nanmean(lon[j, c_i_w])  # avg lat/lon across M/W profiles
+                    lat_pa_W[j] = np.nanmean(lon[j, c_i_w])
+                    # thetaW = df_theta_set.iloc[j, c_i_w]
+                    # ctW = df_theta_set.iloc[j, c_i_w]
+                    iwv = ~np.isnan(np.array(sig0[j, c_i_w]))
+                    c_i_w_in = c_i_w[iwv]
+
+                    if np.sum(c_i_w_in) > 1:
+                        xW = 1.852 * 60 * np.cos(np.deg2rad(lat_ref)) * (
+                                lon[j, c_i_w_in] - lon[j, c_i_w_in[0]])  # E loc [km]
+                        yW = 1.852 * 60 * (
+                                lat[j, c_i_w_in] - lat[j, c_i_w_in[0]])  # N location [km]
+                        XXW = np.concatenate(
+                            [np.ones((np.size(sigmathetaW[iwv]), 1)), np.transpose(np.atleast_2d(np.array(xW))),
+                                np.transpose(np.atleast_2d(np.array(yW)))], axis=1)
+                        d_anom0W = sigmathetaW[iwv] - np.nanmean(sigmathetaW[iwv])
+                        ADW = np.squeeze(np.linalg.lstsq(XXW, np.transpose(np.atleast_2d(np.array(d_anom0W))))[0])
+                        drhodxW = ADW[1]  # [zonal gradient [kg/m^3/km]
+                        drhodyW = ADW[2]  # [meridional gradient [kg/m^3km]
+                        drhodsW, ang_drhoW = cart2pol(drhodxW, drhodyW)
+                        drhodatW, drhodpotW = pol2cart(drhodsW, ang_drhoW - ang_sfc_w)
+                        shearW[j] = -self.g * drhodatW / (self.rho0 * f_w)  # shear to port of track [m/s/km]
+                        if (np.abs(shearW[j]) > deep_shr_max) and bin_depth[j] >= deep_shr_max_dep:
+                            shearW[j] = np.sign(shearW[j]) * deep_shr_max
+
+                        # --- Computation of Eta
+                        # -- isopycnal position is average position of a few dives
+                        # etaW[j] = (sigma_theta_avg[j] - np.nanmean(sigmathetaW[iwv])) / ddz_avg_sigma[j]
+                        # eta_thetaW[j] = (theta_avg[j] - np.nanmean(thetaW[iwv])) / ddz_avg_theta[j]
+                        # -- isopycnal position is position on this single profile
+                        # etaW[j] = (sigma_theta_avg[j] - df_den_set.iloc[j, i + 1]) / ddz_avg_sigma[j]
+                        # eta_thetaW[j] = (ct_avg[j] - df_ct_set.iloc[j, i + 1]) / ddz_avg_ct[j]
+                # END LOOP OVER EACH BIN_DEPTH
+
+            # OUTPUT FOR EACH TRANSECT (at least 2 DIVES)
+            # because this is M/W profiling, for a 3 dive transect, only 5 profiles of shear and eta are compiled
+            sigma_theta_out[:, i] = sigma_theta_pa_M
+            shear[:, i] = shearM
+            # eta[:, i] = etaM
+            # eta_theta[:, i] = eta_thetaM
+            info[0, i] = profile_tags[i]
+            info[1, i] = np.nanmean(lon_pa_M)
+            info[2, i] = np.nanmean(lat_pa_M)
+            if i < len(profile_tags) - 2:
+                sigma_theta_out[:, i + 1] = sigma_theta_pa_W
+                shear[:, i + 1] = shearW
+                # eta[:, i + 1] = etaW
+                # eta_theta[:, i + 1] = eta_thetaW
+                info[0, i + 1] = profile_tags[i]
+                info[1, i + 1] = np.nanmean(lon_pa_W)
+                info[2, i + 1] = np.nanmean(lat_pa_W)
+
+            # ISOPYCNAL DEPTHS ON PROFILES ALONG EACH TRANSECT
+            sigthmin = np.nanmin(np.array(sig0[:, i]))
+            sigthmax = np.nanmax(np.array(sig0[:, i]))
+            isigth = np.where((sigth_levels > sigthmin) & (sigth_levels < sigthmax))
+            isopycdep[isigth, i] = np.interp(sigth_levels[isigth], sig0[:, i], bin_depth)
+            isopycx[isigth, i] = np.interp(sigth_levels[isigth], sig0[:, i], dist[:, i])
+
+            sigthmin = np.nanmin(np.array(sig0[:, i + 1]))
+            sigthmax = np.nanmax(np.array(sig0[:, i + 1]))
+            isigth = np.where((sigth_levels > sigthmin) & (sigth_levels < sigthmax))
+            isopycdep[isigth, i + 1] = np.interp(sigth_levels[isigth], sig0[:, i + 1], bin_depth)
+            isopycx[isigth, i + 1] = np.interp(sigth_levels[isigth], sig0[:, i + 1], dist[:, i + 1])
+
+            # ---- END LOOP OVER EACH DIVE IN TRANSECT
+
+        # FOR EACH TRANSECT COMPUTE GEOSTROPHIC VELOCITY
+        vbc_g = np.nan * np.zeros(np.shape(shear))
+        v_g = np.nan * np.zeros((np.size(bin_depth), len(profile_tags)))
+        for m in range(len(profile_tags) - 1):
+            iq = np.where(~np.isnan(shear[:, m]))
+            if np.size(iq) > 10:
+                z2 = -bin_depth[iq]
+                vrel = cumtrapz(0.001 * shear[iq, m], x=z2, initial=0)
+                vrel_av = np.trapz(vrel / (z2[-1] - z2[0]), x=z2)
+                vbc = vrel - vrel_av
+                vbc_g[iq, m] = vbc
+                v_g[iq, m] = vbt[m] + vbc
+            else:
+                vbc_g[iq, m] = np.nan
+                v_g[iq, m] = np.nan
+
+        # M/W position in lat/lon (to locate a velocity and eta profile in space)
+        mwe_lon = np.nan * np.zeros(len(vbt))
+        mwe_lat = np.nan * np.zeros(len(vbt))
+        for m in order_set:
+            if m < order_set[-1]:
+                mwe_lon[m] = lon[np.where(np.isfinite(lon[:, m]))[0], m][-1]
+                mwe_lat[m] = lat[np.where(np.isfinite(lon[:, m]))[0], m][-1]
+                mwe_lon[m + 1] = lon[0, m + 1]
+                mwe_lat[m + 1] = lat[0, m + 1]
+            else:
+                mwe_lon[m] = lon[np.where(np.isfinite(lon[:, m]))[0], m][-1]
+                mwe_lat[m] = lat[np.where(np.isfinite(lat[:, m]))[0], m][-1]
+
+        return ds, dist, v_g, vbt, isopycdep, isopycx, mwe_lon, mwe_lat, DACe_MW, DACn_MW, profile_tags

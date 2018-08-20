@@ -17,10 +17,10 @@ from toolkit import plot_pro
 # ---- DG ABACO 2017
 # x = Glider(38, np.arange(67, 78), '/Users/jake/Documents/baroclinic_modes/DG/ABACO_2017/sg038')
 # ---- DG ABACO 2018
-x = Glider(37, np.arange(50, 62), '/Users/jake/Documents/baroclinic_modes/DG/ABACO_2018/sg037')
-# x = Glider(39, np.arange(56, 58), '/Users/jake/Documents/baroclinic_modes/DG/ABACO_2018/sg039')
+x = Glider(37, np.arange(40, 62), '/Users/jake/Documents/baroclinic_modes/DG/ABACO_2018/sg037')
+# x = Glider(39, np.arange(35, 48), '/Users/jake/Documents/baroclinic_modes/DG/ABACO_2018/sg039')
 # ---- DG BATS 2015
-# x = Glider(35, np.arange(58, 64), '/Users/jake/Documents/baroclinic_modes/DG/sg035_BATS_2015')
+# x = Glider(35, np.arange(60, 70), '/Users/jake/Documents/baroclinic_modes/DG/BATS_2015/sg035')
 
 # -- match max dive depth to bin_depth
 # GD = Dataset('BATs_2015_gridded_apr04.nc', 'r')
@@ -30,13 +30,13 @@ x = Glider(37, np.arange(50, 62), '/Users/jake/Documents/baroclinic_modes/DG/ABA
 # bin_depth = np.concatenate((np.arange(0, 300, 5), np.arange(300, 1000, 10), np.arange(1000, 1780, 20)))  # shallower
 bin_depth = np.concatenate((np.arange(0, 300, 5), np.arange(300, 1000, 10), np.arange(1000, 4710, 20)))  # shallower
 
-
-# -------------------
+# -----------------------------------------------------------------------------------------------
 # vertical bin averaging separation of dive-climb cycle into two profiles (extractions from nc files)
 Binned = x.make_bin(bin_depth)
 d_time = Binned['time']
 lon = Binned['lon']
 lat = Binned['lat']
+ref_lat = np.nanmean(lat)
 t = Binned['temp']
 s = Binned['sal']
 dac_u = Binned['dac_u']
@@ -44,10 +44,8 @@ dac_v = Binned['dac_v']
 profile_tags = Binned['profs']
 if 'o2' in Binned.keys():
     o2 = Binned['o2']
-# d_time, lon, lat, t, s, dac_u, dac_v, profile_tags = x.make_bin(bin_depth)
-ref_lat = np.nanmean(lat)
 
-# -------------------
+# -----------------------------------------------------------------------------------------------
 # try to make sg030 dive 60 better (interpolate across adjacent dives to fill in salinity values)
 if np.int(x.ID[3:]) == 30:
     check = np.where(x.dives == 60)[0]
@@ -64,54 +62,50 @@ if np.int(x.ID[3:]) == 30:
             s[i, 2 * check[0] + 1] = np.interp(np.array([0]),
                                                np.array([dist1, dist2]), np.array([s[i, this - 1], s[i, this + 1]]))
 
-# -------------------
+# -----------------------------------------------------------------------------------------------
 # computation of absolute salinity, conservative temperature, and potential density anomaly
 sa, ct, sig0, N2 = x.density(bin_depth, ref_lat, t, s, lon, lat)
 
-# -------------------
+# -----------------------------------------------------------------------------------------------
 # compute M/W sections and compute velocity
 sigth_levels = np.concatenate(
     [np.arange(23, 26.5, 0.5), np.arange(26.2, 27.2, 0.2),
      np.arange(27.2, 27.8, 0.2), np.arange(27.7, 27.8, 0.02), np.arange(27.8, 27.9, 0.01)])
-ds, dist, v_g, vbt, isopycdep, isopycx, mwe_lon, mwe_lat, DACe_MW, DACn_MW, profile_tags_per = x.transect_cross_section(
-    bin_depth, sig0, lon, lat, dac_u, dac_v, profile_tags, sigth_levels)
+ds, dist, v_g, vbt, isopycdep, isopycx, mwe_lon, mwe_lat, DACe_MW, DACn_MW, profile_tags_per = \
+    x.transect_cross_section_1(bin_depth, sig0, lon, lat, dac_u, dac_v, profile_tags, sigth_levels)
+# ds, dist, v_g, vbt, isopycdep, isopycx, mwe_lon, mwe_lat, DACe_MW, DACn_MW, profile_tags_per = \
+#     x.transect_cross_section_0(bin_depth, sig0, lon, lat, dac_u, dac_v, profile_tags, sigth_levels)
 
+# -----------------------------------------------------------------------------------------------
+# PLOTTING cross section
+# choose which transect
+transect_no = 1
+x.plot_cross_section(bin_depth, ds[transect_no], v_g[transect_no], dist[transect_no],
+                     profile_tags_per[transect_no], isopycdep[transect_no], isopycx[transect_no],
+                     sigth_levels, d_time)
+# x.plot_cross_section(bin_depth, ds, v_g, dist, profile_tags_per, isopycdep, isopycx, sigth_levels, d_time)
 
-# def group_consecutives(vals, step=1):
-#     """Return list of consecutive lists of numbers from vals (number list)."""
-#     run = []
-#     result = [run]
-#     expect = None
-#     for v in vals:
-#         if (v == expect) or (expect is None):
-#             run.append(v)
-#         else:
-#             run = [v]
-#             result.append(run)
-#         expect = v + step
-#     return result
-#
-#
-# # separate dives into unique transects
-# target_test = 1000000 * x.target[:, 0] + np.round(x.target[:, 1], 3)
-# unique_targets = np.unique(target_test)
-# transects = []
-# for m in range(len(unique_targets)):
-#     indices = np.where(target_test == unique_targets[m])[0]
-#     transects.append(group_consecutives(indices, step=1))
-#
-# for n in range(0, 1):  # len(transects)):
-#     this_transect = transects[n][0]
-#     index_start = 2 * this_transect[0]
-#     index_end = 2 * (this_transect[-1] + 1)
-#     order_set = np.arange(0, 2*len(this_transect), 2)
-#     sig0_t = sig0[:, index_start:index_end]
-#     lon_t = lon[:, index_start:index_end]
-#     lat_t = lat[:, index_start:index_end]
-#     dac_u_t = dac_u[index_start:index_end]
-#     dac_v_t = dac_u[index_start:index_end]
-#     profile_tags_t = profile_tags[index_start:index_end]
+# -----------------------------------------------------------------------------------------------
+# plot plan view
+# WA COAST
+# bathy_path = '/Users/jake/Documents/Cuddy_tailored/DG_wa_coast/smith_sandwell_wa_coast.nc'
+# x.plot_plan_view(mwe_lon, mwe_lat, dac_u, dac_v, ref_lat, profile_tags, d_time,
+#                  [-128.5, -123.75, 46.5, 48.5], bathy_path)
 
+# ABACO
+# bathy_path = '/Users/jake/Documents/baroclinic_modes/DG/ABACO_2017/OceanWatch_smith_sandwell.nc'
+# x.plot_plan_view(lon, lat, mwe_lon[transect_no], mwe_lat[transect_no],
+#                  DACe_MW[transect_no], DACn_MW[transect_no],
+#                  ref_lat, profile_tags_per[transect_no], d_time, [-77.5, -73.5, 25.5, 27], bathy_path)
+
+# BATS
+bathy_path = '/Users/jake/Desktop/bats/bats_bathymetry/GEBCO_2014_2D_-67.7_29.8_-59.9_34.8.nc'
+x.plot_plan_view(lon, lat, mwe_lon[transect_no], mwe_lat[transect_no],
+                 DACe_MW[transect_no], DACn_MW[transect_no],
+                 ref_lat, profile_tags_per[transect_no], d_time, [-66, -63, 31, 33], bathy_path)
+
+# plot t/s
+# x.plot_t_s(ct, sa)
 
 # -------------------
 # vertical modes
@@ -120,22 +114,54 @@ N2_avg[N2_avg < 0] = 0
 N2_avg[0] = 1
 G, Gz, c, epsilon = vertical_modes(N2_avg, bin_depth, 0, 30)
 
-# -------------------
-# PLOTTING
-# plot cross section
-x.plot_cross_section(bin_depth, ds[1], v_g[1], dist[1], profile_tags_per[1],
-                     isopycdep[1], isopycx[1], sigth_levels, d_time)
 
-# plot plan view
-# bathy_path = '/Users/jake/Documents/Cuddy_tailored/DG_wa_coast/smith_sandwell_wa_coast.nc'
-# x.plot_plan_view(mwe_lon, mwe_lat, dac_u, dac_v, ref_lat, profile_tags, d_time,
-#                  [-128.5, -123.75, 46.5, 48.5], bathy_path)
-bathy_path = '/Users/jake/Documents/baroclinic_modes/DG/ABACO_2017/OceanWatch_smith_sandwell.nc'
-x.plot_plan_view(lon, lat, mwe_lon[1], mwe_lat[1], DACe_MW[1], DACn_MW[1],
-                 ref_lat, profile_tags_per[1], d_time, [-77.5, -73.5, 25.5, 27], bathy_path)
+# ____________________________________________________________________________________
+def group_consecutives(vals, step=1):
+    """Return list of consecutive lists of numbers from vals (number list)."""
+    run = []
+    result = [run]
+    expect = None
+    for v in vals:
+        if (v == expect) or (expect is None):
+            run.append(v)
+        else:
+            run = [v]
+            result.append(run)
+        expect = v + step
+    return result
 
-# plot t/s
-# x.plot_t_s(ct, sa)
+# separate dives into unique transects
+target_test = 1000000 * x.target[:, 0] + np.round(x.target[:, 1], 3)
+unique_targets = np.unique(target_test)
+transects = []
+for m in range(len(unique_targets)):
+    indices = np.where(target_test == unique_targets[m])[0]
+    if len(indices) > 1:
+        transects.append(group_consecutives(indices, step=1))
+
+# ds_out = []
+# dist_out = []
+# v_g_out = []
+# vbt_out = []
+# isopycdep_out = []
+# isopycx_out = []
+# mwe_lon_out = []
+# mwe_lat_out = []
+# DACe_MW_out = []
+# DACn_MW_out = []
+# profile_tags_out = []
+# for n in range(len(transects)):  # loop over all transect segments
+#     for o in range(len(transects[n])):  # loop over all times a glider executed that segment
+#         this_transect = transects[n][o]
+#         index_start = 2 * this_transect[0]
+#         index_end = 2 * (this_transect[-1] + 1)
+#         order_set = np.arange(0, 2 * len(this_transect), 2)
+#         sig0_t = sig0[:, index_start:index_end]
+#         lon_t = lon[:, index_start:index_end]
+#         lat_t = lat[:, index_start:index_end]
+#         dac_u_t = dac_u[index_start:index_end]
+#         dac_v_t = dac_v[index_start:index_end]
+#         profile_tags_t = profile_tags[index_start:index_end]
 
 # COMPARISON OF O2
 o2_comp = 0
