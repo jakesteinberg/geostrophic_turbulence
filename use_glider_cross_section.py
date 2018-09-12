@@ -17,8 +17,8 @@ from toolkit import plot_pro
 # ---- DG ABACO 2017
 # x = Glider(38, np.arange(67, 78), '/Users/jake/Documents/baroclinic_modes/DG/ABACO_2017/sg038')
 # ---- DG ABACO 2018
-x = Glider(37, np.arange(40, 62), '/Users/jake/Documents/baroclinic_modes/DG/ABACO_2018/sg037')
-# x = Glider(39, np.arange(35, 48), '/Users/jake/Documents/baroclinic_modes/DG/ABACO_2018/sg039')
+# x = Glider(37, np.arange(55, 67), '/Users/jake/Documents/baroclinic_modes/DG/ABACO_2018/sg037')
+x = Glider(39, np.arange(60, 70), '/Users/jake/Documents/baroclinic_modes/DG/ABACO_2018/sg039')
 # ---- DG BATS 2015
 # x = Glider(35, np.arange(60, 70), '/Users/jake/Documents/baroclinic_modes/DG/BATS_2015/sg035')
 
@@ -71,38 +71,44 @@ sa, ct, sig0, N2 = x.density(bin_depth, ref_lat, t, s, lon, lat)
 sigth_levels = np.concatenate(
     [np.arange(23, 26.5, 0.5), np.arange(26.2, 27.2, 0.2),
      np.arange(27.2, 27.8, 0.2), np.arange(27.7, 27.8, 0.02), np.arange(27.8, 27.9, 0.01)])
-ds, dist, v_g, vbt, isopycdep, isopycx, mwe_lon, mwe_lat, DACe_MW, DACn_MW, profile_tags_per = \
-    x.transect_cross_section_1(bin_depth, sig0, lon, lat, dac_u, dac_v, profile_tags, sigth_levels)
+# for combined set of transects
 # ds, dist, v_g, vbt, isopycdep, isopycx, mwe_lon, mwe_lat, DACe_MW, DACn_MW, profile_tags_per = \
-#     x.transect_cross_section_0(bin_depth, sig0, lon, lat, dac_u, dac_v, profile_tags, sigth_levels)
+#     x.transect_cross_section_1(bin_depth, sig0, lon, lat, dac_u, dac_v, profile_tags, sigth_levels)
+# for single transects
+ds, dist, v_g, vbt, isopycdep, isopycx, mwe_lon, mwe_lat, DACe_MW, DACn_MW, profile_tags_per = \
+    x.transect_cross_section_0(bin_depth, sig0, lon, lat, dac_u, dac_v, profile_tags, sigth_levels)
 
 # -----------------------------------------------------------------------------------------------
 # PLOTTING cross section
 # choose which transect
-transect_no = 1
-x.plot_cross_section(bin_depth, ds[transect_no], v_g[transect_no], dist[transect_no],
-                     profile_tags_per[transect_no], isopycdep[transect_no], isopycx[transect_no],
-                     sigth_levels, d_time)
-# x.plot_cross_section(bin_depth, ds, v_g, dist, profile_tags_per, isopycdep, isopycx, sigth_levels, d_time)
+# transect_no = 1
+# x.plot_cross_section(bin_depth, ds[transect_no], v_g[transect_no], dist[transect_no],
+#                      profile_tags_per[transect_no], isopycdep[transect_no], isopycx[transect_no],
+#                      sigth_levels, d_time)
+x.plot_cross_section(bin_depth, ds, v_g, dist, profile_tags_per, isopycdep, isopycx, sigth_levels, d_time)
 
 # -----------------------------------------------------------------------------------------------
 # plot plan view
+# load in bathymetry and lat/lon plotting bounds
 # WA COAST
 # bathy_path = '/Users/jake/Documents/Cuddy_tailored/DG_wa_coast/smith_sandwell_wa_coast.nc'
-# x.plot_plan_view(mwe_lon, mwe_lat, dac_u, dac_v, ref_lat, profile_tags, d_time,
-#                  [-128.5, -123.75, 46.5, 48.5], bathy_path)
-
+# plan_window = [-128.5, -123.75, 46.5, 48.5]
 # ABACO
-# bathy_path = '/Users/jake/Documents/baroclinic_modes/DG/ABACO_2017/OceanWatch_smith_sandwell.nc'
+bathy_path = '/Users/jake/Documents/baroclinic_modes/DG/ABACO_2017/OceanWatch_smith_sandwell.nc'
+plan_window = [-77.5, -73.5, 25.5, 27]
+# BATS
+# bathy_path = '/Users/jake/Desktop/bats/bats_bathymetry/GEBCO_2014_2D_-67.7_29.8_-59.9_34.8.nc'
+# plan_window = [-66, -63, 31, 33]
+
+
+# --- for combined set of transects ---
 # x.plot_plan_view(lon, lat, mwe_lon[transect_no], mwe_lat[transect_no],
 #                  DACe_MW[transect_no], DACn_MW[transect_no],
 #                  ref_lat, profile_tags_per[transect_no], d_time, [-77.5, -73.5, 25.5, 27], bathy_path)
+# --- for single transect ---
+x.plot_plan_view(lon, lat, mwe_lon, mwe_lat, DACe_MW, DACn_MW,
+                 ref_lat, profile_tags_per, d_time, plan_window, bathy_path)
 
-# BATS
-bathy_path = '/Users/jake/Desktop/bats/bats_bathymetry/GEBCO_2014_2D_-67.7_29.8_-59.9_34.8.nc'
-x.plot_plan_view(lon, lat, mwe_lon[transect_no], mwe_lat[transect_no],
-                 DACe_MW[transect_no], DACn_MW[transect_no],
-                 ref_lat, profile_tags_per[transect_no], d_time, [-66, -63, 31, 33], bathy_path)
 
 # plot t/s
 # x.plot_t_s(ct, sa)
@@ -115,29 +121,30 @@ N2_avg[0] = 1
 G, Gz, c, epsilon = vertical_modes(N2_avg, bin_depth, 0, 30)
 
 
-# ____________________________________________________________________________________
-def group_consecutives(vals, step=1):
-    """Return list of consecutive lists of numbers from vals (number list)."""
-    run = []
-    result = [run]
-    expect = None
-    for v in vals:
-        if (v == expect) or (expect is None):
-            run.append(v)
-        else:
-            run = [v]
-            result.append(run)
-        expect = v + step
-    return result
-
-# separate dives into unique transects
-target_test = 1000000 * x.target[:, 0] + np.round(x.target[:, 1], 3)
-unique_targets = np.unique(target_test)
-transects = []
-for m in range(len(unique_targets)):
-    indices = np.where(target_test == unique_targets[m])[0]
-    if len(indices) > 1:
-        transects.append(group_consecutives(indices, step=1))
+# ____________________________________________________________________________________________________________________
+# TESTING OF TRANSECT SEPARATION AND GROUPING
+# def group_consecutives(vals, step=1):
+#     """Return list of consecutive lists of numbers from vals (number list)."""
+#     run = []
+#     result = [run]
+#     expect = None
+#     for v in vals:
+#         if (v == expect) or (expect is None):
+#             run.append(v)
+#         else:
+#             run = [v]
+#             result.append(run)
+#         expect = v + step
+#     return result
+#
+# # separate dives into unique transects
+# target_test = 1000000 * x.target[:, 0] + np.round(x.target[:, 1], 3)
+# unique_targets = np.unique(target_test)
+# transects = []
+# for m in range(len(unique_targets)):
+#     indices = np.where(target_test == unique_targets[m])[0]
+#     if len(indices) > 1:
+#         transects.append(group_consecutives(indices, step=1))
 
 # ds_out = []
 # dist_out = []
@@ -163,6 +170,7 @@ for m in range(len(unique_targets)):
 #         dac_v_t = dac_v[index_start:index_end]
 #         profile_tags_t = profile_tags[index_start:index_end]
 
+# _____________________________________________________________________________________________________________________
 # COMPARISON OF O2
 o2_comp = 0
 if o2_comp > 0:
@@ -181,23 +189,23 @@ if o2_comp > 0:
         s_ct.append(ship_adcp['CT'])
         s_sa.append(ship_adcp['SA'])
         for j in range(s_o2[i].shape[1]):
-            # if (ship_adcp['den_dist'][i][j] < 400) & (np.nanmax(s_o2[i][:, j]) > 240):
-            #     ax.plot(s_o2[i][:, j], s_dep[i], color='k', label='Cast', linewidth=1.5)
-            if (ship_adcp['den_dist'][i][j] < 400) & (ship_adcp['den_dist'][i][j] > 50):
-                ax.plot(s_sa[i][:, j], s_ct[i][:, j], color='k', label='Cast', linewidth=1.5)
+            if ship_adcp['den_dist'][i][j] < 600:  #  & (np.nanmax(s_o2[i][:, j]) > 240):
+                ax.plot(s_o2[i][:, j], s_dep[i], color='k', label='Cast', linewidth=1.5)
+            # if (ship_adcp['den_dist'][i][j] < 400) & (ship_adcp['den_dist'][i][j] > 50):
+            #     ax.plot(s_sa[i][:, j], s_ct[i][:, j], color='k', label='Cast', linewidth=1.5)
     for k in range(len(profile_tags)):
         # ax.plot(o2[:, k], bin_depth, color='g', linewidth=0.6, label='Glider')
         ax.plot(sa[:, k], ct[:, k], color='g', linewidth=0.6, label='Glider')
-    # ax.set_xlim([120, 275])
-    ax.set_xlim([35, 35.5])
-    ax.set_ylim([1, 11])
+    ax.set_xlim([120, 275])
+    # ax.set_xlim([35, 35.5])
+    # ax.set_ylim([1, 11])
     handles, labels = ax.get_legend_handles_labels()
     ax.legend([handles[0], handles[-1]], [labels[0], labels[-1]], fontsize=12)
     # ax.set_xlabel('Dissolved Oxygen [$\mu$mol / kg]')
-    ax.set_xlabel('SA')
-    ax.set_ylabel('CT')
+    # ax.set_xlabel('SA')
+    # ax.set_ylabel('CT')
     ax.set_title('T/S Comparison: ' + str(x.ID) + 'dives:' + str(x.dives[0]) + ':' + str(x.dives[-1]) + ', and ABACO Casts (2014-2017)')
-    # ax.invert_yaxis()
+    ax.invert_yaxis()
     ax.grid()
     plot_pro(ax)
 

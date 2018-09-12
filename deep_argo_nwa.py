@@ -6,25 +6,21 @@ import numpy as np
 import matplotlib
 import matplotlib.pyplot as plt 
 from mpl_toolkits.axes_grid1 import make_axes_locatable, axes_size
-import datetime 
-import glob
-import seawater as sw 
-import pandas as pd 
-import scipy.io as si
+import datetime
+import seawater as sw
+import gsw
 from scipy.io import netcdf
-from scipy.integrate import cumtrapz
 from scipy.signal import savgol_filter
-import seaborn as sns
 import pickle
-# functions I've written 
-from grids import make_bin, collect_dives
+# functions I've written
 from mode_decompositions import vertical_modes, PE_Tide_GM
 from toolkit import plot_pro
 
-plott = 0
+plott = 1
 
 
-DA = '/Users/jake/Documents/baroclinic_modes/Deep_Argo/da_nwa_4902322_prof.nc'
+# DA = '/Users/jake/Documents/baroclinic_modes/Deep_Argo/da_nwa_4902322_prof.nc'
+DA = '/Users/jake/Documents/baroclinic_modes/Deep_Argo/NZ/float_6036_sept18.nc'
 DA_fid = netcdf.netcdf_file(DA,'r',mmap=False if sys.platform == 'darwin' else mmap, version=1)
 dive_num =  DA_fid.variables['CYCLE_NUMBER'][:]
 number_profiles_0 = np.size(dive_num)
@@ -34,7 +30,7 @@ lon = DA_fid.variables['LONGITUDE'][:]
 T = DA_fid.variables['TEMP_ADJUSTED'][:]
 S = DA_fid.variables['PSAL_ADJUSTED'][:]
 P = DA_fid.variables['PRES_ADJUSTED'][:]
-depth = sw.dpth(P,np.nanmean(lat))
+P[P > 10000] = np.nan
 # bin_depth = np.concatenate([np.arange(0,500,5), np.arange(500,3000,15), np.arange(3000,5800,30)])
 bin_depth = np.concatenate([np.arange(0,150,10), np.arange(150,300,10), np.arange(300,5000,20)])
 bin_press = sw.pres(bin_depth,np.nanmean(lat))
@@ -49,13 +45,18 @@ bin_down = bin_depth[2:]
 bin_cen = bin_depth[1:-1] 
 T_g_0 = np.empty((np.size(bin_depth),number_profiles_0))
 S_g_0 = np.empty((np.size(bin_depth),number_profiles_0))
+SA = np.empty((np.size(bin_depth),number_profiles_0))
+CT = np.empty((np.size(bin_depth),number_profiles_0))
+sig0 = np.empty((np.size(bin_depth),number_profiles_0))
+N2 = np.empty((np.size(bin_depth),number_profiles_0))
 sigma_theta_0 = np.empty((np.size(bin_depth),number_profiles_0))
 theta_0 = np.empty((np.size(bin_depth),number_profiles_0))
 for j in range(number_profiles_0):
+    depth = -1 * gsw.z_from_p(P[j, :], lat[j])
     temp_g = np.empty(np.size(bin_cen))
     salin_g = np.empty(np.size(bin_cen))
     for i in range(np.size(bin_cen)):
-        dp_in = (depth[j,:] > bin_up[i]) & (depth[j,:] < bin_down[i])
+        dp_in = (depth > bin_up[i]) & (depth < bin_down[i])
         if dp_in.size > 1:
             temp_g[i] = np.nanmean(T[j,dp_in])
             salin_g[i] = np.nanmean(S[j,dp_in])
@@ -65,10 +66,16 @@ for j in range(number_profiles_0):
     sigma_theta_0[:,j] = sw.pden(S_g_0[:,j], T_g_0[:,j], bin_press, pr=0) - 1000
     theta_0[:,j] = sw.ptmp(S_g_0[:,j], T_g_0[:,j], bin_press, pr=0)
 
+    SA[:, j] = gsw.SA_from_SP(S_g_0[:, j], bin_press, lon[j], lat[j])
+    CT[:, j] = gsw.CT_from_t(SA[:, j], T_g_0[:, j], bin_press)
+    sig0[:, j] = gsw.sigma0(SA[:, j], CT[:, j])
+    N2[1:, j] = gsw.Nsquared(SA[:, j], CT[:, j], bin_press, lat=ref_lat)[0]
+
 # select only deep dives
-S_g = S_g_0[:,5:]
-theta = theta_0[:,5:]
-sigma_theta = sigma_theta_0[:,5:]
+skip_intro = 8
+S_g = SA[:,skip_intro:]
+theta = CT[:,skip_intro:]
+sigma_theta = sig0[:,skip_intro:]
 sz = S_g.shape
 number_profiles = sz[1]
 
@@ -76,21 +83,35 @@ number_profiles = sz[1]
 high = 10
 low = -20
 for i in range(number_profiles):
-     this_prof = sigma_theta[:,i]
-     bad = np.where(np.isnan(sigma_theta[high:low,i]))
+     this_prof = sigma_theta[:, i]
+     bad = np.where(np.isnan(sigma_theta[high:low, i]))
      this_dep = bin_depth[high:low]
      this_sig = sigma_theta[high:low,i]
+     this_S_g = S_g[high:low, i]
+     this_theta = theta[high:low, i]
      for j in range(np.size(bad)):
-         this_sig[bad[0][j]] = np.interp( this_dep[bad[0][j]],   [this_dep[bad[0][j]-1], this_dep[bad[0][j]+1]], [this_sig[bad[0][j]-1], this_sig[bad[0][j]+1]]  )
-     sigma_theta[high:low,i] = this_sig  
+         this_sig[bad[0][j]] = np.interp(this_dep[bad[0][j]], [this_dep[bad[0][j] - 1], this_dep[bad[0][j] + 1]],
+                                         [this_sig[bad[0][j] - 1], this_sig[bad[0][j] + 1]]  )
+         this_S_g[bad[0][j]] = np.interp(this_dep[bad[0][j]], [this_dep[bad[0][j] - 1], this_dep[bad[0][j] + 1]],
+                                         [this_S_g[bad[0][j] - 1], this_S_g[bad[0][j] + 1]]  )
+         this_theta[bad[0][j]] = np.interp(this_dep[bad[0][j]], [this_dep[bad[0][j] - 1], this_dep[bad[0][j] + 1]],
+                                         [this_theta[bad[0][j] - 1], this_theta[bad[0][j] + 1]]  )
+
+     sigma_theta[high:low,i] = this_sig
+     theta[high:low, i] = this_theta
+     S_g[high:low, i] = this_S_g
      # lower  
      bounds = np.where(np.isnan(this_prof)) 
      lower = np.where(bounds[0] > 100)   
      upper = np.where(bounds[0] < 100)
      if np.size(lower) > 0: 
-         sigma_theta[bounds[0][lower],i] = sigma_theta[bounds[0][lower[0][0]]-1,i]+.0002
+         sigma_theta[bounds[0][lower], i] = sigma_theta[bounds[0][lower[0][0]]-1,i]+.0002
+         theta[bounds[0][lower], i] = theta[bounds[0][lower[0][0]] - 1, i] + .0002
+         S_g[bounds[0][lower], i] = S_g[bounds[0][lower[0][0]] - 1, i] + .0002
      if np.size(upper) > 0:
          sigma_theta[bounds[0][upper],i] = sigma_theta[bounds[0][upper[0][0]]+1,i]
+         theta[bounds[0][upper], i] = theta[bounds[0][upper[0][0]] + 1, i]
+         S_g[bounds[0][upper], i] = S_g[bounds[0][upper[0][0]] + 1, i]
     
 
 # average background properties of profiles along these transects 
@@ -109,20 +130,22 @@ ddz_avg_sigma_0[test[0]] = np.nanmean(ddz_avg_sigma_0[260:])
 window_size, poly_order = 41, 3
 ddz_avg_sigma = savgol_filter(ddz_avg_sigma_0, window_size, poly_order)
 
-N2 = np.nan*np.zeros(np.size(sigma_theta_avg))
-N2[1:] = np.squeeze(sw.bfrq(salin_avg, theta_avg, bin_press, lat=ref_lat)[0])  
-lz = np.where(N2 < 0)   
-lnan = np.isnan(N2)
-N2[lz] = 0 
-N2[lnan] = 0
-N = np.sqrt(N2)   
+# N2 = np.nan*np.zeros(np.size(sigma_theta_avg))
+# N2[1:] = np.squeeze(sw.bfrq(salin_avg, theta_avg, bin_press, lat=ref_lat)[0])
+N2_avg = gsw.Nsquared(salin_avg, theta_avg, bin_press, lat=ref_lat)[0]
+N2_avg = np.concatenate((np.array([0]), N2_avg))
+lz = np.where(N2_avg < 0)
+lnan = np.isnan(N2_avg)
+N2_avg[lz] = 0
+N2_avg[lnan] = 0
+N_avg = np.sqrt(N2_avg)
 
 # computer vertical mode shapes 
 omega = 0  # frequency zeroed for geostrophic modes
 mmax = 60  # highest baroclinic mode to be calculated
 nmodes = mmax + 1  
-G, Gz, c = vertical_modes(N2,bin_depth,omega,mmax)   
-    
+G, Gz, c, epsilon = vertical_modes(N2_avg, bin_depth, omega, mmax)
+
 # eta 
 theta_anom = theta - np.transpose(np.tile(theta_avg,[number_profiles,1]))
 salin_anom = S_g - np.transpose(np.tile(salin_avg,[number_profiles,1]))
@@ -158,7 +181,7 @@ PE_theta_per_mass = np.nan*np.zeros([nmodes, number_profiles])
 for i in range(number_profiles):
     this_eta = eta[:,i].copy() 
     # obtain matrix of NEta
-    Neta[:,i] = N*this_eta
+    Neta[:,i] = N_avg*this_eta
     this_eta_theta = eta_theta[:,i].copy()
     iw = np.where((bin_depth>=eta_fit_depth_min) & (bin_depth<=eta_fit_depth_max))
     if iw[0].size > 1:
@@ -173,13 +196,13 @@ for i in range(number_profiles):
         eta_fs[i_dp[0]] = (bin_depth[i_dp] - bin_depth[-1])*this_eta[iw[0][-1]]/(bin_depth[iw[0][-1]]-bin_depth[-1])
         eta_theta_fs[i_dp[0]] = (bin_depth[i_dp] - bin_depth[-1])*this_eta_theta[iw[0][-1]]/(bin_depth[iw[0][-1]]-bin_depth[-1])
             
-        AG[1:,i] = np.squeeze(np.linalg.lstsq(G[:,1:],np.transpose(np.atleast_2d(eta_fs)))[0])
-        AG_theta[1:,i] = np.squeeze(np.linalg.lstsq(G[:,1:],np.transpose(np.atleast_2d(eta_theta_fs)))[0])
+        AG[1:,i] = np.squeeze(np.linalg.lstsq(G[:,1:], np.transpose(np.atleast_2d(eta_fs)))[0])
+        AG_theta[1:,i] = np.squeeze(np.linalg.lstsq(G[:,1:], np.transpose(np.atleast_2d(eta_theta_fs)))[0])
         Eta_m[:,i] = np.squeeze(np.matrix(G)*np.transpose(np.matrix(AG[:,i])))
-        NEta_m[:,i] = N*np.array(np.squeeze(np.matrix(G)*np.transpose(np.matrix(AG[:,i]))))
-        Eta_theta_m[:,i] = np.squeeze(np.matrix(G)*np.transpose(np.matrix(AG_theta[:,i])))
-        PE_per_mass[:,i] = (1/2)*AG[:,i]*AG[:,i]*c*c
-        PE_theta_per_mass[:,i] = (1/2)*AG_theta[:,i]*AG_theta[:,i]*c*c 
+        NEta_m[:,i] = N_avg * np.array(np.squeeze(np.matrix(G)*np.transpose(np.matrix(AG[:, i]))))
+        Eta_theta_m[:,i] = np.squeeze(np.matrix(G)*np.transpose(np.matrix(AG_theta[:, i])))
+        PE_per_mass[:,i] = (1/2) * AG[:,i] * AG[:,i] * c * c
+        PE_theta_per_mass[:,i] = (1/2) * AG_theta[:, i] * AG_theta[:, i] * c * c
 
 
 if plott > 0:
@@ -188,17 +211,20 @@ if plott > 0:
          ax0.plot(theta_anom[:,i],z)
          # ax0.axis([-600, 600, -5800, 0])  
     plt.axis([-1, 1, -5800, 0])    
-    plt.show()
-    # fig0.savefig('/Users/jake/Desktop/argo/nwa_theta_anom.png',dpi = 300)    
+    # plt.show()
+    # fig0.savefig('/Users/jake/Desktop/argo/nwa_theta_anom.png',dpi = 300)
+    plot_pro(ax0)
 
     fig0, ax0 = plt.subplots()
     for i in range(number_profiles):
-         ax0.plot(eta[:,i],z)
-         ax0.plot(Eta_m[:,i],z,color='k',linestyle='--')
+         # ax0.plot(eta[:,i],z)
+         # ax0.plot(Eta_m[:,i],z,color='k',linestyle='--')
+         ax0.plot(delta_z, z)
     ax0.axis([-600, 600, -5800, 0])  
     # plt.axis([-1, 1, -5800, 0])
     # plt.show()
-    fig0.savefig('/Users/jake/Desktop/argo/nwa_eta.png',dpi = 300)     
+    # fig0.savefig('/Users/jake/Desktop/argo/nwa_eta.png',dpi = 300)
+    plot_pro(ax0)
 
 
 avg_PE = np.nanmean(PE_per_mass,1)
@@ -208,26 +234,30 @@ rho0 = 1025
 dk = f_ref/c[1]
 sc_x = (1000)*f_ref/c[1:]
 
-PE_SD, PE_GM = PE_Tide_GM(1025,bin_depth,nmodes,np.transpose(np.atleast_2d(N2)),f_ref)
+PE_SD, PE_GM = PE_Tide_GM(1025, bin_depth, nmodes, np.transpose(np.atleast_2d(N2_avg)), f_ref)
 
 if plott > 0:
     fig0, ax0 = plt.subplots()
-    ax0.plot(sc_x,avg_PE[1:]/dk,color='r',linewidth=2)
-    ax0.scatter(sc_x,avg_PE[1:]/dk,color='r',s=10)
-    ax0.plot(sc_x,PE_GM/dk,linestyle='--',color='#DAA520')
+    ax0.plot(sc_x,avg_PE[1:]/dk, color='r', linewidth=2)
+    ax0.scatter(sc_x, avg_PE[1:]/dk, color='r', s=10)
+    ax0.plot(sc_x, PE_GM/dk, linestyle='--', color='#DAA520')
     ax0.axis([10**-2, 1.5*10**1, 10**(-4), 10**(3)])
     ax0.set_yscale('log')
     ax0.set_xscale('log')
     ax0.grid()
     # plt.show()
-    fig0.savefig('/Users/jake/Desktop/argo/nwa_pe.png',dpi = 300)
+    # fig0.savefig('/Users/jake/Desktop/argo/nwa_pe.png',dpi = 300)
+    plot_pro(ax0)
  
  
-### SAVE 
+# --- SAVE
 # write python dict to a file
 savee = 1
 if savee > 0:
-    mydict = {'bin_press': bin_press, 'sigma_theta': sigma_theta,'salin': S_g, 'theta': theta, 'eta': eta, 'eta_m': Eta_m, 'avg_PE': avg_PE, 'f_ref': f_ref, 'c': c, 'G': G, 'lat': lat, 'lon': lon}
-    output = open('/Users/jake/Desktop/argo/deep_argo_nwa.pkl', 'wb')
+    mydict = {'bin_depth': bin_depth, 'sig0': sigma_theta,'N2_avg': N2_avg,'SA': S_g,
+              'CT': theta, 'eta': eta, 'eta_m': Eta_m, 'avg_PE': avg_PE, 'f_ref': f_ref,
+              'c': c, 'G': G, 'lat': lat, 'lon': lon}
+    # output = open('/Users/jake/Documents/baroclinic_modes/Deep_Argo/float6025_mar17.pkl', 'wb')
+    output = open('/Users/jake/Documents/baroclinic_modes/Deep_Argo/float6036_oct17.pkl', 'wb')
     pickle.dump(mydict, output)
     output.close() 

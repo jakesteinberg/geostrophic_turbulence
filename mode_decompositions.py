@@ -69,8 +69,8 @@ def vertical_modes(N2_0, Depth, omega, mmax):
         Gz[:, i] = dw_dz / norm_constant
         G[:, i] = wmodes[:, i] / norm_constant
 
-    epsilon = np.nan * np.zeros((2, 3, 3))
-    for i in range(0, 2):  # i modes
+    epsilon = np.nan * np.zeros((3, 3, 3))
+    for i in range(0, 3):  # i modes
         for j in range(0, 3):  # j modes
             for m in range(0, 3):  # k modes
                 epsilon[i, j, m] = np.trapz((Gz[:, i] * Gz[:, j] * Gz[:, m]), z) / (z[-1])

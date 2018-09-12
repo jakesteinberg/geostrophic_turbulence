@@ -581,7 +581,7 @@ class Glider(object):
             ax0.set_ylabel('Depth [m]')
             t_s = datetime.date.fromordinal(np.int(time[0, 0]))
             t_e = datetime.date.fromordinal(np.int(time[0, -1]))
-            ax0.set_title(self.ID + '  ' + self.project + '  ' + np.str(
+            ax0.set_title(self.ID + ' ' + self.project + '  ' + np.str(
                 t_s.month) + '/' + np.str(t_s.day) + ' - ' + np.str(t_e.month) + '/' + np.str(t_e.day), fontsize=14)
             plt.colorbar(vc, label='[m/s]')
             plt.tight_layout()

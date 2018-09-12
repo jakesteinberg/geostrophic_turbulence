@@ -25,7 +25,7 @@ h_temp[h_temp < 0] = np.nan
 
 # reference grid
 GD = Dataset('/Users/jake/Documents/geostrophic_turbulence/BATs_2015_gridded_apr04.nc', 'r')
-grid = np.concatenate([GD.variables['grid'][:], np.arange(GD.variables['grid'][:][-1] + 20, 4700, 20)])
+grid = np.concatenate([GD.variables['grid'][:], np.arange(GD.variables['grid'][:][-1] + 20, 4720, 20)])
 z = -1 * grid
 grid_p = gsw.p_from_z(-1 * grid, ref_lat)
 
@@ -92,7 +92,7 @@ omega = 0
 mmax = 60
 nmodes = mmax + 1
 eta_fit_dep_min = 50
-eta_fit_dep_max = 4000
+eta_fit_dep_max = 4200
 
 # -- computer vertical mode shapes
 G, Gz, c, epsilon = vertical_modes(N2, grid, omega, mmax)
@@ -185,7 +185,7 @@ colors = plt.cm.Dark2(np.arange(0, 4, 1))
 f, (ax, ax2, ax3) = plt.subplots(1, 3, sharey=True)
 for i in range(num_profs):
     ax.plot(sig0_anom[:, i], grid, linewidth=0.75)
-    ax2.plot(eta[0:227, i], grid[0:227], linewidth=.75, color='#808000')
+    ax2.plot(eta[0:247, i], grid[0:247], linewidth=.75, color='#808000')
     ax2.plot(eta_m[:, i], grid, linewidth=.5, color='k', linestyle='--')
 n2p = ax3.plot((np.sqrt(N2) * (1800 / np.pi)) / 6, grid, color='k', label='N(z) [cph]')
 for j in range(3):
@@ -308,3 +308,11 @@ ax.legend(handles, labels, fontsize=14)
 ax.invert_yaxis()
 plot_pro(ax)
 
+# --- SAVE ---
+# write python dict to a file
+sa = 1
+if sa > 0:
+    mydict = {'bin_depth': grid, 'N2': N2, 'PE': avg_PE, 'c': c, 'f': f, 'sig0': sig0, 'date': time}
+    output = open('/Users/jake/Documents/baroclinic_modes/Shipboard/HOTS_92_10.pkl', 'wb')
+    pickle.dump(mydict, output)
+    output.close()

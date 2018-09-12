@@ -3,7 +3,6 @@
 import numpy as np
 import matplotlib
 import matplotlib.pyplot as plt
-from mpl_toolkits.axes_grid1 import make_axes_locatable, axes_size
 import datetime
 from netCDF4 import Dataset
 import glob
@@ -11,11 +10,11 @@ import gsw
 import pandas as pd
 import scipy.io as si
 import pickle
+from scipy.optimize import fmin
 from scipy.signal import savgol_filter
 import matplotlib.gridspec as gridspec
 # functions I've written
 from glider_cross_section import Glider
-from grids import make_bin
 from mode_decompositions import vertical_modes, PE_Tide_GM
 from toolkit import plot_pro, find_nearest
 
@@ -26,19 +25,11 @@ bath_fid = Dataset(bath, 'r')
 bath_lon = bath_fid['lon'][:]
 bath_lat = bath_fid['lat'][:]
 bath_z = bath_fid['elevation'][:]
-
-# -------------------------------------------------------------------------------------------------------------------
-# --- GLIDER NC FILES
-# dg037_list = glob.glob('/Users/jake/Documents/baroclinic_modes/DG/ABACO_2017/sg037/p*.nc')
-# dg038_list = glob.glob('/Users/jake/Documents/baroclinic_modes/DG/ABACO_2017/sg038/p*.nc')  # 50-72
-# # - code written to analyze one glider at a time
-# # dg_list = np.concatenate([dg037_list[45:],dg038_list[50:72]])
-# dg_list = np.array(dg037_list[45:])
-# # dg_list = dg038_list[50:72]
 # -------------------------------------------------------------------------------------------------
 # USING GLIDER PACKAGE
 x = Glider(37, np.arange(45, 80), '/Users/jake/Documents/baroclinic_modes/DG/ABACO_2017/sg037')
-# x = Glider(39, np.arange(20, 55), '/Users/jake/Documents/baroclinic_modes/DG/ABACO_2018/sg039')
+# x = Glider(37, np.arange(40, 67), '/Users/jake/Documents/baroclinic_modes/DG/ABACO_2018/sg037')
+# x = Glider(39, np.arange(35, 55), '/Users/jake/Documents/baroclinic_modes/DG/ABACO_2018/sg039')
 # -------------------------------------------------------------------------------------------------------------------
 # --- LOAD ABACO SHIPBOARD CTD DATA
 ship_files = glob.glob('/Users/jake/Documents/baroclinic_modes/SHIPBOARD/ABACO/ship_ladcp*.pkl')
@@ -48,43 +39,58 @@ for i in range(len(ship_files)):
     abaco_ship = pickle.load(pkl_file)
     pkl_file.close()
     if i < 1:
-        time_key = np.int(ship_files[i][-14:-10]) * np.ones(abaco_ship['oxygen1'].shape[1])
-        ship_o2_1 = abaco_ship['oxygen1']
-        ship_o2_2 = abaco_ship['oxygen2']
+        time_key = np.int(ship_files[i][-14:-10]) * np.ones(abaco_ship['oxygen'].shape[1])
+        ship_o2_1 = abaco_ship['oxygen']
         ship_SA = abaco_ship['SA']
         ship_CT = abaco_ship['CT']
+        ship_sig0 = abaco_ship['den_grid']
+        ship_dist = abaco_ship['den_dist']
         ship_lon = abaco_ship['cast_lon']
         ship_lat = abaco_ship['cast_lat']
-        # adcp_depth = abaco_ship['adcp_depth']
-        # adcp_dist = abaco_ship['adcp_dist']
-        # adcp_v = abaco_ship['adcp_v']
+        adcp_depth = abaco_ship['adcp_depth']
+        adcp_dist = abaco_ship['adcp_dist']
+        adcp_v = abaco_ship['adcp_v']
+        adcp_time = abaco_ship['time_uv']
     else:
-        time_key = np.concatenate((time_key, np.int(ship_files[i][-14:-10]) * np.ones(abaco_ship['oxygen1'].shape[1])))
-        ship_o2_1 = np.concatenate((ship_o2_1, abaco_ship['oxygen1']), axis=1)
-        ship_o2_2 = np.concatenate((ship_o2_2, abaco_ship['oxygen2']), axis=1)
+        time_key = np.concatenate((time_key, np.int(ship_files[i][-14:-10]) * np.ones(abaco_ship['oxygen'].shape[1])))
+        ship_o2_1 = np.concatenate((ship_o2_1, abaco_ship['oxygen']), axis=1)
         ship_SA = np.concatenate((ship_SA, abaco_ship['SA']), axis=1)
         ship_CT = np.concatenate((ship_CT, abaco_ship['CT']), axis=1)
+        ship_sig0 = np.concatenate((ship_sig0, abaco_ship['den_grid']), axis=1)
+        ship_dist = np.concatenate((ship_dist, abaco_ship['den_dist']))
         ship_lon = np.concatenate((ship_lon, abaco_ship['cast_lon']))
         ship_lat = np.concatenate((ship_lat, abaco_ship['cast_lat']))
-        # adcp_dist = np.concatenate((adcp_dist, abaco_ship['adcp_dist']))
-        # adcp_v = np.concatenate((adcp_v, abaco_ship['adcp_v']), axis=1)
+        adcp_dist = np.concatenate((adcp_dist, abaco_ship['adcp_dist']))
+        adcp_v = np.concatenate((adcp_v, abaco_ship['adcp_v']), axis=1)
+        adcp_time = np.concatenate((adcp_time, abaco_ship['time_uv']))
 
-# current analysis
+ship_depth_0 = abaco_ship['bin_depth']
+ship_depth = np.repeat(np.transpose(np.array([abaco_ship['bin_depth']])), np.shape(ship_sig0)[1], axis=1)
+
+pkl_file = open('/Users/jake/Documents/baroclinic_modes/SHIPBOARD/ABACO/no_ctd_ship_ladcp_2018-02-25.pkl', 'rb')
+abaco_ship = pickle.load(pkl_file)
+pkl_file.close()
+adcp_dist = np.concatenate((adcp_dist, abaco_ship['adcp_dist']))
+adcp_v = np.concatenate((adcp_v, abaco_ship['adcp_v']), axis=1)
+adcp_time = np.concatenate((adcp_time, abaco_ship['time_uv']))
+
+# --------
+# single year analysis
 pkl_file = open('/Users/jake/Documents/baroclinic_modes/SHIPBOARD/ABACO/ship_ladcp_2017-05-08.pkl', 'rb')
 abaco_ship = pickle.load(pkl_file)
 pkl_file.close()
-
-ship_den = abaco_ship['den_grid']
-ship_theta = abaco_ship['CT']
-ship_salin = abaco_ship['SA']
-ship_dist_0 = abaco_ship['den_dist']
-ship_dist = np.nanmean(ship_dist_0, axis=0)
-ship_depth_0 = abaco_ship['bin_depth']
-ship_depth = np.repeat(np.transpose(np.array([abaco_ship['bin_depth']])), np.shape(ship_den)[1], axis=1)
-adcp_dist = abaco_ship['adcp_dist']
-adcp_depth = abaco_ship['adcp_depth']
-adcp_v = abaco_ship['adcp_v']
-
+this_ship_sig0 = abaco_ship['den_grid']
+this_ship_CT = abaco_ship['CT']
+this_ship_SA = abaco_ship['SA']
+this_ship_dist = abaco_ship['den_dist']
+this_ship_depth_0 = abaco_ship['bin_depth']
+this_ship_depth = np.repeat(np.transpose(np.array([abaco_ship['bin_depth']])), np.shape(ship_sig0)[1], axis=1)
+# pkl_file = open('/Users/jake/Documents/baroclinic_modes/SHIPBOARD/ABACO/no_ctd_ship_ladcp_2018-02-25.pkl', 'rb')
+# abaco_ship = pickle.load(pkl_file)
+# pkl_file.close()
+this_adcp_dist = abaco_ship['adcp_dist']
+this_adcp_depth = abaco_ship['adcp_depth']
+this_adcp_v = abaco_ship['adcp_v']
 # -------------------------------------------------------------------------------------------------------------------
 # --- LOAD NEARBY ARGO CTD DATA
 pkl_file = open('/Users/jake/Desktop/argo/deep_argo_nwa.pkl', 'rb')
@@ -104,7 +110,7 @@ grid = np.concatenate([GD.variables['grid'][:], np.arange(GD.variables['grid'][:
 grid_p = gsw.p_from_z(-1 * grid, ref_lat)
 den_grid = np.arange(24.5, 28, 0.02)
 dist_grid_s = np.arange(2, 125, 0.005)
-dist_grid = np.arange(22, 150, 4)
+dist_grid = np.arange(20, 320, 10)
 
 # output dataframe 
 df_t = pd.DataFrame()
@@ -119,29 +125,27 @@ plot_plan = 0
 plot_cross = 0
 plot_eta = 0
 plot_eng = 0
-
 # -------------------------------------------------------------------------------------------------------------------
 # prep plan view plot of dive locations
-if plot_plan > 0:
-    levels = [-5250, -5000, -4750, -4500, -4250, -4000, -3500, -3000, -2500, -2000, -1500, -1000, -500, 0]
-    fig0, ax0 = plt.subplots()
-    cmap = plt.cm.get_cmap("Blues_r")
-    cmap.set_over('#808000')  # ('#E6E6E6')
-    bc = ax0.contourf(bath_lon, bath_lat, bath_z, levels, cmap='Blues_r', extend='both', zorder=0)
-    # ax0.contourf(bath_lon,bath_lat,bath_z,[0, 100, 200], cmap = 'YlGn_r')
-    matplotlib.rcParams['contour.negative_linestyle'] = 'solid'
-    bcl = ax0.contour(bath_lon, bath_lat, bath_z, [-4500, -1000], colors='k', zorder=0)
-    ml = [(-76.75, 26.9), (-77.4, 26.8)]
-    ax0.clabel(bcl, manual=ml, inline_spacing=-3, fmt='%1.0f', colors='k')
-    w = 1 / np.cos(np.deg2rad(26.5))
-    ax0.axis([-77.5, -75, 25.75, 27.25])
-    ax0.set_aspect(w)
-    divider = make_axes_locatable(ax0)
-    cax = divider.append_axes("right", size="5%", pad=0.05)
-    fig0.colorbar(bc, cax=cax, label='[m]')
-    ax0.set_xlabel('Longitude')
-    ax0.set_ylabel('Latitude')
-
+# if plot_plan > 0:
+#     levels = [-5250, -5000, -4750, -4500, -4250, -4000, -3500, -3000, -2500, -2000, -1500, -1000, -500, 0]
+#     fig0, ax0 = plt.subplots()
+#     cmap = plt.cm.get_cmap("Blues_r")
+#     cmap.set_over('#808000')  # ('#E6E6E6')
+#     bc = ax0.contourf(bath_lon, bath_lat, bath_z, levels, cmap='Blues_r', extend='both', zorder=0)
+#     # ax0.contourf(bath_lon,bath_lat,bath_z,[0, 100, 200], cmap = 'YlGn_r')
+#     matplotlib.rcParams['contour.negative_linestyle'] = 'solid'
+#     bcl = ax0.contour(bath_lon, bath_lat, bath_z, [-4500, -1000], colors='k', zorder=0)
+#     ml = [(-76.75, 26.9), (-77.4, 26.8)]
+#     ax0.clabel(bcl, manual=ml, inline_spacing=-3, fmt='%1.0f', colors='k')
+#     w = 1 / np.cos(np.deg2rad(26.5))
+#     ax0.axis([-77.5, -75, 25.75, 27.25])
+#     ax0.set_aspect(w)
+#     divider = make_axes_locatable(ax0)
+#     cax = divider.append_axes("right", size="5%", pad=0.05)
+#     fig0.colorbar(bc, cax=cax, label='[m]')
+#     ax0.set_xlabel('Longitude')
+#     ax0.set_ylabel('Latitude')
 # -------------------------------------------------------------------------------------------------
 # Vertically Bin
 Binned = x.make_bin(grid)
@@ -158,8 +162,7 @@ if 'o2' in Binned.keys():
 ref_lat = np.nanmean(lat)
 # -------------------------------------------------------------------------------------------------
 # Compute density
-sa, ct, sig0, N2 = x.density(grid, ref_lat, t, s, lon, lat)
-
+sa, ct, sig0, dg_N2 = x.density(grid, ref_lat, t, s, lon, lat)
 # -----------------------------------------------------------------------------------------------
 # compute M/W sections and compute velocity
 # USING X.TRANSECT_CROSS_SECTION_1 (THIS WILL SEPARATE TRANSECTS BY TARGET OF EACH DIVE)
@@ -168,21 +171,20 @@ sigth_levels = np.concatenate(
      np.arange(27.2, 27.8, 0.2), np.arange(27.7, 27.8, 0.02), np.arange(27.8, 27.9, 0.01)])
 ds, dist, v_g, vbt, isopycdep, isopycx, mwe_lon, mwe_lat, DACe_MW, DACn_MW, profile_tags_per = \
     x.transect_cross_section_1(grid, sig0, lon, lat, dac_u, dac_v, profile_tags, sigth_levels)
-
 # -----------------------------------------------------------------------------------------------
 # PLOTTING cross section
 # choose which transect
-transect_no = 1
-x.plot_cross_section(grid, ds[transect_no], v_g[transect_no], dist[transect_no],
-                     profile_tags_per[transect_no], isopycdep[transect_no], isopycx[transect_no],
-                     sigth_levels, d_time)
+transect_no = 3
+# x.plot_cross_section(grid, ds[transect_no], v_g[transect_no], dist[transect_no],
+#                      profile_tags_per[transect_no], isopycdep[transect_no], isopycx[transect_no],
+#                      sigth_levels, d_time)
 # -----------------------------------------------------------------------------------------------
 # PLOTTING PLAN VIEW
 # ABACO
 bathy_path = '/Users/jake/Documents/baroclinic_modes/DG/ABACO_2017/OceanWatch_smith_sandwell.nc'
-x.plot_plan_view(lon, lat, mwe_lon[transect_no], mwe_lat[transect_no],
-                 DACe_MW[transect_no], DACn_MW[transect_no],
-                 ref_lat, profile_tags_per[transect_no], d_time, [-77.5, -73.5, 25.5, 27], bathy_path)
+# x.plot_plan_view(lon, lat, mwe_lon[transect_no], mwe_lat[transect_no],
+#                  DACe_MW[transect_no], DACn_MW[transect_no],
+#                  ref_lat, profile_tags_per[transect_no], d_time, [-77.5, -73.5, 25.5, 27], bathy_path)
 
 # -----------------------------------------------------------------------------------------------
 # unpack velocity profiles from transect analysis
@@ -225,7 +227,6 @@ for i in dist_grid:
 # ---------------------------------------------------------------------------------------------------------
 import_dg = si.loadmat('/Users/jake/Documents/geostrophic_turbulence/ABACO_dg_transect_9.mat')
 dg_data = import_dg['out_t']
-
 # ---------------------------------------------------------------------------------------------------------
 # --- mean density profile as a function of distance offshore (avg profile changes (and represents the linear trend))
 c2s = plt.cm.jet(np.linspace(0, 1, 33))
@@ -247,7 +248,7 @@ if plot_cross > 0:
     w = 1 / np.cos(np.deg2rad(26.5))
     ax1.axis([-77.25, -74, 26.25, 26.75])
     ax1.set_aspect(w)
-    for i in dg_list:
+    for i in x.files:
         nc_fid = Dataset(i, 'r')
         glid_num = nc_fid.glider
         dive_num = nc_fid.dive_number
@@ -299,10 +300,9 @@ if plot_cross > 0:
     ax3.axis([0, 300, 0, 5000])
     ax3.invert_yaxis()
     ax3.axes.get_yaxis().set_visible(False)
-    ax3.grid()
     plot_pro(ax3)
 
-rho_comp = 1
+rho_comp = 0
 if rho_comp > 0:
     f = plt.subplots()
     gs = gridspec.GridSpec(4, 4)
@@ -310,26 +310,30 @@ if rho_comp > 0:
     ax2 = plt.subplot(gs[2:, 0:2])
     ax3 = plt.subplot(gs[2:, 2:])
 
+    t_s = datetime.date.fromordinal(np.int(np.nanmin(d_time)))
+    t_e = datetime.date.fromordinal(np.int(np.nanmax(d_time)))
     den_levels = np.append(np.arange(25, 27.78, .4), np.arange(27.78, 27.9, .02))
 
-    # cross section density T/S profile comparisons 
-    ax1.pcolor(dist_grid, grid, sigma_avg_grid, vmin=25, vmax=28)
+    # cmap = plt.cm.get_cmap("viridis")
+    # cmap.set_over('#808000')  # ('#E6E6E6')
+    # cross section density T/S profile comparisons
+    dats = ~np.isnan(sigma_avg_grid[10, :])
+    ax1.pcolor(dist_grid[dats], grid, sigma_avg_grid[:, dats], vmin=25, vmax=28)
     # ax1.contour(dist_grid,grid,t_avg_grid,colors='k',levels=[2,3,4,5,6,7,8,10,12,16,20])
     den_c = ax1.contour(dist_grid, grid, sigma_avg_grid, colors='k', levels= den_levels, linewidth=.35, label='DG')
     # ax1.clabel(den_c, fontsize=6, inline=1,fmt='%.4g',spacing=10)  
-    den_ship = ax1.contour(ship_dist, ship_depth_0, ship_den, colors='r', levels=den_levels, linewidth=.75)
-    ax1.clabel(den_ship, fontsize=6, inline=1, fmt='%.4g', spacing=-50)
-    # for i in range(28, 34):
-    #     ax1.plot(dg_data['Isopyc_x'][0][0][i, :], dg_data['Isopyc_dep'][0][0][i, :], color='k', linewidth=0.75)
-    #     ax1.text(dg_data['Isopyc_x'][0][0][i, -1] + 7, dg_data['Isopyc_dep'][0][0][i, -1],
-    #               str(np.round(np.squeeze(dg_data['sig_th_lev'][0][0][i]), decimals=2)), fontsize=7)
-    # ax1.text(200, 3500, 'DG38 - Long Transect')
-    ax1.axis([0, 250, 0, 5000])
+    den_ship = ax1.contour(ship_dist, ship_depth_0, ship_sig0, colors='r', levels=den_levels, linewidth=.75)
+    # ax1.clabel(den_ship, fontsize=6, inline=1, fmt='%.4g', spacing=-50)
+    max_ind = np.where((ship_dist > 275) & (ship_dist < 325))[0][0]
+    for i in range(len(den_levels)):
+        ax1.text(305, grid[np.where(ship_sig0[:, max_ind] >= den_levels[i])[0][0]], den_levels[i], fontsize=8)
+    ax1.axis([0, 300, 0, 5000])
     # ax1.set_xlabel('Distance Offshore [km]')
     ax1.set_ylabel('Depth [m]')
-    ax1.set_title(r'$\overline{\rho_{\theta}}$ Cross-Section from DG37,38 (4/21 - 6/15) Comp. to RV CTD (Red)',
-                  fontsize=12)
+    ax1.set_title(r'$\overline{\rho_{\theta}}$ Cross-Section from' + x.ID + '  ' + x.project + '  ' + np.str(
+        t_s.month) + '/' + np.str(t_s.day) + ' - ' + np.str(t_e.month) + '/' + np.str(t_e.day) + '(ctd in red)', fontsize=14)
     ax1.invert_yaxis()
+    ax1.grid()
 
     # --- close up of T/S differences
     TT, SS = np.meshgrid(np.arange(0, 25, .1), np.arange(34, 38, .1))
@@ -340,11 +344,13 @@ if rho_comp > 0:
     for i in range(np.size(dist_grid)):
         ax2.plot(SA_avg_grid[:, i], CT_avg_grid[:, i], color=c2s[i, :], linewidth=0.75)
     for i in range(10):
-        ax2.plot(ship_salin[:, i], ship_theta[:, i], color=c2_ship[i, :], linestyle='--', linewidth=0.75)
+        ax2.plot(this_ship_SA[:, i], this_ship_CT[:, i], color=c2_ship[i, :], linestyle='--', linewidth=0.75)
         # ax2.plot(np.nanmean(abaco_argo['salin'][1:-1],axis=1),np.nanmean(abaco_argo['theta'][1:-1],axis=1),color='k')
     ax2.axis([35, 36.5, 1.5, 17])
-    ax2.set_ylabel('Potential Temp.', fontsize=12)
-    ax2.set_xlabel('Salinity', fontsize=12)
+    ax2.set_ylabel('Conservative Temperature', fontsize=12)
+    ax2.set_xlabel('Absolute Salinity', fontsize=12)
+    ax2.grid()
+    ax2.grid()
 
     TT, SS = np.meshgrid(np.arange(0, 2.8, .001), np.arange(34.4, 35, .001))
     DD = gsw.sigma0(SS, TT)  # sw.pden(SS, TT, np.zeros(np.shape(TT)), 0) - 1000
@@ -357,11 +363,11 @@ if rho_comp > 0:
         ts_D = ax3.plot(SA_avg_grid[:, i], CT_avg_grid[:, i], linewidth=0.75, color='b',
                         label='DG')  # c2s[i,:])
     for i in range(10):
-        ts_s = ax3.plot(ship_salin[:, i], ship_theta[:, i], linestyle='--', linewidth=0.75, color='r',
+        ts_s = ax3.plot(this_ship_SA[:, i], this_ship_CT[:, i], linestyle='--', linewidth=0.75, color='r',
                         label='Ship')  # c2_ship[i,:])
     handles, labels = ax3.get_legend_handles_labels()
     ax3.legend([handles[0], handles[-1]], [labels[0], labels[-1]], fontsize=12)
-    ax3.set_xlabel('Salinity', fontsize=12)
+    ax3.set_xlabel('Absolute Salinity', fontsize=12)
     ax3.axis([35.025, 35.15, 1.6, 3.25])
     # ax3.axis([34.86, 34.93, 1.7, 2.52])
     plot_pro(ax3)
@@ -379,9 +385,9 @@ if rho_z_comp > 0:
         if np.sum(np.isnan(sigma_avg_grid[:, 1])) > 200:
             ix, iv = find_nearest(ship_dist, dist_grid[i])
             # ship noodling
-            ship_den_interp = np.interp(grid, ship_depth_0, ship_den[:, ix])
-            ship_salin_interp = np.interp(grid, ship_depth_0, ship_salin[:, ix])
-            ship_theta_interp = np.interp(grid, ship_depth_0, ship_theta[:, ix])
+            ship_den_interp = np.interp(grid, ship_depth_0, ship_sig0[:, ix])
+            ship_salin_interp = np.interp(grid, ship_depth_0, this_ship_SA[:, ix])
+            ship_theta_interp = np.interp(grid, ship_depth_0, this_ship_CT[:, ix])
             shp = ax1.plot((SA_avg_grid[:, i] - ship_salin_interp), grid, label='Shipboard', color='#48D1CC')
             shp = ax2.plot((CT_avg_grid[:, i] - ship_theta_interp), grid, label='Shipboard', color='#48D1CC')
             shp = ax3.plot((sigma_avg_grid[:, i] - ship_den_interp), grid, label='Shipboard', color='#48D1CC')
@@ -402,15 +408,7 @@ if rho_z_comp > 0:
     ax3.invert_yaxis()
     plot_pro(ax3)
 
-    f, ax = plt.subplots()
-    ax.plot(np.nanmean(SA_avg_grid, axis=1), grid)
-    ax.invert_yaxis()
-    plot_pro(ax)
-    # ax3.grid()
-    # f.savefig('/Users/jake/Desktop/abaco/platform_comp.png',dpi = 300)    
-    # plt.close()      
-
-# ------------------------------------------------------------------------
+# ---------------------------------------------------------------------------------------------------------------------
 # compute eta 
 # instead of removing a mean, remove the linear trend 
 # create average density profile that is a function of distance 
@@ -421,7 +419,12 @@ for i in range(np.size(dist_grid)):
     ddz_avg_sigma[:, i] = np.gradient(sigma_avg_grid[:, i], z)
     ddz_avg_CT[:, i] = np.gradient(CT_avg_grid[:, i], z)
 
-# compute background N
+# DG N2 profiles
+dg_avg_N2_coarse = np.nanmean(dg_N2, axis=1)
+dg_avg_N2_coarse[np.isnan(dg_avg_N2_coarse)] = dg_avg_N2_coarse[~np.isnan(dg_avg_N2_coarse)][0] - 1*10**(-5)
+dg_avg_N2 = savgol_filter(dg_avg_N2_coarse, 15, 3)
+
+# compute background N2 (as a function of distance eastward)
 N2 = np.zeros(np.shape(sigma_avg_grid))
 for i in range(np.size(dist_grid)):
     N2[1:, i] = gsw.Nsquared(SA_avg_grid[:, i], CT_avg_grid[:, i], grid_p, lat=ref_lat)[0]
@@ -432,13 +435,27 @@ N2[lz] = 0
 N2[lnan] = 0
 N = np.sqrt(N2)
 
-c2_n2 = plt.cm.plasma(np.linspace(0, 1, 33))
-f, ax = plt.subplots()
-for i in range(np.size(dist_grid)):
-    ax.plot(N2[:, i], grid_p, color=c2_n2[i, :])
-ax.grid()
-ax.invert_yaxis()
-plot_pro(ax)
+# Shipboard CTD N2
+ship_p = gsw.p_from_z(-1 * ship_depth_0, ref_lat)
+ship_N2 = np.nan*np.ones(len(ship_p))
+ship_N2[0:-1] = gsw.Nsquared(np.nanmean(this_ship_SA, axis=1), np.nanmean(this_ship_CT, axis=1), ship_p, lat=ref_lat)[0]
+ship_N2[1] = ship_N2[2] - 1*10**(-5)
+ship_N2[0] = ship_N2[1] - 1*10**(-5)
+ship_N2[ship_N2 < 0] = np.nan
+for i in np.where(np.isnan(ship_N2))[0]:
+    ship_N2[i] = ship_N2[i - 1] - 1*10**(-8)
+this_ship_N2 = savgol_filter(ship_N2, 15, 3)
+
+# plot all N2
+# c2_n2 = plt.cm.plasma(np.linspace(0, 1, 33))
+# f, ax = plt.subplots()
+# for i in range(np.size(dist_grid)):
+#     ax.plot(N2[:, i], grid_p, color=c2_n2[i, :])
+# ax.plot(dg_avg_N2, grid, color='k')
+# ax.plot(ship_N2, ship_depth_0, color='k')
+# ax.grid()
+# ax.invert_yaxis()
+# plot_pro(ax)
 
 # find closest average profile to subtract to find eta     
 eta = np.zeros([np.size(grid), np.size(dist_grid)])
@@ -501,14 +518,13 @@ omega = 0  # frequency zeroed for geostrophic modes
 mmax = 60  # highest baroclinic mode to be calculated
 nmodes = mmax + 1
 
-G, Gz, c, epsilon = vertical_modes(np.nanmean(N2, axis=1), grid, omega, mmax)
-
+G, Gz, c, epsilon = vertical_modes(dg_avg_N2, grid, omega, mmax)
 # ---------------------------------------------------------------------------------------------------------
 # first taper fit above and below min/max limits
 # Project modes onto each eta (find fitted eta)
 # Compute PE 
 eta_fit_depth_min = 50
-eta_fit_depth_max = 3800
+eta_fit_depth_max = 3500
 eta_th_fit_depth_min = 50
 eta_th_fit_depth_max = 4200
 AG = np.zeros([nmodes, num_profs])
@@ -616,18 +632,26 @@ if plot_eta > 0:
     # f.savefig('/Users/jake/Desktop/abaco/dg037_8_eta.png',dpi = 300)
     # plt.close()
 
-# ---------------------------------------------------------------------------------------------------------
-# ------------ DG Geostrophic Velocity Profiles
+# -------------------------------------------------------------------------------------------------------------------
+# VELOCITY
+# -------------------------------------------------------------------------------------------------------------------
+def functi(p, xe, xb):
+    #  This is the target function that needs to be minimized
+    fsq = (xe - p*xb)**2
+    return fsq.sum()
+# -------------------------------------------------------------------------------------------------------------------
+# DG Geostrophic Velocity Profiles
 good_v = np.zeros(np.shape(dg_v_0)[1], dtype=bool)
 for i in range(np.shape(dg_v_0)[1]):
     dv_dz = np.gradient(dg_v_0[:, i], -1 * grid)
-    if (np.nanmax(np.abs(dv_dz)) < 0.0016) & ((i < 28) | (i > 28)):
+    # if (np.nanmax(np.abs(dv_dz)) < 0.0016) & ((i < 28) | (i > 28)):
+    if (np.nanmax(np.abs(dv_dz)) < 0.002) & ((i < 28) | (i > 28)):
         good_v[i] = True
 dg_v = dg_v_0[:, good_v]
 dg_np = np.shape(dg_v)[1]
-# ---------------------------------------------------------------------------------------------------------
-# -- DG V - HKE est.
-HKE_noise_threshold = 1e-5
+# --------------------------------------------------------------------------------------------------------------------
+# DG HKE est.
+HKE_noise_threshold_dg = 1e-5
 dg_AGz = np.zeros([nmodes, dg_np])
 dg_v_m_2 = np.nan * np.zeros([np.size(grid), dg_np])
 dg_HKE_per_mass = np.nan * np.zeros([nmodes, dg_np])
@@ -635,76 +659,160 @@ modest = np.arange(11, nmodes)
 dg_good_prof = np.zeros(dg_np)
 for i in range(dg_np):
     # fit to velocity profiles
-    this_V = dg_v[:, i].copy()  # np.interp(grid, np.squeeze(dg_bin), dg_v[:, i])
-    iv = np.where(~np.isnan(this_V))
+    this_dg_V = dg_v[:, i].copy()  # np.interp(grid, np.squeeze(dg_bin), dg_v[:, i])
+    iv = np.where(~np.isnan(this_dg_V))
     if iv[0].size > 1:
-        dg_AGz[:, i] = np.squeeze(
-            np.linalg.lstsq(np.squeeze(Gz[iv, :]), np.transpose(np.atleast_2d(this_V[iv])))[0])  # Gz(iv,:)\V_g(iv,ip)
-        dg_v_m_2[:, i] = np.squeeze(np.matrix(Gz) * np.transpose(np.matrix(dg_AGz[:, i])))  # Gz*AGz[:,i];
+        dg_AGz[:, i] = np.squeeze(np.linalg.lstsq(np.squeeze(Gz[iv, :]), np.transpose(np.atleast_2d(this_dg_V[iv])))[0])
+        dg_v_m_2[:, i] = np.squeeze(np.matrix(Gz) * np.transpose(np.matrix(dg_AGz[:, i])))
         dg_HKE_per_mass[:, i] = dg_AGz[:, i] * dg_AGz[:, i]
-        ival = np.where(dg_HKE_per_mass[modest, i] >= HKE_noise_threshold)
+        ival = np.where(dg_HKE_per_mass[modest, i] >= HKE_noise_threshold_dg)
         if np.size(ival) > 0:
             dg_good_prof[i] = 1  # flag profile as noisy
     else:
         dg_good_prof[i] = 1  # flag empty profile as noisy as well
 
-# ---------------------------------------------------------------------------------------------------------
+# --- EOF of velocity profiles ---------------------------
+not_deep = np.isfinite(dg_v[-9, :])  # & (Time2 > 735750)
+V3 = dg_v[:, not_deep]
+check1 = 3      # upper index to include in eof computation
+check2 = -8     # lower index to include in eof computation
+grid_check = grid[check1:check2]
+Uzq = V3[check1:check2, :].copy()
+nq = np.size(V3[0, :])
+avg_Uzq = np.nanmean(np.transpose(Uzq), axis=0)
+Uzqa = Uzq - np.transpose(np.tile(avg_Uzq, [nq, 1]))
+cov_Uzqa = (1 / nq) * np.matrix(Uzqa) * np.matrix(np.transpose(Uzqa))
+D_Uzqa, V_Uzqa = np.linalg.eig(cov_Uzqa)
+t1 = np.real(D_Uzqa[0:10])
+PEV = t1 / np.sum(t1)
+# ------ VARIANCE EXPLAINED BY BAROCLINIC MODES -----------
+eof1 = np.array(np.real(V_Uzqa[:, 0]))
+eof1_sc = (1/2)*(eof1.max() - eof1.min()) + eof1.min()
+bc1 = Gz[check1:check2, 1]  # flat bottom
+# bc2 = F[check1:check2, 0]   # sloping bottom
+# -- minimize mode shapes onto eof shape
+p = 0.8*eof1.min()/np.max(np.abs(Gz[:, 1]))
+ins1 = np.transpose(np.concatenate([eof1, bc1[:, np.newaxis]], axis=1))
+# ins2 = np.transpose(np.concatenate([eof1, bc2[:, np.newaxis]], axis=1))
+min_p1 = fmin(functi, p, args=(tuple(ins1)))
+# min_p2 = fmin(functi, p, args=(tuple(ins2)))
+# -------------------------------------------------------------------------------------------------------------------
 # --- SHIP ADCP HKE est.
 # find adcp profiles that are deep enough and fit baroclinic modes to these 
 HKE_noise_threshold_adcp = 1e-5
-check = np.zeros(np.size(adcp_dist))
-for i in range(np.size(adcp_dist)):
-    check[i] = adcp_depth[np.where(~np.isnan(adcp_v[:, i]))[0][-1]]
-adcp_in = np.where(check >= 4750)
-V = adcp_v[:, adcp_in[0]] / 100
-V_dist = adcp_dist[adcp_in[0]]
+check = np.zeros(np.size(this_adcp_dist))
+for i in range(np.size(this_adcp_dist)):
+    check[i] = adcp_depth[np.where(~np.isnan(this_adcp_v[:, i]))[0][-1]]
+adcp_in = np.where((check >= 4700) & (check <= 5300))
+V = this_adcp_v[:, adcp_in[0]] / 100
+V_dist = this_adcp_dist[adcp_in[0]]
 adcp_np = np.size(V_dist)
-AGz = np.zeros([nmodes, adcp_np])
-V_m = np.nan * np.zeros([np.size(grid), adcp_np])
+ship_depth_1 = ship_depth_0[0:-39]
+
+ship_G, ship_Gz, ship_c, ship_epsilon = vertical_modes(this_ship_N2[0:-39], ship_depth_1, omega, mmax)
+
+adcp_AGz = np.zeros([nmodes, adcp_np])
+V_m = np.nan * np.zeros([np.size(ship_depth_1), adcp_np])
 HKE_per_mass = np.nan * np.zeros([nmodes, adcp_np])
 modest = np.arange(11, nmodes)
-good_prof = np.zeros(adcp_np)
+adcp_good_prof = np.zeros(adcp_np)
 for i in range(adcp_np):
     # fit to velocity profiles
     this_V_0 = V[:, i].copy()
-    this_V = np.interp(grid, adcp_depth, this_V_0)
+    this_V = np.interp(ship_depth_1, adcp_depth, this_V_0) # new using Gz profiles from shipboard ctd
+    # this_V = np.interp(grid, adcp_depth, this_V_0)  # old using Gz profiles from DG
     iv = np.where(~np.isnan(this_V))
     if iv[0].size > 1:
         # Gz(iv,:)\V_g(iv,ip)
         # Gz*AGz[:,i];
-        AGz[:, i] = np.squeeze(np.linalg.lstsq(np.squeeze(Gz[iv, :]), np.transpose(np.atleast_2d(this_V[iv])))[0])
-        V_m[:, i] = np.squeeze(np.matrix(Gz) * np.transpose(np.matrix(AGz[:, i])))
-        HKE_per_mass[:, i] = AGz[:, i] * AGz[:, i]
+        adcp_AGz[:, i] = np.squeeze(np.linalg.lstsq(np.squeeze(ship_Gz[iv, :]),
+                                                    np.transpose(np.atleast_2d(this_V[iv])))[0])
+        V_m[:, i] = np.squeeze(np.matrix(ship_Gz) * np.transpose(np.matrix(adcp_AGz[:, i])))
+        HKE_per_mass[:, i] = adcp_AGz[:, i] * adcp_AGz[:, i]
         ival = np.where(HKE_per_mass[modest, i] >= HKE_noise_threshold_adcp)
         if np.size(ival) > 0:
-            good_prof[i] = 1  # flag profile as noisy
+            adcp_good_prof[i] = 1  # flag profile as noisy
     else:
-        good_prof[i] = 1  # flag empty profile as noisy as well
+        adcp_good_prof[i] = 1  # flag empty profile as noisy as well
+
+# --- EOF of velocity profiles ---------------------------
+V3 = np.nan*np.ones((len(ship_depth_1), adcp_np))
+for i in range(adcp_np):
+    V3[:, i] = np.interp(ship_depth_1, adcp_depth, V[:, i]) # new using Gz profiles from shipboard ctd
+check1 = 3      # upper index to include in eof computation
+check2 = -1     # lower index to include in eof computation
+ship_grid_check = ship_depth_1[check1:check2]
+Uzq = V3[check1:check2, :].copy()
+nq = np.size(V3[0, :])
+avg_Uzq = np.nanmean(np.transpose(Uzq), axis=0)
+Uzqa = Uzq - np.transpose(np.tile(avg_Uzq, [nq, 1]))
+cov_Uzqa = (1 / nq) * np.matrix(Uzqa) * np.matrix(np.transpose(Uzqa))
+D_Uzqa, V_Uzqa_adcp = np.linalg.eig(cov_Uzqa)
+t1 = np.real(D_Uzqa[0:10])
+PEV_adcp = t1 / np.sum(t1)
+# ------ VARIANCE EXPLAINED BY BAROCLINIC MODES -----------
+eof1 = np.array(np.real(V_Uzqa_adcp[:, 0]))
+eof1_sc = (1/2)*(eof1.max() - eof1.min()) + eof1.min()
+bc1 = ship_Gz[check1:check2, 1]  # flat bottom
+# bc2 = F[check1:check2, 0]   # sloping bottom
+
+# -- minimize mode shapes onto eof shape
+p = 0.8*eof1.min()/np.max(np.abs(ship_Gz[:, 1]))
+ins1 = np.transpose(np.concatenate([eof1, bc1[:, np.newaxis]], axis=1))
+# ins2 = np.transpose(np.concatenate([eof1, bc2[:, np.newaxis]], axis=1))
+min_p1 = fmin(functi, p, args=(tuple(ins1)))
+# min_p2 = fmin(functi, p, args=(tuple(ins2)))
+
+# ------ PLOT VELOCITY EOFS -------------------------------------------
+fvu1 = np.sum((eof1[:, 0] - bc1*min_p1)**2)/np.sum((eof1 - np.mean(eof1))**2)
+# fvu2 = np.sum((eof1[:, 0] - bc2*min_p2)**2)/np.sum((eof1 - np.mean(eof1))**2)
+f, (ax1, ax2) = plt.subplots(1, 2, sharey=True)
+ax1.plot(V_Uzqa[:, 0], grid_check, label=r'PEV$_{' + str(0 + 1) + '}$ = ' + str(100 * np.round(PEV[0], 3)),
+        linewidth=2, color='r')
+ax1.plot(V_Uzqa[:, 1], grid_check, label=r'PEV$_{' + str(1 + 1) + '}$ = ' + str(100 * np.round(PEV[1], 3)),
+        linewidth=2, color='b')
+ax1.plot(V_Uzqa[:, 2], grid_check, label=r'PEV$_{' + str(2 + 1) + '}$ = ' + str(100 * np.round(PEV[2], 3)),
+        linewidth=2, color='g')
+handles, labels = ax1.get_legend_handles_labels()
+ax1.legend(handles, labels, fontsize=10)
+ax1.set_title('DG')
+ax1.grid()
+ax2.plot(V_Uzqa_adcp[:, 0], ship_grid_check,
+         label=r'PEV$_{' + str(0 + 1) + '}$ = ' + str(100 * np.round(PEV_adcp[0], 3)), linewidth=2, color='r')
+ax2.plot(V_Uzqa_adcp[:, 1], ship_grid_check,
+         label=r'PEV$_{' + str(1 + 1) + '}$ = ' + str(100 * np.round(PEV_adcp[1], 3)), linewidth=2, color='b')
+ax2.plot(V_Uzqa_adcp[:, 2], ship_grid_check,
+         label=r'PEV$_{' + str(2 + 1) + '}$ = ' + str(100 * np.round(PEV_adcp[2], 3)), linewidth=2, color='g')
+handles, labels = ax2.get_legend_handles_labels()
+ax2.legend(handles, labels, fontsize=10)
+ax2.invert_yaxis()
+ax2.set_title('LADCP')
+plot_pro(ax2)
 
 # ------ PLOT VELOCITY PROFILES AND COMPARE -------------------------------------------
 f, (ax1, ax2, ax3) = plt.subplots(1, 3)
 for i in range(adcp_np):
-    if good_prof[i] < 2:
-        ad1 = ax1.plot(V[:,i],adcp_depth,color='#CD853F')
-        ax1.plot(V_m[:,i],grid,color='k',linewidth=0.75)
+    if adcp_good_prof[i] < 2:
+        ad1 = ax1.plot(V[:,i], adcp_depth, color='#CD853F')
+        ax1.plot(V_m[:,i], ship_depth_1, color='k', linewidth=0.75)
     else:
-        ax1.plot(V[:,i],adcp_depth,color='r')
+        ax1.plot(V[:,i], adcp_depth, color='r')
 for i in range(dg_np):
     if dg_good_prof[i] < 2:  # dg_quiet[0][i] < 1:
         ad1 = ax2.plot(dg_v[:, i], grid, color='#CD853F')
         ax2.plot(dg_v_m_2[:, i], grid, color='k', linestyle='--', linewidth=0.75)
     else:
         ax2.plot(dg_v[:, i], grid, color='r')
-ax1.axis([-.6, .6, 0, 5000])
-ax1.set_xlabel('Meridional Velocity [m/s]', fontsize=14)
-ax2.set_ylabel('Depth [m]', fontsize=14)
-ax1.set_title('Shipboard ADCP (' + str(adcp_np) + ' profiles)')
-ax1.text(.25, 5300, 'Noisy = ' + str(np.sum(good_prof)), fontsize=8)
+ax1.axis([-.6, .6, 0, 5100])
+ax1.set_xlabel('Meridional Velocity [m/s]', fontsize=12)
+ax2.set_ylabel('Depth [m]', fontsize=12)
+ax1.set_title('Shipboard ADCP (' + str(adcp_np) + ' profiles)', fontsize=12)
+ax1.text(.25, 5300, 'Noisy = ' + str(np.sum(adcp_good_prof)), fontsize=8)
 ax1.invert_yaxis()
 ax1.grid()
-ax2.axis([-.6, .6, 0, 5000])
-ax2.set_xlabel('Cross-Track Velocity [m/s]', fontsize=14)
-ax2.set_title('Geostrophic Velocity', fontsize=18)  # (' + str(dg_np) + ' profiles)')
+ax2.axis([-.6, .6, 0, 5100])
+ax2.set_xlabel('Cross-Track Velocity [m/s]', fontsize=12)
+ax2.set_title('Geostrophic Velocity', fontsize=12)  # (' + str(dg_np) + ' profiles)')
 ax2.invert_yaxis()
 ax2.grid()
 
@@ -716,9 +824,9 @@ for i in range(np.size(mean_dist)):  # range(np.size(subset[0])): #
         p37_2 = ax3.plot(df_eta.iloc[:, i], grid, color='#CD853F', linewidth=1, label='DG037')
         p37_f = ax3.plot(Eta_m[:, i], grid, 'k--', linewidth=.75)
 ax3.plot([0, 0], [0, 5500], '--k')
-ax3.set_title('Vertical Displacement', fontsize=18)  # (' + str(num_profs) + ' profiles)') # dg37
-ax3.set_xlabel('Vertical Isopycal Displacement [m]', fontsize=14)
-ax3.axis([-600, 600, 0, 5000])
+ax3.set_title('Vertical Displacement', fontsize=12)  # (' + str(num_profs) + ' profiles)') # dg37
+ax3.set_xlabel('Vertical Isopycal Displacement [m]', fontsize=12)
+ax3.axis([-600, 600, 0, 5100])
 ax3.invert_yaxis()
 plot_pro(ax3)
 
@@ -761,9 +869,10 @@ if plot_energy_limits > 0:
 plot_energy = 1
 if plot_energy > 0:
     fig0, ax0 = plt.subplots()
+    # ---- PE
     PE_p = ax0.plot(sc_x, avg_PE[1:] / dk, color='#B22222', label=r'PE$_{dg}$', linewidth=1.5)
     ax0.scatter(sc_x, avg_PE[1:] / dk, color='#B22222', s=15)
-    # limits/scales 
+    # ---- limits/scales
     ax0.plot([3 * 10 ** -1, 3 * 10 ** 0], [1.5 * 10 ** 1, 1.5 * 10 ** -2], color='k', linewidth=0.75)
     ax0.plot([3 * 10 ** -2, 3 * 10 ** -1],
              [7 * 10 ** 2, ((5 / 3) * (np.log10(2 * 10 ** -1) - np.log10(2 * 10 ** -2)) + np.log10(7 * 10 ** 2))],
@@ -775,13 +884,15 @@ if plot_energy > 0:
     # ax0.text(1000 * f_ref / c[-2] + .1, 1000 * f_ref / c[-2], r'f/c$_m$', fontsize=10)
     ax0.plot(sc_x, PE_GM / dk, linestyle='--', color='#B22222', linewidth=1)
     ax0.text(sc_x[0] - .009, PE_GM[0] / dk, r'$PE_{GM}$', fontsize=12)
-    # KE 
-    # KE_p = ax0.plot(1000*ke_data['f_ref'][0][0][0]/ke_data['c'][0][0][1:],ke[1:]/(dk_ke/1000),
-    #       color='#483D8B',label='KE')
-    # ax0.scatter(1000*ke_data['f_ref'][0][0][0]/ke_data['c'][0][0][1:],ke[1:]/(dk_ke/1000),color='#483D8B',s=6)
-    KE_dg = ax0.plot(sc_x, avg_KE_dg[1:] / dk, color='g', label=r'KE$_{dg}$', linewidth=1.75)
+    # ---- KE
+    KE_dg = ax0.plot(sc_x, avg_KE_dg[1:] / dk, color='g', label=r'KE$_{dg}$', linewidth=1.75) # DG
     ax0.scatter(sc_x, avg_KE_dg[1:] / dk, color='g', s=15)
-    KE_adcp = ax0.plot(sc_x, avg_KE_adcp[1:]/dk, color='m', label=r'KE$_{adcp}$', linewidth=1.75)
+    KE_dg0 = ax0.plot([10**-2, 1000 * f_ref / c[1]], avg_KE_dg[0:2] / dk, 'g', linewidth=1.75) # DG KE_0
+    ax0.scatter(10**-2, avg_KE_dg[0] / dk, color='g', s=25, facecolors='none')  # DG KE_0
+
+    KE_adcp = ax0.plot(sc_x, avg_KE_adcp[1:]/dk, color='m', label=r'KE$_{adcp}$', linewidth=1.75) # adcp
+    KE_adcp0 = ax0.plot([10**-2, 1000 * f_ref / c[1]], avg_KE_adcp[0:2] / dk, 'm', linewidth=1.75) # adcp KE_0
+    ax0.scatter(10**-2, avg_KE_adcp[0] / dk, color='g', s=25, facecolors='none')  # adcp KE_0
     # --- ke/pe ratio
     # k_h_p = ax0.plot(sc_x, k_h, color='k', label=r'DG$_{k_h}$')
     # ax0.text(sc_x[0] - .008, k_h[0] + .01, r'$k_{h}$', fontsize=10)
@@ -804,7 +915,7 @@ if plot_energy > 0:
     time_ord = np.argsort(time_rec)
     # time_label = datetime.date.fromordinal(np.int(time_rec))
     myFmt = matplotlib.dates.DateFormatter('%m/%d')
-    mode_range = [1, 2, 3, 4]
+    mode_range = [1, 2, 3]
     fig0, ax0 = plt.subplots()
     plt.plot([time_min, time_max], [0, 0], 'k', linewidth=1.5)
     for i in mode_range:
@@ -816,9 +927,10 @@ if plot_energy > 0:
     ax0.set_xlabel('Date')
     ax0.set_ylabel('Scaled Dynamic Mode (cG) Amplitude')
     ax0.legend(handles, labels, fontsize=10)
-    ax0.grid()
+    plot_pro(ax0)
     # fig0.savefig('/Users/jake/Desktop/abaco/dg037_8_mode_amp.png', dpi=300)
 
+# -----------------------------------------------------------------------------------------
 # ------ EOF MODE SHAPESSSSS
 # - find EOFs of dynamic horizontal current (v) mode amplitudes _____DG_____
 AGzq = dg_AGz  # (:,quiet_prof)
@@ -828,30 +940,28 @@ AGzqa = AGzq - np.transpose(np.tile(avg_AGzq, [nq, 1]))  # mode amplitude anomal
 cov_AGzqa = (1 / nq) * np.matrix(AGzqa) * np.matrix(np.transpose(AGzqa))  # nmodes X nmodes covariance matrix
 var_AGzqa = np.transpose(np.matrix(np.sqrt(np.diag(cov_AGzqa)))) * np.matrix(np.sqrt(np.diag(cov_AGzqa)))
 cor_AGzqa = cov_AGzqa / var_AGzqa  # nmodes X nmodes correlation matrix
-
 D_AGzqa, V_AGzqa = np.linalg.eig(cov_AGzqa)  # columns of V_AGzqa are eigenvectors
-
 EOFseries = np.transpose(V_AGzqa) * np.matrix(AGzqa)  # EOF "timeseries' [nmodes X nq]
 EOFshape_dg = np.matrix(Gz) * V_AGzqa  # depth shape of eigenfunctions [ndepths X nmodes]
 EOFshape1_BTpBC1 = np.matrix(Gz[:, 0:2]) * V_AGzqa[0:2, 0]  # truncated 2 mode shape of EOF#1
 EOFshape2_BTpBC1 = np.matrix(Gz[:, 0:2]) * V_AGzqa[0:2, 1]  # truncated 2 mode shape of EOF#2
 
+# -----------------------------------------------------------------------------------------
 # -- find EOFs of dynamic horizontal current (v) mode amplitudes _____ADCP_____
-AGzq = AGz  # (:,quiet_prof)
-nq = np.size(good_prof)  # good_prof and dg_good_prof
+AGzq = adcp_AGz  # (:,quiet_prof)
+nq = np.size(adcp_good_prof)  # good_prof and dg_good_prof
 avg_AGzq = np.nanmean(np.transpose(AGzq), axis=0)
 AGzqa = AGzq - np.transpose(np.tile(avg_AGzq, [nq, 1]))  # mode amplitude anomaly matrix
 cov_AGzqa = (1 / nq) * np.matrix(AGzqa) * np.matrix(np.transpose(AGzqa))  # nmodes X nmodes covariance matrix
 var_AGzqa = np.transpose(np.matrix(np.sqrt(np.diag(cov_AGzqa)))) * np.matrix(np.sqrt(np.diag(cov_AGzqa)))
 cor_AGzqa = cov_AGzqa / var_AGzqa  # nmodes X nmodes correlation matrix
-
 D_AGzqa, V_AGzqa = np.linalg.eig(cov_AGzqa)  # columns of V_AGzqa are eigenvectors
-
 EOFseries = np.transpose(V_AGzqa) * np.matrix(AGzqa)  # EOF "timeseries' [nmodes X nq]
-EOFshape_adcp = np.matrix(Gz) * V_AGzqa  # depth shape of eigenfunctions [ndepths X nmodes]
-EOFshape1_BTpBC1 = np.matrix(Gz[:, 0:2]) * V_AGzqa[0:2, 0]  # truncated 2 mode shape of EOF#1
-EOFshape2_BTpBC1 = np.matrix(Gz[:, 0:2]) * V_AGzqa[0:2, 1]  # truncated 2 mode shape of EOF#2
+EOFshape_adcp = np.matrix(ship_Gz) * V_AGzqa  # depth shape of eigenfunctions [ndepths X nmodes]
+EOFshape1_BTpBC1 = np.matrix(ship_Gz[:, 0:2]) * V_AGzqa[0:2, 0]  # truncated 2 mode shape of EOF#1
+EOFshape2_BTpBC1 = np.matrix(ship_Gz[:, 0:2]) * V_AGzqa[0:2, 1]  # truncated 2 mode shape of EOF#2
 
+# -----------------------------------------------------------------------------------------
 # - find EOFs of dynamic vertical displacement (eta) mode amplitudes
 # extract noisy/bad profiles 
 good_prof = np.where(~np.isnan(AG[2, :]))
@@ -866,28 +976,26 @@ AGqa = AGq - np.transpose(np.tile(avg_AGq, [nqd, 1]))  # mode amplitude anomaly 
 cov_AGqa = (1 / nqd) * np.matrix(AGqa) * np.matrix(np.transpose(AGqa))  # nmodes X nmodes covariance matrix
 var_AGqa = np.transpose(np.matrix(np.sqrt(np.diag(cov_AGqa)))) * np.matrix(np.sqrt(np.diag(cov_AGqa)))
 cor_AGqa = cov_AGqa / var_AGqa  # nmodes X nmodes correlation matrix
-
 D_AGqa, V_AGqa = np.linalg.eig(cov_AGqa)  # columns of V_AGzqa are eigenvectors
-
 EOFetaseries = np.transpose(V_AGqa) * np.matrix(AGqa)  # EOF "timeseries' [nmodes X nq]
 EOFetashape = np.matrix(G[:, 1:]) * V_AGqa  # depth shape of eigenfunctions [ndepths X nmodes]
 EOFetashape1_BTpBC1 = G[:, 1:3] * V_AGqa[0:2, 0]  # truncated 2 mode shape of EOF#1
 EOFetashape2_BTpBC1 = G[:, 1:3] * V_AGqa[0:2, 1]  # truncated 2 mode shape of EOF#2
 
 # --- plot mode shapes
-plot_mode_shapes = 0
+plot_mode_shapes = 1
 if plot_mode_shapes > 0:
     max_plot = 3
     f, (ax1, ax2, ax3) = plt.subplots(1, 3)
-    n2p = ax1.plot((np.sqrt(np.nanmean(N2, axis=1)) * (1800 / np.pi)), grid, color='k', label='N(z) [cph]')
+    n2p = ax1.plot((np.sqrt(this_ship_N2) * (1800 / np.pi)) / 2, ship_depth_0, color='k', label='N(z) [cph]')
     colors = plt.cm.Dark2(np.arange(0, 4, 1))
 
     for ii in range(max_plot):
-        ax1.plot(Gz[:, ii], grid, color='#2F4F4F', linestyle='--')
-        p_eof = ax1.plot(-EOFshape_adcp[:, ii], grid, color=colors[ii, :], label='EOF # = ' + str(ii + 1), linewidth=2)
+        ax1.plot(ship_Gz[:, ii], ship_depth_1, color='#2F4F4F', linestyle='--')
+        p_eof = ax1.plot(-EOFshape_adcp[:, ii], ship_depth_1, color=colors[ii, :], label='EOF # = ' + str(ii + 1), linewidth=2)
     handles, labels = ax1.get_legend_handles_labels()
     ax1.legend(handles, labels, fontsize=10)
-    ax1.axis([-4, 4, 0, 5000])
+    ax1.axis([-5, 5, 0, 5100])
     ax1.invert_yaxis()
     ax1.set_title('ABACO EOF Mode Shapes (ADCP)')
     ax1.set_ylabel('Depth [m]')
@@ -904,7 +1012,7 @@ if plot_mode_shapes > 0:
             p_eof = ax2.plot(-EOFshape_dg[:, ii], grid, color=colors[ii, :], label='EOF # = ' + str(ii + 1), linewidth=2)
     handles, labels = ax2.get_legend_handles_labels()
     ax2.legend(handles, labels, fontsize=10)
-    ax2.axis([-4, 4, 0, 5000])
+    ax2.axis([-5, 5, 0, 5100])
     ax2.invert_yaxis()
     ax2.set_title('EOF Mode Shapes (DG)')
     ax2.set_xlabel('Hor. Vel. Mode Shapes (DG)')
@@ -916,7 +1024,7 @@ if plot_mode_shapes > 0:
                              label='EOF # = ' + str(ii + 1), linewidth=2)
     handles, labels = ax3.get_legend_handles_labels()
     ax3.legend(handles, labels, fontsize=10)
-    ax3.axis([-.7, .7, 0, 5000])
+    ax3.axis([-.7, .7, 0, 5100])
     ax3.set_title('EOF Mode Shapes (DG)')
     ax3.set_xlabel('Vert. Disp. Mode Shapes')
     ax3.invert_yaxis()
@@ -932,7 +1040,141 @@ if savee > 0:
     output = open('/Users/jake/Documents/geostrophic_turbulence/ABACO_2017_energy.pkl', 'wb')
     pickle.dump(mydict, output)
     output.close()
+# ---------------------------------------------------------------------------------------------------------------------
+# ---------------------------------------------------------------------------------------------------------------------
+# ---------------------------------------------------------------------------------------------------------------------
+# LADCP PER YEAR
+# time, depth, distance, evolution of meridional flow
 
+adcp_datetime = np.nan*np.ones(len(adcp_time))
+matlab_datenum = 731965.04835648148
+for i in range(len(adcp_time)):
+    intermed = datetime.date.fromordinal(int(np.min(adcp_time[i]))) + datetime.timedelta(
+        days=matlab_datenum % 1) - datetime.timedelta(days=366)
+    adcp_datetime[i] = intermed.year
+per_year = []
+for j in range(len(np.unique(adcp_datetime))):
+    per_year.append(np.where(adcp_datetime == np.unique(adcp_datetime)[j])[0])
+
+lv = np.arange(-50, 50, 5)
+lv2 = np.arange(-50, 50, 10)
+f, ((ax1, ax2, ax3), (ax4, ax5, ax6)) = plt.subplots(2, 3, sharex='col', sharey='row')
+ax1.contourf(adcp_dist[per_year[0]], adcp_depth, adcp_v[:, per_year[0]], levels=lv)
+ax1.contour(adcp_dist[per_year[0]], adcp_depth, adcp_v[:, per_year[0]], levels=lv2, colors='k')
+ax1.axis([0, 600, 0, 5500])
+ax1.set_title(str(adcp_datetime[per_year[0][0]]), fontsize=12)
+ax2.contourf(adcp_dist[per_year[1]], adcp_depth, adcp_v[:, per_year[1]], levels=lv)
+ax2.contour(adcp_dist[per_year[1]], adcp_depth, adcp_v[:, per_year[1]], levels=lv2, colors='k')
+ax2.set_title(str(adcp_datetime[per_year[1][0]]), fontsize=12)
+ax2.axis([0, 600, 0, 5500])
+ax3.contourf(adcp_dist[per_year[2]], adcp_depth, adcp_v[:, per_year[2]], levels=lv)
+ax3.contour(adcp_dist[per_year[2]], adcp_depth, adcp_v[:, per_year[2]], levels=lv2, colors='k')
+ax3.set_title(str(adcp_datetime[per_year[2][0]]), fontsize=12)
+ax3.axis([0, 600, 0, 5500])
+ax3.invert_yaxis()
+ax4.contourf(adcp_dist[per_year[3]], adcp_depth, adcp_v[:, per_year[3]], levels=lv)
+ax4.contour(adcp_dist[per_year[3]], adcp_depth, adcp_v[:, per_year[3]], levels=lv2, colors='k')
+ax4.set_title(str(adcp_datetime[per_year[3][0]]), fontsize=12)
+ax4.axis([0, 600, 0, 5500])
+ax5.contourf(adcp_dist[per_year[4]], adcp_depth, adcp_v[:, per_year[4]], levels=lv)
+ax5.contour(adcp_dist[per_year[4]], adcp_depth, adcp_v[:, per_year[4]], levels=lv2, colors='k')
+ax5.set_title(str(adcp_datetime[per_year[4][0]]), fontsize=12)
+ax5.axis([0, 600, 0, 5500])
+ax6.contourf(adcp_dist[per_year[5]], adcp_depth, adcp_v[:, per_year[5]], levels=lv)
+ax6.contour(adcp_dist[per_year[5]], adcp_depth, adcp_v[:, per_year[5]], levels=lv2, colors='k')
+ax6.set_title(str(adcp_datetime[per_year[5][0]]), fontsize=12)
+ax6.axis([0, 600, 0, 5500])
+ax6.invert_yaxis()
+plot_pro(ax6)
+
+# -----------------------------------------
+# --- SHIP ADCP HKE est.
+
+# Shipboard CTD N2
+ship_p = gsw.p_from_z(-1 * ship_depth_0, ref_lat)
+ship_N2 = np.nan*np.ones(len(ship_p))
+
+ship_years = np.unique(time_key)
+f, ax0 = plt.subplots()
+c2_n2 = plt.cm.plasma(np.linspace(0, 1, len(ship_years) + 1))
+for i in range(len(ship_years) + 1):
+    # fill 2018 with density profiles from 2017
+    if i < len(ship_years):
+        ship_N2[0:-1] = gsw.Nsquared(np.nanmean(ship_SA[:, time_key == ship_years[i]], axis=1),
+                                    np.nanmean(ship_CT[:, time_key == ship_years[i]], axis=1),
+                                    ship_p, lat=ref_lat)[0]
+    else:
+        ship_N2[0:-1] = gsw.Nsquared(np.nanmean(ship_SA[:, time_key == ship_years[i - 1]], axis=1),
+                                    np.nanmean(ship_CT[:, time_key == ship_years[i - 1]], axis=1),
+                                    ship_p, lat=ref_lat)[0]
+
+    ship_N2[1] = ship_N2[2] - 1*10**(-5)
+    ship_N2[0] = ship_N2[1] - 1*10**(-5)
+    ship_N2[ship_N2 < 0] = np.nan
+    for j in np.where(np.isnan(ship_N2))[0]:
+        ship_N2[j] = ship_N2[j - 1] - 1*10**(-8)
+    ship_N2 = savgol_filter(ship_N2, 15, 3)
+
+    # find adcp profiles that are deep enough and fit baroclinic modes to these
+    HKE_noise_threshold_adcp = 1e-5
+    check = np.zeros(np.size(adcp_dist[per_year[i]]))
+    for k in range(np.size(adcp_dist[per_year[i]])):
+        check[k] = adcp_depth[np.where(~np.isnan(adcp_v[:, k]))[0][-1]]
+    adcp_in = np.where((check >= 4700) & (check <= 5300))
+    V = adcp_v[:, adcp_in[0]] / 100
+    V_dist = adcp_dist[per_year[i]][adcp_in[0]]
+    adcp_np = np.size(V_dist)
+    ship_depth_1 = ship_depth_0[0:-39]
+
+    ship_G, ship_Gz, ship_c, ship_epsilon = vertical_modes(ship_N2[0:-39], ship_depth_1, omega, mmax)
+
+    adcp_AGz = np.zeros([nmodes, adcp_np])
+    V_m = np.nan * np.zeros([np.size(ship_depth_1), adcp_np])
+    HKE_per_mass = np.nan * np.zeros([nmodes, adcp_np])
+    modest = np.arange(11, nmodes)
+    adcp_good_prof = np.zeros(adcp_np)
+    for ii in range(adcp_np):
+        # fit to velocity profiles
+        this_V_0 = V[:, ii].copy()
+        this_V = np.interp(ship_depth_1, adcp_depth, this_V_0) # new using Gz profiles from shipboard ctd
+        # this_V = np.interp(grid, adcp_depth, this_V_0)  # old using Gz profiles from DG
+        iv = np.where(~np.isnan(this_V))
+        if iv[0].size > 1:
+            # Gz(iv,:)\V_g(iv,ip)
+            # Gz*AGz[:,i];
+            adcp_AGz[:, ii] = np.squeeze(np.linalg.lstsq(np.squeeze(ship_Gz[iv, :]),
+                                                        np.transpose(np.atleast_2d(this_V[iv])))[0])
+            V_m[:, ii] = np.squeeze(np.matrix(ship_Gz) * np.transpose(np.matrix(adcp_AGz[:, ii])))
+            HKE_per_mass[:, ii] = adcp_AGz[:, ii] * adcp_AGz[:, ii]
+            ival = np.where(HKE_per_mass[modest, ii] >= HKE_noise_threshold_adcp)
+            if np.size(ival) > 0:
+                adcp_good_prof[ii] = 1  # flag profile as noisy
+        else:
+            adcp_good_prof[ii] = 1  # flag empty profile as noisy as well
+
+    avg_KE_adcp = np.nanmean(HKE_per_mass, 1)
+    if i < len(ship_years):
+        KE_adcp = ax0.plot(sc_x, avg_KE_adcp[1:] / dk, label=ship_years[i], linewidth=1.75, color=c2_n2[i, :])  # adcp
+        ax0.scatter(sc_x, avg_KE_adcp[1:] / dk, s=20, color=c2_n2[i, :])  # adcp
+    else:
+        KE_adcp = ax0.plot(sc_x, avg_KE_adcp[1:] / dk, label='2018', linewidth=1.75, color=c2_n2[i, :])  # adcp
+        ax0.scatter(sc_x, avg_KE_adcp[1:] / dk, s=20, color=c2_n2[i, :])  # adcp
+    # adcp KE_0
+    KE_adcp0 = ax0.plot([10 ** -2, 1000 * f_ref / c[1]], avg_KE_adcp[0:2] / dk, linewidth=1.75, color=c2_n2[i, :])
+    ax0.scatter(10 ** -2, avg_KE_adcp[0] / dk, s=25, facecolors='none', color=c2_n2[i, :])  # adcp KE_0
+
+ax0.set_yscale('log')
+ax0.set_xscale('log')
+ax0.axis([10 ** -2, 10 ** 1, 10 ** (-4), 2 * 10 ** 3])
+ax0.axis([10 ** -2, 10 ** 1, 10 ** (-4), 10 ** 3])
+ax0.set_xlabel(r'Scaled Vertical Wavenumber = (Rossby Radius)$^{-1}$ = $\frac{f}{c_n}$ [$km^{-1}$]', fontsize=18)
+ax0.set_ylabel('Spectral Density', fontsize=18)  # ' (and Hor. Wavenumber)')
+ax0.set_title('LADCP KE Spectrum', fontsize=18)
+handles, labels = ax0.get_legend_handles_labels()
+ax0.legend(handles, labels, fontsize=12)
+plt.tight_layout()
+plot_pro(ax0)
+# ---------------------------------------------------------------------------------------------------------------------
 # --- comparisons of average density displacement profiles
 # load in Station HOTs eta Comparison
 SH = si.loadmat('/Users/jake/Desktop/bats/station_hots_pe.mat')
@@ -979,7 +1221,7 @@ h_a_std_2 = savgol_filter(hots_std_eta, window_size, poly_order)
 # ax.invert_yaxis()
 # plot_pro(ax)
 
-# ---------------------------------------------------------------------------------------------------
+# ---------------------------------------------------------------------------------------------------------------------
 # REPLACED BY GLIDER PACKAGE TRANSECT ANALYSIS
 # # loop over each dive
 # count = 0
@@ -1127,3 +1369,36 @@ h_a_std_2 = savgol_filter(hots_std_eta, window_size, poly_order)
 # ke = ke_data['KE'][0][0]
 # dg_bin = ke_data['bin_depth'][0][0]
 # dg_v_0 = ke_data['V_g'][0][0]
+
+
+# --------------------------------------------------------------------------------------------------------
+# # deep oxygen selection
+# dep_max = np.nan*np.ones(np.shape(ship_o2_1)[1])
+# for i in range(1, np.shape(ship_o2_1)[1]):
+#     deep_max = np.where(~np.isnan(ship_o2_1[10:, i]))[0]
+#     dep_max[i] = abaco_ship['bin_depth'][deep_max[-1]]
+#
+# time_key_deep = time_key[(dep_max >= 4200) & (ship_lon > -76) & (ship_lon < -74)]
+# ship_o2_1_deep = ship_o2_1[:, (dep_max >= 4200) & (ship_lon > -76) & (ship_lon < -74)]
+# ship_o2_2_deep = ship_o2_2[:, (dep_max >= 4200) & (ship_lon > -76) & (ship_lon < -74)]
+# ship_lat_deep = ship_lat[(dep_max >= 4200) & (ship_lon > -76) & (ship_lon < -74)]
+# ship_lon_deep = ship_lon[(dep_max >= 4200) & (ship_lon > -76) & (ship_lon < -74)]
+#
+# from scipy.io import netcdf
+# f = netcdf.netcdf_file('/Users/jake/Desktop/ABACO_shipboard_o2.nc', 'w')
+# f.history = 'NOAA AOML Western Boundary Current CTD Casts'
+# f.createDimension('depth', np.size(abaco_ship['bin_depth']))
+# f.createDimension('year', np.size(time_key_deep))
+# b_d = f.createVariable('depth', np.float64, ('depth',))
+# b_d[:] = abaco_ship['bin_depth']
+# b_d = f.createVariable('year', np.float64, ('year',))
+# b_d[:] = time_key_deep
+# b_d = f.createVariable('O2_1', np.float64, ('depth', 'year'))
+# b_d[:] = ship_o2_1_deep
+# b_d = f.createVariable('O2_2', np.float64, ('depth', 'year'))
+# b_d[:] = ship_o2_2_deep
+# b_d = f.createVariable('lon', np.float64, ('depth', 'year'))
+# b_d[:] = ship_lon_deep
+# b_d = f.createVariable('lat', np.float64, ('depth', 'year'))
+# b_d[:] = ship_lat_deep
+# f.close()

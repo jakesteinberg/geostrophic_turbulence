@@ -907,7 +907,7 @@ pkl_file = open('/Users/jake/Documents/geostrophic_turbulence/ABACO_2017_energy.
 abaco_energies = pickle.load(pkl_file)
 pkl_file.close()
 
-plot_eng = 0
+plot_eng = 1
 if plot_eng > 0:
     fig0, ax0 = plt.subplots()
     # PE_p = ax0.plot(sc_x, avg_PE[1:] / dk, color='#B22222', label='APE$_{DG}$', linewidth=3)
@@ -1015,10 +1015,10 @@ if plot_eng > 0:
 
 # --- SAVE BATS ENERGIES DG TRANSECTS
 # write python dict to a file
-sa = 0
+sa = 1
 if sa > 0:
-    my_dict = {'depth': grid, 'KE': avg_KE, 'PE': avg_PE, 'c': c, 'f': f_ref}
-    output = open('/Users/jake/Documents/geostrophic_turbulence/BATs_DG_2015_energy.pkl', 'wb')
+    my_dict = {'depth': grid, 'KE': avg_KE, 'PE': avg_PE, 'c': c, 'f': f_ref, 'N2': N2}
+    output = open('/Users/jake/Documents/baroclinic_modes/DG/sg035_energy.pkl', 'wb')
     pickle.dump(my_dict, output)
     output.close()
 # --------------------------------------------------------------------------------------------------
