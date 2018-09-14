@@ -17,8 +17,8 @@ from toolkit import plot_pro
 # ---- DG ABACO 2017
 # x = Glider(38, np.arange(67, 78), '/Users/jake/Documents/baroclinic_modes/DG/ABACO_2017/sg038')
 # ---- DG ABACO 2018
-# x = Glider(37, np.arange(55, 67), '/Users/jake/Documents/baroclinic_modes/DG/ABACO_2018/sg037')
-x = Glider(39, np.arange(60, 70), '/Users/jake/Documents/baroclinic_modes/DG/ABACO_2018/sg039')
+x = Glider(37, np.arange(50, 67), '/Users/jake/Documents/baroclinic_modes/DG/ABACO_2018/sg037')
+# x = Glider(39, np.arange(56, 70), '/Users/jake/Documents/baroclinic_modes/DG/ABACO_2018/sg039')
 # ---- DG BATS 2015
 # x = Glider(35, np.arange(60, 70), '/Users/jake/Documents/baroclinic_modes/DG/BATS_2015/sg035')
 

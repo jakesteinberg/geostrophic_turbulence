@@ -32,13 +32,13 @@ S = DA_fid.variables['PSAL_ADJUSTED'][:]
 P = DA_fid.variables['PRES_ADJUSTED'][:]
 P[P > 10000] = np.nan
 # bin_depth = np.concatenate([np.arange(0,500,5), np.arange(500,3000,15), np.arange(3000,5800,30)])
-bin_depth = np.concatenate([np.arange(0,150,10), np.arange(150,300,10), np.arange(300,5000,20)])
+bin_depth = np.concatenate([np.arange(0, 150, 10), np.arange(150, 300, 10), np.arange(300, 5500, 40)])
 bin_press = sw.pres(bin_depth,np.nanmean(lat))
 ref_lat = np.nanmean(lat)
 
-T[np.where(T>40)] = np.nan
-S[np.where(T>40)] = np.nan
-P[np.where(T>40)] = np.nan
+T[np.where(T > 40)] = np.nan
+S[np.where(T > 40)] = np.nan
+P[np.where(T > 40)] = np.nan
 
 bin_up = bin_depth[0:-2]
 bin_down = bin_depth[2:]
@@ -125,7 +125,7 @@ z = -1*bin_depth
 ddz_avg_sigma_0 = np.gradient(sigma_theta_avg,z)
 ddz_avg_theta = np.gradient(theta_avg,z)
 test = np.where(ddz_avg_sigma_0 > 0)
-ddz_avg_sigma_0[test[0]] = np.nanmean(ddz_avg_sigma_0[260:])
+ddz_avg_sigma_0[test[0]] = np.nanmean(ddz_avg_sigma_0[100:])  # 260
 
 window_size, poly_order = 41, 3
 ddz_avg_sigma = savgol_filter(ddz_avg_sigma_0, window_size, poly_order)
@@ -155,21 +155,33 @@ eta_theta = theta_anom/np.transpose(np.tile(ddz_avg_theta,[number_profiles,1]))
 
 # alternate eta attempt
 delta_z = np.zeros(np.shape(sigma_theta))
+delta_z_test = np.zeros(np.shape(sigma_theta))
 for i in range(number_profiles):
-    for j in range(np.size(bin_press)):
+    for j in range(np.size(bin_depth)):
         this_sigma_theta = sigma_theta[j,i]
-        sigma_theta_diff = this_sigma_theta - sigma_theta_avg 
-        closest = np.where(np.abs(sigma_theta_diff) == np.nanmin(np.abs(sigma_theta_diff)))
-        avg_dep = bin_press[closest[0]]
-        this_dep = bin_press[j]
-        delta_z[j,i] = this_dep - avg_dep
-        
+        sigma_theta_avg_window = sigma_theta_avg[j-20:j+20]
+        bin_depth_window = bin_depth[j-20:j+20]
+        lower_index = np.where(sigma_theta_avg_window > this_sigma_theta)[0]
+        upper_index = np.where(sigma_theta_avg_window < this_sigma_theta)[0]
+        if (np.size(lower_index) > 0) & (np.size(upper_index) > 0):
+            z_on_avg_prof = np.interp(this_sigma_theta,
+                                      [sigma_theta_avg_window[upper_index[-1]], sigma_theta_avg_window[lower_index[0]]],
+                                      [bin_depth_window[upper_index[-1]], bin_depth_window[lower_index[0]]])
+            delta_z_test[j, i] = bin_depth[j] - z_on_avg_prof
+
+        # sigma_theta_diff = this_sigma_theta - sigma_theta_avg
+        # closest = np.where(np.abs(sigma_theta_diff) == np.nanmin(np.abs(sigma_theta_diff)))
+        # avg_dep = bin_press[closest[0]]
+        # this_dep = bin_press[j]
+        # delta_z[j,i] = this_dep - avg_dep
+
+# eta = delta_z_test
 
 # first taper fit above and below min/max limits
 # Project modes onto each eta (find fitted eta)
 # Compute PE  
 eta_fit_depth_min = 250
-eta_fit_depth_max = 4000
+eta_fit_depth_max = 4800
 AG = np.zeros([nmodes, number_profiles])
 AG_theta = np.zeros([nmodes, number_profiles])
 Eta_m = np.nan*np.zeros([np.size(bin_depth), number_profiles])
@@ -206,25 +218,28 @@ for i in range(number_profiles):
 
 
 if plott > 0:
-    fig0, ax0 = plt.subplots()
+    fig0, (ax0, ax1) = plt.subplots(1, 2)
     for i in range(number_profiles):
-         ax0.plot(theta_anom[:,i],z)
+         ax0.plot(sigma_theta[:,i],z)
+         ax1.plot(sigma_theta[:, i] - sigma_theta_avg, z)
          # ax0.axis([-600, 600, -5800, 0])  
-    plt.axis([-1, 1, -5800, 0])    
+    ax1.axis([-.1, .1, -5800, 0])
     # plt.show()
     # fig0.savefig('/Users/jake/Desktop/argo/nwa_theta_anom.png',dpi = 300)
     plot_pro(ax0)
 
-    fig0, ax0 = plt.subplots()
+    fig0, (ax0, ax1) = plt.subplots(1, 2)
     for i in range(number_profiles):
-         # ax0.plot(eta[:,i],z)
-         # ax0.plot(Eta_m[:,i],z,color='k',linestyle='--')
-         ax0.plot(delta_z, z)
-    ax0.axis([-600, 600, -5800, 0])  
+        ax0.plot(eta[:,i],z)
+        ax0.plot(Eta_m[:,i],z,color='k',linestyle='--')
+        ax1.plot(delta_z_test, z)
+    ax0.axis([-500, 500, -5800, 0])
+    ax0.grid()
+    ax1.axis([-500, 500, -5800, 0])
     # plt.axis([-1, 1, -5800, 0])
     # plt.show()
     # fig0.savefig('/Users/jake/Desktop/argo/nwa_eta.png',dpi = 300)
-    plot_pro(ax0)
+    plot_pro(ax1)
 
 
 avg_PE = np.nanmean(PE_per_mass,1)

@@ -92,7 +92,7 @@ omega = 0
 mmax = 60
 nmodes = mmax + 1
 eta_fit_dep_min = 50
-eta_fit_dep_max = 4200
+eta_fit_dep_max = 4000
 
 # -- computer vertical mode shapes
 G, Gz, c, epsilon = vertical_modes(N2, grid, omega, mmax)
@@ -162,10 +162,24 @@ sta_papa_depth = SP['depth']
 sta_papa_pe = SP['PE']
 sta_papa_c = SP['c']
 sta_papa_f = np.pi * np.sin(np.deg2rad(49.98)) / (12 * 1800)
-sta_papa_dk = sta_bats_f / sta_bats_c[1]
+sta_papa_dk = sta_papa_f / sta_papa_c[1]
 sta_papa_n2 = SP['N2']
 G_P, Gz_P, c_P, epsilon_P = vertical_modes(sta_papa_n2, SP['depth'], omega, mmax)
 PE_SD_papa, PE_GM_papa = PE_Tide_GM(rho0, sta_papa_depth, nmodes, np.transpose(np.atleast_2d(sta_papa_n2)), sta_papa_f)
+
+# load in Station Deep Argo NZ PE Comparison
+pkl_file = open('/Users/jake/Documents/baroclinic_modes/Deep_Argo/float6036_oct17.pkl', 'rb')
+SNZ = pickle.load(pkl_file)
+pkl_file.close()
+sta_nz_depth = SNZ['bin_depth']
+sta_nz_pe = SNZ['avg_PE']
+sta_nz_c = SNZ['c']
+sta_nz_f = np.pi * np.sin(np.deg2rad(49.98)) / (12 * 1800)
+sta_nz_dk = sta_nz_f / sta_nz_c[1]
+sta_nz_n2 = SNZ['N2_avg']
+G_P, Gz_P, c_P, epsilon_P = vertical_modes(sta_nz_n2, SNZ['bin_depth'], omega, mmax)
+PE_SD_papa, PE_GM_papa = PE_Tide_GM(rho0, sta_nz_depth, nmodes, np.transpose(np.atleast_2d(sta_nz_n2)), sta_nz_f)
+
 
 # f, (ax0, ax1, ax2) = plt.subplots(1, 3)
 # ax0.scatter(SA, CT, s=3)
@@ -221,8 +235,13 @@ PE_sta_p = ax.plot(mode_num, np.nanmean(sta_bats_pe[1:], axis=1) / sta_bats_dk,
 # PAPA
 PE_sta_papa_p = ax.plot(mode_num, np.nanmean(sta_papa_pe[1:], axis=1) / sta_papa_dk,
                    color='g', label='APE$_{PAPA}$', linewidth=2)
+# NZ
+PE_sta_nz_p = ax.plot(mode_num, sta_nz_pe[1:] / sta_nz_dk,
+                   color='c', label='APE$_{NZ}$', linewidth=2)
+
 # GM
-# ax.plot(sc_x, PE_GM / dk, linestyle='--', color='#B22222', linewidth=0.75)
+ax.plot(mode_num, PE_GM / dk, linestyle='--', color='#B22222', linewidth=0.75)
+ax.plot(mode_num, PE_GM_bats / sta_bats_dk, linestyle='--', color='#FF8C00', linewidth=0.75)
 # ax.plot(1000 * sta_bats_f / sta_bats_c[1:], PE_GM_bats / sta_bats_dk, linestyle='--', color='#FF8C00', linewidth=0.75)
 # ax.text(sc_x[0] - .005, PE_GM[1] / dk, r'$PE_{GM}$', fontsize=13)
 # -3 slope
@@ -231,19 +250,21 @@ PE_sta_papa_p = ax.plot(mode_num, np.nanmean(sta_papa_pe[1:], axis=1) / sta_papa
 # ax.text(3.4*10**-1, 1.3*10**1, '-3', fontsize=11)
 # ax.text(4.4*10**-2, 1.3*10**0, '-2', fontsize=11)
 ax.plot([10**1, 10**2], [10**1, 10**-2], color='k', linewidth=0.75)
-ax.plot([10**0, 10**2], [10**2, 10**-2], color='k', linewidth=0.75)
-ax.text(1.2*10**1, 1.3*10**1, '-3', fontsize=11)
-ax.text(1.2*10**0, 1.3*10**2, '-2', fontsize=11)
+# ax.plot([10**0, 10**2], [10**2, 10**-2], color='k', linewidth=0.75)
+ax.plot([10**0, 10**2], [3.333 * 10**1, 10**-2], color='k', linewidth=0.75)
+ax.text(1.1*10**1, 10**1, '-3', fontsize=11)
+# ax.text(1.2*10**0, 1.3*10**2, '-2', fontsize=11)
+ax.text(0.78*10**0, 3.33*10**1, '-5/3', fontsize=11)
 
 ax.set_yscale('log')
 ax.set_xscale('log')
 handles, labels = ax.get_legend_handles_labels()
 ax.legend(handles, labels, fontsize=14)
 # ax.axis([10 ** -2, 10 ** 1, 10 ** (-4), 10 ** 3])
-ax.axis([8 * 10 ** -1, 10 ** 2, 3 * 10 ** (-4), 10 ** 3])
+ax.axis([7 * 10 ** -1, 10 ** 2, 3 * 10 ** (-4), 10 ** 3])
 ax.set_xlabel('Mode Number', fontsize=14)
 ax.set_ylabel('Spectral Density', fontsize=18)  # ' (and Hor. Wavenumber)')
-ax.set_title('ALOHA, BATS, PAPA Hydrography PE', fontsize=20)
+ax.set_title('PE: ALOHA, BATS, PAPA, NZ, ABACO', fontsize=20)
 plot_pro(ax)
 
 cmap = matplotlib.cm.get_cmap('Blues')

@@ -558,7 +558,7 @@ class Glider(object):
             fig0, ax0 = plt.subplots()
             matplotlib.rcParams['contour.negative_linestyle'] = 'solid'
             # levels = np.arange(np.float(np.nanmin(v_g)), np.float(np.nanmax(v_g)), .02)
-            levels = np.arange(-.46, .48, .04)
+            levels = np.arange(-.54, .56, .04)
             vc = ax0.contourf(ds, bin_depth, v_g, levels=levels, cmap=plt.cm.PuOr)
             vcc = ax0.contour(ds, bin_depth, v_g, levels=levels, colors='k', linewidth=.75)
             ax0.contour(ds, bin_depth, v_g, levels=[0], colors='k', linewidth=1.25)
@@ -639,6 +639,8 @@ class Glider(object):
         t_e = datetime.date.fromordinal(np.int(time[0, -1]))
         ax.set_title(self.ID + '  ' + self.project + '  ' + np.str(
             t_s.month) + '/' + np.str(t_s.day) + ' - ' + np.str(t_e.month) + '/' + np.str(t_e.day), fontsize=14)
+        ax.set_xlabel('Lon')
+        ax.set_ylabel('Lat')
         ax.grid()
         plot_pro(ax)
 

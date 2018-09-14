@@ -24,7 +24,6 @@ def functi(p, xe, xb):
     fsq = (xe - p*xb)**2
     return fsq.sum()
 
-
 # physical parameters
 g = 9.81
 rho0 = 1027
