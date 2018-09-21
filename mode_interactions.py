@@ -32,9 +32,9 @@ sta_bats_pe = SB['PE']
 sta_bats_c = SB['c']
 sta_bats_f = np.pi * np.sin(np.deg2rad(31.6)) / (12 * 1800)
 sta_bats_dk = sta_bats_f / sta_bats_c[1]
-sta_bats_n2 = np.nanmean(SB['N2_per_season'], axis=1)
+sta_bats_n2 = SB['N2_per_season'][:, 2]
 G_B, Gz_B, c_B, epsilon_B = vertical_modes(sta_bats_n2, SB['depth'], omega, mmax)
-
+ratio = sta_bats_n2 / sta_bats_f
 # --------------------------------------------------------------------------------------------------------------------
 # ABACO SHIP
 # just one year
@@ -66,22 +66,38 @@ sta_aloha_depth = SH['bin_depth']
 sta_aloha_pe = SH['PE']
 sta_aloha_c = SH['c']
 sta_aloha_f = np.pi * np.sin(np.deg2rad(49.98)) / (12 * 1800)
-sta_aloha_dk = sta_bats_f / sta_bats_c[1]
+sta_aloha_dk = sta_aloha_f / sta_aloha_c[1]
 sta_aloha_n2 = SH['N2']
 G_AL, Gz_AL, c_AL, epsilon_AL = vertical_modes(sta_aloha_n2, sta_aloha_depth, omega, mmax)
+ratio_hots = sta_aloha_n2 / sta_aloha_f
 # --------------------------------------------------------------------------------------------------------------------
 # PAPA
-pkl_file = open('/Users/jake/Documents/baroclinic_modes/Line_P/canada_DFO/papa_energy_spectra_jun13.pkl', 'rb')
+pkl_file = open('/Users/jake/Documents/baroclinic_modes/Line_P/canada_DFO/papa_energy_spectra_sept17.pkl', 'rb')
 SP = pickle.load(pkl_file)
 pkl_file.close()
 sta_papa_depth = SP['depth']
+sta_papa_time = SP['time']
 sta_papa_pe = SP['PE']
 sta_papa_c = SP['c']
 sta_papa_f = np.pi * np.sin(np.deg2rad(49.98)) / (12 * 1800)
-sta_papa_dk = sta_bats_f / sta_bats_c[1]
-sta_papa_n2 = SP['N2']
-G_P, Gz_P, c_P, epsilon_P = vertical_modes(sta_papa_n2, SP['depth'], omega, mmax)
+sta_papa_dk = sta_papa_f / sta_papa_c[1]
 
+sta_papa_n2 = np.nan * np.ones(np.shape(SP['Sigma0']))
+# f, ax = plt.subplots()
+for i in range(np.shape(SP['Sigma0'])[1]):
+    if sta_papa_time[i, 1] > 4:
+        sta_papa_n2[0:-1, i] = gsw.Nsquared(SP['SA'][:, i], SP['CT'][:, i], SP['bin_press'], lat=ref_lat)[0]
+        # ax.plot(sta_papa_n2[:, i], sta_papa_depth, linewidth=0.75)
+# ax.set_ylim([0, 800])
+# ax.invert_yaxis()
+# ax.grid()
+# plot_pro(ax)
+
+# sta_papa_n2 = SP['N2']
+papa_mean_corrected = np.nanmean(sta_papa_n2, axis=1)
+papa_mean_corrected[-1] = papa_mean_corrected[-2]
+G_P, Gz_P, c_P, epsilon_P = vertical_modes(papa_mean_corrected, SP['depth'], omega, mmax)
+ratio_papa = sta_papa_n2 / sta_papa_f
 # --------------------------------------------------------------------------------------------------------------------
 # DEEP ARGO
 # ATL
@@ -109,11 +125,11 @@ f, (ax0, ax1, ax2, ax3, ax4, ax5) = plt.subplots(1, 6, sharey=True, sharex=True)
 ax0.plot(sta_aloha_n2, sta_aloha_depth, label='ALOHA')
 ax0.set_title('ALOHA')
 ax0.set_xlabel('N$^2$')
-ax1.plot(sta_papa_n2, sta_papa_depth, label='PAPA')
+ax1.plot(papa_mean_corrected, sta_papa_depth, label='PAPA')
 ax1.set_title('PAPA')
 ax1.set_xlabel('N$^2$')
-ax2.plot(dg_N2, dg_depth, label='BATS DG')
-ax2.set_title('BATS DG')
+ax2.plot(sta_bats_n2, sta_bats_depth, label='BATS Ship')
+ax2.set_title('BATS Ship')
 ax2.set_xlabel('N$^2$')
 ax3.plot(this_ship_n2, ship_depth, label='ABACO')
 ax3.set_title('ABACO')
@@ -124,7 +140,7 @@ ax4.set_xlabel('N$^2$')
 ax5.plot(argo2_N2, argo2_depth, label='Argo NZ')
 ax5.set_title('Argo NZ')
 ax5.set_xlabel('N$^2$')
-ax0.set_ylim([0, 1500])
+ax0.set_ylim([0, 1200])
 ax0.set_ylabel('Depth')
 ax0.invert_yaxis()
 ax0.grid()
@@ -132,6 +148,12 @@ ax1.grid()
 ax2.grid()
 ax3.grid()
 ax4.grid()
+ax0.grid()
+ax1.grid()
+ax2.grid()
+ax3.grid()
+ax4.grid()
+ax5.grid()
 plot_pro(ax5)
 
 
@@ -152,8 +174,8 @@ arm[0, 2].pcolor(epsilon_P[0, :, :], cmap=cmap, vmin=vmi, vmax=vma)
 arm[0, 2].set_title('PAPA mode 0', fontsize=fs)
 plt.xticks(np.arange(0.5, 3.5, 1), ('0', '1', '2'))
 plt.yticks(np.arange(0.5, 3.5, 1), ('0', '1', '2'))
-arm[0, 3].pcolor(DG_epsilon[0, :, :], cmap=cmap, vmin=vmi, vmax=vma)
-arm[0, 3].set_title('BATS DG mode 0', fontsize=fs)
+arm[0, 3].pcolor(epsilon_B[0, :, :], cmap=cmap, vmin=vmi, vmax=vma)
+arm[0, 3].set_title('BATS Ship mode 0', fontsize=fs)
 plt.xticks(np.arange(0.5, 3.5, 1), ('0', '1', '2'))
 plt.yticks(np.arange(0.5, 3.5, 1), ('0', '1', '2'))
 arm[0, 4].pcolor(epsilon_AB[0, :, :], cmap=cmap, vmin=vmi, vmax=vma)
@@ -182,8 +204,8 @@ arm[1, 2].pcolor(epsilon_P[1, :, :], cmap=cmap, vmin=vmi, vmax=vma)
 arm[1, 2].set_title('PAPA mode 1', fontsize=fs)
 plt.xticks(np.arange(0.5, 3.5, 1), ('0', '1', '2'))
 plt.yticks(np.arange(0.5, 3.5, 1), ('0', '1', '2'))
-arm[1, 3].pcolor(DG_epsilon[1, :, :], cmap=cmap, vmin=vmi, vmax=vma)
-arm[1, 3].set_title('BATS DG mode 1', fontsize=fs)
+arm[1, 3].pcolor(epsilon_B[1, :, :], cmap=cmap, vmin=vmi, vmax=vma)
+arm[1, 3].set_title('BATS Ship mode 1', fontsize=fs)
 plt.xticks(np.arange(0.5, 3.5, 1), ('0', '1', '2'))
 plt.yticks(np.arange(0.5, 3.5, 1), ('0', '1', '2'))
 arm[1, 4].pcolor(epsilon_AB[1, :, :], cmap=cmap, vmin=vmi, vmax=vma)
@@ -211,8 +233,8 @@ arm[2, 2].pcolor(epsilon_P[2, :, :], cmap=cmap, vmin=vmi, vmax=vma)
 arm[2, 2].set_title('PAPA mode 2', fontsize=fs)
 plt.xticks(np.arange(0.5, 3.5, 1), ('0', '1', '2'))
 plt.yticks(np.arange(0.5, 3.5, 1), ('0', '1', '2'))
-arm[2, 3].pcolor(DG_epsilon[2, :, :], cmap=cmap, vmin=vmi, vmax=vma)
-arm[2, 3].set_title('BATS DG mode 2', fontsize=fs)
+arm[2, 3].pcolor(epsilon_B[2, :, :], cmap=cmap, vmin=vmi, vmax=vma)
+arm[2, 3].set_title('BATS Ship mode 2', fontsize=fs)
 plt.xticks(np.arange(0.5, 3.5, 1), ('0', '1', '2'))
 plt.yticks(np.arange(0.5, 3.5, 1), ('0', '1', '2'))
 arm[2, 4].pcolor(epsilon_AB[2, :, :], cmap=cmap, vmin=vmi, vmax=vma)

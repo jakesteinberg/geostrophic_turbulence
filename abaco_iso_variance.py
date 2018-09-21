@@ -27,10 +27,10 @@ bath_lat = bath_fid['lat'][:]
 bath_z = bath_fid['elevation'][:]
 # -------------------------------------------------------------------------------------------------
 # USING GLIDER PACKAGE
-# x = Glider(37, np.arange(45, 80), '/Users/jake/Documents/baroclinic_modes/DG/ABACO_2017/sg037')
+x = Glider(37, np.arange(45, 80), '/Users/jake/Documents/baroclinic_modes/DG/ABACO_2017/sg037')
 # x = Glider(37, np.arange(40, 67), '/Users/jake/Documents/baroclinic_modes/DG/ABACO_2018/sg037')
-x = Glider(39, np.concatenate((np.arange(35, 62), np.arange(63, 75))),
-           r'/Users/jake/Documents/baroclinic_modes/DG/ABACO_2018/sg039')
+# x = Glider(39, np.concatenate((np.arange(35, 62), np.arange(63, 75))),
+#            r'/Users/jake/Documents/baroclinic_modes/DG/ABACO_2018/sg039')
 # -------------------------------------------------------------------------------------------------------------------
 # --- LOAD ABACO SHIPBOARD CTD DATA
 ship_files = glob.glob('/Users/jake/Documents/baroclinic_modes/SHIPBOARD/ABACO/ship_ladcp*.pkl')
@@ -895,6 +895,19 @@ plot_pro(ax3)
 
 # ------------------------------------------------------------------------------------------------------------------
 # ------------ ENERGY SPECTRA
+# BATS DG (2015)
+pkl_file = open('/Users/jake/Documents/baroclinic_modes/DG/sg035_energy.pkl', 'rb')
+bats_dg = pickle.load(pkl_file)
+pkl_file.close()
+dg_depth = bats_dg['depth']
+dg_N2 = bats_dg['N2']
+bats_ke = bats_dg['KE']
+bats_pe = bats_dg['PE']
+bats_c = bats_dg['c']
+bats_f = bats_dg['f']
+bats_dk = bats_f / c[1]
+
+# ------------ ENERGY SPECTRA
 avg_PE = np.nanmean(PE_per_mass, 1)
 avg_PE_theta = np.nanmean(PE_theta_per_mass, 1)
 avg_KE_adcp = np.nanmean(HKE_per_mass, 1)
@@ -915,7 +928,7 @@ if plot_energy_limits > 0:
     f1, ax = plt.subplots()
     PE_ref = ax.plot(sc_x, avg_PE[1:] / dk, color='k', label=r'PE$_{dg}$', linewidth=1)
     KE_adcp = ax.plot(sc_x, avg_KE_adcp[1:] / dk, color='g', label=r'KE$_{adcp}$', linewidth=2)
-    # KE_dg_strict = ax.plot(sc_x, avg_KE_dg_strict[1:] / dk, color='#B22222', label=r'KE$_{1e-5}$', linewidth=2)
+
     KE_dg = ax.plot(sc_x, avg_KE_dg[1:] / dk, color='#FF8C00', label=r'KE$_{1e-4}$', linewidth=2)
     KE_dg_all = ax.plot(sc_x, avg_KE_dg_all[1:] / dk, color='#DAA520', label=r'KE$_{all}$', linewidth=2)
     ax.set_title('KE Noise Threshold Comparison')
@@ -930,45 +943,59 @@ if plot_energy_limits > 0:
     plot_pro(ax)
 
 plot_energy = 1
+sc_x = np.arange(1, 61)
 if plot_energy > 0:
     fig0, ax0 = plt.subplots()
     # ---- PE
     PE_p = ax0.plot(sc_x, avg_PE[1:] / dk, color='#B22222', label=r'PE$_{dg}$', linewidth=1.5)
     ax0.scatter(sc_x, avg_PE[1:] / dk, color='#B22222', s=15)
     # ---- limits/scales
-    ax0.plot([3 * 10 ** -1, 3 * 10 ** 0], [1.5 * 10 ** 1, 1.5 * 10 ** -2], color='k', linewidth=0.75)
-    ax0.plot([3 * 10 ** -2, 3 * 10 ** -1],
-             [7 * 10 ** 2, ((5 / 3) * (np.log10(2 * 10 ** -1) - np.log10(2 * 10 ** -2)) + np.log10(7 * 10 ** 2))],
-             color='k', linewidth=0.75)
-    ax0.text(3.3 * 10 ** -1, 1.3 * 10 ** 1, '-3', fontsize=12)
-    ax0.text(3.3 * 10 ** -2, 6 * 10 ** 2, '-5/3', fontsize=12)
-    # ax0.plot([1000 * f_ref / c[1], 1000 * f_ref / c[-2]], [1000 * f_ref / c[1], 1000 * f_ref / c[-2]], linestyle='--',
-    #          color='k', linewidth=0.8)
-    # ax0.text(1000 * f_ref / c[-2] + .1, 1000 * f_ref / c[-2], r'f/c$_m$', fontsize=10)
-    ax0.plot(sc_x, PE_GM / dk, linestyle='--', color='#B22222', linewidth=1)
-    ax0.text(sc_x[0] - .009, PE_GM[0] / dk, r'$PE_{GM}$', fontsize=12)
+    # ax0.plot([3 * 10 ** -1, 3 * 10 ** 0], [1.5 * 10 ** 1, 1.5 * 10 ** -2], color='k', linewidth=0.75)
+    # ax0.plot([3 * 10 ** -2, 3 * 10 ** -1],
+    #          [7 * 10 ** 2, ((5 / 3) * (np.log10(2 * 10 ** -1) - np.log10(2 * 10 ** -2)) + np.log10(7 * 10 ** 2))],
+    #          color='k', linewidth=0.75)
+    # ax0.text(3.3 * 10 ** -1, 1.3 * 10 ** 1, '-3', fontsize=12)
+    # ax0.text(3.3 * 10 ** -2, 6 * 10 ** 2, '-5/3', fontsize=12)
+    # ax0.plot(sc_x, PE_GM / dk, linestyle='--', color='k', linewidth=1)
+    # ax0.text(sc_x[0] - .009, PE_GM[0] / dk, r'$PE_{GM}$', fontsize=12)
     # ---- KE
     KE_dg = ax0.plot(sc_x, avg_KE_dg[1:] / dk, color='g', label=r'KE$_{dg}$', linewidth=1.75) # DG
     ax0.scatter(sc_x, avg_KE_dg[1:] / dk, color='g', s=15)
-    KE_dg0 = ax0.plot([10**-2, 1000 * f_ref / c[1]], avg_KE_dg[0:2] / dk, 'g', linewidth=1.75) # DG KE_0
-    ax0.scatter(10**-2, avg_KE_dg[0] / dk, color='g', s=25, facecolors='none')  # DG KE_0
+    # KE_dg0 = ax0.plot([10**-2, 1000 * f_ref / c[1]], avg_KE_dg[0:2] / dk, 'g', linewidth=1.75) # DG KE_0
+    # ax0.scatter(10**-2, avg_KE_dg[0] / dk, color='g', s=25, facecolors='none')  # DG KE_0
+    KE_dg0 = ax0.plot([8*10**-1, sc_x[0]], avg_KE_dg[0:2] / dk, 'g', linewidth=1.75) # DG KE_0
+    ax0.scatter(8*10**-1, avg_KE_dg[0] / dk, color='g', s=25, facecolors='none')  # DG KE_0
 
-    KE_adcp = ax0.plot(sc_x, avg_KE_adcp[1:]/dk, color='m', label=r'KE$_{ladcp_v}$', linewidth=1.75) # adcp
-    KE_adcp0 = ax0.plot([10**-2, 1000 * f_ref / c[1]], avg_KE_adcp[0:2] / dk, 'm', linewidth=1.75) # adcp KE_0
-    ax0.scatter(10**-2, avg_KE_adcp[0] / dk, color='m', s=25, facecolors='none')  # adcp KE_0
+    # KE_adcp = ax0.plot(sc_x, avg_KE_adcp[1:]/dk, color='m', label=r'KE$_{ladcp_v}$', linewidth=1.75) # adcp
+    # KE_adcp0 = ax0.plot([10**-2, 1000 * f_ref / c[1]], avg_KE_adcp[0:2] / dk, 'm', linewidth=1.75) # adcp KE_0
+    # ax0.scatter(10**-2, avg_KE_adcp[0] / dk, color='m', s=25, facecolors='none')  # adcp KE_0
+
+    # ---- BATS
+    ax0.plot(sc_x, bats_ke[1:] / bats_dk, color='g', label=r'KE$_{bats}$', linewidth=1.75, linestyle='--')
+    ax0.scatter(sc_x, bats_ke[1:] / bats_dk, color='g', s=15)
+    # ax0.plot([10**-2, 1000 * bats_f / bats_c[1]], bats_ke[0:2] / bats_dk, 'g', linewidth=1.75, linestyle='--')
+    # ax0.scatter(10**-2, bats_ke[0] / bats_dk, color='g', s=25, facecolors='none')  # DG KE_0
+    ax0.plot([8*10**-1, sc_x[0]], bats_ke[0:2] / bats_dk, 'g', linewidth=1.75, linestyle='--')
+    ax0.scatter(8*10**-1, bats_ke[0] / bats_dk, color='g', s=25, facecolors='none')  # DG KE_0
+
+    ax0.plot(sc_x, bats_pe[1:] / bats_dk, color='#B22222', label=r'PE$_{bats}$', linewidth=1.5, linestyle='--')
+    ax0.scatter(sc_x, bats_pe[1:] / bats_dk, color='#B22222', s=15)
+
     # --- ke/pe ratio
     # k_h_p = ax0.plot(sc_x, k_h, color='k', label=r'DG$_{k_h}$')
     # ax0.text(sc_x[0] - .008, k_h[0] + .01, r'$k_{h}$', fontsize=10)
     # --- plot tailoring
     ax0.set_yscale('log')
     ax0.set_xscale('log')
-    # ax0.axis([10**-2, 1.5*10**1, 10**(-4), 10**(3)])
-    ax0.axis([10 ** -2, 10 ** 1, 1 * 10 ** (-3), 4 * 10 ** (3)])
-    ax0.set_xlabel(r'Scaled Vertical Wavenumber = (Rossby Radius)$^{-1}$ = $\frac{f}{c}$ [$km^{-1}$]', fontsize=13)
+    ax0.axis([8 * 10 ** -1, 10 ** 2, 1 * 10 ** (-3), 4 * 10 ** (3)])
+    # ax0.axis([10 ** -2, 10 ** 1, 1 * 10 ** (-3), 4 * 10 ** (3)])
+    ax0.set_xlabel('Mode Number (barotropic mode plotted along y-axis)', fontsize=13)
+    # ax0.set_xlabel(r'Scaled Vertical Wavenumber = (Rossby Radius)$^{-1}$ = $\frac{f}{c}$ [$km^{-1}$]', fontsize=13)
     ax0.set_ylabel('Spectral Density', fontsize=13)  # '(and Hor. Wavenumber)',fontsize=13)
     ax0.set_title('ABACO Energy Spectra')
     handles, labels = ax0.get_legend_handles_labels()
-    ax0.legend([handles[0], handles[1], handles[-1]], [labels[0], labels[1], labels[-1]], fontsize=13)
+    ax0.legend([handles[0], handles[1], handles[-2], handles[-1]], [labels[0], labels[1], labels[-2], labels[-1]],
+               fontsize=13)
     plot_pro(ax0)
     # ax0.grid()
     # fig0.savefig('/Users/jake/Desktop/abaco/abaco_energy_all.png',dpi = 200)

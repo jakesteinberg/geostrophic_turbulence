@@ -20,11 +20,13 @@ ref_lon = -144.98
 grid_p = gsw.p_from_z(-1 * bin_depth, ref_lat)
 
 # Data = []
+# time = []
 # for m in range(len(file_list)):
 #     this_file = file_list[m]
 #     count_r = 0
 #     f = open(this_file, encoding="ISO-8859-1")
 #     initial = f.readlines()
+#     time.append(initial[4])
 #     for line in initial:  # loops over each row
 #         by_line = line.strip().split("\t")
 #         by_item = by_line[0].split()
@@ -48,6 +50,7 @@ grid_p = gsw.p_from_z(-1 * bin_depth, ref_lat)
 # temp_g = np.nan*np.ones((bin_depth.size, num_profiles))
 # salin_g = np.nan*np.ones((bin_depth.size, num_profiles))
 # max_d = np.nan*np.ones(num_profiles)
+# time_out = np.nan * np.ones((num_profiles, 2))
 # for i in range(num_profiles):
 #     this = Data[i]
 #     depth = gsw.p_from_z(-1 * this[:, 0], ref_lat)
@@ -55,23 +58,26 @@ grid_p = gsw.p_from_z(-1 * bin_depth, ref_lat)
 #     temp = this[:, 1]
 #     salin = this[:, 2]
 #     salin[np.where(salin < 0)[0]] = np.nan
-#     temp_g[:, i], salin_g[:, i], bin_cen, deepest_bin = make_bin_gen(bin_depth, depth, temp, salin)
+#     temp_g[:, i], salin_g[:, i] = make_bin_gen(bin_depth, depth, temp, salin)
 #     check_t = temp_g[:, i]
 #     check_t[np.where(check_t < 0)[0]] = np.nan
 #     check_s = salin_g[:, i]
 #     check_s[np.where(check_s < 0)[0]] = np.nan
+#     time_out[i, 0] = np.int(time[i][30:34])
+#     time_out[i, 1] = np.int(time[i][35:37])
 #
-# my_dict = {'temp': temp_g, 'salin': salin_g}
-# output = open('/Users/jake/Documents/baroclinic_modes/Line_P/canada_DFO/text_file_processing.pkl', 'wb')
+# my_dict = {'temp': temp_g, 'salin': salin_g, 'time': time_out}
+# output = open('/Users/jake/Documents/baroclinic_modes/Line_P/canada_DFO/text_file_processing_2.pkl', 'wb')
 # pickle.dump(my_dict, output)
 # output.close()
 
 # --- LOAD CASTS (something like 49) for
-pkl_file = open('/Users/jake/Documents/baroclinic_modes/Line_P/canada_DFO/text_file_processing.pkl', 'rb')
+pkl_file = open('/Users/jake/Documents/baroclinic_modes/Line_P/canada_DFO/text_file_processing_2.pkl', 'rb')
 papa = pickle.load(pkl_file)
+pkl_file.close()
 salin = papa['salin']
 temp = papa['temp']
-pkl_file.close()
+record = papa['time']
 
 num_profiles = temp.shape[1]
 
@@ -91,12 +97,12 @@ sig0_anom = sig0 - np.tile(sig0_avg[:, np.newaxis], (1, num_profiles))
 
 ddz_avg_sigma = np.gradient(sig0_avg, z)
 N2 = gsw.Nsquared(SA_avg, CT_avg, grid_p, lat=ref_lat)[0]
-window_size = 15
+window_size = 7
 poly_order = 3
 N2 = savgol_filter(N2, window_size, poly_order)
 N2 = np.concatenate(([0], N2))
 # N2 is one value less than grid_p
-# N2[N2 < 0] = np.nan
+N2[N2 < 0] = 0
 # N2 = nanseg_interp(grid, N2)
 # N2 = np.append(N2, (N2[-1] - N2[-1]/20))
 
@@ -129,16 +135,58 @@ for i in range(mmax + 1):
 AG, eta_m, Neta_m, PE_per_mass = eta_fit(num_profiles, bin_depth, nmodes, N2, G, c, eta,
                                          eta_fit_dep_min, eta_fit_dep_max)
 
-f, (ax1, ax2) = plt.subplots(1, 2, sharey=True)
+# --- find EOFs of dynamic vertical displacement (Eta mode amplitudes)
+AG_avg = AG.copy()
+good_prof_eof = np.where(~np.isnan(AG_avg[2, :]))
+num_profs_2 = np.size(good_prof_eof)
+AG2 = AG_avg[:, good_prof_eof[0]]
+C = np.transpose(np.tile(c, (num_profs_2, 1)))
+AGs = C * AG2
+AGq = AGs[1:, :]  # ignores barotropic mode
+nqd = num_profs_2
+avg_AGq = np.nanmean(AGq, axis=1)
+AGqa = AGq - np.transpose(np.tile(avg_AGq, [nqd, 1]))  # mode amplitude anomaly matrix
+cov_AGqa = (1 / nqd) * np.matrix(AGqa) * np.matrix(np.transpose(AGqa))  # nmodes X nmodes covariance matrix
+var_AGqa = np.transpose(np.matrix(np.sqrt(np.diag(cov_AGqa)))) * np.matrix(np.sqrt(np.diag(cov_AGqa)))
+cor_AGqa = cov_AGqa / var_AGqa  # nmodes X nmodes correlation matrix
+
+D_AGqa, V_AGqa = np.linalg.eig(cov_AGqa)  # columns of V_AGzqa are eigenvectors
+EOFetaseries = np.transpose(V_AGqa) * np.matrix(AGqa)  # EOF "timeseries' [nmodes X nq]
+EOFetashape = np.matrix(G[:, 1:]) * V_AGqa  # depth shape of eigenfunctions [ndepths X nmodes]
+EOFetashape1_BTpBC1 = G[:, 1:3] * V_AGqa[0:2, 0]  # truncated 2 mode shape of EOF#1
+EOFetashape2_BTpBC1 = G[:, 1:3] * V_AGqa[0:2, 1]  # truncated 2 mode shape of EOF#2
+
+colors = plt.cm.Dark2(np.arange(0, 4, 1))
+f, (ax1, ax2, ax3) = plt.subplots(1, 3, sharey=True)
 for i in range(num_profiles):
     ax1.plot(sig0_anom, bin_depth)
-    ax2.plot(eta[:, i], bin_depth)
+    ax2.plot(eta[:, i], bin_depth, color='#808000')
     ax2.plot(eta_m[:, i], bin_depth, 'k', linewidth=0.5)
-ax2.invert_yaxis()
 ax1.set_xlim([-.5, .5])
+ax1.set_title('PAPA: 2007 - 2017')
+ax1.set_ylabel('Depth [m]')
+ax1.set_xlabel(r'$\sigma_{\theta} - \overline{\sigma_{\theta}}$')
 ax2.set_xlim([-600, 600])
+ax2.set_ylim([0, 4500])
+ax1.invert_yaxis()
 ax1.grid()
-plot_pro(ax2)
+ax1.grid()
+ax2.set_xlabel('[m]')
+ax2.set_title('Isopycnal Displacement [m]')
+ax2.grid()
+ax2.grid()
+for j in range(3):
+    ax3.plot(G[:, j] / bin_depth.max(), bin_depth, color='#2F4F4F', linestyle='--')
+    p_eof = ax3.plot(EOFetashape[:, j] / bin_depth.max(), bin_depth, color=colors[j, :], label='EOF # = ' + str(j + 1),
+                     linewidth=2.5)
+n2p = ax3.plot((np.sqrt(N2) * (1800 / np.pi)) / 7, bin_depth, color='k', label='N(z) [cph]')
+handles, labels = ax3.get_legend_handles_labels()
+ax3.legend(handles, labels, fontsize=10)
+ax3.set_title('EOFs of mode amplitudes G(z)')
+ax3.set_xlabel('Normalized Mode Amplitude')
+ax3.set_xlim([-1, 1])
+ax3.grid()
+plot_pro(ax3)
 
 # --- ENERGY parameters
 rho0 = 1027
@@ -201,12 +249,15 @@ plot_pro(ax)
 
 # --- SAVE
 # write python dict to a file
-sa = 0
+sa = 1
 if sa > 0:
-    my_dict = {'depth': bin_depth, 'Sigma0': sig0, 'N2': N2, 'AG_per_season': AG, 'Eta': eta, 'PE': PE_per_mass, 'c': c}
-    output = open('/Users/jake/Documents/baroclinic_modes/Line_P/canada_DFO/papa_energy_spectra_jun13.pkl', 'wb')
+    my_dict = {'depth': bin_depth, 'Sigma0': sig0, 'N2': N2, 'AG_per_season': AG, 'Eta': eta,
+               'PE': PE_per_mass, 'c': c, 'SA': SA, 'CT': CT, 'bin_press': grid_p, 'time': record}
+    output = open('/Users/jake/Documents/baroclinic_modes/Line_P/canada_DFO/papa_energy_spectra_sept17.pkl', 'wb')
     pickle.dump(my_dict, output)
     output.close()
+
+
 
 # with open(this_file, encoding="ISO-8859-1") as f:
 #     for _ in range(112):

@@ -178,7 +178,7 @@ sta_nz_f = np.pi * np.sin(np.deg2rad(49.98)) / (12 * 1800)
 sta_nz_dk = sta_nz_f / sta_nz_c[1]
 sta_nz_n2 = SNZ['N2_avg']
 G_P, Gz_P, c_P, epsilon_P = vertical_modes(sta_nz_n2, SNZ['bin_depth'], omega, mmax)
-PE_SD_papa, PE_GM_papa = PE_Tide_GM(rho0, sta_nz_depth, nmodes, np.transpose(np.atleast_2d(sta_nz_n2)), sta_nz_f)
+PE_SD_nz, PE_GM_nz = PE_Tide_GM(rho0, sta_nz_depth, nmodes, np.transpose(np.atleast_2d(sta_nz_n2)), sta_nz_f)
 
 
 # f, (ax0, ax1, ax2) = plt.subplots(1, 3)
@@ -242,6 +242,8 @@ PE_sta_nz_p = ax.plot(mode_num, sta_nz_pe[1:] / sta_nz_dk,
 # GM
 ax.plot(mode_num, PE_GM / dk, linestyle='--', color='#B22222', linewidth=0.75)
 ax.plot(mode_num, PE_GM_bats / sta_bats_dk, linestyle='--', color='#FF8C00', linewidth=0.75)
+ax.plot(mode_num, PE_GM_papa / sta_papa_dk, linestyle='--', color='g', linewidth=0.75)
+ax.plot(mode_num, PE_GM_nz / sta_nz_dk, linestyle='--', color='c', linewidth=0.75)
 # ax.plot(1000 * sta_bats_f / sta_bats_c[1:], PE_GM_bats / sta_bats_dk, linestyle='--', color='#FF8C00', linewidth=0.75)
 # ax.text(sc_x[0] - .005, PE_GM[1] / dk, r'$PE_{GM}$', fontsize=13)
 # -3 slope
@@ -264,7 +266,7 @@ ax.legend(handles, labels, fontsize=14)
 ax.axis([7 * 10 ** -1, 10 ** 2, 3 * 10 ** (-4), 10 ** 3])
 ax.set_xlabel('Mode Number', fontsize=14)
 ax.set_ylabel('Spectral Density', fontsize=18)  # ' (and Hor. Wavenumber)')
-ax.set_title('PE: ALOHA, BATS, PAPA, NZ, ABACO', fontsize=20)
+ax.set_title('PE: ALOHA, BATS, PAPA, NZ', fontsize=20)
 plot_pro(ax)
 
 cmap = matplotlib.cm.get_cmap('Blues')
@@ -331,7 +333,7 @@ plot_pro(ax)
 
 # --- SAVE ---
 # write python dict to a file
-sa = 1
+sa = 0
 if sa > 0:
     mydict = {'bin_depth': grid, 'N2': N2, 'PE': avg_PE, 'c': c, 'f': f, 'sig0': sig0, 'date': time}
     output = open('/Users/jake/Documents/baroclinic_modes/Shipboard/HOTS_92_10.pkl', 'wb')
