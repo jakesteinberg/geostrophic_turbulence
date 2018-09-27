@@ -1,4 +1,5 @@
 import numpy as np
+import numpy.fft as np_fft
 import scipy.fftpack as sci_fft
 import matplotlib
 import matplotlib.pyplot as plt
@@ -13,10 +14,18 @@ dg_lat = GD['Latitude'][:]
 dg_lon[dg_lon < -500] = np.nan
 dg_lat[dg_lat < -500] = np.nan
 
-l_lon = -75
-u_lon = -55
-l_lat = 25
-u_lat = 45
+# BATS
+l_lon = -72
+u_lon = -58
+l_lat = 28
+u_lat = 42
+
+# SO Check
+# l_lon = -75
+# u_lon = -45
+# l_lat = -61
+# u_lat = -56
+
 
 Time = []
 Lon = []
@@ -53,6 +62,7 @@ for i in range(len(files)):
     # print(tracks)
 
     lon_j = data['longitude'][in_it]
+    lon_j[lon_j > 180] = lon_j[lon_j > 180] - 360
     lat_j = data['latitude'][in_it]
     sla_j = data['sla_filtered'][in_it]
     time_j = data['time'][in_it]
@@ -126,7 +136,7 @@ ind2 = np.where((time_adj > (time_adj[0] + 16)) & (time_adj < (time_adj[0] + 20)
 time2_s = datetime.date.fromordinal(np.int(time_adj[ind2[0]]))
 time2_e = datetime.date.fromordinal(np.int(time_adj[ind2[-1]]))
 
-plott = 0
+plott = 1
 if plott > 0:
     cmap = matplotlib.cm.get_cmap('plasma')
     # cmap((np.nanmean(time_adj[ind]) - t_min)/(t_max - t_min))
@@ -177,54 +187,98 @@ index = []
 yhat_out = []
 M_out = []
 L_out = []
+power2 = []
+k2 = []
+filtered_count = 0
+# cycle through each transect
 for m in range(len(dx)):
     this_x = dx[m]
     this_y = SLA[m] - np.nanmean(SLA[m])
-    # put onto regular grid
-    x_grid = np.arange(0, np.nanmax(this_x), 5)
-    y_grid_0 = np.interp(x_grid, this_x, this_y)
-    # remove linear trend (and square the result to get variance [m^2])
-    fit_coef = np.polyfit(x_grid, y_grid_0, 1)
-    fit_y = fit_coef[0] * x_grid + fit_coef[1]
-    y_grid = y_grid_0 - fit_y
 
-    # number of km in dx
-    L = np.nanmax(this_x)
+    if np.nanmax(this_x) > 250:
+        # put onto regular grid
+        x_grid = np.arange(0, np.nanmax(this_x), 10)
+        y_grid_0 = np.interp(x_grid, this_x, this_y)
+        # remove linear trend (and square the result to get variance [m^2])
+        fit_coef = np.polyfit(x_grid, y_grid_0, 1)
+        fit_y = fit_coef[0] * x_grid + fit_coef[1]
+        y_grid = y_grid_0 - fit_y
 
-    yhat = sci_fft.fft(y_grid)
-    N = len(y_grid)  # number of samples
-    if np.mod(N, 2):
-        M = np.concatenate((np.arange(0, N/2), np.arange(-N/2 + 1, 0)))
-    else:
-        M = np.concatenate((np.arange(0, N / 2), np.arange(-N / 2, 0)))
-    power_0 = np.abs(yhat/N)**2
-    # selecting the first number to plot
-    index = (M <= 20) & (M > 0)
-    power.append(power_0[index])
-    yhat_out.append(yhat)
-    M_out.append(M[index])
-    L_out.append(L)
+        # number of km in dx
+        L = np.nanmax(this_x)
 
-fac = 2 * np.pi
-k_grid = np.arange(7*10**-3, 10**-1, 10**-3)
+        yhat = sci_fft.fft(y_grid)
+        yhat2 = np.abs(np_fft.fft(y_grid))**2
+        step = x_grid[1] - x_grid[0]
+        kk = np_fft.fftfreq(len(y_grid), step)
+
+        N = len(y_grid)  # number of samples
+        if np.mod(N, 2):
+            M = np.concatenate((np.arange(0, N/2), np.arange(-N/2 + 1, 0)))
+        else:
+            M = np.concatenate((np.arange(0, N / 2), np.arange(-N / 2, 0)))
+        power_0 = np.abs(yhat/N)**2
+        # selecting the first number to plot
+        index = (M <= 20) & (M > 0)
+        power.append(power_0[index])
+        yhat_out.append(yhat)
+        M_out.append(M[index])
+        L_out.append(L)
+
+        idx = np.argsort(kk)
+        power2.append(yhat2[idx])
+        k2.append(kk[idx])
+
+        filtered_count = filtered_count + 1
+
+num_transects = filtered_count
+
+# fac = 2 * np.pi
+# k_grid = np.arange(8*10**-3, 10**-1, 10**-3)
+#
+# fig = plt.figure()
+# ax = fig.add_subplot(111)
+# power_grid = np.nan*np.ones((len(dx), len(k_grid)))
+# for o in range(num_transects):
+#     ax.plot(fac * M_out[o] / L_out[o], power[o], color='#D3D3D3')
+#     power_grid[o, :] = np.interp(k_grid, fac * M_out[o] / L_out[o], power[o])
+# ax.plot(k_grid, np.nanmean(power_grid, axis=0), 'k', linewidth=2)
+# ax.set_xlim([10**-3, 2*10**-1])
+# ax.set_ylim([10**-7, 10**-1])
+# ax.set_yscale('log')
+# ax.set_xscale('log')
+# ax.grid()
+#
+# ax2 = ax.twiny()
+# ax2.set_xlim(10**-3, 10**0)
+# ax2.set_xscale('log')
+# ax2.set_xticks(np.array([5*10**-3, 10**-2, 10**-1]))
+# ax2.set_xticklabels([str(1 / (5*10**-3)) + 'km', str(1 / (10**-2)) + 'km', str(1 / (10**-1)) + 'km'], fontsize=9)
+# plot_pro(ax2)
 
 fig = plt.figure()
 ax = fig.add_subplot(111)
-power_grid = np.nan*np.ones((len(dx), len(k_grid)))
-for o in range(len(dx)):
-    ax.plot(fac * M_out[o] / L_out[o], power[o], color='#D3D3D3')
-    power_grid[o, :] = np.interp(k_grid, fac * M_out[o] / L_out[o], power[o])
-ax.plot(k_grid, np.nanmean(power_grid, axis=0), 'k', linewidth=2)
-ax.set_xlim([10**-3, 10**0])
-ax.set_ylim([10**-7, 10**-1])
+k_grid = np.arange(2*10**-3, 4*10**-2, 10**-3)
+power_grid2 = np.nan*np.ones((len(dx), len(k_grid)))
+for o in range(num_transects):
+    inn = np.where((1/k2[o] < 500) & (1/k2[o] > 10))
+    ax.plot(k2[o][inn], power2[o][inn], color='#D3D3D3')
+    power_grid2[o, :] = np.interp(k_grid, k2[o], power2[o])
+ax.plot(k_grid, np.nanmean(power_grid2, axis=0), 'r', linewidth=2)
+ax.plot([10**-3, 10**-2], [10**2, 10**-3], 'k', linewidth=2)
+ax.set_xlim([10**-3, 2*10**-1])
+ax.set_ylim([10**-3, 2*10**2])
 ax.set_yscale('log')
 ax.set_xscale('log')
+ax.set_xlabel('Alongtrack Wavenumber [1/km]')
+ax.set_ylabel(r'SLA Variance Density [m$^2$/cpkm]')
+ax.grid()
 
 ax2 = ax.twiny()
-ax2.set_xlim(10**-3, 10**0)
+ax2.set_xlim(10**-3, 2*10**-1)
 ax2.set_xscale('log')
 ax2.set_xticks(np.array([5*10**-3, 10**-2, 10**-1]))
-ax2.set_xticklabels([str(1 / (5*10**-3)) + 'km', str(1 / (10**-2)) + 'km', str(1 / (10**-1)) + 'km'], fontsize=9)
+ax2.set_xticklabels([str(200) + 'km', str(100) + 'km', str(10) + 'km'], fontsize=9)
 plot_pro(ax2)
 
 # index2 = ((M / L) > 0.004) | ((M / L) < -0.004)

@@ -238,8 +238,11 @@ class Glider(object):
     def transect_cross_section_1(self, bin_depth, sig0_0, lon_0, lat_0, dac_u_0, dac_v_0, profile_tags_0, sigth_levels):
         deep_shr_max = 0.1
         deep_shr_max_dep = 3500
+        # -- for computation of eta (reference to average density profile and gradient of average density profile
+        # - the average should span seasons rather than total mission
+        sigma_theta_avg = np.nanmean(sig0_0, axis=1)
+        ddz_avg_sigma = np.gradient(sigma_theta_avg, -1 * bin_depth)
 
-        # TEST
         # ____________________________________________________________________________________
         def group_consecutives(vals, step=1):
             """Return list of consecutive lists of numbers from vals (number list)."""
@@ -262,10 +265,18 @@ class Glider(object):
         for m in range(len(unique_targets)):
             indices = np.where(target_test == unique_targets[m])[0]
             if len(indices) > 1:
-                transects.append(group_consecutives(indices, step=1))
+                # make sure each set has more than one dive
+                sets = group_consecutives(indices, step=1)
+                to_go = []
+                for k in range(len(sets)):
+                    if len(sets[k]) > 1:
+                        to_go.append(sets[k])
+                # transects.append(group_consecutives(indices, step=1))
+                transects.append(to_go)
 
         ds_out = []
         dist_out = []
+        eta_out = []
         v_g_out = []
         vbt_out = []
         isopycdep_out = []
@@ -287,15 +298,15 @@ class Glider(object):
                 dac_u = dac_u_0[index_start:index_end]
                 dac_v = dac_v_0[index_start:index_end]
                 profile_tags = profile_tags_0[index_start:index_end]
-
                 # ____________________________________________________________________________________
                 # order_set = np.arange(0, self.num_profs, 2)
 
                 info = np.nan * np.zeros((3, len(profile_tags) - 1))
                 sigma_theta_out = np.nan * np.zeros((np.size(bin_depth), len(profile_tags) - 1))
                 shear = np.nan * np.zeros((np.size(bin_depth), len(profile_tags) - 1))
-                # eta = np.nan * np.zeros((np.size(grid), np.size(this_set) - 1))
+                # eta = np.nan * np.zeros((np.size(bin_depth), len(profile_tags) - 1))
                 # eta_theta = np.nan * np.zeros((np.size(grid), np.size(this_set) - 1))
+                avg_sig_pd = np.nan * np.zeros((np.size(bin_depth), len(profile_tags) - 1))
                 isopycdep = np.nan * np.zeros((np.size(sigth_levels), len(profile_tags)))
                 isopycx = np.nan * np.zeros((np.size(sigth_levels), len(profile_tags)))
                 vbt = np.nan * np.zeros(len(profile_tags))
@@ -372,10 +383,12 @@ class Glider(object):
 
                     shearM = np.nan * np.zeros(np.size(bin_depth))
                     shearW = np.nan * np.zeros(np.size(bin_depth))
-                    etaM = np.nan * np.zeros(np.size(bin_depth))
-                    etaW = np.nan * np.zeros(np.size(bin_depth))
-                    eta_thetaM = np.nan * np.zeros(np.size(bin_depth))
-                    eta_thetaW = np.nan * np.zeros(np.size(bin_depth))
+                    # etaM = np.nan * np.zeros(np.size(bin_depth))
+                    # etaW = np.nan * np.zeros(np.size(bin_depth))
+                    p_avg_sig_M = np.nan * np.zeros(np.size(bin_depth))
+                    p_avg_sig_W = np.nan * np.zeros(np.size(bin_depth))
+                    # eta_thetaM = np.nan * np.zeros(np.size(bin_depth))
+                    # eta_thetaW = np.nan * np.zeros(np.size(bin_depth))
                     sigma_theta_pa_M = np.nan * np.zeros(np.size(bin_depth))
                     sigma_theta_pa_W = np.nan * np.zeros(np.size(bin_depth))
                     lon_pa_M = np.nan * np.zeros(np.size(bin_depth))
@@ -436,6 +449,11 @@ class Glider(object):
                                 # etaM[j] = (sigma_theta_avg[j] - sig0[j, i]) / ddz_avg_sigma[j]  # j=dp, i=prof_ind
                                 # eta_thetaM[j] = (ct_avg[j] - df_ct_set.iloc[j, i]) / ddz_avg_ct[j]
 
+                                # average isopycnal value at each depth level j, to be used to compute eta but
+                                # using a background profile of the users desire. this average spans the same number
+                                # of profiles used in computing vertical shear profiles (and then velocity profiles)
+                                p_avg_sig_M[j] = np.nanmean(sig0[j, c_i_m])
+
                         # for W profile compute shear and eta
                         if nw > 2 and np.size(sig0[j, c_i_w]) > 2:
                             sigmathetaW = sig0[j, c_i_w]
@@ -472,12 +490,19 @@ class Glider(object):
                                 # -- isopycnal position is position on this single profile
                                 # etaW[j] = (sigma_theta_avg[j] - df_den_set.iloc[j, i + 1]) / ddz_avg_sigma[j]
                                 # eta_thetaW[j] = (ct_avg[j] - df_ct_set.iloc[j, i + 1]) / ddz_avg_ct[j]
+
+                                # average isopycnal value at each depth level j, to be used to compute eta but
+                                # using a background profile of the users desire. this average spans the same number
+                                # of profiles used in computing vertical shear profiles (and then velocity profiles)
+                                p_avg_sig_W[j] = np.nanmean(sig0[j, c_i_w])
+
                         # END LOOP OVER EACH BIN_DEPTH
 
                     # OUTPUT FOR EACH TRANSECT (at least 2 DIVES)
                     # because this is M/W profiling, for a 3 dive transect, only 5 profiles of shear and eta are compiled
                     sigma_theta_out[:, i] = sigma_theta_pa_M
                     shear[:, i] = shearM
+                    avg_sig_pd[:, i] = p_avg_sig_M
                     # eta[:, i] = etaM
                     # eta_theta[:, i] = eta_thetaM
                     info[0, i] = profile_tags[i]
@@ -486,6 +511,7 @@ class Glider(object):
                     if i < len(profile_tags) - 2:
                         sigma_theta_out[:, i + 1] = sigma_theta_pa_W
                         shear[:, i + 1] = shearW
+                        avg_sig_pd[:, i + 1] = p_avg_sig_W
                         # eta[:, i + 1] = etaW
                         # eta_theta[:, i + 1] = eta_thetaW
                         info[0, i + 1] = profile_tags[i]
@@ -544,13 +570,14 @@ class Glider(object):
                 isopycx_out.append(isopycx)
                 mwe_lon_out.append(mwe_lon)
                 mwe_lat_out.append(mwe_lat)
+                eta_out.append(avg_sig_pd)
                 DACe_MW_out.append(DACe_MW)
                 DACn_MW_out.append(DACn_MW)
                 profile_tags_out.append(profile_tags)
 
             # everywhere there is a len(profile_tags) there was a self.num_profs
 
-        return ds_out, dist_out, v_g_out, vbt_out, isopycdep_out, isopycx_out, \
+        return ds_out, dist_out, eta_out, v_g_out, vbt_out, isopycdep_out, isopycx_out, \
             mwe_lon_out, mwe_lat_out, DACe_MW_out, DACn_MW_out, profile_tags_out
 
     def plot_cross_section(self, bin_depth, ds, v_g, dist, profile_tags, isopycdep, isopycx, sigth_levels, time):

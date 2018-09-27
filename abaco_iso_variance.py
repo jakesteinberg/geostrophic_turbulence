@@ -86,9 +86,9 @@ this_ship_SA = abaco_ship['SA']
 this_ship_dist = abaco_ship['den_dist']
 this_ship_depth_0 = abaco_ship['bin_depth']
 this_ship_depth = np.repeat(np.transpose(np.array([abaco_ship['bin_depth']])), np.shape(ship_sig0)[1], axis=1)
-pkl_file = open('/Users/jake/Documents/baroclinic_modes/SHIPBOARD/ABACO/no_ctd_ship_ladcp_2018-02-25.pkl', 'rb')
-abaco_ship = pickle.load(pkl_file)
-pkl_file.close()
+# pkl_file = open('/Users/jake/Documents/baroclinic_modes/SHIPBOARD/ABACO/no_ctd_ship_ladcp_2018-02-25.pkl', 'rb')
+# abaco_ship = pickle.load(pkl_file)
+# pkl_file.close()
 this_adcp_dist = abaco_ship['adcp_dist']
 this_adcp_depth = abaco_ship['adcp_depth']
 this_adcp_v = abaco_ship['adcp_v']
@@ -170,7 +170,7 @@ sa, ct, sig0, dg_N2 = x.density(grid, ref_lat, t, s, lon, lat)
 sigth_levels = np.concatenate(
     [np.arange(23, 26.5, 0.5), np.arange(26.2, 27.2, 0.2),
      np.arange(27.2, 27.8, 0.2), np.arange(27.7, 27.8, 0.02), np.arange(27.8, 27.9, 0.01)])
-ds, dist, v_g, vbt, isopycdep, isopycx, mwe_lon, mwe_lat, DACe_MW, DACn_MW, profile_tags_per = \
+ds, dist, avg_sig0_per_dep_0, v_g, vbt, isopycdep, isopycx, mwe_lon, mwe_lat, DACe_MW, DACn_MW, profile_tags_per = \
     x.transect_cross_section_1(grid, sig0, lon, lat, dac_u, dac_v, profile_tags, sigth_levels)
 # -----------------------------------------------------------------------------------------------
 # PLOTTING cross section
@@ -189,12 +189,14 @@ bathy_path = '/Users/jake/Documents/baroclinic_modes/DG/ABACO_2017/OceanWatch_sm
 
 # -----------------------------------------------------------------------------------------------
 # unpack velocity profiles from transect analysis
-dg_v_0 = v_g[0].copy()
+dg_v_0 = v_g[0][:, 0:-1].copy()
+avg_sig0_per_dep = avg_sig0_per_dep_0[0].copy()
 dg_v_lon = mwe_lon[0][0:-1].copy()
 dg_v_lat = mwe_lat[0][0:-1].copy()
-dg_v_dive_no = profile_tags_per[0].copy()
+dg_v_dive_no = profile_tags_per[0][0:-1].copy()
 for i in range(1, len(v_g)):
     dg_v_0 = np.concatenate((dg_v_0, v_g[i][:, 0:-1]), axis=1)
+    avg_sig0_per_dep = np.concatenate((avg_sig0_per_dep, avg_sig0_per_dep_0[i]), axis=1)
     dg_v_lon = np.concatenate((dg_v_lon, mwe_lon[i][0:-1]))
     dg_v_lat = np.concatenate((dg_v_lat, mwe_lat[i][0:-1]))
     dg_v_dive_no = np.concatenate((dg_v_dive_no, profile_tags_per[i][0:-1]))
@@ -491,7 +493,7 @@ for i in range(np.size(mean_dist)):
     theta_anom = ct[:, i] - CT_avg_grid[:, closest_i]
     salin_anom = sa[:, i] - SA_avg_grid[:, closest_i]
     sigma_anom = sig0[:, i] - sigma_avg_grid[:, closest_i]
-    eta = (sig0[:, i] - sig0[:, closest_i]) / np.squeeze(ddz_avg_sigma[:, closest_i])
+    eta = (sig0[:, i] - sigma_avg_grid[:, closest_i]) / np.squeeze(ddz_avg_sigma[:, closest_i])
     eta_theta = (ct[:, i] - ct[:, closest_i]) / np.squeeze(ddz_avg_CT[:, closest_i])
 
     if count < 1:
@@ -513,6 +515,19 @@ for i in range(np.size(mean_dist)):
         df_eta = pd.concat([df_eta, eta2], axis=1)
         df_eta_theta = pd.concat([df_eta_theta, eta3], axis=1)
     count = count + 1
+
+# Eta compute using M/W method
+# need to pair mwe_lat/lon positions to closest position on dist_grid
+eta_alt = np.nan * np.ones(np.shape(avg_sig0_per_dep))
+avg_dist = (dg_v_lon - lon_in) * (1852 * 60 * np.cos(np.deg2rad(26.5))) / 1000
+for i in range(np.shape(avg_sig0_per_dep)[1]):
+    dist_test = np.abs(avg_dist[i] - dist_grid)  # distance between this profile and every other on dist_grid
+    closest_i = np.where(dist_test == dist_test.min())[0][0]  # find closest dist_grid station to this profile
+    eta_alt[:, i] = (avg_sig0_per_dep[:, i] - sigma_avg_grid[:, closest_i]) / np.squeeze(ddz_avg_sigma[:, closest_i])
+
+eta_dive_no = dg_v_dive_no
+dg_eta_time = time_rec[np.in1d(profile_tags, eta_dive_no)]
+num_eta_profs = np.shape(eta_alt)[1]
 
 # ---------------------------------------------------------------------------------------------------------
 # ------- Eta_fit / Mode Decomposition --------------
@@ -538,34 +553,36 @@ for i in range(mmax + 1):
 # Project modes onto each eta (find fitted eta)
 # Compute PE 
 eta_fit_depth_min = 50
-eta_fit_depth_max = 3750
+eta_fit_depth_max = 4000
 eta_th_fit_depth_min = 50
 eta_th_fit_depth_max = 4200
-AG = np.zeros([nmodes, num_profs])
-AG_theta = np.zeros([nmodes, num_profs])
-Eta_m = np.nan * np.zeros([np.size(grid), num_profs])
-Neta = np.nan * np.zeros([np.size(grid), num_profs])
-NEta_m = np.nan * np.zeros([np.size(grid), num_profs])
-Eta_theta_m = np.nan * np.zeros([np.size(grid), num_profs])
-PE_per_mass = np.nan * np.zeros([nmodes, num_profs])
-PE_theta_per_mass = np.nan * np.zeros([nmodes, num_profs])
-for i in range(num_profs):
-    this_eta = df_eta.iloc[:, i][:].copy()
+AG = np.zeros([nmodes, num_eta_profs])
+AG_theta = np.zeros([nmodes, num_eta_profs])
+Eta_m = np.nan * np.zeros([np.size(grid), num_eta_profs])
+Neta = np.nan * np.zeros([np.size(grid), num_eta_profs])
+NEta_m = np.nan * np.zeros([np.size(grid), num_eta_profs])
+Eta_theta_m = np.nan * np.zeros([np.size(grid), num_eta_profs])
+PE_per_mass = np.nan * np.zeros([nmodes, num_eta_profs])
+PE_theta_per_mass = np.nan * np.zeros([nmodes, num_eta_profs])
+for i in range(num_eta_profs):
+    # this_eta = df_eta.iloc[:, i][:].copy()
+    this_eta = eta_alt[:, i].copy()
     # obtain matrix of NEta
     Neta[:, i] = N[:, np.int(closest_rec[i])] * this_eta
     this_eta_theta = df_eta_theta.iloc[:, i][:].copy()
     iw = np.where((grid >= eta_fit_depth_min) & (grid <= eta_fit_depth_max))
     if iw[0].size > 1:
-        eta_fs = df_eta.iloc[:, i][:].copy()  # ETA
+        # eta_fs = df_eta.iloc[:, i][:].copy()  # ETA
+        eta_fs = eta_alt[:, i].copy()  # ETA
         eta_theta_fs = df_eta_theta.iloc[:, i][:].copy()
 
         i_sh = np.where((grid < eta_fit_depth_min))
-        eta_fs.iloc[i_sh[0]] = grid[i_sh] * this_eta.iloc[iw[0][0]] / grid[iw[0][0]]
+        eta_fs[i_sh[0]] = grid[i_sh] * this_eta[iw[0][0]] / grid[iw[0][0]]
         i_sh = np.where((grid < eta_th_fit_depth_min))
         eta_theta_fs.iloc[i_sh[0]] = grid[i_sh] * this_eta_theta.iloc[iw[0][0]] / grid[iw[0][0]]
 
         i_dp = np.where((grid > eta_fit_depth_max))
-        eta_fs.iloc[i_dp[0]] = (grid[i_dp] - grid[-1]) * this_eta.iloc[iw[0][-1]] / (grid[iw[0][-1]] - grid[-1])
+        eta_fs[i_dp[0]] = (grid[i_dp] - grid[-1]) * this_eta[iw[0][-1]] / (grid[iw[0][-1]] - grid[-1])
         i_dp = np.where((grid > eta_th_fit_depth_max))
         eta_theta_fs.iloc[i_dp[0]] = (grid[i_dp] - grid[-1]) * this_eta_theta.iloc[iw[0][-1]] / (
                     grid[iw[0][-1]] - grid[-1])
@@ -604,47 +621,6 @@ if sam_pl > 0:
     ax2.set_title(r"$G_n$'(z) Mode Shapes ($\sim u$)", fontsize=20)
     ax2.invert_yaxis()
     plot_pro(ax2)
-
-# add fitted Eta to this ......
-if plot_eta > 0:
-    f, (ax1, ax2) = plt.subplots(1, 2, sharey=True)
-    for i in range(np.size(mean_dist)):  # range(np.size(subset[0])): #
-        if df_eta.columns[i] > 38000:
-            p38 = ax1.plot(df_eta_theta.iloc[:, i], grid, color='#CD853F', linewidth=.4, label='DG038')
-            p38_f = ax1.plot(Eta_theta_m[:, i], grid, 'k--', linewidth=.3, label='DG038')
-
-            p38_2 = ax2.plot(df_eta.iloc[:, i], grid, color='#CD853F', linewidth=.4, label='DG038')
-            p38_f = ax2.plot(Eta_m[:, i], grid, 'k--', linewidth=.3)
-            # p37_2 = ax2.plot(Neta[:,i],grid,color='#48D1CC',linewidth=.4,label='DG037')
-            # p37_f = ax2.plot(NEta_m[:,i],grid,'k--',linewidth=.3) 
-        else:
-            p37 = ax1.plot(df_eta_theta.iloc[:, i], grid, color='#008080', linewidth=.4, label='DG037')
-            p37_f = ax1.plot(Eta_theta_m[:, i], grid, 'k--', linewidth=.3, label='DG037')
-
-            p37_2 = ax2.plot(df_eta.iloc[:, i], grid, color='#008080', linewidth=.4, label='DG037')
-            p37_f = ax2.plot(Eta_m[:, i], grid, 'k--', linewidth=.3)
-            # p37_2 = ax2.plot(Neta[:,i],grid,color='#48D1CC',linewidth=.4,label='DG037')
-            # p37_f = ax2.plot(NEta_m[:,i],grid,'k--',linewidth=.3)
-    ax1.plot([0, 0], [0, 5000], '--k')
-    ax1.axis([-600, 600, 0, 4800])
-    ax1.invert_yaxis()
-    ax2.plot([0, 0], [0, 4800], '--k')
-    ax2.axis([-600, 600, 0, 5000])
-    # ax2.axis([-.5, .5, 0, 5000])
-    ax2.invert_yaxis()
-    ax2.set_xlabel(r'$\eta_{\sigma_{\theta}}$ [m]', fontsize=14)
-    ax1.set_xlabel(r'$\eta_{\theta}$ [m]', fontsize=14)
-    ax1.set_ylabel('Depth [m]', fontsize=14)
-    ax1.set_title(r'ABACO Vertical $\theta$ Disp.', fontsize=14)
-    ax2.set_title(r'$\eta$ Vertical Isopycnal Disp.', fontsize=14)
-    handles, labels = ax1.get_legend_handles_labels()
-    ax1.legend([handles[0], handles[-2]], [labels[1], labels[-1]], fontsize=12)
-    handles, labels = ax2.get_legend_handles_labels()
-    ax2.legend([handles[1], handles[-1]], [labels[1], labels[-1]], fontsize=12)
-    ax1.grid()
-    plot_pro(ax2)
-    # f.savefig('/Users/jake/Desktop/abaco/dg037_8_eta.png',dpi = 300)
-    # plt.close()
 
 # -------------------------------------------------------------------------------------------------------------------
 # VELOCITY
@@ -801,12 +777,12 @@ min_p1 = fmin(functi, p1, args=(tuple(ins1)))
 min_p2 = fmin(functi, p2, args=(tuple(ins2)))
 
 # -- plot inspect minimization of mode shapes
-f, ax = plt.subplots()
-ax.plot(eof1, ship_grid_check, color='k')
-ax.plot(bc1*min_p1, ship_grid_check, color='r')
-ax.plot(bc2*min_p2, ship_grid_check, color='b')
-ax.invert_yaxis()
-plot_pro(ax)
+# f, ax = plt.subplots()
+# ax.plot(eof1, ship_grid_check, color='k')
+# ax.plot(bc1*min_p1, ship_grid_check, color='r')
+# ax.plot(bc2*min_p2, ship_grid_check, color='b')
+# ax.invert_yaxis()
+# plot_pro(ax)
 
 adcp_fvu1 = np.sum((eof1[:, 0] - bc1*min_p1)**2)/np.sum((eof1 - np.mean(eof1))**2)
 adcp_fvu2 = np.sum((eof1[:, 0] - bc2*min_p2)**2)/np.sum((eof1 - np.mean(eof1))**2)
@@ -852,7 +828,7 @@ ax3.legend(handles, labels, fontsize=10)
 ax3.invert_yaxis()
 plot_pro(ax3)
 
-# ----------------------------- PLOT VELOCITY PROFILES AND COMPARE -------------------------------------------
+# ----------------------------- PLOT VELOCITY PROFILES AND COMPARE (also plot ETA) ------------------------------------
 f, (ax1, ax2, ax3) = plt.subplots(1, 3)
 for i in range(adcp_np):
     if adcp_good_prof[i] < 2:
@@ -879,19 +855,26 @@ ax2.set_title('Geostrophic Velocity', fontsize=12)  # (' + str(dg_np) + ' profil
 ax2.invert_yaxis()
 ax2.grid()
 
-for i in range(np.size(mean_dist)):  # range(np.size(subset[0])): #
-    if df_eta.columns[i] > 38000:
-        p38_2 = ax3.plot(df_eta.iloc[:, i], grid, color='#CD853F', linewidth=1, label='DG038')
-        p38_f = ax3.plot(Eta_m[:, i], grid, 'k--', linewidth=.75)
-    else:
-        p37_2 = ax3.plot(df_eta.iloc[:, i], grid, color='#CD853F', linewidth=1, label='DG037')
-        p37_f = ax3.plot(Eta_m[:, i], grid, 'k--', linewidth=.75)
+for i in range(num_eta_profs):
+    p37_2 = ax3.plot(eta_alt[:, i], grid, color='#CD853F', linewidth=1, label='DG037')
+    p37_f = ax3.plot(Eta_m[:, i], grid, 'k--', linewidth=.75)
 ax3.plot([0, 0], [0, 5500], '--k')
 ax3.set_title('Vertical Displacement', fontsize=12)  # (' + str(num_profs) + ' profiles)') # dg37
 ax3.set_xlabel('Vertical Isopycal Displacement [m]', fontsize=12)
 ax3.axis([-600, 600, 0, 5100])
 ax3.invert_yaxis()
 plot_pro(ax3)
+
+# # - test smoothed eta against eta from individual profiles
+# f, (ax1, ax2) = plt.subplots(1, 2, sharey=True)
+# for i in range(np.size(mean_dist)):  # range(np.size(subset[0])): #
+#     ax1.plot(df_eta.iloc[:, i], grid, color='#CD853F', linewidth=1, label='DG038')
+# ax1.axis([-600, 600, 0, 5100])
+# for i in range(np.shape(eta_alt)[1]):
+#     ax2.plot(eta_alt[:, i], grid)
+# ax2.axis([-600, 600, 0, 5100])
+# ax2.invert_yaxis()
+# plot_pro(ax2)
 
 # ------------------------------------------------------------------------------------------------------------------
 # ------------ ENERGY SPECTRA
@@ -921,6 +904,7 @@ dk = f_ref / c[1]
 sc_x = 1000 * f_ref / c[1:]
 PE_SD, PE_GM = PE_Tide_GM(rho0, grid, nmodes, N2, f_ref)
 k_h = 1e3 * (f_ref / c[1:]) * np.sqrt(avg_KE_dg[1:] / avg_PE[1:])
+k_h_adcp = 1e3 * (f_ref / c[1:]) * np.sqrt(avg_KE_adcp[1:] / avg_PE[1:])
 
 # TESTING ADCP DG/KE DIFFERENCES
 plot_energy_limits = 0
@@ -943,7 +927,7 @@ if plot_energy_limits > 0:
     plot_pro(ax)
 
 plot_energy = 1
-sc_x = np.arange(1, 61)
+# sc_x = np.arange(1, 61)
 if plot_energy > 0:
     fig0, ax0 = plt.subplots()
     # ---- PE
@@ -959,27 +943,23 @@ if plot_energy > 0:
     # ax0.plot(sc_x, PE_GM / dk, linestyle='--', color='k', linewidth=1)
     # ax0.text(sc_x[0] - .009, PE_GM[0] / dk, r'$PE_{GM}$', fontsize=12)
     # ---- KE
+    # DG
     KE_dg = ax0.plot(sc_x, avg_KE_dg[1:] / dk, color='g', label=r'KE$_{dg}$', linewidth=1.75) # DG
     ax0.scatter(sc_x, avg_KE_dg[1:] / dk, color='g', s=15)
-    # KE_dg0 = ax0.plot([10**-2, 1000 * f_ref / c[1]], avg_KE_dg[0:2] / dk, 'g', linewidth=1.75) # DG KE_0
-    # ax0.scatter(10**-2, avg_KE_dg[0] / dk, color='g', s=25, facecolors='none')  # DG KE_0
-    KE_dg0 = ax0.plot([8*10**-1, sc_x[0]], avg_KE_dg[0:2] / dk, 'g', linewidth=1.75) # DG KE_0
-    ax0.scatter(8*10**-1, avg_KE_dg[0] / dk, color='g', s=25, facecolors='none')  # DG KE_0
-
-    # KE_adcp = ax0.plot(sc_x, avg_KE_adcp[1:]/dk, color='m', label=r'KE$_{ladcp_v}$', linewidth=1.75) # adcp
-    # KE_adcp0 = ax0.plot([10**-2, 1000 * f_ref / c[1]], avg_KE_adcp[0:2] / dk, 'm', linewidth=1.75) # adcp KE_0
-    # ax0.scatter(10**-2, avg_KE_adcp[0] / dk, color='m', s=25, facecolors='none')  # adcp KE_0
+    KE_dg0 = ax0.plot([10**-2, sc_x[0]], avg_KE_dg[0:2] / dk, 'g', linewidth=1.75) # DG KE_0
+    ax0.scatter(10**-2, avg_KE_dg[0] / dk, color='g', s=25, facecolors='none')  # DG KE_0
+    # ADCP
+    KE_adcp = ax0.plot(sc_x, avg_KE_adcp[1:]/dk, color='m', label=r'KE$_{ladcp_v}$', linewidth=1.75) # adcp
+    KE_adcp0 = ax0.plot([10**-2, 1000 * f_ref / c[1]], avg_KE_adcp[0:2] / dk, 'm', linewidth=1.75) # adcp KE_0
+    ax0.scatter(10**-2, avg_KE_adcp[0] / dk, color='m', s=25, facecolors='none')  # adcp KE_0
 
     # ---- BATS
-    ax0.plot(sc_x, bats_ke[1:] / bats_dk, color='g', label=r'KE$_{bats}$', linewidth=1.75, linestyle='--')
-    ax0.scatter(sc_x, bats_ke[1:] / bats_dk, color='g', s=15)
-    # ax0.plot([10**-2, 1000 * bats_f / bats_c[1]], bats_ke[0:2] / bats_dk, 'g', linewidth=1.75, linestyle='--')
-    # ax0.scatter(10**-2, bats_ke[0] / bats_dk, color='g', s=25, facecolors='none')  # DG KE_0
-    ax0.plot([8*10**-1, sc_x[0]], bats_ke[0:2] / bats_dk, 'g', linewidth=1.75, linestyle='--')
-    ax0.scatter(8*10**-1, bats_ke[0] / bats_dk, color='g', s=25, facecolors='none')  # DG KE_0
-
-    ax0.plot(sc_x, bats_pe[1:] / bats_dk, color='#B22222', label=r'PE$_{bats}$', linewidth=1.5, linestyle='--')
-    ax0.scatter(sc_x, bats_pe[1:] / bats_dk, color='#B22222', s=15)
+    # ax0.plot(sc_x, bats_ke[1:] / bats_dk, color='g', label=r'KE$_{bats}$', linewidth=1.75, linestyle='--')
+    # ax0.scatter(sc_x, bats_ke[1:] / bats_dk, color='g', s=15)
+    # ax0.plot([8*10**-1, sc_x[0]], bats_ke[0:2] / bats_dk, 'g', linewidth=1.75, linestyle='--')
+    # ax0.scatter(8*10**-1, bats_ke[0] / bats_dk, color='g', s=25, facecolors='none')  # DG KE_0
+    # ax0.plot(sc_x, bats_pe[1:] / bats_dk, color='#B22222', label=r'PE$_{bats}$', linewidth=1.5, linestyle='--')
+    # ax0.scatter(sc_x, bats_pe[1:] / bats_dk, color='#B22222', s=15)
 
     # --- ke/pe ratio
     # k_h_p = ax0.plot(sc_x, k_h, color='k', label=r'DG$_{k_h}$')
@@ -987,36 +967,37 @@ if plot_energy > 0:
     # --- plot tailoring
     ax0.set_yscale('log')
     ax0.set_xscale('log')
-    ax0.axis([8 * 10 ** -1, 10 ** 2, 1 * 10 ** (-3), 4 * 10 ** (3)])
-    # ax0.axis([10 ** -2, 10 ** 1, 1 * 10 ** (-3), 4 * 10 ** (3)])
-    ax0.set_xlabel('Mode Number (barotropic mode plotted along y-axis)', fontsize=13)
-    # ax0.set_xlabel(r'Scaled Vertical Wavenumber = (Rossby Radius)$^{-1}$ = $\frac{f}{c}$ [$km^{-1}$]', fontsize=13)
+    # ax0.axis([8 * 10 ** -1, 10 ** 2, 1 * 10 ** (-3), 4 * 10 ** (3)])
+    # ax0.set_xlabel('Mode Number (barotropic mode plotted along y-axis)', fontsize=13)
+    ax0.axis([10 ** -2, 10 ** 1, 1 * 10 ** (-3), 4 * 10 ** (3)])
+    ax0.set_xlabel(r'Scaled Vertical Wavenumber = (Rossby Radius)$^{-1}$ = $\frac{f}{c}$ [$km^{-1}$]', fontsize=13)
     ax0.set_ylabel('Spectral Density', fontsize=13)  # '(and Hor. Wavenumber)',fontsize=13)
-    ax0.set_title('ABACO Energy Spectra')
+    ax0.set_title(x.project + ' - Energy Spectra', fontsize=12)
     handles, labels = ax0.get_legend_handles_labels()
-    ax0.legend([handles[0], handles[1], handles[-2], handles[-1]], [labels[0], labels[1], labels[-2], labels[-1]],
+    ax0.legend([handles[0], handles[1], handles[-1]], [labels[0], labels[1], labels[-1]],
                fontsize=13)
     plot_pro(ax0)
     # ax0.grid()
     # fig0.savefig('/Users/jake/Desktop/abaco/abaco_energy_all.png',dpi = 200)
     # plt.close()   
 
-    # dynamic mode amplitude with time
-    time_ord = np.argsort(time_rec)
+    # -------
+    # dynamic eta and v mode amplitudes with time
+    time_ord = np.argsort(dg_eta_time)
     # time_label = datetime.date.fromordinal(np.int(time_rec))
     myFmt = matplotlib.dates.DateFormatter('%m/%d')
     mode_range = [1, 2, 3]
     fig0, ((ax0), (ax1)) = plt.subplots(2, 1, sharex=True)
     ax0.plot([time_min, time_max], [0, 0], 'k', linewidth=1.5)
     for i in mode_range:
-        ax_i = ax0.plot(time_rec, AG[i, :], label='Baroclinic Mode ' + np.str(i))
+        ax_i = ax0.plot(dg_eta_time, AG[i, :], label='Baroclinic Mode ' + np.str(i))
         # ax0.scatter(time_rec, AG[i, :])
     ax0.xaxis.set_major_formatter(myFmt)
     handles, labels = ax0.get_legend_handles_labels()
     ax0.set_title('Vertical Displacement Baroclinic Mode Amplitude Temporal Variability')
     ax0.set_ylabel(r'Unscaled Dynamic Mode ($\beta_m$) Amplitude')
     ax0.legend(handles, labels, fontsize=10)
-    ax0.set_ylim([-.2, .2])
+    ax0.set_ylim([-.1, .1])
     ax0.grid()
 
     ax1.plot([time_min, time_max], [0, 0], 'k', linewidth=1.5)
@@ -1032,7 +1013,19 @@ if plot_energy > 0:
     ax1.legend(handles, labels, fontsize=10)
     ax0.set_ylim([-.2, .2])
     plot_pro(ax1)
-    # fig0.savefig('/Users/jake/Desktop/abaco/dg037_8_mode_amp.png', dpi=300)
+
+    # -------
+    # estimate of horizontal wavenumber
+    fig0, ax0 = plt.subplots()
+    k_h_p = ax0.plot(sc_x, k_h, color='m', label=r'DG$_{k_h}$')
+    k_h_p = ax0.plot(sc_x, k_h_adcp, color='c', label=r'LADCP$_{k_h}$')
+    ax0.plot(sc_x, sc_x, 'k', linestyle='--')
+    ax0.set_xlabel([10 ** -2, 10 ** 1])
+    ax0.set_yscale('log')
+    ax0.set_xscale('log')
+    ax0.set_xlabel(r'Scaled Vertical Wavenumber = (Rossby Radius)$^{-1}$ = $\frac{f}{c}$ [$km^{-1}$]', fontsize=11)
+    ax0.set_ylabel('Horizontal Wavenumber ')
+    plot_pro(ax0)
 
 # -----------------------------------------------------------------------------------------
 # ------ EOF MODE SHAPESSSSS
