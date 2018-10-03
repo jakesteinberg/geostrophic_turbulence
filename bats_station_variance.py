@@ -22,13 +22,13 @@ bin_depth = GD.variables['grid'][:]
 # bin_depth = np.concatenate([np.arange(0, 150, 5), np.arange(150, 300, 5), np.arange(300, 4500, 10)])
 ref_lat = 31.7
 ref_lon = -64.2
-grid = bin_depth[0:221]
+grid = bin_depth[0:231]
 grid_p = gsw.p_from_z(-1 * grid, ref_lat)
 z = -1 * grid
 
 # write this to process any set of shipboard hydrography (specify file type)
 
-# file_list = glob.glob('/Users/jake/Documents/baroclinic_modes/BATS_station/CTD_data/b1*ctd.txt')
+# file_list = glob.glob('/Users/jake/Documents/baroclinic_modes/Shipboard/BATS_station/CTD_data/b1*ctd.txt')
 # file_list2 = file_list[0]
 # # - file formatting from BATS site
 # info_variables = ['cast ID', 'date deployed', 'date recovered', 'decimal date d', 'decimal date r', 'decimal day d',
@@ -101,8 +101,7 @@ z = -1 * grid
 #                 # only select deep dives w/in lat/lon box
 #                 if (c_d.max() > 3500) & (np.sum(np.isnan(cast_s_pre)) < len(cast_s_pre)/3):
 #                     g_ol = np.where(grid <= c_d.max())[0]
-#                     cast_t[g_ol[0:-1], count], cast_s[g_ol[0:-1], count] = make_bin_gen(grid[g_ol], c_d, cast_t_pre,
-#                                                                                         cast_s_pre)
+#                     cast_t[g_ol, count], cast_s[g_ol, count] = make_bin_gen(grid[g_ol], c_d, cast_t_pre, cast_s_pre)
 #                     # cast_t[g_overlap, count] = np.interp(grid[g_overlap], cast_d, cast_t_pre)
 #                     # cast_s[g_overlap, count] = np.interp(grid[g_overlap], cast_d, cast_s_pre)
 #                     cast_lat[0][count] = np.nanmean(cast_data[:, 2])
@@ -113,9 +112,10 @@ z = -1 * grid
 #                     count = count + 1
 # # --- end looping and cast selection
 #
-# savee = 1
+# savee = 0
 # if savee > 0:
-#     output_file = open('/Users/jake/Documents/baroclinic_modes/BATS_station/bats_ship_ctd_gridded_apr11.pkl', 'wb')
+#     output_file = open('/Users/jake/Documents/baroclinic_modes/Shipboard/BATS_station/bats_ship_ctd_gridded_oct01.pkl',
+#                        'wb')
 #     my_dict = {'grid': grid, 'grid_p': grid_p, 'cast_log': cast_log, 'cast_date': cast_date, 'cast_lat': cast_lat,
 #                'cast_lon': cast_lon, 'cast_temp': cast_t, 'cast_salin': cast_s, 'cast_max_z': cast_max_z}
 #     pickle.dump(my_dict, output_file)
@@ -123,7 +123,7 @@ z = -1 * grid
 
 # ------------------------------------------------------------------------------------------------------------
 # ------------- LOAD GRIDDED CASTS -------------
-pkl_file = open('/Users/jake/Documents/baroclinic_modes/BATS_station/bats_ship_ctd_gridded_apr11.pkl', 'rb')
+pkl_file = open('/Users/jake/Documents/baroclinic_modes/Shipboard/BATS_station/bats_ship_ctd_gridded_oct01.pkl', 'rb')
 bats_ctd = pickle.load(pkl_file)
 pkl_file.close()
 c_lon = bats_ctd['cast_lon'][0]
@@ -137,20 +137,21 @@ c_t = bats_ctd['cast_temp'][:, span]
 c_s = bats_ctd['cast_salin'][:, span]
 c_max_z = bats_ctd['cast_max_z'][0, span]
 
-c_t[c_t < 1] = np.nan
+c_t[c_t < 0.5] = np.nan
 c_t[c_t > 30] = np.nan
 c_s[c_s < 34] = np.nan
 c_s[c_s > 40] = np.nan
 for i in range(len(c_lon)):
     c_t[:, i] = nanseg_interp(grid, c_t[:, i])
     c_s[:, i] = nanseg_interp(grid, c_s[:, i])
-    c_t[np.isnan(c_t[:, i]), i] = c_t[np.where(c_t[~np.isnan(c_t[:, i]), i])[0][-1], i]
-    c_s[np.isnan(c_s[:, i]), i] = c_s[np.where(c_s[~np.isnan(c_s[:, i]), i])[0][-1], i]
+    # c_t[np.isnan(c_t[:, i]), i] = c_t[np.where(c_t[~np.isnan(c_t[:, i]), i])[0][-1], i]
+    # c_s[np.isnan(c_s[:, i]), i] = c_s[np.where(c_s[~np.isnan(c_s[:, i]), i])[0][-1], i]
+    #
     # if c_t[(c_t[:, i] > 15) & (grid > 1000), i].size > 0:
     #     c_t[(c_t[:, i] > 15) & (grid > 1000), i] = np.nan
 
-good_s = np.where(c_s[-1, :] < 35)[0]
-good_t = np.where(c_t[-1, :] < 3)[0]
+good_s = np.where(c_s[-10, :] < 35)[0]
+good_t = np.where(c_t[-10, :] < 3)[0]
 good = np.intersect1d(good_s, good_t)
 c_s = c_s[:, good]
 c_t = c_t[:, good]
@@ -159,11 +160,11 @@ c_lon = c_lon[good]
 c_lat = c_lat[good]
 c_log = c_log[good]
 
-grid = GD.variables['grid'][:]
+# grid = GD.variables['grid'][:]
 grid_p = gsw.p_from_z(-1 * grid, ref_lat)
 z = -1 * grid
-c_s = np.concatenate([c_s, np.tile(c_s[-1, :], (19, 1))], axis=0)
-c_t = np.concatenate([c_t, np.tile(c_t[-1, :], (19, 1))], axis=0)
+# c_s = np.concatenate([c_s, np.tile(c_s[-1, :], (19, 1))], axis=0)
+# c_t = np.concatenate([c_t, np.tile(c_t[-1, :], (19, 1))], axis=0)
 
 
 # ------------- initial processing
@@ -223,18 +224,21 @@ for i in range(4):
     conservative_t_avg[:, i] = np.nanmean(conservative_t[:, inn], axis=1)
     theta_avg[:, i] = np.nanmean(theta[:, inn], axis=1)
     sigma_theta_avg[:, i] = np.nanmean(sigma0[:, inn], axis=1)
-    ddz_avg_sigma[:, i] = np.gradient(sigma_theta_avg[:, i], z)
 
     # N2[1:] = np.squeeze(sw.bfrq(salin_avg, theta_avg, grid_p, lat=ref_lat)[0])
     go = ~np.isnan(salin_avg[:, i])
     N2[np.where(go)[0][0:-1], i] = gsw.Nsquared(salin_avg[go, i], conservative_t_avg[go, i], grid_p[go], lat=ref_lat)[0]
     N2[N2[:, i] < 0] = np.nan
-    # N2[:, i] = nanseg_interp(grid, N2[:, i])
-    last_good = np.where(~np.isnan(N2[:, i]))[0][-1]
-    if last_good.size > 0:
-        N2[last_good + 1:, i] = N2[last_good, i]
-    # N[:, i] = np.sqrt(N2[:, i])
-    # N2[np.where(np.isnan(N2))[0]] = N2[np.where(np.isnan(N2))[0][0] - 1]
+    N2[:, i] = nanseg_interp(grid, N2[:, i])
+    # last_good = np.where(~np.isnan(N2[:, i]))[0][-1]
+    # if last_good.size > 0:
+    #     N2[last_good + 1:, i] = N2[last_good, i]
+    # # N[:, i] = np.sqrt(N2[:, i])
+    # # N2[np.where(np.isnan(N2))[0]] = N2[np.where(np.isnan(N2))[0][0] - 1]
+
+# correct last value of N2
+for i in range(7, 0, -1):
+    N2[-i, :] = N2[-i - 1, :] - 1*10**-9
 
 # -- N2 using all profiles (not by season)
 N2_all = np.nan * np.zeros(len(grid))
@@ -243,10 +247,16 @@ cons_t_avg = np.nanmean(conservative_t_avg, axis=1)
 go = ~np.isnan(abs_s_avg)
 N2_all[np.where(go)[0][0:-1]] = gsw.Nsquared(abs_s_avg[go], cons_t_avg[go], grid_p[go], lat=ref_lat)[0]
 N2_all[N2_all < 0] = np.nan
-last_good = np.where(~np.isnan(N2_all))[0][-1]
-if last_good.size > 0:
-    N2_all[last_good + 1:] = N2_all[last_good]
+N2_all = nanseg_interp(grid, N2_all)
+# last_good = np.where(~np.isnan(N2_all))[0][-1]r
+# if last_good.size > 0:
+#     N2_all[last_good + 1:] = N2_all[last_good]
+# correct last value of N2
+for i in range(7, 0, -1):
+    N2_all[-i] = N2_all[-i - 1] - 1*10**-9
 
+for i in range(4):
+    ddz_avg_sigma[:, i] = (-1025/g) * N2[:, i]  # np.gradient(sigma_theta_avg[:, i], z)
 
 # --- eta
 eta = np.nan * np.zeros((len(grid), num_profs))
@@ -263,7 +273,8 @@ for i in range(num_profs):
             if (this_time > date_month[bckgrds[j]].min()) & (this_time < date_month[bckgrds[j]].max()):
                 cor_b[j] = 1
     eta[:, i] = (sigma0[:, i] - sigma_theta_avg[:, cor_b > 0][:, 0]) / ddz_avg_sigma[:, cor_b > 0][:, 0]
-    sigma_anom[:, i] = (sigma0[:, i] - sigma_theta_avg[:, cor_b > 0][:, 0])
+    # eta[:, i] = (sigma0[:, i] - np.nanmean(sigma_theta_avg, axis=1))/np.nanmean(ddz_avg_sigma, axis=1)
+    sigma_anom[:, i] = (sigma0[:, i] - np.nanmean(sigma_theta_avg, axis=1))
     conservative_t_anom[:, i] = (conservative_t[:, i] - conservative_t_avg[:, cor_b > 0][:, 0])
 
 # -- look for long term warming/cooling trends
@@ -296,19 +307,22 @@ plot_pro(ax3)
 
 colors = plt.cm.Dark2(np.arange(0, 4, 1))
 # --- T/S plot and lat/lon profile location
-f, (ax, ax2, ax3) = plt.subplots(1, 3)
+f, (ax, ax2, ax3, ax4) = plt.subplots(1, 4)
 for i in range(num_profs):
     ax.scatter(abs_salin[:, i], conservative_t[:, i], s=1)
 # colors = ['r', 'g', 'b', 'k']
 for i in range(4):
     ax.plot(salin_avg[:, i], conservative_t_avg[:, i], linewidth=2, color=colors[i])
-    ax2.plot(sigma_theta_avg[:, i], grid, linewidth=2, color=colors[i])
-    ax3.plot(sigma_anom[:, bckgrds[i]], grid, color=colors[i], linewidth=0.5)
+    ax2.plot(N2[:, i], grid, linewidth=2, color=colors[i])
+    ax3.plot(ddz_avg_sigma[:, i], grid, linewidth=2, color=colors[i])
+    ax4.plot(sigma_anom[:, bckgrds[i]], grid, color=colors[i], linewidth=0.5)
 ax.grid()
 ax2.invert_yaxis()
 ax3.invert_yaxis()
+ax4.invert_yaxis()
 ax2.grid()
-plot_pro(ax3)
+ax3.grid()
+plot_pro(ax4)
 
 # MODE PARAMETERS
 # frequency zeroed for geostrophic modes
@@ -317,10 +331,10 @@ omega = 0
 mmax = 60
 nmodes = mmax + 1
 eta_fit_dep_min = 75
-eta_fit_dep_max = 3500
+eta_fit_dep_max = 3750
 
 # -- computer vertical mode shapes
-G, Gz, c = vertical_modes(N2_all, grid, omega, mmax)
+G, Gz, c, epsilon = vertical_modes(N2_all, grid, omega, mmax)
 
 # -- cycle through seasons
 AG = []
@@ -367,11 +381,11 @@ EOFetashape = np.matrix(G[:, 1:]) * V_AGqa  # depth shape of eigenfunctions [nde
 EOFetashape1_BTpBC1 = G[:, 1:3] * V_AGqa[0:2, 0]  # truncated 2 mode shape of EOF#1
 EOFetashape2_BTpBC1 = G[:, 1:3] * V_AGqa[0:2, 1]  # truncated 2 mode shape of EOF#2
 
-# eof_test =
-grid_test = grid[50:750]
-eta_test = eta[50:750, 0:10]
-RR = np.matrix(eta_test) * np.transpose(np.matrix(eta_test))
-d_test, v_test = np.linalg.eig(RR)
+# # eof_test =
+# grid_test = grid[50:750]
+# eta_test = eta[50:750, 0:10]
+# RR = np.matrix(eta_test) * np.transpose(np.matrix(eta_test))
+# d_test, v_test = np.linalg.eig(RR)
 
 # f, ax = plt.subplots()
 # # for i in range(1):
@@ -384,7 +398,7 @@ d_test, v_test = np.linalg.eig(RR)
 f, (ax, ax2, ax3) = plt.subplots(1, 3, sharey=True)
 for i in range(num_profs):
     ax.plot(sigma_anom[:, i], grid, linewidth=0.75)
-    ax2.plot(eta[0:215, i], grid[0:215], linewidth=.75, color='#808000')
+    ax2.plot(eta[:, i], grid, linewidth=.75, color='#808000')
     ax2.plot(Eta_m[:, i], grid, linewidth=.5, color='k', linestyle='--')
 n2p = ax3.plot((np.sqrt(N2_all) * (1800 / np.pi)) / 4, grid, color='k', label='N(z) [cph]')
 for j in range(4):
@@ -400,7 +414,7 @@ ax.set_xlim([-.5, .5])
 ax2.grid()
 ax2.set_title('Isopycnal Displacement [m]')
 ax2.set_xlabel('[m]')
-ax2.axis([-600, 600, 0, 4750])
+ax2.axis([-400, 400, 0, 4750])
 
 handles, labels = ax3.get_legend_handles_labels()
 ax3.legend(handles, labels, fontsize=10)
@@ -409,6 +423,21 @@ ax3.set_xlabel('Normalized Mode Amplitude')
 ax3.set_xlim([-1, 1])
 ax3.invert_yaxis()
 plot_pro(ax3)
+
+# --- PLOT PE PER SEASON
+f_ref = np.pi * np.sin(np.deg2rad(ref_lat)) / (12 * 1800)
+dk = f_ref / c[1]
+sc_x = 1000 * f_ref / c[1:]
+f, ax = plt.subplots()
+ax.plot(sc_x, np.nanmean(PE_per_mass[0][1:], axis=1) / dk, color='r', linewidth=3)
+ax.plot(sc_x, np.nanmean(PE_per_mass[1][1:], axis=1) / dk, color='m', linewidth=3)
+ax.plot(sc_x, np.nanmean(PE_per_mass[2][1:], axis=1) / dk, color='c', linewidth=3)
+ax.plot(sc_x, np.nanmean(PE_per_mass[3][1:], axis=1) / dk, color='b', linewidth=3)
+ax.set_yscale('log')
+ax.set_xscale('log')
+ax.axis([10 ** -2, 10 ** 1, 10 ** (-4), 2 * 10 ** 3])
+ax.axis([10 ** -2, 10 ** 1, 10 ** (-4), 10 ** 3])
+plot_pro(ax)
 
 # --- PLOT MODE AMPLITUDES IN TIME
 window_size = 25
@@ -471,12 +500,12 @@ plot_pro(ax)
 
 # --- SAVE
 # write python dict to a file
-sa = 0
+sa = 1
 if sa > 0:
     my_dict = {'depth': grid, 'Sigma0': sigma0, 'lon': c_lon, 'lat': c_lat, 'time': c_date,
                'N2_per_season': N2, 'background indices': bckgrds, 'background order': ['spr', 'sum', 'fall', 'wint'],
                'AG': AG_all, 'AG_per_season': AG, 'Eta': eta, 'Eta_m': eta_m_all, 'NEta_m': Neta_m_all,
-               'PE': PE_per_mass_all, 'c': c}
-    output = open('/Users/jake/Desktop/bats/station_bats_pe_apr11.pkl', 'wb')
+               'PE': PE_per_mass_all, 'PE_by_season': PE_per_mass, 'c': c}
+    output = open('/Users/jake/Desktop/bats/station_bats_pe_oct01.pkl', 'wb')
     pickle.dump(my_dict, output)
     output.close()

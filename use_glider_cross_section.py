@@ -17,10 +17,12 @@ from toolkit import plot_pro
 # ---- DG ABACO 2017
 # x = Glider(38, np.arange(67, 78), '/Users/jake/Documents/baroclinic_modes/DG/ABACO_2017/sg038')
 # ---- DG ABACO 2018
-x = Glider(37, np.concatenate((np.arange(69, 81), np.arange(82, 84))), '/Users/jake/Documents/baroclinic_modes/DG/ABACO_2018/sg037')
+# x = Glider(37, np.concatenate((np.arange(69, 81), np.arange(82, 84))), '/Users/jake/Documents/baroclinic_modes/DG/ABACO_2018/sg037')
 # x = Glider(39, np.arange(56, 70), '/Users/jake/Documents/baroclinic_modes/DG/ABACO_2018/sg039')
 # ---- DG BATS 2015
 # x = Glider(35, np.arange(60, 70), '/Users/jake/Documents/baroclinic_modes/DG/BATS_2015/sg035')
+# ---- DG BATS 2018
+x = Glider(41, np.arange(27, 33), '/Users/jake/Documents/baroclinic_modes/DG/BATS_2018/sg041')
 
 # -- match max dive depth to bin_depth
 # GD = Dataset('BATs_2015_gridded_apr04.nc', 'r')
@@ -94,11 +96,11 @@ x.plot_cross_section(bin_depth, ds, v_g, dist, profile_tags_per, isopycdep, isop
 # bathy_path = '/Users/jake/Documents/Cuddy_tailored/DG_wa_coast/smith_sandwell_wa_coast.nc'
 # plan_window = [-128.5, -123.75, 46.5, 48.5]
 # ABACO
-bathy_path = '/Users/jake/Documents/baroclinic_modes/DG/ABACO_2017/OceanWatch_smith_sandwell.nc'
-plan_window = [-77.5, -73.5, 25.5, 27]
+# bathy_path = '/Users/jake/Documents/baroclinic_modes/DG/ABACO_2017/OceanWatch_smith_sandwell.nc'
+# plan_window = [-77.5, -73.5, 25.5, 27]
 # BATS
-# bathy_path = '/Users/jake/Desktop/bats/bats_bathymetry/GEBCO_2014_2D_-67.7_29.8_-59.9_34.8.nc'
-# plan_window = [-66, -63, 31, 33]
+bathy_path = '/Users/jake/Desktop/bats/bats_bathymetry/GEBCO_2014_2D_-67.7_29.8_-59.9_34.8.nc'
+plan_window = [-66, -63, 31, 34]
 
 
 # --- for combined set of transects ---

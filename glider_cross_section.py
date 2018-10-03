@@ -343,14 +343,20 @@ class Glider(object):
                     # DACe = dac_u[i]  # zonal depth averaged current [m/s]
                     # DACn = dac_v[i]  # meridional depth averaged current [m/s]
                     if i < 2:
-                        DACe = np.nanmean([[dac_u[i]], [dac_u[i + 2]]])
-                        DACn = np.nanmean([[dac_v[i]], [dac_v[i + 2]]])
+                        # DACe = np.nanmean([[dac_u[i]], [dac_u[i + 2]]])
+                        # DACn = np.nanmean([[dac_v[i]], [dac_v[i + 2]]])
+                        DACe = dac_u[i]
+                        DACn = dac_v[i]
                     elif (i >= 2) and (i < len(profile_tags) - 2):
-                        DACe = np.nanmean([[dac_u[i - 1]], [dac_u[i]], [dac_u[i + 2]]])
-                        DACn = np.nanmean([[dac_v[i - 1]], [dac_v[i]], [dac_v[i + 2]]])
+                        # DACe = np.nanmean([[dac_u[i - 1]], [dac_u[i]], [dac_u[i + 2]]])
+                        # DACn = np.nanmean([[dac_v[i - 1]], [dac_v[i]], [dac_v[i + 2]]])
+                        DACe = dac_u[i]
+                        DACn = dac_v[i]
                     elif i >= len(profile_tags) - 2:
-                        DACe = np.nanmean([[dac_u[i - 1]], [dac_u[i]]])
-                        DACn = np.nanmean([[dac_v[i - 1]], [dac_v[i]]])
+                        # DACe = np.nanmean([[dac_u[i - 1]], [dac_u[i]]])
+                        # DACn = np.nanmean([[dac_v[i - 1]], [dac_v[i]]])
+                        DACe = dac_u[i]
+                        DACn = dac_v[i]
                     mag_DAC, ang_DAC = cart2pol(DACe, DACn)
                     DACat, DACpot = pol2cart(mag_DAC, ang_DAC - ang_sfc_m)
                     vbt[i] = DACpot  # across-track barotropic current comp (>0 to left)
