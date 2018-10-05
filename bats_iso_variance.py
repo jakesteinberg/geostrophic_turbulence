@@ -874,7 +874,7 @@ if plot_mode_corr > 0:
 # ----------------------------------------------------------------------------------------------------------------------
 
 # --- AVERAGE ENERGY
-calmer = np.concatenate((np.arange(0, 100), np.arange(120, num_profs)))  # can exclude the labby
+calmer = np.concatenate((np.arange(0, 110), np.arange(110, num_profs)))  # can exclude the labby
 avg_PE = np.nanmean(PE_per_mass[:, calmer], 1)
 good_prof_i = good_ke_prof  # np.where(good_prof > 0)
 avg_KE = np.nanmean(HKE_per_mass[:, np.where(good_ke_prof > 0)[0]], 1)
@@ -893,7 +893,7 @@ PE_SD, PE_GM = PE_Tide_GM(rho0, grid, nmodes, np.transpose(np.atleast_2d(N2)), f
 
 # ----------------------------------------------------------------------------------------------------------------------
 # --- CURVE FITTING TO FIND BREAK IN SLOPES, WHERE WE MIGHT SEE -5/3 AND THEN -3
-xx = sc_x
+xx = sc_x.copy()
 yy = avg_PE[1:] / dk
 yy2 = avg_KE[1:] / dk
 # export to use findchangepts in matlab 
@@ -916,12 +916,88 @@ y_g_53 = np.polyval(slope1, x_53)
 y_g_3 = np.polyval(slope2, x_3)
 y_g_ke = np.polyval(slope_ke, x_3_2)
 
+# --- fminsearch to find break in slope that best matches k-5/3 k -3
+def spectrum_fit(ipoint_0, x, pe):
+    x = np.log10(x)
+    pe = np.log10(pe)
+    ipoint = np.log10(ipoint_0)
+    l_b = np.nanmin(x)
+    r_b = np.nanmax(x)
+    x_grid = np.arange(l_b, r_b, 0.01)
+    pe_grid = np.interp(x_grid, x, pe)
+    first_over = np.where(x_grid > ipoint)[0][0]
+    s1 = -5/3
+    b1 = pe_grid[first_over - 1] - s1 * x_grid[first_over - 1]
+    fit_53 = np.polyval(np.array([s1, b1]), x_grid[0:first_over])
+    s2 = -3
+    b2 = pe_grid[first_over] - s2 * x_grid[first_over]
+    fit_3 = np.polyval(np.array([s2, b2]), x_grid[first_over:])
+    fit = np.concatenate((fit_53, fit_3))
+    fit_back = np.interp(x, x_grid, fit)
+    #  This is the target function that needs to be minimized
+    fsq = ((10 ** fit_back) - (10 ** pe))**2
+    return fsq.sum()
+
+
+TE_spectrum = (avg_PE / dk) + (avg_KE / dk)
+TE_spectrum_per = (PE_per_mass / dk) + (HKE_per_mass / dk)
+# find break for every profile
+start_g = sc_x[5]
+min_sp = np.nan * np.ones(PE_per_mass.shape[1])
+f, ax = plt.subplots()
+for i in range(10): # PE_per_mass.shape[1]):
+    in_sp = np.transpose(np.concatenate([sc_x[:, np.newaxis], TE_spectrum_per[1:, i][:, np.newaxis]], axis=1))
+    min_sp[i] = fmin(spectrum_fit, start_g, args=(tuple(in_sp)))
+
+    this_TE = TE_spectrum_per[1:, i]
+    x = np.log10(sc_x)
+    pe = np.log10(this_TE)
+    mid_p = np.log10(min_sp[i])
+    l_b = np.nanmin(x)
+    r_b = np.nanmax(x)
+    x_grid = np.arange(l_b, r_b, 0.01)
+    pe_grid = np.interp(x_grid, x, pe)
+    first_over = np.where(x_grid > mid_p)[0][0]
+    s1 = -5/3
+    b1 = pe_grid[first_over] - s1 * x_grid[first_over]
+    fit_53 = np.polyval(np.array([s1, b1]), x_grid[0:first_over + 1])
+    s2 = -3
+    b2 = pe_grid[first_over] - s2 * x_grid[first_over]
+    fit_3 = np.polyval(np.array([s2, b2]), x_grid[first_over:])
+    fit = np.concatenate((fit_53[0:-1], fit_3))
+
+    ax.plot(sc_x, this_TE, color='k')
+    ax.plot(10**x_grid, 10**fit, color='m')
+ax.set_yscale('log')
+ax.set_xscale('log')
+plot_pro(ax)
+
+# find break for average profile (total)
+in_sp = np.transpose(np.concatenate([sc_x[:, np.newaxis], TE_spectrum[1:][:, np.newaxis]], axis=1))
+min_sp_avg = fmin(spectrum_fit, start_g, args=(tuple(in_sp)))
+this_TE = TE_spectrum[1:]
+x = np.log10(sc_x)
+pe = np.log10(this_TE)
+mid_p = np.log10(min_sp_avg)
+l_b = np.nanmin(x)
+r_b = np.nanmax(x)
+x_grid = np.arange(l_b, r_b, 0.01)
+pe_grid = np.interp(x_grid, x, pe)
+first_over = np.where(x_grid > mid_p)[0][0]
+s1 = -5 / 3
+b1 = pe_grid[first_over] - s1 * x_grid[first_over]
+fit_53 = np.polyval(np.array([s1, b1]), x_grid[0:first_over + 1])
+s2 = -3
+b2 = pe_grid[first_over] - s2 * x_grid[first_over]
+fit_3 = np.polyval(np.array([s2, b2]), x_grid[first_over:])
+fit_total = np.concatenate((fit_53[0:-1], fit_3))
+
 # --- cascade rates
 vert_wave = sc_x / 1000
 alpha = 10
-yy_tot = (avg_PE[1:] / dk) + (avg_KE[1:] / dk)
-ak0 = xx[ipoint] / 1000
-E0 = np.mean(yy_tot[ipoint - 3:ipoint + 4])
+yy_tot = TE_spectrum[1:]  # (avg_PE[1:] / dk) + (avg_KE[1:] / dk)
+ak0 = min_sp_avg / 1000  # xx[ipoint] / 1000
+E0 = np.interp(ak0 * 1000, sc_x, yy_tot)  # np.mean(yy_tot[ipoint - 3:ipoint + 4])
 ak = vert_wave / ak0
 one = E0 * ((ak ** (5 * alpha / 3)) * (1 + ak ** (4 * alpha / 3))) ** (-1 / alpha)
 # -  enstrophy/energy transfers
@@ -931,6 +1007,7 @@ avg_nu = np.nanmean(nu)
 enst_xfer = (E0 * ak0 ** 3) ** (3 / 2)
 ener_xfer = (E0 * ak0 ** (5 / 3)) ** (3 / 2)
 enst_diss = np.sqrt(avg_nu) / (enst_xfer ** (1 / 6))
+rms_vort = E0 * (ak0 **3) * ( 0.75*(1 - (sc_x[0] / 1000)/ak0)**(4/3) + np.log(enst_diss / ak0) )
 
 # --- LOAD in other data
 # load in Station BATs PE Comparison
@@ -1012,6 +1089,7 @@ if plot_eng > 0:
     # KE_e = ax0.plot([10**-2, 1000 * f_ref / c[1]], KE_ed[0:2] / dk, color='y', label='eddy KE', linewidth=2)
 
     # -- Slope fits
+    ax0.plot(10 ** x_grid, 10 ** fit_total, color='#FF8C00')
     # PE
     ax0.plot(10 ** x_53, 10 ** y_g_53, color='b', linewidth=1.25)
     ax0.plot(10 ** x_3, 10 ** y_g_3, color='b', linewidth=1.25)
@@ -1107,10 +1185,10 @@ if plot_eng > 0:
     ax0.set_aspect('equal')
     ax0.grid()
 
-    xx = k_h
+    k_xx = k_h.copy()
     yy = avg_PE[1:] / dk
     yy2 = avg_KE[1:] / dk
-    x_3h = np.log10(xx[0:55])
+    x_3h = np.log10(k_xx[0:55])
     y_3p = np.log10(yy[0:55])
     y_3h = np.log10(yy2[0:55])
     slope_pe_h = np.polyfit(x_3h, y_3p, 1)
