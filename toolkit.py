@@ -139,3 +139,35 @@ def trend_fit(lon, lat, data):
     b = data
     C = np.linalg.lstsq(A, b)
     return C[0][0], C[0][1], C[0][2]
+
+
+# for power spectrum (finding break in slope, linear trends in log space)
+# --- fminsearch to find break in slope that best matches k-5/3 k -3
+def spectrum_fit(ipoint_0, x, pe):
+    x = np.log10(x)
+    pe = np.log10(pe)
+    ipoint = np.log10(ipoint_0)
+    l_b = np.nanmin(x)
+    r_b = np.nanmax(x)
+    x_grid = np.arange(l_b, r_b, 0.01)
+    pe_grid = np.interp(x_grid, x, pe)
+    # first_over = np.where(x_grid > ipoint)[0][0]
+    first_over = np.where(x_grid > ipoint)[0]
+    if len(first_over) > 0:
+        first_over = first_over[0]
+        s1 = -5/3
+        b1 = pe_grid[first_over - 1] - s1 * x_grid[first_over - 1]
+        fit_53 = np.polyval(np.array([s1, b1]), x_grid[0:first_over])
+        s2 = -3
+        b2 = pe_grid[first_over] - s2 * x_grid[first_over]
+        fit_3 = np.polyval(np.array([s2, b2]), x_grid[first_over:])
+        fit = np.concatenate((fit_53, fit_3))
+        fit_back = np.interp(x, x_grid, fit)
+        #  This is the target function that needs to be minimized
+        fsq = ((10 ** fit_back) - (10 ** pe))**2
+
+        return fsq.sum()
+    else:
+        return np.nan
+
+

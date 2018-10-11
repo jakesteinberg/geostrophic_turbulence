@@ -7,7 +7,7 @@ import pickle
 from netCDF4 import Dataset
 from scipy.signal import savgol_filter
 from grids import make_bin_gen
-from toolkit import plot_pro, nanseg_interp, find_nearest
+from toolkit import plot_pro, nanseg_interp
 from mode_decompositions import vertical_modes, vertical_modes_f, eta_fit, PE_Tide_GM
 
 ref_lat = 24 + (45 / 60)

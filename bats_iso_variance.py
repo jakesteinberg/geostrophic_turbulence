@@ -17,7 +17,7 @@ import datetime
 # functions I've written
 from glider_cross_section import Glider
 from mode_decompositions import eta_fit, vertical_modes, PE_Tide_GM, vertical_modes_f
-from toolkit import nanseg_interp, plot_pro
+from toolkit import spectrum_fit, nanseg_interp, plot_pro
 
 
 def functi_1(p, xe, xb):
@@ -321,7 +321,7 @@ for i in range(len(Time2)):
 # ---- Velocity and Eta
 sz = np.shape(Eta2)
 num_profs = sz[1]
-eta_fit_depth_min = 50
+eta_fit_depth_min = 200
 eta_fit_depth_max = 3500  # 3900
 eta_theta_fit_depth_max = 4200
 AG = np.zeros([nmodes, num_profs])
@@ -337,7 +337,9 @@ HKE_per_mass = np.nan * np.zeros([nmodes, num_profs])
 PE_theta_per_mass = np.nan * np.zeros([nmodes, num_profs])
 modest = np.arange(11, nmodes)
 good_ke_prof = np.ones(num_profs)
+good_pe_prof = np.ones(num_profs)
 HKE_noise_threshold = 1e-5  # 1e-5
+PE_noise_threshold = 1e5
 for i in range(num_profs):
     # fit to velocity profiles
     this_V = V2[:, i].copy()
@@ -386,7 +388,12 @@ for i in range(num_profs):
         Eta_theta_m[:, i] = np.squeeze(np.matrix(G) * np.transpose(np.matrix(AG_theta[:, i])))
         PE_per_mass[:, i] = (1 / 2) * AG[:, i] * AG[:, i] * c * c
         PE_theta_per_mass[:, i] = (1 / 2) * AG_theta[:, i] * AG_theta[:, i] * c * c
-    # output density structure for comparison
+
+        np.where(PE_per_mass[modest, i] >= PE_noise_threshold)
+        iwal = np.where(PE_per_mass[modest, i] >= PE_noise_threshold)
+        if np.size(iwal) > 0:
+            good_pe_prof[i] = 0  # flag profile as noisy
+# end loop over each v and eta for fitting
 
 sa = 0
 if sa > 0:
@@ -661,8 +668,9 @@ if plot_eta > 0:
     for j in range(num_profs):
         ax1.plot(Eta2[:, j], grid, color='#4682B4', linewidth=1.25)
         ax1.plot(Eta_m[:, j], grid, color='k', linestyle='--', linewidth=.75)
-        ax0.plot(V2[:, j], grid, color='#4682B4', linewidth=1.25)
-        ax0.plot(V_m[:, j], grid, color='k', linestyle='--', linewidth=.75)
+        if good_ke_prof[j] > 0:
+            ax0.plot(V2[:, j], grid, color='#4682B4', linewidth=1.25)
+            ax0.plot(V_m[:, j], grid, color='k', linestyle='--', linewidth=.75)
     for j in range(len(prof_lon_i)):
         ax15.plot(eta_per_prof[:, j], grid, color='#4682B4', linewidth=1.25)
         ax15.plot(eta_m_all[:, j], grid, color='k', linestyle='--', linewidth=.75)
@@ -798,6 +806,7 @@ if plot_mode > 0:
     ax2.set_ylabel('Mode Amplitude')
     ax2.set_xlabel('Date')
     ax2.set_ylim([-.12, .12])
+    ax2.set_xlim([Time2_dt[0], Time2_dt[-1]])
     plot_pro(ax2)
 # ----------------------------------------------------------------------------------------------------------------------
 # ----------------------------------------------------------------------------------------------------------------------
@@ -814,58 +823,155 @@ if plot_mode_corr > 0:
     dist = np.sqrt((x_tile - x_tile.T) ** 2 + (y_tile - y_tile.T) ** 2) / 1000
     time_lag = np.abs(time_tile - time_tile.T)
 
-    # this mode
-    mode_num = 1
-    AG_i = AG_all[mode_num, :]
-    # AGz_i = AGz[mode_num, :]
+    # # this mode
+    # mode_num = 1
+    # AG_i = AG_all[mode_num, :]
+    # # AGz_i = AGz[mode_num, :]
+    #
+    # # define each box as all points that fall within a time and space lag
+    # dist_win = np.arange(0, 100, 10)
+    # t_win = np.arange(0, 100, 10)
+    # # try to compute lagged autocorrelation for all points within a given distance
+    # # returns a tuple of coordinate pairs where distance criteria are met
+    # corr_i = np.nan * np.zeros((len(t_win), len(dist_win)))
+    # corr_z_i = np.nan * np.zeros((len(t_win), len(dist_win)))
+    # for dd in range(len(dist_win) - 1):
+    #     dist_small_i = np.where((dist > dist_win[dd]) & (dist < dist_win[dd + 1]))
+    #     time_in = np.unique(time_lag[dist_small_i[0], dist_small_i[1]])
+    #     AG_out = np.nan * np.zeros([len(dist_small_i[0]), 3])
+    #     AGz_out = np.nan * np.zeros([len(dist_small_i[0]), 3])
+    #     for i in range(len(dist_small_i[0])):
+    #         AG_out[i, :] = [AG_i[dist_small_i[0][i]], AG_i[dist_small_i[1][i]],
+    #                         time_lag[dist_small_i[0][i], dist_small_i[1][i]]]
+    #         # AGz_out[i, :] = [AGz_i[dist_small_i[0][i]], AGz_i[dist_small_i[1][i]],
+    #         #                  time_lag[dist_small_i[0][i], dist_small_i[1][i]]]
+    #     no_doub, no_doub_i = np.unique(AG_out[:, 2], return_index=True)
+    #     AG_out2 = AG_out[no_doub_i, :]
+    #     # zno_doub, zno_doub_i = np.unique(AGz_out[:, 2], return_index=True)
+    #     # AGz_out2 = AGz_out[zno_doub_i, :]
+    #     for j in range(len(t_win) - 1):
+    #         inn = AG_out2[((AG_out2[:, 2] > t_win[j]) & (AG_out2[:, 2] < t_win[j + 1])), 0:3]
+    #         i_mean = np.nanmean(inn[:, 0:2])
+    #         n = len(inn[:, 0:2])
+    #         variance = np.nanvar(inn[:, 0:2])
+    #         covi = np.nan * np.zeros(len(inn[:, 0]))
+    #         for k in range(len(inn[:, 0])):
+    #             covi[k] = (inn[k, 0] - i_mean) * (inn[k, 1] - i_mean)
+    #         corr_i[j, dd] = (1 / (n * variance)) * np.nansum(covi)
+    #
+    #         # innz = AGz_out2[((AGz_out2[:, 2] > t_win[j]) & (AGz_out2[:, 2] < t_win[j + 1])), 0:3]
+    #         # iz_mean = np.mean(innz[:, 0:2])
+    #         # nz = len(innz[:, 0:2])
+    #         # variancez = np.var(innz[:, 0:2])
+    #         # covzi = np.nan * np.zeros(len(innz[:, 0]))
+    #         # for k in range(len(innz[:, 0])):
+    #         #     covzi[k] = (innz[k, 0] - iz_mean) * (innz[k, 1] - iz_mean)
+    #         # corr_z_i[j, dd] = (1 / (nz * variancez)) * np.sum(covzi)
+    # f, ax1 = plt.subplots()
+    # cmap = plt.cm.get_cmap("viridis")
+    # cmap.set_over('w')  # ('#E6E6E6')
+    # pa = ax1.pcolor(dist_win, t_win, corr_i, vmin=-1, vmax=1, cmap='viridis')
+    # # paz = ax2.pcolor(dist_win, t_win, corr_z_i, vmin=-1, vmax=1, cmap='viridis')
+    # ax1.set_xlabel('Spatial Separation [km]')
+    # ax1.set_ylabel('Time Lag [days]')
+    # ax1.set_title('Displacement Mode 1 Amplitude')
+    # plt.colorbar(pa, label='Correlation')
+    # plot_pro(ax1)
+
+    # -----
+    # redo with only zonal separation
+    x = 1852 * 60 * np.cos(np.deg2rad(ref_lat)) * (prof_lon_i - ref_lon) / 1000
+    y = 1852 * 60 * (prof_lat_i - ref_lat) / 1000
+    t = time_rec.copy()
+    AG_i = AG_all[1, :]
+    AG_ii = AG_all[3, :]
+
+    # distances apart
+    # dist_x = np.nan * np.zeros((len(x), len(x)))
+    # time_l = np.nan * np.zeros((len(x), len(x)))
+    for i in range(len(x) - 1):
+        if i < 1:
+            dist_x = x[i+1:] - x[i]
+            dist_y = y[i+1:] - y[i]
+            dist_t = np.sqrt(dist_x**2 + dist_y**2)
+            time_l = np.abs(time_rec[i] - t[i+1:])
+            AG_count = np.array((AG_i[i] * np.ones(len(x[i+1:])), AG_i[i+1:]))
+            AG_count2 = np.array((AG_ii[i] * np.ones(len(x[i + 1:])), AG_ii[i + 1:]))
+        else:
+            dist_x = np.concatenate((dist_x, x[i+1:] - x[i]))
+            dist_y = np.concatenate((dist_y, y[i + 1:] - y[i]))
+            dist_t = np.concatenate((dist_t, np.sqrt((x[i+1:] - x[i])**2 + (y[i + 1:] - y[i])**2)))
+            time_l = np.concatenate((time_l, np.abs(t[i] - t[i+1:])))
+            AG_count = np.concatenate((AG_count, np.array((AG_i[i] * np.ones(len(x[i + 1:])), AG_i[i + 1:]))), axis=1)
+            AG_count2 = np.concatenate((AG_count2,
+                                        np.array((AG_ii[i] * np.ones(len(x[i + 1:])), AG_ii[i + 1:]))), axis=1)
 
     # define each box as all points that fall within a time and space lag
-    dist_win = np.arange(0, 100, 10)
-    t_win = np.arange(0, 100, 10)
-    # try to compute lagged autocorrelation for all points within a given distance
-    # returns a tuple of coordinate pairs where distance criteria are met
-    corr_i = np.nan * np.zeros((len(t_win), len(dist_win)))
-    corr_z_i = np.nan * np.zeros((len(t_win), len(dist_win)))
+    dist_win = np.arange(-100, 105, 2)
+    dist_t_win = np.arange(0, 105, 5)
+    t_win = np.arange(0, 80, 2)
+    t_t_win = np.arange(0, 80, 5)
+    corr_i_z = np.nan * np.zeros((len(t_win), len(dist_win)))
+    corr_i_z2 = np.nan * np.zeros((len(t_win), len(dist_win)))
+    corr_i_all = np.nan * np.zeros((len(t_t_win), len(dist_t_win)))
     for dd in range(len(dist_win) - 1):
-        dist_small_i = np.where((dist > dist_win[dd]) & (dist < dist_win[dd + 1]))
-        time_in = np.unique(time_lag[dist_small_i[0], dist_small_i[1]])
-        AG_out = np.nan * np.zeros([len(dist_small_i[0]), 3])
-        AGz_out = np.nan * np.zeros([len(dist_small_i[0]), 3])
-        for i in range(len(dist_small_i[0])):
-            AG_out[i, :] = [AG_i[dist_small_i[0][i]], AG_i[dist_small_i[1][i]],
-                            time_lag[dist_small_i[0][i], dist_small_i[1][i]]]
-            # AGz_out[i, :] = [AGz_i[dist_small_i[0][i]], AGz_i[dist_small_i[1][i]],
-            #                  time_lag[dist_small_i[0][i], dist_small_i[1][i]]]
-        no_doub, no_doub_i = np.unique(AG_out[:, 2], return_index=True)
-        AG_out2 = AG_out[no_doub_i, :]
-        # zno_doub, zno_doub_i = np.unique(AGz_out[:, 2], return_index=True)
-        # AGz_out2 = AGz_out[zno_doub_i, :]
-        for j in range(len(t_win) - 1):
-            inn = AG_out2[((AG_out2[:, 2] > t_win[j]) & (AG_out2[:, 2] < t_win[j + 1])), 0:3]
-            i_mean = np.nanmean(inn[:, 0:2])
-            n = len(inn[:, 0:2])
-            variance = np.nanvar(inn[:, 0:2])
-            covi = np.nan * np.zeros(len(inn[:, 0]))
-            for k in range(len(inn[:, 0])):
-                covi[k] = (inn[k, 0] - i_mean) * (inn[k, 1] - i_mean)
-            corr_i[j, dd] = (1 / (n * variance)) * np.nansum(covi)
+        for tt in range(len(t_win) - 1):
+            in_box = np.where((dist_x > dist_win[dd]) & (dist_x < dist_win[dd + 1]) &
+                              (time_l > t_win[tt]) & (time_l < t_win[tt + 1]))[0]
+            if len(in_box) > 4:
+                inski_with = AG_count[:, in_box]
+                inski = np.unique(AG_count[:, in_box])
+                i_mean = np.nanmean(inski)
+                n = len(inski)
+                variance = np.nanvar(inski)
+                covi = np.nan * np.zeros(len(inski))
+                for k in range(np.shape(inski_with)[1]):
+                    covi[k] = (inski_with[0, k] - i_mean) * (inski_with[1, k] - i_mean)
+                corr_i_z[tt, dd] = (1 / (n * variance)) * np.nansum(covi)
 
-            # innz = AGz_out2[((AGz_out2[:, 2] > t_win[j]) & (AGz_out2[:, 2] < t_win[j + 1])), 0:3]
-            # iz_mean = np.mean(innz[:, 0:2])
-            # nz = len(innz[:, 0:2])
-            # variancez = np.var(innz[:, 0:2])
-            # covzi = np.nan * np.zeros(len(innz[:, 0]))
-            # for k in range(len(innz[:, 0])):
-            #     covzi[k] = (innz[k, 0] - iz_mean) * (innz[k, 1] - iz_mean)
-            # corr_z_i[j, dd] = (1 / (nz * variancez)) * np.sum(covzi)
+                inski_with = AG_count2[:, in_box]
+                inski = np.unique(AG_count2[:, in_box])
+                i_mean = np.nanmean(inski)
+                n = len(inski)
+                variance = np.nanvar(inski)
+                covi = np.nan * np.zeros(np.shape(inski_with)[1])
+                for k in range(np.shape(inski_with)[1]):
+                    covi[k] = (inski_with[0, k] - i_mean) * (inski_with[1, k] - i_mean)
+                corr_i_z2[tt, dd] = (1 / (n * variance)) * np.nansum(covi)
+
+    for dd in range(len(dist_t_win) - 1):
+        for tt in range(len(t_t_win) - 1):
+            in_box = np.where((dist_t > dist_t_win[dd]) & (dist_t < dist_t_win[dd + 1]) &
+                              (time_l > t_t_win[tt]) & (time_l < t_t_win[tt + 1]))[0]
+            if len(in_box) > 5:
+                inski_with = AG_count[:, in_box]
+                inski = np.unique(AG_count[:, in_box])
+                i_mean = np.nanmean(inski)
+                n = len(inski)
+                variance = np.nanvar(inski)
+                covi = np.nan * np.zeros(np.shape(inski_with)[1])
+                for k in range(np.shape(inski_with)[1]):
+                    covi[k] = (inski_with[0, k] - i_mean) * (inski_with[1, k] - i_mean)
+                corr_i_all[tt, dd] = (1 / (n * variance)) * np.nansum(covi)
+
+    f, (ax1, ax2) = plt.subplots(1, 2)
+    pa = ax1.pcolor(dist_win, t_win, corr_i_z, vmin=-1, vmax=.8, cmap='jet')
+    pa2 = ax2.pcolor(dist_win, t_win, corr_i_z2, vmin=-1, vmax=.8, cmap='jet')
+    ax1.set_xlabel('Zonal Separation [km]')
+    ax1.set_ylabel('Time Lag [days]')
+    ax2.set_xlabel('Zonal Separation [km]')
+    ax1.set_title('Displacement Mode 1 Amplitude')
+    ax2.set_title('Displacement Mode 3 Amplitude')
+    f.colorbar(pa, ax=ax1, label='Correlation')
+    f.colorbar(pa2, ax=ax2, label='Correlation')
+    ax1.grid()
+    plot_pro(ax2)
+
     f, ax1 = plt.subplots()
-    cmap = plt.cm.get_cmap("viridis")
-    cmap.set_over('w')  # ('#E6E6E6')
-    pa = ax1.pcolor(dist_win, t_win, corr_i, vmin=-1, vmax=1, cmap='viridis')
-    # paz = ax2.pcolor(dist_win, t_win, corr_z_i, vmin=-1, vmax=1, cmap='viridis')
+    pa = ax1.pcolor(dist_t_win, t_t_win, corr_i_all, vmin=-1, vmax=1, cmap='jet')
     ax1.set_xlabel('Spatial Separation [km]')
     ax1.set_ylabel('Time Lag [days]')
-    ax1.set_title('Displacement Mode Amplitude')
+    ax1.set_title('Displacement Mode 1 Amplitude')
     plt.colorbar(pa, label='Correlation')
     plot_pro(ax1)
 
@@ -882,7 +988,7 @@ avg_KE = np.nanmean(HKE_per_mass[:, np.where(good_ke_prof > 0)[0]], 1)
 PE_ed = np.nanmean(PE_per_mass[:, ed_in[0]:ed_in[-1]], axis=1)
 KE_ed = np.nanmean(HKE_per_mass[:, ed_in[0]:ed_in[-1]], axis=1)
 
-# --- ENERGY parameters
+# ----- ENERGY parameters ------
 f_ref = np.pi * np.sin(np.deg2rad(ref_lat)) / (12 * 1800)
 dk = f_ref / c[1]
 sc_x = 1000 * f_ref / c[1:]
@@ -890,18 +996,19 @@ vert_wavenumber = f_ref / c[1:]
 dk_ke = 1000 * f_ref / c[1]
 k_h = 1e3 * (f_ref / c[1:]) * np.sqrt(avg_KE[1:] / avg_PE[1:])
 PE_SD, PE_GM = PE_Tide_GM(rho0, grid, nmodes, np.transpose(np.atleast_2d(N2)), f_ref)
+vert_wave = sc_x / 1000
+alpha = 10
+mu = 1.88e-3 / (1 + 0.03222 * theta_avg + 0.002377 * theta_avg * theta_avg)
+nu = mu / gsw.rho(salin_avg, ct_avg, grid_p)
+avg_nu = np.nanmean(nu)
 
 # ----------------------------------------------------------------------------------------------------------------------
 # --- CURVE FITTING TO FIND BREAK IN SLOPES, WHERE WE MIGHT SEE -5/3 AND THEN -3
 xx = sc_x.copy()
 yy = avg_PE[1:] / dk
 yy2 = avg_KE[1:] / dk
-# export to use findchangepts in matlab 
-# np.savetxt('test_line_fit_x',xx)
-# np.savetxt('test_line_fit_y',yy)
-# index 11 is the point where the break in slope occurs
 ipoint = 9  # 8  # 11
-# fit slopes to PE and KE spectra
+# fit slopes to PE and KE spectra (with a break point that I determine)
 x_53 = np.log10(xx[0:ipoint+1])
 y_53 = np.log10(yy[0:ipoint+1])
 slope1 = np.polyfit(x_53, y_53, 1)
@@ -911,41 +1018,22 @@ slope2 = np.polyfit(x_3, y_3, 1)
 x_3_2 = np.log10(xx[0:55])
 y_3_2 = np.log10(yy2[0:55])
 slope_ke = np.polyfit(x_3_2, y_3_2, 1)
-
 y_g_53 = np.polyval(slope1, x_53)
 y_g_3 = np.polyval(slope2, x_3)
 y_g_ke = np.polyval(slope_ke, x_3_2)
 
-# --- fminsearch to find break in slope that best matches k-5/3 k -3
-def spectrum_fit(ipoint_0, x, pe):
-    x = np.log10(x)
-    pe = np.log10(pe)
-    ipoint = np.log10(ipoint_0)
-    l_b = np.nanmin(x)
-    r_b = np.nanmax(x)
-    x_grid = np.arange(l_b, r_b, 0.01)
-    pe_grid = np.interp(x_grid, x, pe)
-    first_over = np.where(x_grid > ipoint)[0][0]
-    s1 = -5/3
-    b1 = pe_grid[first_over - 1] - s1 * x_grid[first_over - 1]
-    fit_53 = np.polyval(np.array([s1, b1]), x_grid[0:first_over])
-    s2 = -3
-    b2 = pe_grid[first_over] - s2 * x_grid[first_over]
-    fit_3 = np.polyval(np.array([s2, b2]), x_grid[first_over:])
-    fit = np.concatenate((fit_53, fit_3))
-    fit_back = np.interp(x, x_grid, fit)
-    #  This is the target function that needs to be minimized
-    fsq = ((10 ** fit_back) - (10 ** pe))**2
-    return fsq.sum()
-
-
+# --- Use function and iterate over each energy profile
 TE_spectrum = (avg_PE / dk) + (avg_KE / dk)
 TE_spectrum_per = (PE_per_mass / dk) + (HKE_per_mass / dk)
 # find break for every profile
 start_g = sc_x[5]
 min_sp = np.nan * np.ones(PE_per_mass.shape[1])
+enst_xfer_per = np.nan * np.ones(PE_per_mass.shape[1])
+ener_xfer_per = np.nan * np.ones(PE_per_mass.shape[1])
+enst_diss_per = np.nan * np.ones(PE_per_mass.shape[1])
+rms_vort_per = np.nan * np.ones(PE_per_mass.shape[1])
 f, ax = plt.subplots()
-for i in range(10): # PE_per_mass.shape[1]):
+for i in range(PE_per_mass.shape[1]):
     in_sp = np.transpose(np.concatenate([sc_x[:, np.newaxis], TE_spectrum_per[1:, i][:, np.newaxis]], axis=1))
     min_sp[i] = fmin(spectrum_fit, start_g, args=(tuple(in_sp)))
 
@@ -966,11 +1054,34 @@ for i in range(10): # PE_per_mass.shape[1]):
     fit_3 = np.polyval(np.array([s2, b2]), x_grid[first_over:])
     fit = np.concatenate((fit_53[0:-1], fit_3))
 
-    ax.plot(sc_x, this_TE, color='k')
+    ak0 = min_sp[i] / 1000  # xx[ipoint] / 1000
+    E0 = np.interp(ak0 * 1000, sc_x, this_TE)  # np.mean(yy_tot[ipoint - 3:ipoint + 4])
+    ak = vert_wave / ak0
+    one = E0 * ((ak ** (5 * alpha / 3)) * (1 + ak ** (4 * alpha / 3))) ** (-1 / alpha)
+    # -  enstrophy/energy transfers
+    enst_xfer_per[i] = (E0 * ak0 ** 3) ** (3 / 2)
+    ener_xfer_per[i] = (E0 * ak0 ** (5 / 3)) ** (3 / 2)
+    enst_diss_per[i] = np.sqrt(avg_nu) / (enst_xfer_per[i] ** (1 / 6))
+    rms_vort_per[i] = E0 * (ak0 ** 3) * (0.75 * (1 - (sc_x[0] / 1000) / ak0) ** (4/3) + np.log(enst_diss_per[i] / ak0))
+
+    # ax.plot(sc_x, this_TE, color='k')
     ax.plot(10**x_grid, 10**fit, color='m')
 ax.set_yscale('log')
 ax.set_xscale('log')
 plot_pro(ax)
+
+f, (ax1, ax2, ax3) = plt.subplots(1, 3, sharey=True)
+ax1.hist(rms_vort_per, bins=np.arange(np.nanmin(rms_vort_per), 1*10**-9, 5*10**-11), facecolor='blue', alpha=0.5)
+ax1.set_xlabel('RMS vorticity')
+ax2.hist(enst_xfer_per, bins=np.arange(np.nanmin(enst_xfer_per), 4*10**-16, 2.5*10**-17), facecolor='blue', alpha=0.5)
+ax2.set_xlabel('Enstrophy Transfer Rate')
+ax3.hist(1 / min_sp, 20, facecolor='blue', alpha=0.5)
+ax3.set_xlabel('Rossby Radius of Break [km]')
+ax1.set_ylim([0, 70])
+ax1.set_ylabel('Count (out of ' + str(num_profs) + ')')
+ax1.grid()
+ax2.grid()
+plot_pro(ax3)
 
 # find break for average profile (total)
 in_sp = np.transpose(np.concatenate([sc_x[:, np.newaxis], TE_spectrum[1:][:, np.newaxis]], axis=1))
@@ -992,25 +1103,31 @@ b2 = pe_grid[first_over] - s2 * x_grid[first_over]
 fit_3 = np.polyval(np.array([s2, b2]), x_grid[first_over:])
 fit_total = np.concatenate((fit_53[0:-1], fit_3))
 
-# --- cascade rates
-vert_wave = sc_x / 1000
-alpha = 10
-yy_tot = TE_spectrum[1:]  # (avg_PE[1:] / dk) + (avg_KE[1:] / dk)
+# closest mode number to ak0
+sc_x_break_i = np.where(sc_x < min_sp_avg)[0][-1]
+
+# --- cascade rates (for average TE spectrum)
 ak0 = min_sp_avg / 1000  # xx[ipoint] / 1000
-E0 = np.interp(ak0 * 1000, sc_x, yy_tot)  # np.mean(yy_tot[ipoint - 3:ipoint + 4])
+E0 = np.interp(ak0 * 1000, sc_x, TE_spectrum[1:])  # np.mean(yy_tot[ipoint - 3:ipoint + 4])
 ak = vert_wave / ak0
 one = E0 * ((ak ** (5 * alpha / 3)) * (1 + ak ** (4 * alpha / 3))) ** (-1 / alpha)
-# -  enstrophy/energy transfers
-mu = 1.88e-3 / (1 + 0.03222 * theta_avg + 0.002377 * theta_avg * theta_avg)
-nu = mu / gsw.rho(salin_avg, ct_avg, grid_p)
-avg_nu = np.nanmean(nu)
+# ---  enstrophy/energy transfers
 enst_xfer = (E0 * ak0 ** 3) ** (3 / 2)
 ener_xfer = (E0 * ak0 ** (5 / 3)) ** (3 / 2)
 enst_diss = np.sqrt(avg_nu) / (enst_xfer ** (1 / 6))
-rms_vort = E0 * (ak0 **3) * ( 0.75*(1 - (sc_x[0] / 1000)/ak0)**(4/3) + np.log(enst_diss / ak0) )
+rms_vort = E0 * (ak0 **3) * (0.75*(1 - (sc_x[0] / 1000)/ak0)**(4/3) + np.log(enst_diss / ak0))
+rms_ener = E0 * (ak0) * ( -3/2 + 3/2*( (ak0 ** (2/3))*((sc_x[0] / 1000) ** (-2/3))) -
+                          0.5 * (ak0 ** 2) * (enst_diss ** -2) + 0.5 * ak0 ** 4)
 
-# --- LOAD in other data
-# load in Station BATs PE Comparison
+# --- rhines scale
+r_earth = 6371e3  # earth radius [m]
+beta_ref = f_ref / (np.tan(np.deg2rad(ref_lat)) * r_earth)
+# K_beta = 1 / np.sqrt(np.sqrt(np.sum(avg_KE)) / beta_ref)
+K_beta = 1 / np.sqrt( np.sqrt(rms_ener) / beta_ref )
+non_linearity = np.sqrt(rms_ener) / (beta_ref * ((c[1] / f_ref) ** 2))
+
+# ----- LOAD in other data
+# -- load in Station BATs PE Comparison
 pkl_file = open('/Users/jake/Desktop/bats/station_bats_pe_oct01.pkl', 'rb')
 SB = pickle.load(pkl_file)
 pkl_file.close()
@@ -1018,6 +1135,7 @@ sta_bats_pe = SB['PE_by_season']
 sta_bats_c = SB['c']
 sta_bats_f = np.pi * np.sin(np.deg2rad(31.6)) / (12 * 1800)
 sta_bats_dk = sta_bats_f / sta_bats_c[1]
+# seasonal spread at bats station for each mode
 sta_max = np.nan * np.ones(len(sc_x))
 sta_min = np.nan * np.ones(len(sc_x))
 for i in range(1, 61):
@@ -1027,7 +1145,7 @@ for i in range(1, 61):
     test4 = np.nanmean(sta_bats_pe[3][i, :])
     sta_max[i - 1] = np.max([test1, test2, test3, test4])
     sta_min[i - 1] = np.min([test1, test2, test3, test4])
-# load in HKE estimates from Obj. Map 
+# -- load in HKE estimates from Obj. Map
 pkl_file = open('/Users/jake/Documents/geostrophic_turbulence/BATS_OM_KE.pkl', 'rb')
 bats_map = pickle.load(pkl_file)
 pkl_file.close()
@@ -1036,13 +1154,13 @@ ke_om_u = bats_map['avg_ke_u']
 ke_om_v = bats_map['avg_ke_v']
 ke_om_tot = bats_map['avg_ke_u'] + bats_map['avg_ke_v']
 dk_om = bats_map['dk']
-# load in Station HOTS PE Comparison
+# -- load in Station HOTS PE Comparison
 SH = si.loadmat('/Users/jake/Desktop/bats/station_hots_pe.mat')
 sta_hots_pe = SH['out']['PE'][0][0]
 sta_hots_c = SH['out'][0][0][3]
 sta_hots_f = SH['out'][0][0][2]
 sta_hots_dk = SH['out']['dk'][0][0]
-# LOAD ABACO
+# -- LOAD ABACO
 pkl_file = open('/Users/jake/Documents/geostrophic_turbulence/ABACO_2017_energy.pkl', 'rb')
 abaco_energies = pickle.load(pkl_file)
 pkl_file.close()
@@ -1089,7 +1207,7 @@ if plot_eng > 0:
     # KE_e = ax0.plot([10**-2, 1000 * f_ref / c[1]], KE_ed[0:2] / dk, color='y', label='eddy KE', linewidth=2)
 
     # -- Slope fits
-    ax0.plot(10 ** x_grid, 10 ** fit_total, color='#FF8C00')
+    ax0.plot(10 ** x_grid, 10 ** fit_total, color='#FF8C00', label=r'APE$_{fit}$')
     # PE
     ax0.plot(10 ** x_53, 10 ** y_g_53, color='b', linewidth=1.25)
     ax0.plot(10 ** x_3, 10 ** y_g_3, color='b', linewidth=1.25)
@@ -1105,18 +1223,20 @@ if plot_eng > 0:
     #          str('Break at ') + str(float("{0:.1f}".format(1 / xx[ipoint]))) + 'km')
 
     # -- Rossby Radii
-    ax0.plot([sc_x[0], sc_x[0]], [10 ** (-4), 4 * 10 ** (-4)], color='k', linewidth=2)
-    ax0.text(sc_x[0] - .6 * 10 ** -2, 7 * 10 ** (-4),
-             str(r'$c_1/f$ = ') + str(float("{0:.1f}".format(1 / sc_x[0]))) + 'km', fontsize=12)
-    ax0.plot([sc_x[4], sc_x[4]], [10 ** (-4), 4 * 10 ** (-4)], color='k', linewidth=2)
-    ax0.text(sc_x[4] - .4 * 10 ** -2, 7 * 10 ** (-4),
-             str(r'$c_5/f$ = ') + str(float("{0:.1f}".format(1 / sc_x[4]))) + 'km', fontsize=12)
-    ax1.plot([sc_x[0], sc_x[0]], [10 ** (-4), 4 * 10 ** (-4)], color='k', linewidth=2)
-    ax1.text(sc_x[0] - .6 * 10 ** -2, 7 * 10 ** (-4),
-             str(r'$c_1/f$ = ') + str(float("{0:.1f}".format(1 / sc_x[0]))) + 'km', fontsize=12)
-    ax1.plot([sc_x[4], sc_x[4]], [10 ** (-4), 4 * 10 ** (-4)], color='k', linewidth=2)
-    ax1.text(sc_x[4] - .4 * 10 ** -2, 7 * 10 ** (-4),
-             str(r'$c_5/f$ = ') + str(float("{0:.1f}".format(1 / sc_x[4]))) + 'km', fontsize=12)
+    ax0.plot([sc_x[0], sc_x[0]], [10 ** (-4), 3 * 10 ** (-4)], color='k', linewidth=2)
+    ax0.text(sc_x[0] - .6 * 10 ** -2, 5 * 10 ** (-4),
+             str(r'$c_1/f$ = ') + str(float("{0:.1f}".format(1 / sc_x[0]))) + 'km', fontsize=8)
+    ax0.plot([sc_x[sc_x_break_i], sc_x[sc_x_break_i]], [10 ** (-4), 3 * 10 ** (-4)], color='k', linewidth=2)
+    ax0.text(sc_x[sc_x_break_i] - .4 * 10 ** -2, 5 * 10 ** (-4),
+             'Break at Mode ' + str(sc_x_break_i) + ' = ' + str(float("{0:.1f}".format(1 / sc_x[sc_x_break_i]))) + 'km',
+             fontsize=8)
+    ax1.plot([sc_x[0], sc_x[0]], [10 ** (-4), 3 * 10 ** (-4)], color='k', linewidth=2)
+    ax1.text(sc_x[0] - .6 * 10 ** -2, 5 * 10 ** (-4),
+             str(r'$c_1/f$ = ') + str(float("{0:.1f}".format(1 / sc_x[0]))) + 'km', fontsize=8)
+    ax1.plot([sc_x[sc_x_break_i], sc_x[sc_x_break_i]], [10 ** (-4), 3 * 10 ** (-4)], color='k', linewidth=2)
+    ax1.text(sc_x[sc_x_break_i] - .4 * 10 ** -2, 5 * 10 ** (-4),
+             'Break at Mode ' + str(sc_x_break_i) + ' = ' + str(float("{0:.1f}".format(1 / sc_x[sc_x_break_i]))) + 'km',
+             fontsize=8)
 
     # GM
     ax0.plot(sc_x, 0.25 * PE_GM / dk, linestyle='--', color='k', linewidth=0.75)
@@ -1159,6 +1279,7 @@ if plot_eng > 0:
     # plt.close()
     # plt.show()
 
+    # ---------------
     # additional plot to highlight the ratio of KE to APE to predict the scale of motion
     fig0, (ax0, ax1) = plt.subplots(1, 2)
     # Limits/scales
@@ -1172,6 +1293,8 @@ if plot_eng > 0:
     # ax0.fill_between(xx_fill, yy_fill, k_h, color='b',interpolate=True)
     ax0.fill_between(xx_fill, yy_fill, k_h, where=yy_fill >= k_h, facecolor='#FAEBD7', interpolate=True, alpha=0.75)
     ax0.fill_between(xx_fill, yy_fill, k_h, where=yy_fill <= k_h, facecolor='#6B8E23', interpolate=True, alpha=0.75)
+    ax0.plot([10**-2, 10**1], 1e3 * np.array([K_beta, K_beta]), color='k', linestyle='-.')
+    ax0.text(1.1, 0.025, r'k$_{Rhines}$', fontsize=12)
 
     ax0.set_yscale('log')
     ax0.set_xscale('log')
@@ -1333,33 +1456,34 @@ for pp in np.arange(5, 80):  # np.append(np.arange(5, 42), np.arange(140, 160)):
         # for mn in range(1, 7):
         #     dg_mode_pe_z_frac[pp, j, mn] = 0.5 * (AG[mn, pp] ** 2) * N2[j] * (G[j, mn] ** 2)
 
-f, ax = plt.subplots(5, 1, sharex=True)
-dps = [0, 40, 65, 115, 165]
-colo = ['r', 'g', 'b', 'k', 'c']
-ppe = ed_in_2 - 1
-count = 0
-for i in dps:
-    for pp in range(60):
-        ax[count].plot(np.array([0, 1, 2, 3, 4]),
-                       np.array([tke_m0_z[i, pp], tke_m1_z[i, pp], tke_m2_z[i, pp], tke_m3_z[i, pp], tke_m4_z[i, pp]]),
-                       color='b', linewidth=0.5)
-        if pp > 58:
-            ax[count].plot(np.array([0, 1, 2, 3, 4]),
-                           np.array([tke_m0_z[i, ppe], tke_m1_z[i, ppe],
-                                     tke_m2_z[i, ppe], tke_m3_z[i, ppe], tke_m4_z[i, ppe]]),
-                            color='r', linewidth=1.75)
-    if count < 2:
-        ax[count].set_ylim([0, 0.02])
-    else:
-        ax[count].set_ylim([0, 0.005])
-    ax[count].set_ylabel(r'KE [m$^2$/s$^2$]')
-    ax[count].grid()
-    ax[count].set_title('KE at ' + str(grid[i]) + 'm', fontsize='10')
-    count = count + 1
-ax[count - 1].set_xlabel('Mode Number')
-ax[count - 1].grid()
-plot_pro(ax[count - 1])
+# f, ax = plt.subplots(5, 1, sharex=True)
+# dps = [0, 40, 65, 115, 165]
+# colo = ['r', 'g', 'b', 'k', 'c']
+# ppe = ed_in_2 - 1
+# count = 0
+# for i in dps:
+#     for pp in range(60):
+#         ax[count].plot(np.array([0, 1, 2, 3, 4]),
+#                        np.array([tke_m0_z[i, pp], tke_m1_z[i, pp], tke_m2_z[i, pp], tke_m3_z[i, pp], tke_m4_z[i, pp]]),
+#                        color='b', linewidth=0.5)
+#         if pp > 58:
+#             ax[count].plot(np.array([0, 1, 2, 3, 4]),
+#                            np.array([tke_m0_z[i, ppe], tke_m1_z[i, ppe],
+#                                      tke_m2_z[i, ppe], tke_m3_z[i, ppe], tke_m4_z[i, ppe]]),
+#                             color='r', linewidth=1.75)
+#     if count < 2:
+#         ax[count].set_ylim([0, 0.02])
+#     else:
+#         ax[count].set_ylim([0, 0.005])
+#     ax[count].set_ylabel(r'KE [m$^2$/s$^2$]')
+#     ax[count].grid()
+#     ax[count].set_title('KE at ' + str(grid[i]) + 'm', fontsize='10')
+#     count = count + 1
+# ax[count - 1].set_xlabel('Mode Number')
+# ax[count - 1].grid()
+# plot_pro(ax[count - 1])
 
+# -----------------------
 # f, (ax0, ax1) = plt.subplots(1, 2, sharey=True)
 # colors = ['#00BFFF', '#F4A460', '#00FF7F', '#FA8072', '#708090']
 # # background ke
