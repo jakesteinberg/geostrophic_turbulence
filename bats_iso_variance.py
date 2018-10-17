@@ -1059,7 +1059,7 @@ for i in range(PE_per_mass.shape[1]):
     ak = vert_wave / ak0
     one = E0 * ((ak ** (5 * alpha / 3)) * (1 + ak ** (4 * alpha / 3))) ** (-1 / alpha)
     # -  enstrophy/energy transfers
-    enst_xfer_per[i] = (E0 * ak0 ** 3) ** (3 / 2)
+    enst_xfer_per[i] = (E0 * (ak0 ** 3)) ** (3 / 2)
     ener_xfer_per[i] = (E0 * ak0 ** (5 / 3)) ** (3 / 2)
     enst_diss_per[i] = np.sqrt(avg_nu) / (enst_xfer_per[i] ** (1 / 6))
     rms_vort_per[i] = E0 * (ak0 ** 3) * (0.75 * (1 - (sc_x[0] / 1000) / ak0) ** (4/3) + np.log(enst_diss_per[i] / ak0))
