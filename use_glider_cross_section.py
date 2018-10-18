@@ -22,7 +22,7 @@ from toolkit import plot_pro
 # ---- DG BATS 2015
 # x = Glider(35, np.arange(60, 70), '/Users/jake/Documents/baroclinic_modes/DG/BATS_2015/sg035')
 # ---- DG BATS 2018
-x = Glider(41, np.arange(27, 33), '/Users/jake/Documents/baroclinic_modes/DG/BATS_2018/sg041')
+x = Glider(41, np.arange(38, 51), '/Users/jake/Documents/baroclinic_modes/DG/BATS_2018/sg041')
 
 # -- match max dive depth to bin_depth
 # GD = Dataset('BATs_2015_gridded_apr04.nc', 'r')
@@ -100,7 +100,7 @@ x.plot_cross_section(bin_depth, ds, v_g, dist, profile_tags_per, isopycdep, isop
 # plan_window = [-77.5, -73.5, 25.5, 27]
 # BATS
 bathy_path = '/Users/jake/Desktop/bats/bats_bathymetry/GEBCO_2014_2D_-67.7_29.8_-59.9_34.8.nc'
-plan_window = [-66, -63, 31, 34]
+plan_window = [-66, -63, 32, 36]
 
 
 # --- for combined set of transects ---

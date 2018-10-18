@@ -37,7 +37,7 @@ G_B, Gz_B, c_B, epsilon_B = vertical_modes(sta_bats_n2, SB['depth'], omega, mmax
 ratio = sta_bats_n2 / sta_bats_f
 # --------------------------------------------------------------------------------------------------------------------
 # ABACO SHIP
-# just one year
+# just one year!!
 pkl_file = open('/Users/jake/Documents/baroclinic_modes/SHIPBOARD/ABACO/ship_ladcp_2017-05-08.pkl', 'rb')
 abaco_ship = pickle.load(pkl_file)
 pkl_file.close()
@@ -45,11 +45,14 @@ ship_depth = abaco_ship['bin_depth']
 ship_SA = abaco_ship['SA']
 ship_CT = abaco_ship['CT']
 ship_sig0 = abaco_ship['den_grid']
+ship_dist = abaco_ship['den_dist']
 ref_lat = 26
 # Shipboard CTD N2
 ship_p = gsw.p_from_z(-1 * ship_depth, ref_lat)
 ship_N2 = np.nan*np.ones(len(ship_p))
-ship_N2[0:-1] = gsw.Nsquared(np.nanmean(ship_SA, axis=1), np.nanmean(ship_CT, axis=1), ship_p, lat=ref_lat)[0]
+# select profiles to average over away from DWBC
+ship_N2[0:-1] = gsw.Nsquared(np.nanmean(ship_SA[:, ship_dist > 100], axis=1),
+                             np.nanmean(ship_CT[:, ship_dist > 100], axis=1), ship_p, lat=ref_lat)[0]
 ship_N2[1] = ship_N2[2] - 1*10**(-5)
 ship_N2[0] = ship_N2[1] - 1*10**(-5)
 ship_N2[ship_N2 < 0] = np.nan
@@ -85,7 +88,7 @@ sta_papa_dk = sta_papa_f / sta_papa_c[1]
 sta_papa_n2 = np.nan * np.ones(np.shape(SP['Sigma0']))
 # f, ax = plt.subplots()
 for i in range(np.shape(SP['Sigma0'])[1]):
-    if sta_papa_time[i, 1] > 4:
+    if sta_papa_time[i, 1] < 4:  # season selection because PAPA is strongly seasonal
         sta_papa_n2[0:-1, i] = gsw.Nsquared(SP['SA'][:, i], SP['CT'][:, i], SP['bin_press'], lat=ref_lat)[0]
         # ax.plot(sta_papa_n2[:, i], sta_papa_depth, linewidth=0.75)
 # ax.set_ylim([0, 800])
@@ -121,40 +124,32 @@ const_G, const_Gz, const_c, epsilon_const = vertical_modes(0.00005 * np.ones(np.
 
 # --------------------------------------------------------------------------------------------------------------------
 # PLOTTING
-f, (ax0, ax1, ax2, ax3, ax4, ax5) = plt.subplots(1, 6, sharey=True, sharex=True)
+f, (ax0, ax1) = plt.subplots(1, 2, sharey=True)
 ax0.plot(sta_aloha_n2, sta_aloha_depth, label='ALOHA')
-ax0.set_title('ALOHA')
-ax0.set_xlabel('N$^2$')
-ax1.plot(papa_mean_corrected, sta_papa_depth, label='PAPA')
-ax1.set_title('PAPA')
-ax1.set_xlabel('N$^2$')
-ax2.plot(sta_bats_n2, sta_bats_depth, label='BATS Ship')
-ax2.set_title('BATS Ship')
-ax2.set_xlabel('N$^2$')
-ax3.plot(this_ship_n2, ship_depth, label='ABACO')
-ax3.set_title('ABACO')
-ax3.set_xlabel('N$^2$')
-ax4.plot(argo_N2, argo_depth, label='Argo Atl')
-ax4.set_title('Argo Atl')
-ax4.set_xlabel('N$^2$')
-ax5.plot(argo2_N2, argo2_depth, label='Argo NZ')
-ax5.set_title('Argo NZ')
-ax5.set_xlabel('N$^2$')
-ax0.set_ylim([0, 1200])
+ax0.plot(this_ship_n2, ship_depth, label='ABACO')
+ax0.plot(sta_bats_n2, sta_bats_depth, label='BATS Ship')
+ax0.plot(papa_mean_corrected, sta_papa_depth, label='PAPA')
+# ax0.plot(argo_N2, argo_depth, label='Argo Atl')
+# ax0.plot(argo2_N2, argo2_depth, label='Argo NZ')
+handles, labels = ax0.get_legend_handles_labels()
+ax0.legend(handles, labels, fontsize=10)
+
+ax1.plot(Gz_AL[:, 1], sta_aloha_depth, label='ALOHA (22$^{\circ}$N)')
+ax1.plot(Gz_AB[:, 1], ship_depth, label='ABACO (26.5$^{\circ}$N)')
+ax1.plot(Gz_B[:, 1], sta_bats_depth, label='BATS Ship (32$^{\circ}$N)')
+ax1.plot(Gz_P[:, 1], sta_papa_depth, label=r'PAPA (50$^{\circ}$N)')
+# ax1.plot(argo_Gz[:, 1], argo_depth, label='Argo Atl')
+# ax1.plot(argo2_Gz[:, 1], argo2_depth, label='Argo NZ')
+handles, labels = ax1.get_legend_handles_labels()
+ax1.legend(handles, labels, fontsize=10)
+
+ax0.set_ylim([0, 2000])
 ax0.set_ylabel('Depth')
 ax0.invert_yaxis()
 ax0.grid()
-ax1.grid()
-ax2.grid()
-ax3.grid()
-ax4.grid()
 ax0.grid()
 ax1.grid()
-ax2.grid()
-ax3.grid()
-ax4.grid()
-ax5.grid()
-plot_pro(ax5)
+plot_pro(ax1)
 
 
 cmap = matplotlib.cm.get_cmap('Blues')

@@ -328,6 +328,7 @@ ax.plot(sta_papa_n2, SP['depth'], label='PAPA', linewidth=2)
 ax.set_title('Station N2')
 handles, labels = ax.get_legend_handles_labels()
 ax.legend(handles, labels, fontsize=14)
+ax.set_ylim([0, 3000])
 ax.invert_yaxis()
 plot_pro(ax)
 
