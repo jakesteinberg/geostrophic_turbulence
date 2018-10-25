@@ -465,8 +465,8 @@ EOFetashape2_BTpBC1 = G[:, 1:3] * V_AGqa[0:2, 1]  # truncated 2 mode shape of EO
 
 # --- EOF of velocity profiles ----------------------------------------
 not_shallow = np.isfinite(V2[-15, :])  # & (Time2 > 735750)
-V3 = V2[:, not_shallow]
-Time3 = Time2[not_shallow]
+V3 = V2[:, (good_ke_prof > 0) & not_shallow]
+Time3 = Time2[(good_ke_prof > 0) & not_shallow]
 check1 = 3      # upper index to include in eof computation
 check2 = -14     # lower index to include in eof computation
 grid_check = grid[check1:check2]
@@ -563,6 +563,7 @@ ax1.set_xticklabels(['Flat Bottom (0 + 1)', 'Sloping Bottom (0)'])
 # ax2.set_title('Bottom Boundary Condition')
 # ax2.set_ylabel('Frac Var. Explained by Mode Shapes')
 # ax2.set_ylim([0, 1])
+ax.grid()
 plot_pro(ax1)
 
 # Old method computing EOFs from all V profiles
@@ -594,52 +595,6 @@ fvu1 = np.sum((eof1[:, 0] - bc1*min_p1)**2)/np.sum((eof1 - np.mean(eof1))**2)
 fvu2 = np.sum((eof1[:, 0] - bc2*min_p2)**2)/np.sum((eof1 - np.mean(eof1))**2)
 # ----------------------------------------------------------------------------------------------------------------------
 # ----------------------------------------------------------------------------------------------------------------------
-# --- PLOT V STRUCTURE
-# --- bottom boundary conditions
-plot_v_struct = 1
-if plot_v_struct > 0:
-    f, (ax, ax2, ax3, ax4) = plt.subplots(1, 4, sharey=True)
-    for i in range(nq):
-        ax.plot(V3[:, i], grid, color='#5F9EA0', linewidth=0.75)
-    ax.plot(np.nanmean(np.abs(V3), axis=1), grid, color='k', label='Average |V|')
-    ax.set_xlim([-.3, .3])
-    ax.set_ylim([0, 4750])
-    ax.set_title('Cross-Track Velocity [V]', fontsize=12)
-    ax.set_xlabel('m/s', fontsize=16)
-    ax.set_ylabel('Depth [m]', fontsize=16)
-    handles, labels = ax.get_legend_handles_labels()
-    ax.legend(handles, labels, fontsize=10)
-
-    ax2.plot(np.zeros(10), np.arange(0, 5000, 500), color='k', linewidth=0.5)
-    ax3.plot(np.zeros(10), np.arange(0, 5000, 500), color='k', linewidth=0.5)
-    for i in range(4):
-        ax2.plot(V_Uzqa[:, i], grid_check, label=r'PEV$_{' + str(i + 1) + '}$ = ' + str(100 * np.round(PEV[i], 3)),
-                 linewidth=2)
-        ax3.plot(Gz[:, i], grid, label='Mode' + str(i), linewidth=2)
-        ax4.plot(F[:, i], grid, label='Mode' + str(i), linewidth=2)
-
-        # if i < 1:
-        #     ax4.plot(F_int[:, i] + np.nanmax(np.abs(F_int[:, i])), grid)
-        # else:
-        #     ax4.plot(F_int[:, i], grid)
-        # ax4.plot(G[:, i], grid, c='k', linestyle='--', linewidth=0.5)
-    handles, labels = ax2.get_legend_handles_labels()
-    ax2.legend(handles, labels, fontsize=12)
-    ax2.set_xlim([-.2, .2])
-    ax2.set_title('Principle EOFs of V', fontsize=12)
-    ax2.set_xlabel('m/s', fontsize=16)
-    handles, labels = ax3.get_legend_handles_labels()
-    ax3.legend(handles, labels, fontsize=10)
-    ax3.set_xlim([-5, 5])
-    ax3.set_title('Flat Bottom', fontsize=12)
-    ax3.set_xlabel('Mode Amplitude', fontsize=10)
-    ax4.set_title('Sloping Bottom', fontsize=12)
-    ax4.set_xlabel('Mode Amplitude', fontsize=10)
-    ax.grid()
-    ax2.grid()
-    ax3.grid()
-    ax.invert_yaxis()
-    plot_pro(ax4)
 
 # --- Isolate eddy dives
 # 2015 - dives 62, 63 ,64
@@ -724,6 +679,55 @@ if plot_eta > 0:
     ax2.set_xlabel('Normalized Mode Amp.', fontsize=14)
     ax2.invert_yaxis()
     plot_pro(ax2)
+
+# ----------------------------------------------------------------------------------------------------------------------
+# ----------------------------------------------------------------------------------------------------------------------
+# --- PLOT V STRUCTURE
+# --- bottom boundary conditions
+plot_v_struct = 1
+if plot_v_struct > 0:
+    f, (ax, ax2, ax3, ax4) = plt.subplots(1, 4, sharey=True)
+    for i in range(nq):
+        ax.plot(V3[:, i], grid, color='#5F9EA0', linewidth=0.75)
+    ax.plot(np.nanmean(np.abs(V3), axis=1), grid, color='k', label='Average |V|')
+    ax.set_xlim([-.3, .3])
+    ax.set_ylim([0, 4750])
+    ax.set_title('Cross-Track Velocity [V]', fontsize=12)
+    ax.set_xlabel('m/s', fontsize=16)
+    ax.set_ylabel('Depth [m]', fontsize=16)
+    handles, labels = ax.get_legend_handles_labels()
+    ax.legend(handles, labels, fontsize=10)
+
+    ax2.plot(np.zeros(10), np.arange(0, 5000, 500), color='k', linewidth=0.5)
+    ax3.plot(np.zeros(10), np.arange(0, 5000, 500), color='k', linewidth=0.5)
+    for i in range(4):
+        ax2.plot(V_Uzqa[:, i], grid_check, label=r'PEV$_{' + str(i + 1) + '}$ = ' + str(100 * np.round(PEV[i], 3)),
+                 linewidth=2)
+        ax3.plot(Gz[:, i], grid, label='Mode' + str(i), linewidth=2)
+        ax4.plot(F[:, i], grid, label='Mode' + str(i), linewidth=2)
+
+        # if i < 1:
+        #     ax4.plot(F_int[:, i] + np.nanmax(np.abs(F_int[:, i])), grid)
+        # else:
+        #     ax4.plot(F_int[:, i], grid)
+        # ax4.plot(G[:, i], grid, c='k', linestyle='--', linewidth=0.5)
+    handles, labels = ax2.get_legend_handles_labels()
+    ax2.legend(handles, labels, fontsize=12)
+    ax2.set_xlim([-.2, .2])
+    ax2.set_title('Principle EOFs of V', fontsize=12)
+    ax2.set_xlabel('m/s', fontsize=16)
+    handles, labels = ax3.get_legend_handles_labels()
+    ax3.legend(handles, labels, fontsize=10)
+    ax3.set_xlim([-5, 5])
+    ax3.set_title('Flat Bottom', fontsize=12)
+    ax3.set_xlabel('Mode Amplitude', fontsize=10)
+    ax4.set_title('Sloping Bottom', fontsize=12)
+    ax4.set_xlabel('Mode Amplitude', fontsize=10)
+    ax.grid()
+    ax2.grid()
+    ax3.grid()
+    ax.invert_yaxis()
+    plot_pro(ax4)
 
 # ----------------------------------------------------------------------------------------------------------------------
 # ----------------------------------------------------------------------------------------------------------------------
@@ -995,7 +999,7 @@ sc_x = 1000 * f_ref / c[1:]
 vert_wavenumber = f_ref / c[1:]
 dk_ke = 1000 * f_ref / c[1]
 k_h = 1e3 * (f_ref / c[1:]) * np.sqrt(avg_KE[1:] / avg_PE[1:])
-PE_SD, PE_GM = PE_Tide_GM(rho0, grid, nmodes, np.transpose(np.atleast_2d(N2)), f_ref)
+PE_SD, PE_GM, GMPE, GMKE = PE_Tide_GM(rho0, grid, nmodes, np.transpose(np.atleast_2d(N2)), f_ref)
 vert_wave = sc_x / 1000
 alpha = 10
 mu = 1.88e-3 / (1 + 0.03222 * theta_avg + 0.002377 * theta_avg * theta_avg)
@@ -1214,8 +1218,8 @@ if plot_eng > 0:
     ax0.text(10 ** x_53[0] - .012, 10 ** y_g_53[0], str(float("{0:.2f}".format(slope1[0]))), fontsize=10)
     ax0.text(10 ** x_3[0] - .11, 10 ** y_g_3[0], str(float("{0:.2f}".format(slope2[0]))), fontsize=10)
     # KE
-    ax1.plot(10 ** x_3_2, 10 ** y_g_ke, color='k', linewidth=1.5, linestyle='--')
-    ax1.text(10 ** x_3_2[3] + .05, 10 ** y_g_ke[3], str(float("{0:.2f}".format(slope_ke[0]))), fontsize=12)
+    ax1.plot(10 ** x_3_2, 10 ** y_g_ke, color='b', linewidth=1.5, linestyle='--')
+    ax1.text(10 ** x_3_2[1] + .01, 10 ** y_g_ke[1], str(float("{0:.2f}".format(slope_ke[0]))), fontsize=12)
 
     # ax0.scatter(vert_wave[ipoint] * 1000, one[ipoint], color='b', s=7)
     # ax0.plot([xx[ipoint], xx[ipoint]], [10 ** (-4), 4 * 10 ** (-4)], color='k', linewidth=2)
@@ -1230,30 +1234,21 @@ if plot_eng > 0:
     ax0.text(sc_x[sc_x_break_i] - .4 * 10 ** -2, 5 * 10 ** (-4),
              'Break at Mode ' + str(sc_x_break_i) + ' = ' + str(float("{0:.1f}".format(1 / sc_x[sc_x_break_i]))) + 'km',
              fontsize=8)
-    ax1.plot([sc_x[0], sc_x[0]], [10 ** (-4), 3 * 10 ** (-4)], color='k', linewidth=2)
-    ax1.text(sc_x[0] - .6 * 10 ** -2, 5 * 10 ** (-4),
-             str(r'$c_1/f$ = ') + str(float("{0:.1f}".format(1 / sc_x[0]))) + 'km', fontsize=8)
-    ax1.plot([sc_x[sc_x_break_i], sc_x[sc_x_break_i]], [10 ** (-4), 3 * 10 ** (-4)], color='k', linewidth=2)
-    ax1.text(sc_x[sc_x_break_i] - .4 * 10 ** -2, 5 * 10 ** (-4),
-             'Break at Mode ' + str(sc_x_break_i) + ' = ' + str(float("{0:.1f}".format(1 / sc_x[sc_x_break_i]))) + 'km',
-             fontsize=8)
+    # ax1.plot([sc_x[0], sc_x[0]], [10 ** (-4), 3 * 10 ** (-4)], color='k', linewidth=2)
+    # ax1.text(sc_x[0] - .6 * 10 ** -2, 5 * 10 ** (-4),
+    #          str(r'$c_1/f$ = ') + str(float("{0:.1f}".format(1 / sc_x[0]))) + 'km', fontsize=8)
+    # ax1.plot([sc_x[sc_x_break_i], sc_x[sc_x_break_i]], [10 ** (-4), 3 * 10 ** (-4)], color='k', linewidth=2)
+    # ax1.text(sc_x[sc_x_break_i] - .4 * 10 ** -2, 5 * 10 ** (-4),
+    #          'Break at Mode ' + str(sc_x_break_i) + ' = ' + str(float("{0:.1f}".format(1 / sc_x[sc_x_break_i]))) + 'km',
+    #          fontsize=8)
 
     # GM
     ax0.plot(sc_x, 0.25 * PE_GM / dk, linestyle='--', color='k', linewidth=0.75)
-    ax0.text(sc_x[0] - .01, 0.6 * PE_GM[1] / dk, r'$1/4 PE_{GM}$', fontsize=10)
+    ax0.plot(sc_x, 0.25 * GMPE / dk, color='k', linewidth=0.75)
+    ax0.text(sc_x[0] - .01, 0.5 * PE_GM[1] / dk, r'$1/4 PE_{GM}$', fontsize=10)
     # ax0.plot(np.array([10**-2, 10]), [PE_SD / dk, PE_SD / dk], linestyle='--', color='k', linewidth=0.75)
-
-    # Limits/scales
-    # ax0.plot( [3*10**-1, 3*10**0], [1.5*10**1, 1.5*10**-2],color='k',linewidth=0.75)
-    # ax0.plot([3*10**-2, 3*10**-1],[7*10**2, ((5/3)*(np.log10(2*10**-1) - np.log10(2*10**-2) ) +
-    #        np.log10(7*10**2) )] ,color='k',linewidth=0.75)
-    # ax0.text(3.3*10**-1,1.3*10**1,'-3',fontsize=10)
-    # ax0.text(3.3*10**-2,6*10**2,'-5/3',fontsize=10)
-    # ax0.plot( [1000*f_ref/c[1], 1000*f_ref/c[-2]],[1000*f_ref/c[1], 1000*f_ref/c[-2]],
-    #        linestyle='--',color='k',linewidth=0.8)
-    # ax0.text( 1000*f_ref/c[-2]+.1, 1000*f_ref/c[-2], r'f/c$_m$',fontsize=10)
-    # ax0.plot(sc_x,k_h,color='k',linewidth=.9,label=r'$k_h$')
-    # ax0.text(sc_x[0]-.008,k_h[0]-.011,r'$k_{h}$ [km$^{-1}$]',fontsize=10)
+    ax1.plot(sc_x, 0.25 * GMKE / dk, color='k', linewidth=0.75)
+    ax1.text(sc_x[0] - .01, 0.5 * GMKE[1] / dk, r'$1/4 KE_{GM}$', fontsize=10)
 
     # ax0.axis([10 ** -2, 10 ** 1, 10 ** (-4), 2 * 10 ** 3])
     ax0.set_xlim([10 ** -2, 3 * 10 ** 0])
@@ -1279,7 +1274,8 @@ if plot_eng > 0:
     # plt.close()
     # plt.show()
 
-    # ---------------
+    # -------------------------------
+    # -------------------------------
     # additional plot to highlight the ratio of KE to APE to predict the scale of motion
     fig0, (ax0, ax1) = plt.subplots(1, 2)
     # Limits/scales

@@ -456,15 +456,15 @@ for i in np.where(np.isnan(ship_N2))[0]:
 this_ship_N2 = savgol_filter(ship_N2, 15, 3)
 
 # plot all N2
-# c2_n2 = plt.cm.plasma(np.linspace(0, 1, 33))
-# f, ax = plt.subplots()
-# for i in range(np.size(dist_grid)):
-#     ax.plot(N2[:, i], grid_p, color=c2_n2[i, :])
-# ax.plot(dg_avg_N2, grid, color='k')
-# ax.plot(ship_N2, ship_depth_0, color='k')
-# ax.grid()
-# ax.invert_yaxis()
-# plot_pro(ax)
+c2_n2 = plt.cm.plasma(np.linspace(0, 1, 33))
+f, ax = plt.subplots()
+for i in range(np.size(dist_grid)):
+    ax.plot(N2[:, i], grid_p, color=c2_n2[i, :])
+ax.plot(dg_avg_N2, grid, color='k')
+ax.plot(ship_N2, ship_depth_0, color='k')
+ax.grid()
+ax.invert_yaxis()
+plot_pro(ax)
 
 # find closest average profile to subtract to find eta     
 eta = np.zeros([np.size(grid), np.size(dist_grid)])
@@ -831,6 +831,8 @@ ax3.invert_yaxis()
 plot_pro(ax3)
 
 # ----------------------------- PLOT VELOCITY PROFILES AND COMPARE (also plot ETA) ------------------------------------
+t_s = datetime.date.fromordinal(np.int(np.nanmin(dg_eta_time)))
+t_e = datetime.date.fromordinal(np.int(np.nanmax(dg_eta_time)))
 f, (ax1, ax2, ax3) = plt.subplots(1, 3)
 for i in range(adcp_np):
     if adcp_good_prof[i] < 2:
@@ -852,7 +854,7 @@ ax1.invert_yaxis()
 ax1.grid()
 ax2.axis([-.6, .6, 0, 4900])
 ax2.set_xlabel('Cross-Track Velocity [m/s]', fontsize=12)
-ax2.set_title('Geostrophic Velocity', fontsize=12)  # (' + str(dg_np) + ' profiles)')
+ax2.set_title(str(t_s) + ' - ' + str(t_e) + ' Velocity', fontsize=12)  # (' + str(dg_np) + ' profiles)')
 ax2.invert_yaxis()
 ax2.grid()
 
@@ -1042,7 +1044,7 @@ avg_KE_dg_all = np.nanmean(dg_HKE_per_mass, 1)
 dk = f_ref / c[1]
 sc_x = 1000 * f_ref / c[1:]
 vert_wave = sc_x / 1000
-PE_SD, PE_GM = PE_Tide_GM(rho0, grid, nmodes, N2, f_ref)
+PE_SD, PE_GM, GMPE, GMKE = PE_Tide_GM(rho0, grid, nmodes, N2, f_ref)
 k_h = 1e3 * (f_ref / c[1:]) * np.sqrt(avg_KE_dg[1:] / avg_PE[1:])
 alpha = 10
 mu = 1.88e-3 / (1 + 0.03222 * np.nanmean(CT_avg_grid, axis=1) + 0.002377 * np.nanmean(CT_avg_grid, axis=1)**2)
@@ -1063,7 +1065,7 @@ ax.scatter(10 ** -2, np.nanmean(adcp_hke_per[0, far]), color='b', s=25, facecolo
 ax.axis([10 ** -2, 10 ** 1, 1 * 10 ** (-3), 4 * 10 ** (3)])
 ax.set_yscale('log')
 ax.set_xscale('log')
-ax.set_title('Variability in KE by Longitude 2011-2018')
+ax.set_title('Variability in LADCP KE by Longitude 2011-2018')
 ax.set_xlabel(r'Scaled Vertical Wavenumber [km$^{-1}$]')
 ax.set_ylabel('Spectral Density')
 handles, labels = ax.get_legend_handles_labels()
@@ -1179,7 +1181,8 @@ rms_ener = E0 * ak0 * ( -3/2 + 3/2*( (ak0 ** (2/3))*((sc_x[0] / 1000) ** (-2/3))
 r_earth = 6371e3  # earth radius [m]
 beta_ref = f_ref / (np.tan(np.deg2rad(ref_lat)) * r_earth)
 # K_beta = 1 / np.sqrt(np.sqrt(np.sum(avg_KE)) / beta_ref)
-K_beta = 1 / np.sqrt( np.sqrt(rms_ener) / beta_ref )
+K_beta = 1 / np.sqrt(np.sqrt(rms_ener) / beta_ref)
+K_beta_2 = 1 / np.sqrt(np.sqrt(np.nanmean(dg_v[:, dg_good_prof > 0]**2)) / beta_ref)
 non_linearity = np.sqrt(rms_ener) / (beta_ref * ((c[1] / f_ref) ** 2))
 
 # TESTING ADCP DG/KE DIFFERENCES
@@ -1205,7 +1208,7 @@ if plot_energy_limits > 0:
 plot_energy = 1
 # sc_x = np.arange(1, 61)
 if plot_energy > 0:
-    fig0, ax0 = plt.subplots()
+    fig0, (ax0, ax1) = plt.subplots(1, 2, sharey=True)
     # ---- PE
     PE_p = ax0.plot(sc_x, avg_PE[1:] / dk, color='#B22222', label=r'PE$_{dg}$', linewidth=1.5)
     ax0.scatter(sc_x, avg_PE[1:] / dk, color='#B22222', s=15)
@@ -1217,24 +1220,31 @@ if plot_energy > 0:
     #          color='k', linewidth=0.75)
     # ax0.text(3.3 * 10 ** -1, 1.3 * 10 ** 1, '-3', fontsize=12)
     # ax0.text(3.3 * 10 ** -2, 6 * 10 ** 2, '-5/3', fontsize=12)
-    # ax0.plot(sc_x, PE_GM / dk, linestyle='--', color='k', linewidth=1)
+    ax0.plot(sc_x, 0.25 * PE_GM / dk, linestyle='--', color='k', linewidth=1)
     # ax0.text(sc_x[0] - .009, PE_GM[0] / dk, r'$PE_{GM}$', fontsize=12)
+
+    ax0.plot(sc_x, 0.25 * GMPE / dk, color='k', linewidth=0.75)
+    ax0.text(sc_x[0] - .01, 0.5 * PE_GM[1] / dk, r'$1/4 PE_{GM}$', fontsize=10)
+    ax1.plot(sc_x, 0.25 * GMKE / dk, color='k', linewidth=0.75)
+    ax1.text(sc_x[0] - .01, 0.5 * GMKE[1] / dk, r'$1/4 KE_{GM}$', fontsize=10)
 
     # ---- KE
     # DG
-    KE_dg = ax0.plot(sc_x, avg_KE_dg[1:] / dk, color='g', label=r'KE$_{dg}$', linewidth=1.75) # DG
-    ax0.scatter(sc_x, avg_KE_dg[1:] / dk, color='g', s=15)
-    KE_dg0 = ax0.plot([10**-2, sc_x[0]], avg_KE_dg[0:2] / dk, 'g', linewidth=1.75) # DG KE_0
-    ax0.scatter(10**-2, avg_KE_dg[0] / dk, color='g', s=25, facecolors='none')  # DG KE_0
+    KE_dg = ax1.plot(sc_x, avg_KE_dg[1:] / dk, color='g', label=r'KE$_{dg}$', linewidth=1.75) # DG
+    ax1.scatter(sc_x, avg_KE_dg[1:] / dk, color='g', s=15)
+    KE_dg0 = ax1.plot([10**-2, sc_x[0]], avg_KE_dg[0:2] / dk, 'g', linewidth=1.75) # DG KE_0
+    ax1.scatter(10**-2, avg_KE_dg[0] / dk, color='g', s=25, facecolors='none')  # DG KE_0
     # ADCP
     # KE_adcp = ax0.plot(sc_x, avg_KE_adcp[1:] / dk_adcp, color='m', label=r'FAR_KE$_{ladcp_v}$', linewidth=1.75) # adcp
     # KE_adcp0 = ax0.plot([10**-2, 1000 * f_ref / c[1]], avg_KE_adcp[0:2] / dk_adcp, 'm', linewidth=1.75) # adcp KE_0
     # ax0.scatter(10**-2, avg_KE_adcp[0] / dk_adcp, color='m', s=25, facecolors='none')  # adcp KE_0
     # total mean ADCP
     adcp_hke_all = np.nanmean(adcp_hke_per[:, far], axis=1)
-    ax0.plot(sc_x, adcp_hke_all[1:], color='m', label=r'FAR_ALL_KE$_{ladcp_v}$', linewidth=1.75) # adcp all
-    ax0.plot([10**-2, 1000 * f_ref / c[1]], adcp_hke_all[0:2], 'm', linewidth=1.75) # adcp KE_0 all
-    ax0.scatter(10**-2, adcp_hke_all[0], color='m', s=25, facecolors='none')  # adcp KE_0 all
+    adcp_ke_all_cor = adcp_hke_all.copy()
+    adcp_ke_all_cor[1:] = adcp_ke_all_cor[1:] - 0
+    ax1.plot(sc_x, adcp_ke_all_cor[1:], color='m', label=r'KE$_{ladcp_v}$', linewidth=1.75) # adcp all
+    ax1.plot([10**-2, 1000 * f_ref / c[1]], adcp_ke_all_cor[0:2], 'm', linewidth=1.75) # adcp KE_0 all
+    ax1.scatter(10**-2, adcp_ke_all_cor[0], color='m', s=25, facecolors='none')  # adcp KE_0 all
 
     # ---- TE fit
     ax0.plot(sc_x, TE_spectrum[1:], color='c', label=r'TE$_{dg}$', linewidth=1.5)
@@ -1259,56 +1269,63 @@ if plot_energy > 0:
     # --- plot tailoring
     ax0.set_yscale('log')
     ax0.set_xscale('log')
+    ax1.set_xscale('log')
     # ax0.axis([8 * 10 ** -1, 10 ** 2, 1 * 10 ** (-3), 4 * 10 ** (3)])
     # ax0.set_xlabel('Mode Number (barotropic mode plotted along y-axis)', fontsize=13)
     ax0.axis([10 ** -2, 10 ** 1, 1 * 10 ** (-3), 4 * 10 ** (3)])
+    ax1.set_xlim([10 ** -2, 10 ** 1])
     ax0.set_xlabel(r'Scaled Vertical Wavenumber = (Rossby Radius)$^{-1}$ = $\frac{f}{c}$ [$km^{-1}$]', fontsize=13)
     ax0.set_ylabel('Spectral Density', fontsize=13)  # '(and Hor. Wavenumber)',fontsize=13)
-    ax0.set_title(x.project + ' - Energy Spectra', fontsize=12)
+    ax0.set_title(x.project + ' - PE Spectra', fontsize=12)
+    ax1.set_title(x.project + ' - KE Spectra', fontsize=12)
+    ax1.set_xlabel(r'Scaled Vertical Wavenumber = (L$_{d_{n}}$)$^{-1}$ = $\frac{f}{c_n}$ [$km^{-1}$]', fontsize=14)
     handles, labels = ax0.get_legend_handles_labels()
     ax0.legend(handles, labels, fontsize=10)
-    plot_pro(ax0)
+    handles, labels = ax1.get_legend_handles_labels()
+    ax1.legend(handles, labels, fontsize=10)
+    ax0.grid()
+    plot_pro(ax1)
 
     # -------
-    # dynamic eta and v mode amplitudes with time
-    time_ord = np.argsort(dg_eta_time)
-    # time_label = datetime.date.fromordinal(np.int(time_rec))
-    myFmt = matplotlib.dates.DateFormatter('%m/%d')
-    mode_range = [1, 2, 3]
-    fig0, ((ax0), (ax1)) = plt.subplots(2, 1, sharex=True)
-    ax0.plot([time_min, time_max], [0, 0], 'k', linewidth=1.5)
-    for i in mode_range:
-        ax_i = ax0.plot(dg_eta_time, AG[i, :], label='Baroclinic Mode ' + np.str(i))
-        # ax0.scatter(time_rec, AG[i, :])
-    ax0.xaxis.set_major_formatter(myFmt)
-    handles, labels = ax0.get_legend_handles_labels()
-    ax0.set_title('Vertical Displacement Baroclinic Mode Amplitude Temporal Variability')
-    ax0.set_ylabel(r'Unscaled Dynamic Mode ($\beta_m$) Amplitude')
-    ax0.legend(handles, labels, fontsize=10)
-    ax0.set_ylim([-.1, .1])
-    ax0.grid()
-
-    ax1.plot([time_min, time_max], [0, 0], 'k', linewidth=1.5)
-    mode_range = [0, 1, 2]
-    for i in mode_range:
-        ax_i = ax1.plot(dg_v_time, dg_AGz[i, :], label='Baroclinic Mode ' + np.str(i))
-        # ax0.scatter(time_rec, AG[i, :])
-    ax1.xaxis.set_major_formatter(myFmt)
-    handles, labels = ax1.get_legend_handles_labels()
-    ax1.set_title('Velocity Baroclinic Mode Amplitude Temporal Variability')
-    ax1.set_xlabel('Date')
-    ax1.set_ylabel(r'Unscaled Dynamic Mode ($\alpha_m$) Amplitude')
-    ax1.legend(handles, labels, fontsize=10)
-    ax0.set_ylim([-.2, .2])
-    plot_pro(ax1)
+    # --  dynamic eta and v mode amplitudes with time --
+    # time_ord = np.argsort(dg_eta_time)
+    # # time_label = datetime.date.fromordinal(np.int(time_rec))
+    # myFmt = matplotlib.dates.DateFormatter('%m/%d')
+    # mode_range = [1, 2, 3]
+    # fig0, ((ax0), (ax1)) = plt.subplots(2, 1, sharex=True)
+    # ax0.plot([time_min, time_max], [0, 0], 'k', linewidth=1.5)
+    # for i in mode_range:
+    #     ax_i = ax0.plot(dg_eta_time, AG[i, :], label='Baroclinic Mode ' + np.str(i))
+    #     # ax0.scatter(time_rec, AG[i, :])
+    # ax0.xaxis.set_major_formatter(myFmt)
+    # handles, labels = ax0.get_legend_handles_labels()
+    # ax0.set_title('Vertical Displacement Baroclinic Mode Amplitude Temporal Variability')
+    # ax0.set_ylabel(r'Unscaled Dynamic Mode ($\beta_m$) Amplitude')
+    # ax0.legend(handles, labels, fontsize=10)
+    # ax0.set_ylim([-.1, .1])
+    # ax0.grid()
+    #
+    # ax1.plot([time_min, time_max], [0, 0], 'k', linewidth=1.5)
+    # mode_range = [0, 1, 2]
+    # for i in mode_range:
+    #     ax_i = ax1.plot(dg_v_time, dg_AGz[i, :], label='Baroclinic Mode ' + np.str(i))
+    #     # ax0.scatter(time_rec, AG[i, :])
+    # ax1.xaxis.set_major_formatter(myFmt)
+    # handles, labels = ax1.get_legend_handles_labels()
+    # ax1.set_title('Velocity Baroclinic Mode Amplitude Temporal Variability')
+    # ax1.set_xlabel('Date')
+    # ax1.set_ylabel(r'Unscaled Dynamic Mode ($\alpha_m$) Amplitude')
+    # ax1.legend(handles, labels, fontsize=10)
+    # ax0.set_ylim([-.2, .2])
+    # plot_pro(ax1)
 
     # -------
     # estimate of horizontal wavenumber
     fig0, ax0 = plt.subplots()
     k_h_p = ax0.plot(sc_x, k_h, color='g', label=r'DG$_{k_h}$')
     k_h_p = ax0.plot(sc_x, k_h_adcp, color='m', label=r'LADCP$_{k_h}$')
-    ax0.plot([10**-2, 10**1], 1e3 * np.array([K_beta, K_beta]), color='k', linestyle='-.')
-    ax0.text(1.1, 0.025, r'k$_{Rhines}$', fontsize=12)
+    ax0.plot([10**-2, 10**1], 1e3 * np.array([K_beta_2, K_beta_2]), color='k', linestyle='-.')
+    ax0.text(1.1, 0.02, r'k$_{Rhines}$', fontsize=12)
     ax0.plot(sc_x, sc_x, 'k', linestyle='--')
     ax0.set_xlabel([10 ** -2, 10 ** 1])
     ax0.set_yscale('log')
@@ -1446,39 +1463,39 @@ f, ((ax1, ax2, ax3, ax4), (ax5, ax6, ax7, ax8)) = plt.subplots(2, 4, sharex='col
 ax1.contourf(adcp_dist[per_year[0]], adcp_depth, adcp_v[:, per_year[0]], levels=lv, cmap=cmap)
 ax1.contour(adcp_dist[per_year[0]], adcp_depth, adcp_v[:, per_year[0]], levels=lv2, colors='k')
 ax1.axis([0, 400, 0, 5500])
-ax1.set_title(str(adcp_datetime[per_year[0][0]]), fontsize=12)
+ax1.set_title(str(np.round(adcp_datetime[per_year[0][0]], 2)), fontsize=12)
 ax2.contourf(adcp_dist[per_year[1]], adcp_depth, adcp_v[:, per_year[1]], levels=lv, cmap=cmap)
 ax2.contour(adcp_dist[per_year[1]], adcp_depth, adcp_v[:, per_year[1]], levels=lv2, colors='k')
-ax2.set_title(str(adcp_datetime[per_year[1][0]]), fontsize=12)
+ax2.set_title(str(np.round(adcp_datetime[per_year[1][0]], 2)), fontsize=12)
 ax2.axis([0, 400, 0, 5500])
 ax3.contourf(adcp_dist[per_year[2]], adcp_depth, adcp_v[:, per_year[2]], levels=lv, cmap=cmap)
 ax3.contour(adcp_dist[per_year[2]], adcp_depth, adcp_v[:, per_year[2]], levels=lv2, colors='k')
-ax3.set_title(str(adcp_datetime[per_year[2][0]]), fontsize=12)
+ax3.set_title(str(np.round(adcp_datetime[per_year[2][0]], 2)), fontsize=12)
 ax3.axis([0, 400, 0, 5500])
 ax4.contourf(adcp_dist[per_year[3]], adcp_depth, adcp_v[:, per_year[3]], levels=lv, cmap=cmap)
 ax4.contour(adcp_dist[per_year[3]], adcp_depth, adcp_v[:, per_year[3]], levels=lv2, colors='k')
-ax4.set_title(str(adcp_datetime[per_year[3][0]]), fontsize=12)
+ax4.set_title(str(np.round(adcp_datetime[per_year[3][0]], 2)), fontsize=12)
 ax4.axis([0, 400, 0, 5500])
 ax3.invert_yaxis()
 
 ax5.contourf(adcp_dist[per_year[4]], adcp_depth, adcp_v[:, per_year[4]], levels=lv, cmap=cmap)
 ax5.contour(adcp_dist[per_year[4]], adcp_depth, adcp_v[:, per_year[4]], levels=lv2, colors='k')
-ax5.set_title(str(adcp_datetime[per_year[4][0]]), fontsize=12)
+ax5.set_title(str(np.round(adcp_datetime[per_year[4][0]], 2)), fontsize=12)
 ax5.axis([0, 400, 0, 5500])
 ax5.set_xlabel('Distance East [km]')
 ax6.contourf(adcp_dist[per_year[5]], adcp_depth, adcp_v[:, per_year[5]], levels=lv, cmap=cmap)
 ax6.contour(adcp_dist[per_year[5]], adcp_depth, adcp_v[:, per_year[5]], levels=lv2, colors='k')
-ax6.set_title(str(adcp_datetime[per_year[5][0]]), fontsize=12)
+ax6.set_title(str(np.round(adcp_datetime[per_year[5][0]], 2)), fontsize=12)
 ax6.axis([0, 400, 0, 5500])
 ax6.set_xlabel('Distance East [km]')
 ax7.contourf(adcp_dist[per_year[6]], adcp_depth, adcp_v[:, per_year[6]], levels=lv, cmap=cmap)
 ax7.contour(adcp_dist[per_year[6]], adcp_depth, adcp_v[:, per_year[6]], levels=lv2, colors='k')
-ax7.set_title(str(adcp_datetime[per_year[6][0]]), fontsize=12)
+ax7.set_title(str(np.round(adcp_datetime[per_year[6][0]], 2)), fontsize=12)
 ax7.axis([0, 400, 0, 5500])
 ax7.set_xlabel('Distance East [km]')
 ax8.contourf(adcp_dist[per_year[7]], adcp_depth, adcp_v[:, per_year[7]], levels=lv, cmap=cmap)
 ax8.contour(adcp_dist[per_year[7]], adcp_depth, adcp_v[:, per_year[7]], levels=lv2, colors='k')
-ax8.set_title(str(adcp_datetime[per_year[7][0]]), fontsize=12)
+ax8.set_title(str(np.round(adcp_datetime[per_year[7][0]], 2)), fontsize=12)
 ax8.axis([0, 400, 0, 5500])
 ax8.set_xlabel('Distance East [km]')
 ax8.invert_yaxis()

@@ -189,9 +189,29 @@ def PE_Tide_GM(rho0, Depth, nmodes, N2, f_ref):
     HHterm = 1 / (modenum[1:] * modenum[1:] + jstar * jstar)
     HH = HHterm / np.sum(HHterm)
 
+    # compute energy over a range of frequencies and then integrate
+    omega = np.arange(np.round(f_ref, 5), np.round(Navg, 5), 0.00001)
+    if omega[0] < f_ref:
+        omega[0] = f_ref.copy() + 0.000001
+    BBterm = (2 / 3.14159) * (f_ref / omega) * (1 / np.sqrt((omega ** 2) - (f_ref ** 2)))
+    BBint = np.trapz(BBterm, omega)
+    BBterm2 = (1 / BBint) * BBterm
+
+    EE = np.tile(BBterm2[:, None], (1, len(modenum) - 1)) * np.tile(HH[None, :], (len(omega), 1)) * EGM
+    omega_g = np.tile(omega[:, None], (1, len(modenum) - 1))
+    FPE = (1 / 2) * (Navg ** 2) * (
+                bGM ** 2 * N0_GM * (1 / Navg) * (omega_g ** 2 - f_ref ** 2) * (1 / (omega_g ** 2)) * EE)
+    FKE = (1 / 2) * bGM * bGM * N0_GM * Navg * (omega_g ** 2 + f_ref ** 2) * (1 / (omega_g ** 2)) * EE
+
+    FPE_int = np.nan * np.ones(np.shape(FPE[0, :]))
+    FKE_int = np.nan * np.ones(np.shape(FPE[0, :]))
+    for i in range(len(modenum[1:])):
+        FPE_int[i] = np.trapz(FPE[:, i], omega)
+        FKE_int[i] = np.trapz(FKE[:, i], omega)
+
     PE_GM = bGM * bGM * N0_GM * Navg * HH * EGM / 2
 
-    return (PE_SD, PE_GM)
+    return (PE_SD, PE_GM, FPE_int, FKE_int)
 
 
 def eta_fit(num_profs, grid, nmodes, n2, G, c, eta, eta_fit_dep_min, eta_fit_dep_max):
