@@ -172,8 +172,11 @@ num_profs0 = np.sum(np.isfinite(c_log))
 theta = np.nan * np.zeros((len(grid), num_profs0))
 conservative_t = np.nan * np.zeros((len(grid), num_profs0))
 abs_salin = np.nan * np.zeros((len(grid), num_profs0))
+N2_per = np.nan * np.zeros((len(grid), num_profs0))
 sigma0 = np.nan * np.zeros((len(grid), num_profs0))
+sigma4 = np.nan * np.zeros((len(grid), num_profs0))
 sigma_theta = np.nan * np.zeros((len(grid), num_profs0))
+f, (ax, ax2, ax3) = plt.subplots(1, 3, sharey=True)
 for i in range(num_profs0):
     theta[:, i] = sw.ptmp(c_s[:, i], c_t[:, i], grid_p, 0)
     sigma_theta[:, i] = sw.dens(c_s[:, i], theta[:, i], 0) - 1000
@@ -181,9 +184,29 @@ for i in range(num_profs0):
                                      c_lat[i] * np.ones(len(grid_p)))
     conservative_t[:, i] = gsw.CT_from_t(abs_salin[:, i], c_t[:, i], grid_p)
     sigma0[:, i] = gsw.sigma0(abs_salin[:, i], conservative_t[:, i])
+    sigma4[:, i] = gsw.sigma4(abs_salin[:, i], conservative_t[:, i])
 
-# exclude profiles with density perturbations at depth that seem like ctd calibration offsets
-cal_good = np.where(np.abs(sigma0[grid == 4100, :] - 27.89) < 0.0075)[1]
+    go = ~np.isnan(abs_salin[:, i])
+    N2_per[np.where(go)[0][0:-1], i] = gsw.Nsquared(abs_salin[go, i], conservative_t[go, i], grid_p[go], lat=ref_lat)[0]
+
+    ax.plot(abs_salin[:, i], grid_p, color='r', linewidth=0.5)
+    ax2.plot(N2_per[:, i], grid_p, color='r', linewidth=0.5)
+    ax3.plot(sigma0[:, i],grid_p, color='r', linewidth=0.5)
+    ax3.plot(sigma4[:, i] - 16, grid_p, color='b', linewidth=0.5)
+    ax3.plot(sigma_theta[:, i], grid_p, color='g', linewidth=0.5)
+ax.set_title('Abs. Salin')
+ax2.set_xlim([0, 0.0008])
+ax2.set_title('N2')
+ax3.set_xlim([24, 30.5])
+ax3.set_title('Reference Pressure Comp.')
+ax3.invert_yaxis()
+ax.grid()
+ax2.grid()
+plot_pro(ax3)
+
+# --- exclude profiles with density perturbations at depth that seem like ctd calibration offsets
+# cal_good = np.where(np.abs(sigma0[grid == 4100, :] - 27.89) < 0.0075)[1]
+cal_good = np.where(np.abs(sigma4[grid == 4100, :] - 45.9) < 0.0075)[1]
 num_profs = len(cal_good)
 c_log = c_log[cal_good]
 c_date = c_date[cal_good]
@@ -195,6 +218,7 @@ sigma_theta = sigma_theta[:, cal_good]
 abs_salin = abs_salin[:, cal_good]
 conservative_t = conservative_t[:, cal_good]
 sigma0 = sigma0[:, cal_good]
+sigma4 = sigma4[:, cal_good]
 
 # -- construct four background profiles to represent seasons
 date_year = np.floor(c_date)
@@ -215,6 +239,7 @@ salin_avg = np.nan * np.zeros((len(grid), 4))
 conservative_t_avg = np.nan * np.zeros((len(grid), 4))
 theta_avg = np.nan * np.zeros((len(grid), 4))
 sigma_theta_avg = np.nan * np.zeros((len(grid), 4))
+sigma_theta_avg4 = np.nan * np.zeros((len(grid), 4))
 ddz_avg_sigma = np.nan * np.zeros((len(grid), 4))
 N2 = np.nan * np.zeros(sigma_theta_avg.shape)
 N = np.nan * np.zeros(sigma_theta_avg.shape)
@@ -224,6 +249,7 @@ for i in range(4):
     conservative_t_avg[:, i] = np.nanmean(conservative_t[:, inn], axis=1)
     theta_avg[:, i] = np.nanmean(theta[:, inn], axis=1)
     sigma_theta_avg[:, i] = np.nanmean(sigma0[:, inn], axis=1)
+    sigma_theta_avg4[:, i] = np.nanmean(sigma4[:, inn], axis=1)
 
     # N2[1:] = np.squeeze(sw.bfrq(salin_avg, theta_avg, grid_p, lat=ref_lat)[0])
     go = ~np.isnan(salin_avg[:, i])
@@ -245,21 +271,24 @@ N2_all = np.nan * np.zeros(len(grid))
 abs_s_avg = np.nanmean(abs_salin, axis=1)
 cons_t_avg = np.nanmean(conservative_t_avg, axis=1)
 go = ~np.isnan(abs_s_avg)
-N2_all[np.where(go)[0][0:-1]] = gsw.Nsquared(abs_s_avg[go], cons_t_avg[go], grid_p[go], lat=ref_lat)[0]
+# N2_all[np.where(go)[0][0:-1]] = gsw.Nsquared(abs_s_avg[go], cons_t_avg[go], grid_p[go], lat=ref_lat)[0]
+N2_all = np.nanmean(N2_per, axis=1)
 N2_all[N2_all < 0] = np.nan
-N2_all = nanseg_interp(grid, N2_all)
+# N2_all = nanseg_interp(grid, N2_all)
 # last_good = np.where(~np.isnan(N2_all))[0][-1]r
 # if last_good.size > 0:
 #     N2_all[last_good + 1:] = N2_all[last_good]
 # correct last value of N2
 for i in range(7, 0, -1):
     N2_all[-i] = N2_all[-i - 1] - 1*10**-9
+N2_all = savgol_filter(N2_all, 7, 3)
 
 for i in range(4):
     ddz_avg_sigma[:, i] = (-1025/g) * N2[:, i]  # np.gradient(sigma_theta_avg[:, i], z)
 
 # --- eta
 eta = np.nan * np.zeros((len(grid), num_profs))
+eta4 = np.nan * np.zeros((len(grid), num_profs))
 sigma_anom = np.nan * np.zeros((len(grid), num_profs))
 conservative_t_anom = np.nan * np.zeros((len(grid), num_profs))
 for i in range(num_profs):
@@ -273,6 +302,7 @@ for i in range(num_profs):
             if (this_time > date_month[bckgrds[j]].min()) & (this_time < date_month[bckgrds[j]].max()):
                 cor_b[j] = 1
     eta[:, i] = (sigma0[:, i] - sigma_theta_avg[:, cor_b > 0][:, 0]) / ddz_avg_sigma[:, cor_b > 0][:, 0]
+    eta4[:, i] = (sigma4[:, i] - sigma_theta_avg4[:, cor_b > 0][:, 0]) / ddz_avg_sigma[:, cor_b > 0][:, 0]
     # eta[:, i] = (sigma0[:, i] - np.nanmean(sigma_theta_avg, axis=1))/np.nanmean(ddz_avg_sigma, axis=1)
     sigma_anom[:, i] = (sigma0[:, i] - np.nanmean(sigma_theta_avg, axis=1))
     conservative_t_anom[:, i] = (conservative_t[:, i] - conservative_t_avg[:, cor_b > 0][:, 0])
@@ -344,7 +374,7 @@ Neta_m = []
 Eta_m = []
 for i in range(4):
     AG_out, eta_m_out, Neta_m_out, PE_per_mass_out = eta_fit(len(bckgrds[i]), grid, nmodes,
-                                                             N2_all, G, c, eta[:, bckgrds[i]],
+                                                             N2_all, G, c, eta4[:, bckgrds[i]],
                                                              eta_fit_dep_min,
                                                              eta_fit_dep_max)
     AG.append(AG_out)
@@ -357,7 +387,7 @@ for i in range(4):
         Eta_m = np.concatenate([Eta_m, eta_m_out], axis=1)
 
 AG_all, eta_m_all, Neta_m_all, PE_per_mass_all = eta_fit(num_profs, grid, nmodes,
-                                                         N2_all, G, c, eta, eta_fit_dep_min,
+                                                         N2_all, G, c, eta4, eta_fit_dep_min,
                                                          eta_fit_dep_max)
 
 # --- find EOFs of dynamic vertical displacement (Eta mode amplitudes)
@@ -395,15 +425,16 @@ EOFetashape2_BTpBC1 = G[:, 1:3] * V_AGqa[0:2, 1]  # truncated 2 mode shape of EO
 # plot_pro(ax)
 
 # ----- PLOT DENSITY ANOM, ETA, AND MODE SHAPES
-f, (ax, ax2, ax3) = plt.subplots(1, 3, sharey=True)
+f, (ax, ax2, ax3, ax4) = plt.subplots(1, 4, sharey=True)
 for i in range(num_profs):
     ax.plot(sigma_anom[:, i], grid, linewidth=0.75)
     ax2.plot(eta[:, i], grid, linewidth=.75, color='#808000')
-    ax2.plot(Eta_m[:, i], grid, linewidth=.5, color='k', linestyle='--')
-n2p = ax3.plot((np.sqrt(N2_all) * (1800 / np.pi)) / 4, grid, color='k', label='N(z) [cph]')
+    ax3.plot(eta4[:, i], grid, linewidth=.75, color='#808000')
+    ax3.plot(Eta_m[:, i], grid, linewidth=.5, color='k', linestyle='--')
+n2p = ax4.plot((np.sqrt(N2_all) * (1800 / np.pi)) / 4, grid, color='k', label='N(z) [cph]')
 for j in range(4):
-    ax3.plot(G[:, j] / grid.max(), grid, color='#2F4F4F', linestyle='--')
-    p_eof = ax3.plot(-EOFetashape[:, j] / grid.max(), grid, color=colors[j, :], label='EOF # = ' + str(j + 1),
+    ax4.plot(G[:, j] / grid.max(), grid, color='#2F4F4F', linestyle='--')
+    p_eof = ax4.plot(-EOFetashape[:, j] / grid.max(), grid, color=colors[j, :], label='EOF # = ' + str(j + 1),
                      linewidth=2.5)
 ax.text(0.2, 4000, str(num_profs) + ' profiles', fontsize=10)
 ax.grid()
@@ -412,31 +443,37 @@ ax.set_xlabel(r'$\sigma_{\theta} - \overline{\sigma_{\theta}}$')
 ax.set_ylabel('Depth [m]')
 ax.set_xlim([-.5, .5])
 ax2.grid()
-ax2.set_title('Isopycnal Displacement [m]')
+ax2.set_title('Sig0 Isopycnal Displacement [m]')
 ax2.set_xlabel('[m]')
-ax2.axis([-400, 400, 0, 4750])
+ax2.axis([-500, 500, 0, 4750])
+ax3.set_title('Sig4 Isopycnal Displacement [m]')
+ax3.set_xlabel('[m]')
+ax3.axis([-500, 500, 0, 4750])
+ax3.grid()
 
-handles, labels = ax3.get_legend_handles_labels()
-ax3.legend(handles, labels, fontsize=10)
-ax3.set_title('EOFs of mode amplitudes (G(z))')
-ax3.set_xlabel('Normalized Mode Amplitude')
-ax3.set_xlim([-1, 1])
-ax3.invert_yaxis()
-plot_pro(ax3)
+handles, labels = ax4.get_legend_handles_labels()
+ax4.legend(handles, labels, fontsize=10)
+ax4.set_title('EOFs of mode amplitudes (G(z))')
+ax4.set_xlabel('Normalized Mode Amplitude')
+ax4.set_xlim([-1, 1])
+ax4.invert_yaxis()
+plot_pro(ax4)
 
 # --- PLOT PE PER SEASON
 f_ref = np.pi * np.sin(np.deg2rad(ref_lat)) / (12 * 1800)
 dk = f_ref / c[1]
 sc_x = 1000 * f_ref / c[1:]
 f, ax = plt.subplots()
-ax.plot(sc_x, np.nanmean(PE_per_mass[0][1:], axis=1) / dk, color='r', linewidth=3)
-ax.plot(sc_x, np.nanmean(PE_per_mass[1][1:], axis=1) / dk, color='m', linewidth=3)
-ax.plot(sc_x, np.nanmean(PE_per_mass[2][1:], axis=1) / dk, color='c', linewidth=3)
-ax.plot(sc_x, np.nanmean(PE_per_mass[3][1:], axis=1) / dk, color='b', linewidth=3)
+ax.plot(sc_x, np.nanmean(PE_per_mass[0][1:], axis=1) / dk, color='r', linewidth=3, label='Mar-Jun')
+ax.plot(sc_x, np.nanmean(PE_per_mass[1][1:], axis=1) / dk, color='m', linewidth=3, label='Jun-Sept')
+ax.plot(sc_x, np.nanmean(PE_per_mass[2][1:], axis=1) / dk, color='c', linewidth=3, label='Sept-Nov')
+ax.plot(sc_x, np.nanmean(PE_per_mass[3][1:], axis=1) / dk, color='b', linewidth=3, label='Nov-Mar')
 ax.set_yscale('log')
 ax.set_xscale('log')
 ax.axis([10 ** -2, 10 ** 1, 10 ** (-4), 2 * 10 ** 3])
 ax.axis([10 ** -2, 10 ** 1, 10 ** (-4), 10 ** 3])
+handles, labels = ax.get_legend_handles_labels()
+ax.legend(handles, labels, fontsize=10)
 plot_pro(ax)
 
 # --- PLOT MODE AMPLITUDES IN TIME
@@ -506,6 +543,6 @@ if sa > 0:
                'N2_per_season': N2, 'background indices': bckgrds, 'background order': ['spr', 'sum', 'fall', 'wint'],
                'AG': AG_all, 'AG_per_season': AG, 'Eta': eta, 'Eta_m': eta_m_all, 'NEta_m': Neta_m_all,
                'PE': PE_per_mass_all, 'PE_by_season': PE_per_mass, 'c': c}
-    output = open('/Users/jake/Desktop/bats/station_bats_pe_oct01.pkl', 'wb')
+    output = open('/Users/jake/Desktop/bats/station_bats_pe_nov05.pkl', 'wb')
     pickle.dump(my_dict, output)
     output.close()

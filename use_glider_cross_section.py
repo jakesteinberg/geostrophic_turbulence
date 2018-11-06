@@ -19,12 +19,12 @@ from toolkit import plot_pro
 # ---- DG ABACO 2018
 # x = Glider(37, np.concatenate((np.arange(69, 81), np.arange(82, 84))), '/Users/jake/Documents/baroclinic_modes/DG/ABACO_2018/sg037')
 # x = Glider(39, np.arange(70, 86), '/Users/jake/Documents/baroclinic_modes/DG/ABACO_2018/sg039')  # 56-70
-x = Glider(39, np.concatenate((np.arange(70, 83), np.arange(84, 86))),
-           r'/Users/jake/Documents/baroclinic_modes/DG/ABACO_2018/sg039')
+# x = Glider(39, np.concatenate((np.arange(70, 83), np.arange(84, 86))),
+#            r'/Users/jake/Documents/baroclinic_modes/DG/ABACO_2018/sg039')
 # ---- DG BATS 2015
 # x = Glider(35, np.arange(60, 70), '/Users/jake/Documents/baroclinic_modes/DG/BATS_2015/sg035')
 # ---- DG BATS 2018
-# x = Glider(41, np.arange(38, 56), '/Users/jake/Documents/baroclinic_modes/DG/BATS_2018/sg041')
+x = Glider(41, np.arange(38, 56), '/Users/jake/Documents/baroclinic_modes/DG/BATS_2018/sg041')
 
 # -- match max dive depth to bin_depth
 # GD = Dataset('BATs_2015_gridded_apr04.nc', 'r')
@@ -98,12 +98,16 @@ x.plot_cross_section(bin_depth, ds, v_g, dist, profile_tags_per, isopycdep, isop
 # bathy_path = '/Users/jake/Documents/Cuddy_tailored/DG_wa_coast/smith_sandwell_wa_coast.nc'
 # plan_window = [-128.5, -123.75, 46.5, 48.5]
 # ABACO
-bathy_path = '/Users/jake/Documents/baroclinic_modes/DG/ABACO_2017/OceanWatch_smith_sandwell.nc'
-plan_window = [-77.5, -73.5, 25.5, 27]
+# bathy_path = '/Users/jake/Documents/baroclinic_modes/DG/ABACO_2017/OceanWatch_smith_sandwell.nc'
+# plan_window = [-77.5, -73.5, 25.5, 27]
 # BATS
 # bathy_path = '/Users/jake/Desktop/bats/bats_bathymetry/GEBCO_2014_2D_-67.7_29.8_-59.9_34.8.nc'
-# plan_window = [-66, -63, 32, 36]
+bathy_path = '/Users/jake/Desktop/bats/bats_bathymetry/bathymetry_b38e_27c7_f8c3_f3d6_790d_30c7.nc'
+plan_window = [-66, -63, 32, 37]
+# bath_fid = Dataset(bathy_path, 'r')
 
+# from netCDF4 import Dataset
+# bath_fid = Dataset(bathy_path, 'r')
 
 # --- for combined set of transects ---
 # x.plot_plan_view(lon, lat, mwe_lon[transect_no], mwe_lat[transect_no],
@@ -112,7 +116,6 @@ plan_window = [-77.5, -73.5, 25.5, 27]
 # --- for single transect ---
 x.plot_plan_view(lon, lat, mwe_lon, mwe_lat, DACe_MW, DACn_MW,
                  ref_lat, profile_tags_per, d_time, plan_window, bathy_path)
-
 
 # plot t/s
 # x.plot_t_s(ct, sa)

@@ -143,12 +143,13 @@ if plott > 0:
 
     count = 0
     f, (ax0, ax1) = plt.subplots(1, 2)
+    ax0.plot(dg41_lon, dg41_lat, color='r')
     for i in range(len(files)):
         ax0.scatter(Lon[count], Lat[count], s=2)
         count = count + 1
     ax0.set_xlabel('Lon')
     ax0.set_ylabel('Lat')
-    ax0.set_title('Altika Track and DG BATS15 sampling pattern')
+    ax0.set_title('Altika Track and DG BATS sampling pattern')
     # ax.axis([l_lon, u_lon, l_lat, u_lat])
     w = 1 / np.cos(np.deg2rad(34))
     ax0.set_aspect(w)
@@ -272,7 +273,6 @@ ax.set_yscale('log')
 ax.set_xscale('log')
 ax.set_xlabel('Alongtrack Wavenumber [1/km]')
 ax.set_ylabel(r'SLA Variance Density [m$^2$/cpkm]')
-ax.grid()
 
 ax2 = ax.twiny()
 ax2.set_xlim(10**-3, 2*10**-1)

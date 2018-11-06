@@ -591,7 +591,7 @@ class Glider(object):
             fig0, ax0 = plt.subplots()
             matplotlib.rcParams['contour.negative_linestyle'] = 'solid'
             # levels = np.arange(np.float(np.nanmin(v_g)), np.float(np.nanmax(v_g)), .02)
-            levels = np.arange(-.54, .56, .04)
+            levels = np.arange(-.66, .68, .04)
             vc = ax0.contourf(ds, bin_depth, v_g, levels=levels, cmap=plt.cm.PuOr)
             vcc = ax0.contour(ds, bin_depth, v_g, levels=levels, colors='k', linewidth=.75)
             ax0.contour(ds, bin_depth, v_g, levels=[0], colors='k', linewidth=1.25)
@@ -643,16 +643,21 @@ class Glider(object):
         bath = path
         bath_fid = Dataset(bath, 'r')
         if 'longitude' in bath_fid.variables:
-            bath_lon = bath_fid.variables['longitude'][:] - 360
+            if np.nanmax(bath_fid.variables['longitude'][:]) > 0:
+                bath_lon = bath_fid.variables['longitude'][:] - 360
+            else:
+                bath_lon = bath_fid.variables['longitude'][:]
             bath_lat = bath_fid.variables['latitude'][:]
         elif 'lon' in bath_fid.variables:
             bath_lon = bath_fid.variables['lon'][:]
             bath_lat = bath_fid.variables['lat'][:]
         if 'ROSE' in bath_fid.variables:
             bath_z = bath_fid.variables['ROSE'][:]
+        if 'z' in bath_fid.variables:
+            bath_z = bath_fid.variables['z'][:]
         elif 'elevation' in bath_fid.variables:
             bath_z = bath_fid.variables['elevation'][:]
-        levels = [-4000, -3000, -2500, -2000, -1500, -1000, -500, 0]
+        levels = [-5000, -4500, -4000, -3500, -3000, -2500, -2000, -1500, -1000, -500, 0]
         cmap = plt.cm.get_cmap("Blues_r")
         cmap.set_over('#808000')  # ('#E6E6E6')
 

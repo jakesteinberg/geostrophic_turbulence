@@ -335,10 +335,10 @@ Eta_theta_m = np.nan * np.zeros([np.size(grid), num_profs])
 PE_per_mass = np.nan * np.zeros([nmodes, num_profs])
 HKE_per_mass = np.nan * np.zeros([nmodes, num_profs])
 PE_theta_per_mass = np.nan * np.zeros([nmodes, num_profs])
-modest = np.arange(11, nmodes)
+modest = np.arange(7, nmodes)
 good_ke_prof = np.ones(num_profs)
 good_pe_prof = np.ones(num_profs)
-HKE_noise_threshold = 1e-5  # 1e-5
+HKE_noise_threshold = 1e-4  # 1e-5
 PE_noise_threshold = 1e5
 for i in range(num_profs):
     # fit to velocity profiles
@@ -984,10 +984,11 @@ if plot_mode_corr > 0:
 # ----------------------------------------------------------------------------------------------------------------------
 
 # --- AVERAGE ENERGY
-calmer = np.concatenate((np.arange(0, 110), np.arange(110, num_profs)))  # can exclude the labby
+HKE_per_mass = HKE_per_mass[:, np.where(good_ke_prof > 0)[0]]
+PE_per_mass = PE_per_mass[:, np.where(good_ke_prof > 0)[0]]
+calmer = np.concatenate((np.arange(0, 16), np.arange(18, 102), np.arange(106, PE_per_mass.shape[1])))  # can exclude the labby
 avg_PE = np.nanmean(PE_per_mass[:, calmer], 1)
-good_prof_i = good_ke_prof  # np.where(good_prof > 0)
-avg_KE = np.nanmean(HKE_per_mass[:, np.where(good_ke_prof > 0)[0]], 1)
+avg_KE = np.nanmean(HKE_per_mass[:, calmer], 1)
 # --- eddy kinetic and potential energy
 PE_ed = np.nanmean(PE_per_mass[:, ed_in[0]:ed_in[-1]], axis=1)
 KE_ed = np.nanmean(HKE_per_mass[:, ed_in[0]:ed_in[-1]], axis=1)
@@ -1005,6 +1006,17 @@ alpha = 10
 mu = 1.88e-3 / (1 + 0.03222 * theta_avg + 0.002377 * theta_avg * theta_avg)
 nu = mu / gsw.rho(salin_avg, ct_avg, grid_p)
 avg_nu = np.nanmean(nu)
+
+# --- most and least energetic profiles
+KE_i = HKE_per_mass[:, calmer]
+PE_i = PE_per_mass[:, calmer]
+KE_it = np.nan * np.ones(KE_i.shape[1])
+for i in range(KE_i.shape[1]):
+    KE_it[i] = np.trapz(KE_i[1:, i], 1000 * f_ref / c[1:])
+KE_i_max = np.where(KE_it == np.nanmax(KE_it))[0]
+KE_i_min = np.where(KE_it == np.nanmin(KE_it))[0]
+k_h_max = 1e3 * (f_ref / c[1:]) * np.sqrt(np.squeeze(KE_i[1:, KE_i_max]) / np.squeeze(PE_i[1:, KE_i_max]))
+k_h_min = 1e3 * (f_ref / c[1:]) * np.sqrt(np.squeeze(KE_i[1:, KE_i_min]) / np.squeeze(PE_i[1:, KE_i_min]))
 
 # ----------------------------------------------------------------------------------------------------------------------
 # --- CURVE FITTING TO FIND BREAK IN SLOPES, WHERE WE MIGHT SEE -5/3 AND THEN -3
@@ -1036,7 +1048,7 @@ enst_xfer_per = np.nan * np.ones(PE_per_mass.shape[1])
 ener_xfer_per = np.nan * np.ones(PE_per_mass.shape[1])
 enst_diss_per = np.nan * np.ones(PE_per_mass.shape[1])
 rms_vort_per = np.nan * np.ones(PE_per_mass.shape[1])
-f, ax = plt.subplots()
+# f, ax = plt.subplots()
 for i in range(PE_per_mass.shape[1]):
     in_sp = np.transpose(np.concatenate([sc_x[:, np.newaxis], TE_spectrum_per[1:, i][:, np.newaxis]], axis=1))
     min_sp[i] = fmin(spectrum_fit, start_g, args=(tuple(in_sp)))
@@ -1068,11 +1080,11 @@ for i in range(PE_per_mass.shape[1]):
     enst_diss_per[i] = np.sqrt(avg_nu) / (enst_xfer_per[i] ** (1 / 6))
     rms_vort_per[i] = E0 * (ak0 ** 3) * (0.75 * (1 - (sc_x[0] / 1000) / ak0) ** (4/3) + np.log(enst_diss_per[i] / ak0))
 
-    # ax.plot(sc_x, this_TE, color='k')
-    ax.plot(10**x_grid, 10**fit, color='m')
-ax.set_yscale('log')
-ax.set_xscale('log')
-plot_pro(ax)
+    ## ax.plot(sc_x, this_TE, color='k')
+    # ax.plot(10**x_grid, 10**fit, color='m')
+# ax.set_yscale('log')
+# ax.set_xscale('log')
+# plot_pro(ax)
 
 f, (ax1, ax2, ax3) = plt.subplots(1, 3, sharey=True)
 ax1.hist(rms_vort_per, bins=np.arange(np.nanmin(rms_vort_per), 1*10**-9, 5*10**-11), facecolor='blue', alpha=0.5)
@@ -1127,8 +1139,10 @@ rms_ener = E0 * (ak0) * ( -3/2 + 3/2*( (ak0 ** (2/3))*((sc_x[0] / 1000) ** (-2/3
 r_earth = 6371e3  # earth radius [m]
 beta_ref = f_ref / (np.tan(np.deg2rad(ref_lat)) * r_earth)
 # K_beta = 1 / np.sqrt(np.sqrt(np.sum(avg_KE)) / beta_ref)
-K_beta = 1 / np.sqrt( np.sqrt(rms_ener) / beta_ref )
+K_beta = 1 / np.sqrt(np.sqrt(rms_ener) / beta_ref)
+K_beta_2 = 1 / np.sqrt(np.sqrt(np.nanmean(V3**2)) / beta_ref)
 non_linearity = np.sqrt(rms_ener) / (beta_ref * ((c[1] / f_ref) ** 2))
+non_linearity_2 = np.sqrt(np.nanmean(V3**2)) / (beta_ref * ((c[1] / f_ref) ** 2))
 
 # ----- LOAD in other data
 # -- load in Station BATs PE Comparison
@@ -1197,6 +1211,9 @@ if plot_eng > 0:
     ax1.scatter(sc_x, avg_KE[1:] / dk, color='g', s=20)  # DG KE
     KE_p = ax1.plot([10**-2, 1000 * f_ref / c[1]], avg_KE[0:2] / dk, 'g', linewidth=3) # DG KE_0
     ax1.scatter(10**-2, avg_KE[0] / dk, color='g', s=25, facecolors='none')  # DG KE_0
+    # max / min
+    ax1.plot(1000 * f_ref / c[1:], KE_i[1:, KE_i_max] / dk, 'g', label='KE$_{DG}$', linewidth=2)
+    ax1.plot(1000 * f_ref / c[1:], KE_i[1:, KE_i_min] / dk, 'g', label='KE$_{DG}$', linewidth=2)
 
     # -- Obj. Map
     # KE_om = ax0.plot(sx_c_om, ke_om_tot[1:]/dk_om, 'b', label='$KE_{map}$', linewidth=1.5)
@@ -1283,13 +1300,14 @@ if plot_eng > 0:
              color='k', linewidth=1.5, zorder=2, label=r'$L_{d_n}^{-1}$')
     ax0.text(1000 * f_ref / c[-2] + .1, 1000 * f_ref / c[-2], r'f/c$_n$', fontsize=14)
     ax0.plot(sc_x, k_h, color='k', label=r'$k_h$', linewidth=1.5)
-    # ax0.text(sc_x[0]-.008,k_h[0]-.011,r'$k_{h}$ [km$^{-1}$]',fontsize=14)
     xx_fill = 1000 * f_ref / c[1:]
     yy_fill = 1000 * f_ref / c[1:]
     # ax0.fill_between(xx_fill, yy_fill, k_h, color='b',interpolate=True)
     ax0.fill_between(xx_fill, yy_fill, k_h, where=yy_fill >= k_h, facecolor='#FAEBD7', interpolate=True, alpha=0.75)
     ax0.fill_between(xx_fill, yy_fill, k_h, where=yy_fill <= k_h, facecolor='#6B8E23', interpolate=True, alpha=0.75)
-    ax0.plot([10**-2, 10**1], 1e3 * np.array([K_beta, K_beta]), color='k', linestyle='-.')
+    ax0.plot(sc_x, k_h_max, color='k', label=r'$k_h_{max}$', linewidth=1)
+    ax0.plot(sc_x, k_h_min, color='k', label=r'$k_h_{min}$', linewidth=1)
+    ax0.plot([10**-2, 10**1], 1e3 * np.array([K_beta_2, K_beta_2]), color='k', linestyle='-.')
     ax0.text(1.1, 0.025, r'k$_{Rhines}$', fontsize=12)
 
     ax0.set_yscale('log')
