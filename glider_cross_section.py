@@ -222,14 +222,16 @@ class Glider(object):
         sa = np.nan * np.ones(np.shape(temp))
         ct = np.nan * np.ones(np.shape(temp))
         sig0 = np.nan * np.ones(np.shape(temp))
+        sig4 = np.nan * np.ones(np.shape(temp))
         N2 = np.nan * np.ones(np.shape(temp))
         for i in range(self.num_profs):
             sa[:, i] = gsw.SA_from_SP(sal[:, i], press, lon[:, i], lat[:, i])
             ct[:, i] = gsw.CT_from_t(sa[:, i], temp[:, i], press)
             sig0[:, i] = gsw.sigma0(sa[:, i], ct[:, i])
+            sig4[:, i] = gsw.sigma4(sa[:, i], ct[:, i])
             N2[1:, i] = gsw.Nsquared(sa[:, i], ct[:, i], press, lat=ref_lat)[0]
 
-        return sa, ct, sig0, N2
+        return sa, ct, sig0, sig4, N2
 
     # this function will parse a set of dive-climb cycles into transects that are each bounded by glider targets. The
     # target associated with each dive-climb cycle is used to separate profiles into transects that are terminated when

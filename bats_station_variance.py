@@ -16,7 +16,7 @@ from toolkit import plot_pro, nanseg_interp, find_nearest
 
 # ------ physical parameters
 g = 9.81
-rho0 = 1027
+rho0 = 1045  # - 1027
 GD = Dataset('BATs_2015_gridded_apr04.nc', 'r')
 bin_depth = GD.variables['grid'][:]
 # bin_depth = np.concatenate([np.arange(0, 150, 5), np.arange(150, 300, 5), np.arange(300, 4500, 10)])
@@ -284,7 +284,8 @@ for i in range(7, 0, -1):
 N2_all = savgol_filter(N2_all, 7, 3)
 
 for i in range(4):
-    ddz_avg_sigma[:, i] = (-1025/g) * N2[:, i]  # np.gradient(sigma_theta_avg[:, i], z)
+    # ddz_avg_sigma[:, i] = (-rho0/g) * N2[:, i]
+    ddz_avg_sigma[:, i] = np.gradient(sigma_theta_avg4[:, i], z)
 
 # --- eta
 eta = np.nan * np.zeros((len(grid), num_profs))
@@ -344,7 +345,7 @@ for i in range(num_profs):
 for i in range(4):
     ax.plot(salin_avg[:, i], conservative_t_avg[:, i], linewidth=2, color=colors[i])
     ax2.plot(N2[:, i], grid, linewidth=2, color=colors[i])
-    ax3.plot(ddz_avg_sigma[:, i], grid, linewidth=2, color=colors[i])
+    ax3.plot(-1 * ddz_avg_sigma[:, i], grid, linewidth=2, color=colors[i])
     ax4.plot(sigma_anom[:, bckgrds[i]], grid, color=colors[i], linewidth=0.5)
 ax.grid()
 ax2.invert_yaxis()
