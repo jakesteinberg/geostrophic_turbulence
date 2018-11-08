@@ -22,9 +22,9 @@ from toolkit import plot_pro
 # x = Glider(39, np.concatenate((np.arange(70, 83), np.arange(84, 86))),
 #            r'/Users/jake/Documents/baroclinic_modes/DG/ABACO_2018/sg039')
 # ---- DG BATS 2015
-# x = Glider(35, np.arange(60, 70), '/Users/jake/Documents/baroclinic_modes/DG/BATS_2015/sg035')
+x = Glider(35, np.arange(60, 120), '/Users/jake/Documents/baroclinic_modes/DG/BATS_2015/sg035')
 # ---- DG BATS 2018
-x = Glider(41, np.arange(38, 56), '/Users/jake/Documents/baroclinic_modes/DG/BATS_2018/sg041')
+# x = Glider(41, np.arange(38, 56), '/Users/jake/Documents/baroclinic_modes/DG/BATS_2018/sg041')
 
 # -- match max dive depth to bin_depth
 # GD = Dataset('BATs_2015_gridded_apr04.nc', 'r')
@@ -68,28 +68,27 @@ if np.int(x.ID[3:]) == 30:
 
 # -----------------------------------------------------------------------------------------------
 # computation of absolute salinity, conservative temperature, and potential density anomaly
-sa, ct, sig0, N2 = x.density(bin_depth, ref_lat, t, s, lon, lat)
-
+sa, ct, theta, sig0, sig2, N2 = x.density(bin_depth, ref_lat, t, s, lon, lat)
 # -----------------------------------------------------------------------------------------------
 # compute M/W sections and compute velocity
 sigth_levels = np.concatenate(
     [np.arange(23, 26.5, 0.5), np.arange(26.2, 27.2, 0.2),
      np.arange(27.2, 27.8, 0.2), np.arange(27.7, 27.8, 0.02), np.arange(27.8, 27.9, 0.01)])
 # for combined set of transects
-# ds, dist, v_g, vbt, isopycdep, isopycx, mwe_lon, mwe_lat, DACe_MW, DACn_MW, profile_tags_per = \
-#     x.transect_cross_section_1(bin_depth, sig0, lon, lat, dac_u, dac_v, profile_tags, sigth_levels)
+ds, dist, avg_sig0_per_dep_0, v_g, vbt, isopycdep, isopycx, mwe_lon, mwe_lat, DACe_MW, DACn_MW, profile_tags_per = \
+    x.transect_cross_section_1(bin_depth, sig0, lon, lat, dac_u, dac_v, profile_tags, sigth_levels)
 # for single transects
-ds, dist, v_g, vbt, isopycdep, isopycx, mwe_lon, mwe_lat, DACe_MW, DACn_MW, profile_tags_per = \
-    x.transect_cross_section_0(bin_depth, sig0, lon, lat, dac_u, dac_v, profile_tags, sigth_levels)
+# ds, dist, v_g, vbt, isopycdep, isopycx, mwe_lon, mwe_lat, DACe_MW, DACn_MW, profile_tags_per = \
+#     x.transect_cross_section_0(bin_depth, sig0, lon, lat, dac_u, dac_v, profile_tags, sigth_levels)
 
 # -----------------------------------------------------------------------------------------------
 # PLOTTING cross section
 # choose which transect
-# transect_no = 1
-# x.plot_cross_section(bin_depth, ds[transect_no], v_g[transect_no], dist[transect_no],
-#                      profile_tags_per[transect_no], isopycdep[transect_no], isopycx[transect_no],
-#                      sigth_levels, d_time)
-x.plot_cross_section(bin_depth, ds, v_g, dist, profile_tags_per, isopycdep, isopycx, sigth_levels, d_time)
+transect_no = 1
+x.plot_cross_section(bin_depth, ds[transect_no], v_g[transect_no], dist[transect_no],
+                     profile_tags_per[transect_no], isopycdep[transect_no], isopycx[transect_no],
+                     sigth_levels, d_time)
+# x.plot_cross_section(bin_depth, ds, v_g, dist, profile_tags_per, isopycdep, isopycx, sigth_levels, d_time)
 
 # -----------------------------------------------------------------------------------------------
 # plot plan view
@@ -110,22 +109,22 @@ plan_window = [-66, -63, 32, 37]
 # bath_fid = Dataset(bathy_path, 'r')
 
 # --- for combined set of transects ---
-# x.plot_plan_view(lon, lat, mwe_lon[transect_no], mwe_lat[transect_no],
-#                  DACe_MW[transect_no], DACn_MW[transect_no],
-#                  ref_lat, profile_tags_per[transect_no], d_time, [-77.5, -73.5, 25.5, 27], bathy_path)
+x.plot_plan_view(lon, lat, mwe_lon[transect_no], mwe_lat[transect_no],
+                 DACe_MW[transect_no], DACn_MW[transect_no],
+                 ref_lat, profile_tags_per[transect_no], d_time, plan_window, bathy_path)
 # --- for single transect ---
-x.plot_plan_view(lon, lat, mwe_lon, mwe_lat, DACe_MW, DACn_MW,
-                 ref_lat, profile_tags_per, d_time, plan_window, bathy_path)
+# x.plot_plan_view(lon, lat, mwe_lon, mwe_lat, DACe_MW, DACn_MW,
+#                  ref_lat, profile_tags_per, d_time, plan_window, bathy_path)
 
 # plot t/s
 # x.plot_t_s(ct, sa)
 
 # -------------------
 # vertical modes
-N2_avg = np.nanmean(N2, axis=1)
-N2_avg[N2_avg < 0] = 0
-N2_avg[0] = 1
-G, Gz, c, epsilon = vertical_modes(N2_avg, bin_depth, 0, 30)
+# N2_avg = np.nanmean(N2, axis=1)
+# N2_avg[N2_avg < 0] = 0
+# N2_avg[0] = 1
+# G, Gz, c, epsilon = vertical_modes(N2_avg, bin_depth, 0, 30)
 
 
 # ____________________________________________________________________________________________________________________

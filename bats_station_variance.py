@@ -16,7 +16,7 @@ from toolkit import plot_pro, nanseg_interp, find_nearest
 
 # ------ physical parameters
 g = 9.81
-rho0 = 1045  # - 1027
+rho0 = 1035  # - 1027
 GD = Dataset('BATs_2015_gridded_apr04.nc', 'r')
 bin_depth = GD.variables['grid'][:]
 # bin_depth = np.concatenate([np.arange(0, 150, 5), np.arange(150, 300, 5), np.arange(300, 4500, 10)])
@@ -174,9 +174,10 @@ conservative_t = np.nan * np.zeros((len(grid), num_profs0))
 abs_salin = np.nan * np.zeros((len(grid), num_profs0))
 N2_per = np.nan * np.zeros((len(grid), num_profs0))
 sigma0 = np.nan * np.zeros((len(grid), num_profs0))
+sigma2 = np.nan * np.zeros((len(grid), num_profs0))
 sigma4 = np.nan * np.zeros((len(grid), num_profs0))
 sigma_theta = np.nan * np.zeros((len(grid), num_profs0))
-f, (ax, ax2, ax3) = plt.subplots(1, 3, sharey=True)
+f, (ax, ax2) = plt.subplots(1, 2, sharey=True)
 for i in range(num_profs0):
     theta[:, i] = sw.ptmp(c_s[:, i], c_t[:, i], grid_p, 0)
     sigma_theta[:, i] = sw.dens(c_s[:, i], theta[:, i], 0) - 1000
@@ -184,25 +185,26 @@ for i in range(num_profs0):
                                      c_lat[i] * np.ones(len(grid_p)))
     conservative_t[:, i] = gsw.CT_from_t(abs_salin[:, i], c_t[:, i], grid_p)
     sigma0[:, i] = gsw.sigma0(abs_salin[:, i], conservative_t[:, i])
+    sigma2[:, i] = gsw.rho(abs_salin[:, i], conservative_t[:, i], 2000) - 1000
     sigma4[:, i] = gsw.sigma4(abs_salin[:, i], conservative_t[:, i])
 
     go = ~np.isnan(abs_salin[:, i])
     N2_per[np.where(go)[0][0:-1], i] = gsw.Nsquared(abs_salin[go, i], conservative_t[go, i], grid_p[go], lat=ref_lat)[0]
 
     ax.plot(abs_salin[:, i], grid_p, color='r', linewidth=0.5)
-    ax2.plot(N2_per[:, i], grid_p, color='r', linewidth=0.5)
-    ax3.plot(sigma0[:, i],grid_p, color='r', linewidth=0.5)
-    ax3.plot(sigma4[:, i] - 16, grid_p, color='b', linewidth=0.5)
-    ax3.plot(sigma_theta[:, i], grid_p, color='g', linewidth=0.5)
+    # ax2.plot(N2_per[:, i], grid_p, color='r', linewidth=0.5)
+    ax2.plot(sigma0[:, i], grid_p, color='r', linewidth=0.5)
+    ax2.plot(sigma2[:, i], grid_p, color='b', linewidth=0.5)
+    ax2.plot(sigma4[:, i] - 9, grid_p, color='g', linewidth=0.5)
+    # ax2.plot(sigma_theta[:, i], grid_p, color='g', linewidth=0.5)
 ax.set_title('Abs. Salin')
-ax2.set_xlim([0, 0.0008])
-ax2.set_title('N2')
-ax3.set_xlim([24, 30.5])
-ax3.set_title('Reference Pressure Comp.')
-ax3.invert_yaxis()
+# ax2.set_xlim([0, 0.0008])
+# ax2.set_title('N2')
+# ax3.set_xlim([24, 30.5])
+ax2.set_title('Reference Pressure Comp.')
+ax2.invert_yaxis()
 ax.grid()
-ax2.grid()
-plot_pro(ax3)
+plot_pro(ax2)
 
 # --- exclude profiles with density perturbations at depth that seem like ctd calibration offsets
 # cal_good = np.where(np.abs(sigma0[grid == 4100, :] - 27.89) < 0.0075)[1]
@@ -218,6 +220,7 @@ sigma_theta = sigma_theta[:, cal_good]
 abs_salin = abs_salin[:, cal_good]
 conservative_t = conservative_t[:, cal_good]
 sigma0 = sigma0[:, cal_good]
+sigma2 = sigma2[:, cal_good]
 sigma4 = sigma4[:, cal_good]
 
 # -- construct four background profiles to represent seasons
@@ -239,8 +242,11 @@ salin_avg = np.nan * np.zeros((len(grid), 4))
 conservative_t_avg = np.nan * np.zeros((len(grid), 4))
 theta_avg = np.nan * np.zeros((len(grid), 4))
 sigma_theta_avg = np.nan * np.zeros((len(grid), 4))
+sigma_theta_avg2 = np.nan * np.zeros((len(grid), 4))
 sigma_theta_avg4 = np.nan * np.zeros((len(grid), 4))
 ddz_avg_sigma = np.nan * np.zeros((len(grid), 4))
+ddz_avg_sigma2 = np.nan * np.zeros((len(grid), 4))
+ddz_avg_sigma4 = np.nan * np.zeros((len(grid), 4))
 N2 = np.nan * np.zeros(sigma_theta_avg.shape)
 N = np.nan * np.zeros(sigma_theta_avg.shape)
 for i in range(4):
@@ -249,6 +255,7 @@ for i in range(4):
     conservative_t_avg[:, i] = np.nanmean(conservative_t[:, inn], axis=1)
     theta_avg[:, i] = np.nanmean(theta[:, inn], axis=1)
     sigma_theta_avg[:, i] = np.nanmean(sigma0[:, inn], axis=1)
+    sigma_theta_avg2[:, i] = np.nanmean(sigma2[:, inn], axis=1)
     sigma_theta_avg4[:, i] = np.nanmean(sigma4[:, inn], axis=1)
 
     # N2[1:] = np.squeeze(sw.bfrq(salin_avg, theta_avg, grid_p, lat=ref_lat)[0])
@@ -285,12 +292,17 @@ N2_all = savgol_filter(N2_all, 7, 3)
 
 for i in range(4):
     # ddz_avg_sigma[:, i] = (-rho0/g) * N2[:, i]
-    ddz_avg_sigma[:, i] = np.gradient(sigma_theta_avg4[:, i], z)
+    ddz_avg_sigma[:, i] = np.gradient(sigma_theta_avg[:, i], z)
+    ddz_avg_sigma2[:, i] = np.gradient(sigma_theta_avg2[:, i], z)
+    ddz_avg_sigma4[:, i] = np.gradient(sigma_theta_avg4[:, i], z)
 
 # --- eta
 eta = np.nan * np.zeros((len(grid), num_profs))
+eta2 = np.nan * np.zeros((len(grid), num_profs))
 eta4 = np.nan * np.zeros((len(grid), num_profs))
 sigma_anom = np.nan * np.zeros((len(grid), num_profs))
+sigma_anom2 = np.nan * np.zeros((len(grid), num_profs))
+sigma_anom4 = np.nan * np.zeros((len(grid), num_profs))
 conservative_t_anom = np.nan * np.zeros((len(grid), num_profs))
 for i in range(num_profs):
     this_time = c_date[i] - np.floor(c_date[i])
@@ -303,9 +315,12 @@ for i in range(num_profs):
             if (this_time > date_month[bckgrds[j]].min()) & (this_time < date_month[bckgrds[j]].max()):
                 cor_b[j] = 1
     eta[:, i] = (sigma0[:, i] - sigma_theta_avg[:, cor_b > 0][:, 0]) / ddz_avg_sigma[:, cor_b > 0][:, 0]
-    eta4[:, i] = (sigma4[:, i] - sigma_theta_avg4[:, cor_b > 0][:, 0]) / ddz_avg_sigma[:, cor_b > 0][:, 0]
+    eta2[:, i] = (sigma2[:, i] - sigma_theta_avg2[:, cor_b > 0][:, 0]) / ddz_avg_sigma2[:, cor_b > 0][:, 0]
+    eta4[:, i] = (sigma4[:, i] - sigma_theta_avg4[:, cor_b > 0][:, 0]) / ddz_avg_sigma4[:, cor_b > 0][:, 0]
     # eta[:, i] = (sigma0[:, i] - np.nanmean(sigma_theta_avg, axis=1))/np.nanmean(ddz_avg_sigma, axis=1)
     sigma_anom[:, i] = (sigma0[:, i] - np.nanmean(sigma_theta_avg, axis=1))
+    sigma_anom2[:, i] = (sigma2[:, i] - np.nanmean(sigma_theta_avg2, axis=1))
+    sigma_anom4[:, i] = (sigma4[:, i] - np.nanmean(sigma_theta_avg4, axis=1))
     conservative_t_anom[:, i] = (conservative_t[:, i] - conservative_t_avg[:, cor_b > 0][:, 0])
 
 # -- look for long term warming/cooling trends
@@ -338,7 +353,7 @@ plot_pro(ax3)
 
 colors = plt.cm.Dark2(np.arange(0, 4, 1))
 # --- T/S plot and lat/lon profile location
-f, (ax, ax2, ax3, ax4) = plt.subplots(1, 4)
+f, (ax, ax2, ax3, ax4, ax5) = plt.subplots(1, 5)
 for i in range(num_profs):
     ax.scatter(abs_salin[:, i], conservative_t[:, i], s=1)
 # colors = ['r', 'g', 'b', 'k']
@@ -347,13 +362,16 @@ for i in range(4):
     ax2.plot(N2[:, i], grid, linewidth=2, color=colors[i])
     ax3.plot(-1 * ddz_avg_sigma[:, i], grid, linewidth=2, color=colors[i])
     ax4.plot(sigma_anom[:, bckgrds[i]], grid, color=colors[i], linewidth=0.5)
+    ax5.plot(sigma_anom2[:, bckgrds[i]], grid, color=colors[i], linewidth=0.5)
 ax.grid()
 ax2.invert_yaxis()
 ax3.invert_yaxis()
 ax4.invert_yaxis()
+ax5.invert_yaxis()
 ax2.grid()
 ax3.grid()
-plot_pro(ax4)
+ax4.grid()
+plot_pro(ax5)
 
 # MODE PARAMETERS
 # frequency zeroed for geostrophic modes
@@ -362,7 +380,7 @@ omega = 0
 mmax = 60
 nmodes = mmax + 1
 eta_fit_dep_min = 75
-eta_fit_dep_max = 3750
+eta_fit_dep_max = 3500
 
 # -- computer vertical mode shapes
 G, Gz, c, epsilon = vertical_modes(N2_all, grid, omega, mmax)
@@ -375,7 +393,7 @@ Neta_m = []
 Eta_m = []
 for i in range(4):
     AG_out, eta_m_out, Neta_m_out, PE_per_mass_out = eta_fit(len(bckgrds[i]), grid, nmodes,
-                                                             N2_all, G, c, eta4[:, bckgrds[i]],
+                                                             N2_all, G, c, eta2[:, bckgrds[i]],
                                                              eta_fit_dep_min,
                                                              eta_fit_dep_max)
     AG.append(AG_out)
@@ -387,9 +405,10 @@ for i in range(4):
     else:
         Eta_m = np.concatenate([Eta_m, eta_m_out], axis=1)
 
+AG_all_2, eta_m_all_2, Neta_m_all_2, PE_per_mass_all_2 = eta_fit(num_profs, grid, nmodes,
+                                                                 N2_all, G, c, eta2, eta_fit_dep_min, eta_fit_dep_max)
 AG_all, eta_m_all, Neta_m_all, PE_per_mass_all = eta_fit(num_profs, grid, nmodes,
-                                                         N2_all, G, c, eta4, eta_fit_dep_min,
-                                                         eta_fit_dep_max)
+                                                         N2_all, G, c, eta4, eta_fit_dep_min, eta_fit_dep_max)
 
 # --- find EOFs of dynamic vertical displacement (Eta mode amplitudes)
 AG_avg = AG_all.copy()
@@ -426,12 +445,13 @@ EOFetashape2_BTpBC1 = G[:, 1:3] * V_AGqa[0:2, 1]  # truncated 2 mode shape of EO
 # plot_pro(ax)
 
 # ----- PLOT DENSITY ANOM, ETA, AND MODE SHAPES
-f, (ax, ax2, ax3, ax4) = plt.subplots(1, 4, sharey=True)
+f, (ax, ax2, ax25, ax3, ax4) = plt.subplots(1, 5, sharey=True)
 for i in range(num_profs):
     ax.plot(sigma_anom[:, i], grid, linewidth=0.75)
     ax2.plot(eta[:, i], grid, linewidth=.75, color='#808000')
+    ax25.plot(eta2[:, i], grid, linewidth=.75, color='#808000')
     ax3.plot(eta4[:, i], grid, linewidth=.75, color='#808000')
-    ax3.plot(Eta_m[:, i], grid, linewidth=.5, color='k', linestyle='--')
+    ax25.plot(Eta_m[:, i], grid, linewidth=.5, color='k', linestyle='--')
 n2p = ax4.plot((np.sqrt(N2_all) * (1800 / np.pi)) / 4, grid, color='k', label='N(z) [cph]')
 for j in range(4):
     ax4.plot(G[:, j] / grid.max(), grid, color='#2F4F4F', linestyle='--')
@@ -444,17 +464,21 @@ ax.set_xlabel(r'$\sigma_{\theta} - \overline{\sigma_{\theta}}$')
 ax.set_ylabel('Depth [m]')
 ax.set_xlim([-.5, .5])
 ax2.grid()
-ax2.set_title('Sig0 Isopycnal Displacement [m]')
+ax2.set_title('Sig0 Isopycnal Disp. [m]')
 ax2.set_xlabel('[m]')
-ax2.axis([-500, 500, 0, 4750])
-ax3.set_title('Sig4 Isopycnal Displacement [m]')
+ax2.axis([-400, 400, 0, 4750])
+ax25.grid()
+ax25.set_title('Sig2 Isopycnal Disp. [m]')
+ax25.set_xlabel('[m]')
+ax25.axis([-400, 400, 0, 4750])
+ax3.set_title('Sig4 Isopycnal Disp. [m]')
 ax3.set_xlabel('[m]')
-ax3.axis([-500, 500, 0, 4750])
+ax3.axis([-400, 400, 0, 4750])
 ax3.grid()
 
 handles, labels = ax4.get_legend_handles_labels()
 ax4.legend(handles, labels, fontsize=10)
-ax4.set_title('EOFs of mode amplitudes (G(z))')
+ax4.set_title('EOFs of mode amp. (G(z))')
 ax4.set_xlabel('Normalized Mode Amplitude')
 ax4.set_xlim([-1, 1])
 ax4.invert_yaxis()
@@ -478,9 +502,7 @@ ax.legend(handles, labels, fontsize=10)
 plot_pro(ax)
 
 # --- PLOT MODE AMPLITUDES IN TIME
-window_size = 25
-poly_order = 3
-f, (ax1, ax2) = plt.subplots(2, 1, sharex=True)
+# f, (ax1, ax2) = plt.subplots(2, 1, sharex=True)
 # colors = ['r', 'g', 'b', 'm']
 # for i in range(4):
 #     AG1 = AG[i][1, :].copy()
@@ -494,24 +516,45 @@ f, (ax1, ax2) = plt.subplots(2, 1, sharex=True)
 #     ax1.plot(c_date[bckgrds[i]], y_sg, color=colors[i], linewidth=1, label='Mode 1')
 #     # ax.plot(c_date[bckgrds[i]], AG[2, :], linewidth=0.5, color='#5F9EA0')
 #     ax2.plot(c_date[bckgrds[i]], y_sg2, color=colors[i], linewidth=1, label='Mode 2')
+# window_size = 25
+# poly_order = 3
+# AG1_all = AG_all[1, :].copy()
+# AG1_all = nanseg_interp(c_date, AG1_all)
+# y_sg_all = savgol_filter(AG1_all, window_size, poly_order)
+# ax1.plot(c_date, c[1] * AG1_all, color='k', linewidth=2, label='Mode 1')
+# AG2_all = AG_all[2, :].copy()
+# AG2_all = nanseg_interp(c_date, AG2_all)
+# y_sg2_all = savgol_filter(AG2_all, window_size, poly_order)
+# ax2.plot(c_date, c[2] * AG2_all, color='k', linewidth=2, label='Mode 1')
+# # ax1.legend(['Spring', 'Summer', 'Fall', 'Winter', 'All'], fontsize=10)
+# ax2.set_xlabel('Date')
+# ax1.set_ylabel('Mode Amplitude')
+# ax2.set_ylabel('Mode Amplitude')
+# ax1.set_title(r'Station BATS Scaled Mode 1 Amplitude (c$_{n}\beta_{n}$) in Time')
+# ax2.set_title(r'Station BATS Mode 2 Amplitude (c$_{n}\beta_{n}$) in Time')
+# ax1.set_ylim([-.16, 0.25])
+# ax2.set_ylim([-.16, 0.25])
+# ax1.grid()
+# plot_pro(ax2)
 
-AG1_all = AG_all[1, :].copy()
-AG1_all = nanseg_interp(c_date, AG1_all)
-y_sg_all = savgol_filter(AG1_all, window_size, poly_order)
-ax1.plot(c_date, c[1] * AG1_all, color='k', linewidth=2, label='Mode 1')
-AG2_all = AG_all[2, :].copy()
-AG2_all = nanseg_interp(c_date, AG2_all)
-y_sg2_all = savgol_filter(AG2_all, window_size, poly_order)
-ax2.plot(c_date, c[2] * AG2_all, color='k', linewidth=2, label='Mode 1')
-# ax1.legend(['Spring', 'Summer', 'Fall', 'Winter', 'All'], fontsize=10)
-ax2.set_xlabel('Date')
-ax1.set_ylabel('Mode Amplitude')
-ax2.set_ylabel('Mode Amplitude')
-ax1.set_title(r'Station BATS Scaled Mode 1 Amplitude (c$_{n}\beta_{n}$) in Time')
-ax2.set_title(r'Station BATS Mode 2 Amplitude (c$_{n}\beta_{n}$) in Time')
-ax1.set_ylim([-.16, 0.25])
-ax2.set_ylim([-.16, 0.25])
-ax1.grid()
+# -- MODE AMPLITUDE IN TIME
+f, (ax, ax2, ax3, ax4) = plt.subplots(4, 1, sharex=True)
+ax.plot(c_date, AG_all[1, :], color='g')
+ax.set_title('Displacement Mode 1 Amp. in Time')
+ax2.plot(c_date, AG_all[2, :], color='g')
+ax2.set_title('Displacement Mode 2 Amp. in Time')
+ax3.plot(c_date, AG_all[3, :], color='g')
+ax3.set_title('Displacement Mode 3 Amp. in Time')
+ax4.plot(c_date, AG_all[4, :], color='g')
+ax4.set_title('Displacement Mode 4 Amp. in Time')
+plot_pro(ax4)
+
+# -- density in time
+f, (ax1, ax2) = plt.subplots(2, 1, sharex=True)
+ax1.plot(c_date, sigma2[90, :], color='g')
+ax2.plot(c_date, sigma2[165, :], color='g')
+ax1.set_title('Potential Density at 1500m')
+ax2.set_title('at 3000m')
 plot_pro(ax2)
 
 # -- attempt fft to find period of oscillation
@@ -538,12 +581,12 @@ plot_pro(ax)
 
 # --- SAVE
 # write python dict to a file
-sa = 1
+sa = 0
 if sa > 0:
-    my_dict = {'depth': grid, 'Sigma0': sigma0, 'lon': c_lon, 'lat': c_lat, 'time': c_date,
+    my_dict = {'depth': grid, 'Sigma0': sigma0, 'Sigma2': sigma2, 'lon': c_lon, 'lat': c_lat, 'time': c_date,
                'N2_per_season': N2, 'background indices': bckgrds, 'background order': ['spr', 'sum', 'fall', 'wint'],
                'AG': AG_all, 'AG_per_season': AG, 'Eta': eta, 'Eta_m': eta_m_all, 'NEta_m': Neta_m_all,
-               'PE': PE_per_mass_all, 'PE_by_season': PE_per_mass, 'c': c}
+               'Eta2': eta2, 'Eta_m_2': eta_m_all_2, 'PE': PE_per_mass_all, 'PE_by_season': PE_per_mass, 'c': c}
     output = open('/Users/jake/Desktop/bats/station_bats_pe_nov05.pkl', 'wb')
     pickle.dump(my_dict, output)
     output.close()

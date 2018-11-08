@@ -221,17 +221,19 @@ class Glider(object):
         press = gsw.p_from_z(-1*bin_depth, ref_lat)
         sa = np.nan * np.ones(np.shape(temp))
         ct = np.nan * np.ones(np.shape(temp))
+        theta = np.nan * np.ones(np.shape(temp))
         sig0 = np.nan * np.ones(np.shape(temp))
-        sig4 = np.nan * np.ones(np.shape(temp))
+        sig2 = np.nan * np.ones(np.shape(temp))
         N2 = np.nan * np.ones(np.shape(temp))
         for i in range(self.num_profs):
             sa[:, i] = gsw.SA_from_SP(sal[:, i], press, lon[:, i], lat[:, i])
             ct[:, i] = gsw.CT_from_t(sa[:, i], temp[:, i], press)
+            theta[:, i] = gsw.pt_from_CT(sa[:, i], ct[:, i])
             sig0[:, i] = gsw.sigma0(sa[:, i], ct[:, i])
-            sig4[:, i] = gsw.sigma4(sa[:, i], ct[:, i])
+            sig2[:, i] = gsw.sigma2(sa[:, i], ct[:, i])
             N2[1:, i] = gsw.Nsquared(sa[:, i], ct[:, i], press, lat=ref_lat)[0]
 
-        return sa, ct, sig0, sig4, N2
+        return sa, ct, theta, sig0, sig2, N2
 
     # this function will parse a set of dive-climb cycles into transects that are each bounded by glider targets. The
     # target associated with each dive-climb cycle is used to separate profiles into transects that are terminated when
@@ -288,11 +290,16 @@ class Glider(object):
         DACe_MW_out = []
         DACn_MW_out = []
         profile_tags_out = []
+        info_out = []
         for n in range(len(transects)):  # loop over all transect segments
+            print('transects = ' + str(transects[n]))
             for o in range(len(transects[n])):  # loop over all times a glider executed that segment
                 this_transect = transects[n][o]
+                print(this_transect)
                 index_start = 2 * this_transect[0]
                 index_end = 2 * (this_transect[-1] + 1)
+                print('index_start = ' + str(index_start))
+                print('index_end = ' + str(index_end))
                 order_set = np.arange(0, 2 * len(this_transect), 2)
                 sig0 = sig0_0[:, index_start:index_end]
                 lon = lon_0[:, index_start:index_end]
@@ -300,6 +307,7 @@ class Glider(object):
                 dac_u = dac_u_0[index_start:index_end]
                 dac_v = dac_v_0[index_start:index_end]
                 profile_tags = profile_tags_0[index_start:index_end]
+                print('profile # = ' + str(profile_tags))
                 # ____________________________________________________________________________________
                 # order_set = np.arange(0, self.num_profs, 2)
 
@@ -522,7 +530,7 @@ class Glider(object):
                         avg_sig_pd[:, i + 1] = p_avg_sig_W
                         # eta[:, i + 1] = etaW
                         # eta_theta[:, i + 1] = eta_thetaW
-                        info[0, i + 1] = profile_tags[i]
+                        info[0, i + 1] = profile_tags[i + 1]
                         info[1, i + 1] = np.nanmean(lon_pa_W)
                         info[2, i + 1] = np.nanmean(lat_pa_W)
 
@@ -570,6 +578,8 @@ class Glider(object):
                         mwe_lon[m] = lon[np.where(np.isfinite(lon[:, m]))[0], m][-1]
                         mwe_lat[m] = lat[np.where(np.isfinite(lat[:, m]))[0], m][-1]
 
+                print('profile # = ' + str(info[0,:]))
+
                 ds_out.append(ds)
                 dist_out.append(dist)
                 v_g_out.append(v_g)
@@ -582,6 +592,7 @@ class Glider(object):
                 DACe_MW_out.append(DACe_MW)
                 DACn_MW_out.append(DACn_MW)
                 profile_tags_out.append(profile_tags)
+                info_out.append(info)
 
             # everywhere there is a len(profile_tags) there was a self.num_profs
 
@@ -593,7 +604,7 @@ class Glider(object):
             fig0, ax0 = plt.subplots()
             matplotlib.rcParams['contour.negative_linestyle'] = 'solid'
             # levels = np.arange(np.float(np.nanmin(v_g)), np.float(np.nanmax(v_g)), .02)
-            levels = np.arange(-.66, .68, .04)
+            levels = np.arange(-.6, .62, .04)
             vc = ax0.contourf(ds, bin_depth, v_g, levels=levels, cmap=plt.cm.PuOr)
             vcc = ax0.contour(ds, bin_depth, v_g, levels=levels, colors='k', linewidth=.75)
             ax0.contour(ds, bin_depth, v_g, levels=[0], colors='k', linewidth=1.25)
