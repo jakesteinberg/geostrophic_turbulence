@@ -315,7 +315,7 @@ ax.set_yscale('log')
 ax.set_xscale('log')
 plot_pro(ax)
 
-# ---- energy in vertical modes from paper
+# ---- energy in vertical modes from paper (Manita Chouksey thesis)
 Ri = np.array([3, 13, 377, 915])
 modes = np.arange(0, 5)
 r3_KE = np.array([5236, 2481.48, 861.81, 329.12, 267.72]) * np.array([1, 0.66, 0.33, 0.4, 0.26])

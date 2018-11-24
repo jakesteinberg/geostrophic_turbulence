@@ -239,12 +239,15 @@ class Glider(object):
     # target associated with each dive-climb cycle is used to separate profiles into transects that are terminated when
     # glider target changes (when it reaches a targets and begins to head towards a new one). If transects are repeated,
     # each occupation of the line is treated as its own transect
-    def transect_cross_section_1(self, bin_depth, sig0_0, lon_0, lat_0, dac_u_0, dac_v_0, profile_tags_0, sigth_levels):
+    def transect_cross_section_1(self, bin_depth, sig0_0, ct_0, sa_0,
+                                 lon_0, lat_0, dac_u_0, dac_v_0, profile_tags_0, sigth_levels):
         deep_shr_max = 0.1
         deep_shr_max_dep = 3500
         # -- for computation of eta (reference to average density profile and gradient of average density profile
         # - the average should span seasons rather than total mission
         sigma_theta_avg = np.nanmean(sig0_0, axis=1)
+        ct_avg = np.nanmean(ct_0, axis=1)
+        sa_avg = np.nanmean(sa_0, axis=1)
         ddz_avg_sigma = np.gradient(sigma_theta_avg, -1 * bin_depth)
 
         # ____________________________________________________________________________________
@@ -280,7 +283,9 @@ class Glider(object):
 
         ds_out = []
         dist_out = []
-        eta_out = []
+        avg_ct_out = []
+        avg_sa_out = []
+        avg_sig_out = []
         v_g_out = []
         vbt_out = []
         isopycdep_out = []
@@ -302,6 +307,8 @@ class Glider(object):
                 print('index_end = ' + str(index_end))
                 order_set = np.arange(0, 2 * len(this_transect), 2)
                 sig0 = sig0_0[:, index_start:index_end]
+                ct = ct_0[:, index_start:index_end]
+                sa = sa_0[:, index_start:index_end]
                 lon = lon_0[:, index_start:index_end]
                 lat = lat_0[:, index_start:index_end]
                 dac_u = dac_u_0[index_start:index_end]
@@ -317,6 +324,8 @@ class Glider(object):
                 # eta = np.nan * np.zeros((np.size(bin_depth), len(profile_tags) - 1))
                 # eta_theta = np.nan * np.zeros((np.size(grid), np.size(this_set) - 1))
                 avg_sig_pd = np.nan * np.zeros((np.size(bin_depth), len(profile_tags) - 1))
+                avg_ct_pd = np.nan * np.zeros((np.size(bin_depth), len(profile_tags) - 1))
+                avg_sa_pd = np.nan * np.zeros((np.size(bin_depth), len(profile_tags) - 1))
                 isopycdep = np.nan * np.zeros((np.size(sigth_levels), len(profile_tags)))
                 isopycx = np.nan * np.zeros((np.size(sigth_levels), len(profile_tags)))
                 vbt = np.nan * np.zeros(len(profile_tags))
@@ -403,6 +412,10 @@ class Glider(object):
                     # etaW = np.nan * np.zeros(np.size(bin_depth))
                     p_avg_sig_M = np.nan * np.zeros(np.size(bin_depth))
                     p_avg_sig_W = np.nan * np.zeros(np.size(bin_depth))
+                    p_avg_ct_M = np.nan * np.zeros(np.size(bin_depth))
+                    p_avg_ct_W = np.nan * np.zeros(np.size(bin_depth))
+                    p_avg_sa_M = np.nan * np.zeros(np.size(bin_depth))
+                    p_avg_sa_W = np.nan * np.zeros(np.size(bin_depth))
                     # eta_thetaM = np.nan * np.zeros(np.size(bin_depth))
                     # eta_thetaW = np.nan * np.zeros(np.size(bin_depth))
                     sigma_theta_pa_M = np.nan * np.zeros(np.size(bin_depth))
@@ -469,6 +482,8 @@ class Glider(object):
                                 # using a background profile of the users desire. this average spans the same number
                                 # of profiles used in computing vertical shear profiles (and then velocity profiles)
                                 p_avg_sig_M[j] = np.nanmean(sig0[j, c_i_m])
+                                p_avg_ct_M[j] = np.nanmean(ct[j, c_i_m])
+                                p_avg_sa_M[j] = np.nanmean(sa[j, c_i_m])
 
                         # for W profile compute shear and eta
                         if nw > 2 and np.size(sig0[j, c_i_w]) > 2:
@@ -511,6 +526,8 @@ class Glider(object):
                                 # using a background profile of the users desire. this average spans the same number
                                 # of profiles used in computing vertical shear profiles (and then velocity profiles)
                                 p_avg_sig_W[j] = np.nanmean(sig0[j, c_i_w])
+                                p_avg_ct_W[j] = np.nanmean(ct[j, c_i_w])
+                                p_avg_sa_W[j] = np.nanmean(sa[j, c_i_w])
 
                         # END LOOP OVER EACH BIN_DEPTH
 
@@ -519,6 +536,8 @@ class Glider(object):
                     sigma_theta_out[:, i] = sigma_theta_pa_M
                     shear[:, i] = shearM
                     avg_sig_pd[:, i] = p_avg_sig_M
+                    avg_ct_pd[:, i] = p_avg_ct_M
+                    avg_sa_pd[:, i] = p_avg_sa_M
                     # eta[:, i] = etaM
                     # eta_theta[:, i] = eta_thetaM
                     info[0, i] = profile_tags[i]
@@ -528,6 +547,8 @@ class Glider(object):
                         sigma_theta_out[:, i + 1] = sigma_theta_pa_W
                         shear[:, i + 1] = shearW
                         avg_sig_pd[:, i + 1] = p_avg_sig_W
+                        avg_ct_pd[:, i + 1] = p_avg_ct_W
+                        avg_sa_pd[:, i + 1] = p_avg_sa_W
                         # eta[:, i + 1] = etaW
                         # eta_theta[:, i + 1] = eta_thetaW
                         info[0, i + 1] = profile_tags[i + 1]
@@ -580,23 +601,25 @@ class Glider(object):
 
                 print('profile # = ' + str(info[0,:]))
 
-                ds_out.append(ds)
-                dist_out.append(dist)
-                v_g_out.append(v_g)
-                vbt_out.append(vbt)
-                isopycdep_out.append(isopycdep)
-                isopycx_out.append(isopycx)
-                mwe_lon_out.append(mwe_lon)
-                mwe_lat_out.append(mwe_lat)
-                eta_out.append(avg_sig_pd)
-                DACe_MW_out.append(DACe_MW)
-                DACn_MW_out.append(DACn_MW)
-                profile_tags_out.append(profile_tags)
-                info_out.append(info)
+                ds_out.append(ds)                   # distance of each m/w profile to transect start position
+                dist_out.append(dist)               # distance of every data point to transect start position
+                v_g_out.append(v_g)                 # velocity profile at distance ds
+                vbt_out.append(vbt)                 #
+                isopycdep_out.append(isopycdep)     # isopycnal depth (along each profile)
+                isopycx_out.append(isopycx)         # isopycnal distance (along-transect distance) of isopycnal depth
+                mwe_lon_out.append(mwe_lon)         # lon of m/w profile
+                mwe_lat_out.append(mwe_lat)         # lat of m/w profile
+                avg_ct_out.append(avg_ct_pd)        # avg conservative t profile following m/w scheme, at distance ds
+                avg_sa_out.append(avg_sa_pd)        # avg abs sal profile following m/w scheme, at distance ds
+                avg_sig_out.append(avg_sig_pd)      # avg sig profile following m/w scheme, at distance ds
+                DACe_MW_out.append(DACe_MW)         # DAC (east) at each m/w profile
+                DACn_MW_out.append(DACn_MW)         # DAC (west) at each m/w profile
+                profile_tags_out.append(profile_tags)   # profile numbers (linked to dist) (make-up of each transect)
+                info_out.append(info)                   #
 
             # everywhere there is a len(profile_tags) there was a self.num_profs
 
-        return ds_out, dist_out, eta_out, v_g_out, vbt_out, isopycdep_out, isopycx_out, \
+        return ds_out, dist_out, avg_ct_out, avg_sa_out, avg_sig_out, v_g_out, vbt_out, isopycdep_out, isopycx_out, \
             mwe_lon_out, mwe_lat_out, DACe_MW_out, DACn_MW_out, profile_tags_out
 
     def plot_cross_section(self, bin_depth, ds, v_g, dist, profile_tags, isopycdep, isopycx, sigth_levels, time):
@@ -670,7 +693,7 @@ class Glider(object):
             bath_z = bath_fid.variables['z'][:]
         elif 'elevation' in bath_fid.variables:
             bath_z = bath_fid.variables['elevation'][:]
-        levels = [-5000, -4500, -4000, -3500, -3000, -2500, -2000, -1500, -1000, -500, 0]
+        levels = [-5000, -4500, -4000, -3500, -3000, -2500, -2000, -1500, -1000, -500, 5]
         cmap = plt.cm.get_cmap("Blues_r")
         cmap.set_over('#808000')  # ('#E6E6E6')
 
@@ -678,10 +701,11 @@ class Glider(object):
         bc = ax.contourf(bath_lon, bath_lat, bath_z, levels, cmap='Blues_r', extend='both', zorder=0)
         matplotlib.rcParams['contour.negative_linestyle'] = 'solid'
         # ax.plot(mwe_lon, mwe_lat, color='k')
-        ax.scatter(lon, lat, s=2, color='k')
-        ax.scatter(mwe_lon, mwe_lat, s=4, color='r')
+        ax.scatter(lon, lat, s=2, color='#FF8C00')
+        ax.scatter(mwe_lon, mwe_lat, s=4, color='#8B0000')
         for i in range(0, len(mwe_lat)-1, 2):
-            ax.text(mwe_lon[i] - 0.1, mwe_lat[i] + 0.02, str(profile_tags[i]), color='#FFD700', fontsize=9)
+            ax.text(mwe_lon[i] - 0.1, mwe_lat[i] + 0.02, str(np.int(profile_tags[i])), color='#00FA9A',
+                    fontsize=10, fontweight='bold')
         ax.quiver(mwe_lon, mwe_lat, dac_u, dac_v, color='r', scale=2, headwidth=2, headlength=2, width=.0025)
         w = 1 / np.cos(np.deg2rad(ref_lat))
         ax.axis(limits)

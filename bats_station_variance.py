@@ -217,8 +217,8 @@ c_lat = c_lat[cal_good]
 theta = theta[:, cal_good]
 salin = c_s[:, cal_good]
 sigma_theta = sigma_theta[:, cal_good]
-abs_salin = abs_salin[:, cal_good]
-conservative_t = conservative_t[:, cal_good]
+a_salin = abs_salin[:, cal_good]
+c_temp = conservative_t[:, cal_good]
 sigma0 = sigma0[:, cal_good]
 sigma2 = sigma2[:, cal_good]
 sigma4 = sigma4[:, cal_good]
@@ -237,7 +237,7 @@ d_winter = np.where((date_month > 11 / 12) | (date_month < 3 / 12))[0]
 
 bckgrds = [d_spring, d_summer, d_fall, d_winter]
 # -----------------------------------------------------------------------------
-
+# FOUR DIFFERENCE BACKGROUND PROFILES
 salin_avg = np.nan * np.zeros((len(grid), 4))
 conservative_t_avg = np.nan * np.zeros((len(grid), 4))
 theta_avg = np.nan * np.zeros((len(grid), 4))
@@ -251,8 +251,8 @@ N2 = np.nan * np.zeros(sigma_theta_avg.shape)
 N = np.nan * np.zeros(sigma_theta_avg.shape)
 for i in range(4):
     inn = bckgrds[i]
-    salin_avg[:, i] = np.nanmean(abs_salin[:, inn], axis=1)
-    conservative_t_avg[:, i] = np.nanmean(conservative_t[:, inn], axis=1)
+    salin_avg[:, i] = np.nanmean(a_salin[:, inn], axis=1)
+    conservative_t_avg[:, i] = np.nanmean(c_temp[:, inn], axis=1)
     theta_avg[:, i] = np.nanmean(theta[:, inn], axis=1)
     sigma_theta_avg[:, i] = np.nanmean(sigma0[:, inn], axis=1)
     sigma_theta_avg2[:, i] = np.nanmean(sigma2[:, inn], axis=1)
@@ -296,7 +296,9 @@ for i in range(4):
     ddz_avg_sigma2[:, i] = np.gradient(sigma_theta_avg2[:, i], z)
     ddz_avg_sigma4[:, i] = np.gradient(sigma_theta_avg4[:, i], z)
 
-# --- eta
+# --- ETA COMPUTATION
+# for each depth bin compute density relative to a local reference pressure, then compute a relevant background  also
+# to the same reference pressure. Need local vertical density gradient. Use this to compute density anom, and thus Eta
 eta = np.nan * np.zeros((len(grid), num_profs))
 eta2 = np.nan * np.zeros((len(grid), num_profs))
 eta4 = np.nan * np.zeros((len(grid), num_profs))
@@ -304,7 +306,11 @@ sigma_anom = np.nan * np.zeros((len(grid), num_profs))
 sigma_anom2 = np.nan * np.zeros((len(grid), num_profs))
 sigma_anom4 = np.nan * np.zeros((len(grid), num_profs))
 conservative_t_anom = np.nan * np.zeros((len(grid), num_profs))
+this_eta = np.nan * np.zeros((len(grid), num_profs))
+this_anom = np.nan * np.zeros((len(grid), num_profs))
+this_gradient = np.nan * np.zeros((len(grid), num_profs))
 for i in range(num_profs):
+    # find relevant time indices
     this_time = c_date[i] - np.floor(c_date[i])
     cor_b = np.zeros(4)
     for j in range(4):
@@ -314,6 +320,17 @@ for i in range(num_profs):
         else:
             if (this_time > date_month[bckgrds[j]].min()) & (this_time < date_month[bckgrds[j]].max()):
                 cor_b[j] = 1
+    # average T/S for the relevant season
+    avg_a_salin = salin_avg[:, cor_b > 0][:, 0]
+    avg_c_temp = conservative_t_avg[:, cor_b > 0][:, 0]
+    for j in range(1, len(grid) - 1):
+        # profile density at depth j with local
+        this_sigma = gsw.rho(a_salin[j, i], c_temp[j, i], grid_p[j]) - 1000
+        this_sigma_avg = gsw.rho(avg_a_salin[j-1:j+2], avg_c_temp[j-1:j+2], grid_p[j]) - 1000
+        this_anom[j, i] = this_sigma - this_sigma_avg[1]
+        # this_gradient = (this_sigma_avg[0] - this_sigma_avg[2]) / (z[j-1] - z[j+1])
+        this_gradient[j, i] = np.nanmean(np.gradient(this_sigma_avg, z[j-1:j+2]))
+        this_eta[j, i] = this_anom[j, i] / this_gradient[j, i]
     eta[:, i] = (sigma0[:, i] - sigma_theta_avg[:, cor_b > 0][:, 0]) / ddz_avg_sigma[:, cor_b > 0][:, 0]
     eta2[:, i] = (sigma2[:, i] - sigma_theta_avg2[:, cor_b > 0][:, 0]) / ddz_avg_sigma2[:, cor_b > 0][:, 0]
     eta4[:, i] = (sigma4[:, i] - sigma_theta_avg4[:, cor_b > 0][:, 0]) / ddz_avg_sigma4[:, cor_b > 0][:, 0]
@@ -342,6 +359,7 @@ ax1.plot(c_date, cta1, color='k')
 ax2.plot(c_date, cta2, color='k')
 ax3.plot(c_date, cta3, color='k')
 ax0.set_title('T anom at 5m')
+ax0.set_ylim([-5, 5])
 ax0.grid()
 ax1.set_title('T anom at 1000m')
 ax1.grid()
@@ -391,19 +409,21 @@ PE_per_mass = []
 eta_m = []
 Neta_m = []
 Eta_m = []
+Eta_m = np.nan * np.ones(np.shape(this_eta))
 for i in range(4):
     AG_out, eta_m_out, Neta_m_out, PE_per_mass_out = eta_fit(len(bckgrds[i]), grid, nmodes,
-                                                             N2_all, G, c, eta2[:, bckgrds[i]],
+                                                             N2_all, G, c, this_eta[:, bckgrds[i]],
                                                              eta_fit_dep_min,
                                                              eta_fit_dep_max)
     AG.append(AG_out)
     eta_m.append(eta_m_out)
     Neta_m.append(Neta_m_out)
     PE_per_mass.append(PE_per_mass_out)
-    if i < 1:
-        Eta_m = eta_m_out
-    else:
-        Eta_m = np.concatenate([Eta_m, eta_m_out], axis=1)
+    Eta_m[:, bckgrds[i]] = eta_m_out
+    # if i < 1:
+    #     Eta_m = eta_m_out
+    # else:
+    #     Eta_m = np.concatenate([Eta_m, eta_m_out], axis=1)
 
 AG_all_2, eta_m_all_2, Neta_m_all_2, PE_per_mass_all_2 = eta_fit(num_profs, grid, nmodes,
                                                                  N2_all, G, c, eta2, eta_fit_dep_min, eta_fit_dep_max)
@@ -447,11 +467,11 @@ EOFetashape2_BTpBC1 = G[:, 1:3] * V_AGqa[0:2, 1]  # truncated 2 mode shape of EO
 # ----- PLOT DENSITY ANOM, ETA, AND MODE SHAPES
 f, (ax, ax2, ax25, ax3, ax4) = plt.subplots(1, 5, sharey=True)
 for i in range(num_profs):
-    ax.plot(sigma_anom[:, i], grid, linewidth=0.75)
+    ax.plot(this_anom[:, i], grid, linewidth=0.75)
     ax2.plot(eta[:, i], grid, linewidth=.75, color='#808000')
     ax25.plot(eta2[:, i], grid, linewidth=.75, color='#808000')
-    ax3.plot(eta4[:, i], grid, linewidth=.75, color='#808000')
-    ax25.plot(Eta_m[:, i], grid, linewidth=.5, color='k', linestyle='--')
+    ax3.plot(this_eta[:, i], grid, linewidth=.75, color='#808000')
+    ax3.plot(Eta_m[:, i], grid, linewidth=.5, color='k', linestyle='--')
 n2p = ax4.plot((np.sqrt(N2_all) * (1800 / np.pi)) / 4, grid, color='k', label='N(z) [cph]')
 for j in range(4):
     ax4.plot(G[:, j] / grid.max(), grid, color='#2F4F4F', linestyle='--')
@@ -459,21 +479,21 @@ for j in range(4):
                      linewidth=2.5)
 ax.text(0.2, 4000, str(num_profs) + ' profiles', fontsize=10)
 ax.grid()
-ax.set_title('BATS Hydrography ' + str(np.round(c_date.min())) + ' - ' + str(np.round(c_date.max())))
+ax.set_title('BATS Hydrography ' + str(np.int(np.round(c_date.min()))) + ' - ' + str(np.int(np.round(c_date.max()))))
 ax.set_xlabel(r'$\sigma_{\theta} - \overline{\sigma_{\theta}}$')
 ax.set_ylabel('Depth [m]')
-ax.set_xlim([-.5, .5])
+ax.set_xlim([-.4, .4])
 ax2.grid()
-ax2.set_title('Sig0 Isopycnal Disp. [m]')
+ax2.set_title('Sig0 Disp. [m]')
 ax2.set_xlabel('[m]')
-ax2.axis([-400, 400, 0, 4750])
+ax2.axis([-350, 350, 0, 4750])
 ax25.grid()
-ax25.set_title('Sig2 Isopycnal Disp. [m]')
+ax25.set_title('Sig2 Disp. [m]')
 ax25.set_xlabel('[m]')
-ax25.axis([-400, 400, 0, 4750])
-ax3.set_title('Sig4 Isopycnal Disp. [m]')
+ax25.axis([-350, 350, 0, 4750])
+ax3.set_title('Sig Local Disp. [m]')
 ax3.set_xlabel('[m]')
-ax3.axis([-400, 400, 0, 4750])
+ax3.axis([-350, 350, 0, 4750])
 ax3.grid()
 
 handles, labels = ax4.get_legend_handles_labels()
@@ -499,6 +519,9 @@ ax.axis([10 ** -2, 10 ** 1, 10 ** (-4), 2 * 10 ** 3])
 ax.axis([10 ** -2, 10 ** 1, 10 ** (-4), 10 ** 3])
 handles, labels = ax.get_legend_handles_labels()
 ax.legend(handles, labels, fontsize=10)
+ax.set_xlabel(r'Scaled Vertical Wavenumber = (L$_{d_{n}}$)$^{-1}$ = $\frac{f}{c_n}$ [$km^{-1}$]', fontsize=12)
+ax.set_ylabel('Spectral Density', fontsize=12)  # ' (and Hor. Wavenumber)')
+ax.set_title('BATS Hydro. Seasonal PE Spectrum', fontsize=12)
 plot_pro(ax)
 
 # --- PLOT MODE AMPLITUDES IN TIME
@@ -547,6 +570,9 @@ ax3.plot(c_date, AG_all[3, :], color='g')
 ax3.set_title('Displacement Mode 3 Amp. in Time')
 ax4.plot(c_date, AG_all[4, :], color='g')
 ax4.set_title('Displacement Mode 4 Amp. in Time')
+ax.grid()
+ax2.grid()
+ax3.grid()
 plot_pro(ax4)
 
 # -- density in time
@@ -555,6 +581,10 @@ ax1.plot(c_date, sigma2[90, :], color='g')
 ax2.plot(c_date, sigma2[165, :], color='g')
 ax1.set_title('Potential Density at 1500m')
 ax2.set_title('at 3000m')
+ax2.set_xlabel('Time [Yr]')
+ax2.set_ylabel(r'$\sigma_{\theta}$ P$_{ref}$ = 2000m')
+ax1.set_ylabel(r'$\sigma_{\theta}$ P$_{ref}$ = 2000m')
+ax1.grid()
 plot_pro(ax2)
 
 # -- attempt fft to find period of oscillation
