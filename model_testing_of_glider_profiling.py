@@ -11,7 +11,8 @@ from zrfun import get_basic_info, get_z
 # - path on fjord to output
 # --- '/boildat1/parker/LiveOcean_roms/output/cas4_v2_lo6biom/f2018.11.01/'
 # --- LOAD
-file_list = glob.glob('/boildat1/parker/LiveOcean_roms/output/cas4_v2_lo6biom/f2018.11.01/*ocean_his_007*.nc')
+file_list = glob.glob('/boildat1/parker/LiveOcean_roms/output/cas4_v2_lo6biom/f2018.11.15/ocean_his_0001.nc')
+# file_list = glob.glob('/boildat1/parker/LiveOcean_roms/output/cas4_v2_lo6biom/f2018.11.01/*ocean_his_007*.nc')
 for i in range(len(file_list)):
     file_name = file_list[i]
     D = Dataset(file_name, 'r')
@@ -35,8 +36,8 @@ for i in range(len(file_list)):
 
     # --- CHOOSE SLICE
     # north/south
-    lon_select_i = 81                   # -127.0087
-    lat_select_i = range(400, 600)      # 46.96 - 48.08
+    lon_select_i = 103
+    lat_select_i = range(275, 475)
     # east/west
     # lon_select_i = range(50, 130)
     # lat_select_i = 350
@@ -58,7 +59,7 @@ for i in range(len(file_list)):
     # optional for plan view plotting
     # 'lon_all': lon_rho[350:650, 65:95], 'lat_all': lat_rho[350:650, 65:95],
     # 'z_bath': z[0, 350:650, 65:95]}
-    output = open('/home/jstein/extraction_' + date_str_out + '.pkl', 'wb')
+    output = open('/home/jstein/LT_N_S_extraction_' + date_str_out + '.pkl', 'wb')
     # output = open('/Users/jake/Documents/baroclinic_modes/Model/test_extraction_' + str(np.int(time)) + '.pkl', 'wb')
     pickle.dump(my_dict, output)
     output.close()
@@ -88,12 +89,12 @@ for i in range(len(file_list)):
 #
 # # --- CHOOSE SLICE
 # # N/S slice
-# # lon_select_i = 81
-# # lat_select_i = range(400, 600)
+# lon_select_i = 103
+# lat_select_i = range(275, 475)
 #
-# # N/S slice
-# lon_select_i = range(50, 130)
-# lat_select_i = 350
+# # E/W slice
+# # lon_select_i = range(50, 130)
+# # lat_select_i = 350
 #
 # # --- PLOT
 # import matplotlib.pyplot as plt
