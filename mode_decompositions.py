@@ -61,7 +61,12 @@ def vertical_modes(N2_0, Depth, omega, mmax):
     Gz = np.zeros(np.shape(wmodes))
     G = np.zeros(np.shape(wmodes))
     for i in range(m):
-        dw_dz = np.gradient(wmodes[:, i], z)
+        dw_dz = np.nan * np.ones(np.shape(z))
+        dw_dz[0] = (wmodes[1, i] - wmodes[0, i]) / (z[1] - z[0])
+        dw_dz[-1] = (wmodes[-1, i] - wmodes[-2, i]) / (z[-1] - z[-2])
+        for j in range(1, len(z) - 1):
+            dw_dz[j] = (wmodes[j + 1, i] - wmodes[j - 1, i]) / (z[j + 1] - z[j - 1])
+        # dw_dz = np.gradient(wmodes[:, i], z)
         norm_constant = np.sqrt(np.trapz((dw_dz * dw_dz), (-1 * z)) / (-1 * z[-1]))
         # norm_constant = np.abs(np.trapz(dw_dz * dw_dz, z) / Depth.max())
         if dw_dz[0] < 0:
@@ -179,29 +184,29 @@ def PE_Tide_GM(rho0, Depth, nmodes, N2, f_ref):
     Navg = np.trapz(np.nanmean(np.sqrt(N2), 1), Depth) / Depth[-1]
 
     TE_SD = (75 + 280 + 72) / (rho0 * Depth[-1])  # SD tidal energy [m^2/s^2] Hendry 1977
-    sigma_SD = 2 * np.pi / (12 * 3600)  # SD frequency [s^-1]
-    PE_SD = TE_SD * (sigma_SD ** 2 - f_ref ** 2) / (2 * sigma_SD ** 2)
+    sigma_SD = 2.0 * np.pi / (12 * 3600)  # SD frequency [s^-1]
+    PE_SD = TE_SD * (sigma_SD ** 2 - f_ref ** 2) / (2.0 * sigma_SD ** 2)
 
-    bGM = 1300  # GM internal wave depth scale [m]
+    bGM = 1300.0  # GM internal wave depth scale [m]
     N0_GM = 5.2e-3  # GM N scale [s^-1];
-    jstar = 3  # GM vertical mode number scale
+    jstar = 3.0  # GM vertical mode number scale
     EGM = 6.3e-5  # GM energy level [no dimensions]
-    HHterm = 1 / (modenum[1:] * modenum[1:] + jstar * jstar)
+    HHterm = 1.0 / (modenum[1:] * modenum[1:] + jstar * jstar)
     HH = HHterm / np.sum(HHterm)
 
     # compute energy over a range of frequencies and then integrate
     omega = np.arange(np.round(f_ref, 5), np.round(Navg, 5), 0.00001)
     if omega[0] < f_ref:
         omega[0] = f_ref.copy() + 0.000001
-    BBterm = (2 / 3.14159) * (f_ref / omega) * (1 / np.sqrt((omega ** 2) - (f_ref ** 2)))
+    BBterm = (2.0 / 3.14159) * (f_ref / omega) * (1.0 / np.sqrt((omega ** 2) - (f_ref ** 2)))
     BBint = np.trapz(BBterm, omega)
-    BBterm2 = (1 / BBint) * BBterm
+    BBterm2 = (1.0 / BBint) * BBterm
 
     EE = np.tile(BBterm2[:, None], (1, len(modenum) - 1)) * np.tile(HH[None, :], (len(omega), 1)) * EGM
     omega_g = np.tile(omega[:, None], (1, len(modenum) - 1))
-    FPE = (1 / 2) * (Navg ** 2) * (
-                bGM ** 2 * N0_GM * (1 / Navg) * (omega_g ** 2 - f_ref ** 2) * (1 / (omega_g ** 2)) * EE)
-    FKE = (1 / 2) * bGM * bGM * N0_GM * Navg * (omega_g ** 2 + f_ref ** 2) * (1 / (omega_g ** 2)) * EE
+    FPE = 0.5 * (Navg ** 2.0) * (
+                bGM ** 2.0 * N0_GM * (1.0 / Navg) * (omega_g ** 2 - f_ref ** 2) * (1 / (omega_g ** 2)) * EE)
+    FKE = 0.5 * bGM * bGM * N0_GM * Navg * (omega_g ** 2 + f_ref ** 2) * (1.0 / (omega_g ** 2)) * EE
 
     FPE_int = np.nan * np.ones(np.shape(FPE[0, :]))
     FKE_int = np.nan * np.ones(np.shape(FPE[0, :]))
@@ -209,7 +214,7 @@ def PE_Tide_GM(rho0, Depth, nmodes, N2, f_ref):
         FPE_int[i] = np.trapz(FPE[:, i], omega)
         FKE_int[i] = np.trapz(FKE[:, i], omega)
 
-    PE_GM = bGM * bGM * N0_GM * Navg * HH * EGM / 2
+    PE_GM = bGM * bGM * N0_GM * Navg * HH * EGM / 2.0
 
     return (PE_SD, PE_GM, FPE_int, FKE_int)
 
@@ -240,6 +245,6 @@ def eta_fit(num_profs, grid, nmodes, n2, G, c, eta, eta_fit_dep_min, eta_fit_dep
             AG[1:, i] = np.squeeze(np.linalg.lstsq(G[:, 1:], np.transpose(np.atleast_2d(eta_fs)))[0])
             Eta_m[:, i] = np.squeeze(np.matrix(G) * np.transpose(np.matrix(AG[:, i])))
             NEta_m[:, i] = bvf * np.array(np.squeeze(np.matrix(G) * np.transpose(np.matrix(AG[:, i]))))
-            PE_per_mass[:, i] = (1 / 2) * AG[:, i] * AG[:, i] * c * c
+            PE_per_mass[:, i] = (0.5) * AG[:, i] * AG[:, i] * c * c
 
     return (AG, Eta_m, NEta_m, PE_per_mass)

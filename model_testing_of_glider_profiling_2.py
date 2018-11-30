@@ -3,6 +3,7 @@ import pickle
 import glob
 import datetime
 import gsw
+import time as TT
 from scipy.integrate import cumtrapz
 from mode_decompositions import eta_fit, vertical_modes, PE_Tide_GM, vertical_modes_f
 # -- plotting
@@ -10,19 +11,29 @@ import matplotlib.pyplot as plt
 from toolkit import plot_pro
 
 # ---- LOAD PROCESSED FILES ---------------------------------------------------------------------------------------
-file_list = glob.glob('/Users/jake/Documents/baroclinic_modes/Model/n_s_extraction/*.pkl')
+# file_list = glob.glob('/Users/jake/Documents/baroclinic_modes/Model/n_s_extraction/*.pkl')
+
+file_list = glob.glob('/Users/jake/Documents/baroclinic_modes/Model/n_s_extraction/pickle_protocol_2/*.pkl')
 # file_name = open('/Users/jake/Documents/baroclinic_modes/Model/test_extraction_1541203200.pkl', 'rb')
 
 file_name = open(file_list[0], 'rb')
 D = pickle.load(file_name)
 file_name.close()
-y_grid = np.arange(0, 125000, 250)
-z_grid = np.concatenate((np.arange(-2400, -1000, 20), np.arange(-1000, 0, 10)))
+y_grid = np.arange(0, 125000, 500)
+z_grid = np.concatenate((np.arange(-2600, -1000, 20), np.arange(-1000, 0, 10)))
 ref_lat = np.nanmin(D['lat_rho'][:])
 ref_lon = np.nanmin(D['lon_rho'][:])
+p_out = gsw.p_from_z(z_grid, ref_lat)
+y = 1852. * 60. * (D['lat_rho'][:] - ref_lat)
+lat_yy = np.interp(y_grid, y, D['lat_rho'][:])
+lon_yy = D['lon_rho'][:][0] * np.ones(len(y_grid))
 
 # -- LOOP OVER FILES to collect
 num_files = len(file_list)
+sig0_raw = np.nan * np.ones((len(D['z']), len(y), num_files))
+z_raw = np.nan * np.ones((len(D['z']), len(y), num_files))
+t_out = np.nan * np.ones((len(z_grid), len(y_grid), num_files))
+s_out = np.nan * np.ones((len(z_grid), len(y_grid), num_files))
 sig0_out = np.nan * np.ones((len(z_grid), len(y_grid), num_files))
 u_out = np.nan * np.ones((len(z_grid), len(y_grid), num_files))
 time_out = np.nan * np.ones(num_files)
@@ -49,61 +60,117 @@ for m in range(num_files):
     # orient for either E/W or N/S section
     vel = u
 
-    # -- INTERPOLATE TO REGULAR Y
-    y = 1852 * 60 * (lat_rho - ref_lat)
-    # y = 1852 * 60 * np.cos(np.deg2rad(ref_lat)) * (lon_rho - ref_lon)
-
     # -- TIME
     time_cor = time/(60*60*24) + 719163  # correct to start (1970)
-    time_hour = 24*(time_cor - np.int(time_cor))
+    time_hour = 24. * (time_cor - np.int(time_cor))
     date_time = datetime.date.fromordinal(np.int(time_cor))
+
+    # # ---- SAVE OUTPUT for old PYTHON/PICKLE ------------------------------------------------------------------------
+    # date_str_out = str(date_time.year) + '_' + str(date_time.month) + '_' + str(date_time.day) + \
+    #                '_' + str(np.int(np.round(time_hour, 1)))
+    # my_dict = {'ocean_time': time, 'temp': t, 'salt': s, 'u': u, 'v': v, 'lon_rho': lon_rho, 'lat_rho': lat_rho,
+    #            'lon_u': lon_u, 'lat_u': lat_u, 'lon_v': lon_v, 'lat_v': lat_v, 'z': z}
+    # output = open('/Users/jake/Documents/baroclinic_modes/Model/n_s_extraction/pickle_protocol_2/N_S_extraction_' +
+    #               date_str_out + '.pkl', 'wb')
+    # pickle.dump(my_dict, output, protocol=2)
+    # output.close()
+
+    # -- INTERPOLATE TO REGULAR Y
+    y = 1852. * 60. * (lat_rho - ref_lat)
+    # y = 1852 * 60 * np.cos(np.deg2rad(ref_lat)) * (lon_rho - ref_lon)
 
     # -- GSW
     sig0_p = np.nan * np.ones((len(z_grid), len(lat_rho)))
     u_g_p = np.nan * np.ones((len(z_grid), len(lat_rho)))
+    t_p = np.nan * np.ones((len(z_grid), len(lat_rho)))
+    s_p = np.nan * np.ones((len(z_grid), len(lat_rho)))
     # loop over each column and interpolate to z
+    p = gsw.p_from_z(z, ref_lat * np.ones(np.shape(z)))
+    SA = gsw.SA_from_SP(s, p, lon_rho[0] * np.ones(np.shape(s)), np.tile(lat_rho, (np.shape(p)[0], 1)))
+    CT = gsw.CT_from_t(s, t, p)
+    sig0_0 = gsw.sigma0(SA, CT)
+    sig0_raw[:, :, m] = sig0_0.copy()
+    z_raw[:, :, m] = z.copy()
     for i in range(len(lat_rho)):
-        p = gsw.p_from_z(z[:, i], ref_lat * np.ones(len(z)))
-        SA = gsw.SA_from_SP(s[:, i], p, lon_rho[0] * np.ones(len(s[:, i])), lat_rho[i] * np.ones(len(s[:, i])))
-        CT = gsw.CT_from_t(s[:, i], t[:, i], p)
-        sig0_0 = gsw.sigma0(SA, CT)
+        # p = gsw.p_from_z(z[:, i], ref_lat * np.ones(len(z)))
+        # SA = gsw.SA_from_SP(s[:, i], p, lon_rho[0] * np.ones(len(s[:, i])), lat_rho[i] * np.ones(len(s[:, i])))
+        # CT = gsw.CT_from_t(s[:, i], t[:, i], p)
+        # sig0_0 = gsw.sigma0(SA, CT)
         # -- INTERPOLATE TO REGULAR Z GRID
-        sig0_p[:, i] = np.interp(z_grid, z[:, i], sig0_0)
+        t_p[:, i] = np.interp(z_grid, z[:, i], t[:, i])
+        s_p[:, i] = np.interp(z_grid, z[:, i], s[:, i])
+        sig0_p[:, i] = np.interp(z_grid, z[:, i], sig0_0[:, i])
         u_g_p[:, i] = np.interp(z_grid, z[:, i], vel[:, i])
 
     # loop over each row and interpolate to Y grid
+    tt = np.nan * np.ones((len(z_grid), len(y_grid)))
+    ss = np.nan * np.ones((len(z_grid), len(y_grid)))
     sig0 = np.nan * np.ones((len(z_grid), len(y_grid)))
     u_g = np.nan * np.ones((len(z_grid), len(y_grid)))
     yg_low = np.where(y_grid > np.round(np.nanmin(y)))[0][0] - 1
     yg_up = np.where(y_grid < np.round(np.nanmax(y)))[0][-1] + 1
     for i in range(len(z_grid)):
+        tt[i, yg_low:yg_up] = np.interp(y_grid[yg_low:yg_up], y, t_p[i, :])
+        ss[i, yg_low:yg_up] = np.interp(y_grid[yg_low:yg_up], y, s_p[i, :])
         sig0[i, yg_low:yg_up] = np.interp(y_grid[yg_low:yg_up], y, sig0_p[i, :])
         u_g[i, yg_low:yg_up] = np.interp(y_grid[yg_low:yg_up], y, u_g_p[i, :])
 
-
+    t_out[:, :, m] = tt.copy()
+    s_out[:, :, m] = ss.copy()
     sig0_out[:, :, m] = sig0.copy()
     u_out[:, :, m] = u_g.copy()
     time_ord[m] = time_cor.copy()
     time_out[m] = time.copy()
     date_out[m, :] = np.array([np.int(time_cor), time_hour])
+    print('loaded, gridded, computed density of file = ' + str(m))
     # -- END LOOP COLLECTING RESULT OF EACH TIME STEP
 
 # SORT TIME STEPS BY TIME
+sig0_raw = sig0_raw[:, :, np.argsort(time_out)]
+z_raw = z_raw[:, :, np.argsort(time_out)]
+t_out_s = t_out[:, :, np.argsort(time_out)]
+s_out_s = s_out[:, :, np.argsort(time_out)]
 sig0_out_s = sig0_out[:, :, np.argsort(time_out)]
 u_out_s = u_out[:, :, np.argsort(time_out)]
 time_out_s = time_out[np.argsort(time_out)]
 time_ord_s = time_ord[np.argsort(time_out)]
 date_out_s = date_out[np.argsort(time_out), :]
 
-# -------------------------------------------------------------------------------------------------------
+# --- convert in matlab
+import matlab.engine
+eng = matlab.engine.start_matlab()
+eng.addpath(r'/Users/jake/Documents/MATLAB/eos80_legacy_gamma_n/')
+eng.addpath(r'/Users/jake/Documents/MATLAB/eos80_legacy_gamma_n/library/')
+gamma = np.nan * np.ones(np.shape(sig0_out_s))
+print('Opened Matlab')
+for j in range(2):
+    tic = TT.clock()
+    for i in range(len(y_grid)):
+        gamma[:, i, j] = np.squeeze(np.array(eng.eos80_legacy_gamma_n(matlab.double(s_out_s[:, i, j].tolist()),
+                                                                      matlab.double(t_out_s[:, i, j].tolist()),
+                                                                      matlab.double(p_out.tolist()),
+                                                                      matlab.double([lon_yy[0]]),
+                                                                      matlab.double([lat_yy[i]]))))
+    toc = TT.clock()
+    print('Time step = ' + str(j) + ' = '+ str(toc - tic) + 's')
+eng.quit()
+
+my_dict = {'z': z_grid, 'gamma': gamma, 'sig0': sig0_out_s, 'u': u_out_s, 'time': time_out_s, 'time_ord': time_ord_s,
+           'date': date_out_s, 'raw_sig0': sig0_raw, 'raw_z': z_raw}
+output = open('/Users/jake/Documents/baroclinic_modes/Model/extracted_gridded_gamma.pkl', 'wb')
+pickle.dump(my_dict, output)
+output.close()
+
+# ---------------------------------------------------------------------------------------------------------------------
+# ---------------------------------------------------------------------------------------------------------------------
 # CREATE LOCATIONS OF FAKE GLIDER DIVE
 # approximate glider as flying with vertical velocity of 0.08 m/s, glide slope of 1:3
 # assume glider measurements are made every 10, 15, 30, 45, 120 second intervals
 # time between each model time step is 1hr.
 
-dg_vertical_speed = .15  # m/s
+dg_vertical_speed = .14  # m/s
 dg_glide_slope = 3
-num_dives = 8
+num_dives = 7
 
 y_dg_s = 0
 z_dg_s = 0
@@ -159,20 +226,13 @@ for i in range(np.shape(dg_y)[1]):
             this_t = dg_t[j, i]
             # find time bounding model runs
             nearest_model_t_over = np.where(time_ord_s > this_t)[0][0]
-            print(this_t - time_ord_s[nearest_model_t_over])
+            # print(this_t - time_ord_s[nearest_model_t_over])
             # interpolate to hor position of glider dive for time before and after
             sig_t_before = np.interp(dg_y[j, i], y_grid, sig0_out_s[j, :, nearest_model_t_over - 1])
             sig_t_after = np.interp(dg_y[j, i], y_grid, sig0_out_s[j, :, nearest_model_t_over])
             # interpolate across time
             dg_sig0[j, i] = np.interp(this_t, [time_ord_s[nearest_model_t_over - 1], time_ord_s[nearest_model_t_over]],
                                    [sig_t_before, sig_t_after])
-
-# f, ax = plt.subplots()
-# ax.plot(sig0_out_s[:, 250, 10], z_grid)
-# ax.plot(sig0_out_s[:, 250, 11], z_grid)
-# ax.plot(sig0_out_s[:, 250, 12], z_grid)
-# ax.plot(sig0_out_s[:, 250, 13], z_grid)
-# plot_pro(ax)
 
 # --- Estimate of DAC
 dg_dac = np.nan * np.ones(np.shape(dg_sig0)[1] - 1)
@@ -189,10 +249,10 @@ for i in range(np.shape(dg_y)[1] - 1):
     this_yge = np.where(y_grid >= this_ye)[0][0]
     dg_dac[i] = -1 * np.nanmean(np.nanmean(u_out_s[:, this_ygs:this_yge, mtun:mtov], axis=2))
 
-
+# ---------------------------------------------------------------------------------------------------------------------
 # --- M/W estimation
 g = 9.81
-rho0 = 1025
+rho0 = 1025.0
 ff = np.pi * np.sin(np.deg2rad(ref_lat)) / (12 * 1800)  # Coriolis parameter [s^-1]
 sigth_levels = np.array([26, 26.2, 26.4, 26.6, 26.8, 27, 27.2, 27.4, 27.6, 27.7])
 num_profs = np.shape(dg_sig0)[1]
@@ -306,10 +366,11 @@ for m in range(num_profs - 1):
 
 v_g = v_g[:, 0:-1]
 
+# ---------------------------------------------------------------------------------------------------------------------
 # --------------------------------------------------------------------------------------------------------------------
 # --- PLOTTING
 # f, ax = plt.subplots()
-# ax.contourf(dg_y, np.flipud(np.tile(z_grid[:, None], (1, np.shape(dg_y)[1]))), np.flipud(dg_sig0), levels=sigth_levels)
+# ax.contourf(dg_y, np.flipud(np.tile(z_grid[:, None], (1, np.shape(dg_y)[1]))), np.flipud(dg_sig0),levels=sigth_levels)
 # plot_pro(ax)
 
 h_max = 125  # horizontal domain limit
@@ -340,7 +401,7 @@ if plot0 > 0:
         ax1.plot(isopycx[r, :]/1000, isopycdep[r, :], color='r', linewidth=0.45)
     ax1.set_title(str(datetime.date.fromordinal(np.int(time_ord_s[0]))) +
                   ' -- ' + str(datetime.date.fromordinal(np.int(time_ord_s[-2]))) + ', 72hr. Avg.')
-    ax1.set_ylim([-2500, 0])
+    ax1.set_ylim([-2650, 0])
     ax1.set_xlim([0, h_max])
     ax1.set_xlabel('Km')
     ax1.set_ylabel('Z [m]')
@@ -366,25 +427,29 @@ if plot0 > 0:
     ax3.clabel(uvc, inline_spacing=-3, fmt='%.4g', colors='k')
     ax3.set_title('Velocity Difference')
     ax3.set_xlabel('Km')
+    ax3.set_xlim([0, h_max])
     plot_pro(ax3)
 
-u_anom = u_mod_at_mw_y - (-1 * v_g)
-f, ax = plt.subplots()
-ua_mean = np.nan * np.ones(len(z_grid))
-ua_std = np.nan * np.ones(len(z_grid))
-for i in range(0, len(z_grid), 2):
-    ua_mean[i] = np.nanmean(u_anom[i, :])
-    ua_std[i] = np.nanstd(u_anom[i, :])
-ax.errorbar(ua_mean, z_grid, xerr=ua_std)
-ax.plot(np.nanmean(u_anom, axis=1), z_grid, color='k', linewidth=1.5)
-ax.set_ylim([-2500, 0])
-ax.set_title('Model V. - DG V.')
-ax.set_xlabel('Velocity Error [m/s]')
-ax.set_ylabel('Z [m]')
-plot_pro(ax)
-
-plot1 = 0
+plot1 = 1
 if plot1 > 0:
+    u_anom = u_mod_at_mw_y - (-1 * v_g)
+    f, ax = plt.subplots()
+    ua_mean = np.nan * np.ones(len(z_grid))
+    ua_std = np.nan * np.ones(len(z_grid))
+    for i in range(0, len(z_grid), 2):
+        ua_mean[i] = np.nanmean(u_anom[i, :])
+        ua_std[i] = np.nanstd(u_anom[i, :])
+    ax.errorbar(ua_mean, z_grid, xerr=ua_std)
+    ax.plot(np.nanmean(u_anom, axis=1), z_grid, color='k', linewidth=1.5)
+    ax.set_ylim([-2650, 0])
+    ax.set_xlim([-0.15, 0.15])
+    ax.set_title('Model V. - DG V.')
+    ax.set_xlabel('Velocity Error [m/s]')
+    ax.set_ylabel('Z [m]')
+    plot_pro(ax)
+
+plot2 = 0
+if plot2 > 0:
     ti1 = 23
     ti2 = 46
     ti3 = 69
@@ -418,7 +483,7 @@ if plot1 > 0:
                        np.nanmean(sig0_out_s, axis=2), levels=sigth_levels, colors='#A9A9A9', linewidth=0.5)
 
     ax1.set_xlim([0, h_max])
-    ax1.set_ylim([-2500, 0])
+    ax1.set_ylim([-2650, 0])
     ax1.set_title(str(datetime.date.fromordinal(np.int(time_ord_s[ti1]))) + ', ' +
                   str(np.int(date_out_s[ti1, 1])) + 'hrs.')
     ax1.set_ylabel('Z [m]')
@@ -436,102 +501,169 @@ if plot1 > 0:
     ax4.set_xlabel('Km')
     plot_pro(ax4)
 
+# ---------------------------------------------------------------------------------------------------------------------
 # --------------------------------------------------------------------------------------------------------------------
 # --- Background density
-file_list = glob.glob('/Users/jake/Documents/baroclinic_modes/Model/time_avg/*.pkl')
-# file_name = open('/Users/jake/Documents/baroclinic_modes/Model/test_extraction_1541203200.pkl', 'rb')
+# file_list = glob.glob('/Users/jake/Documents/baroclinic_modes/Model/time_avg/*.pkl')
 
-sig0_bck_out = np.nan * np.ones((len(z_grid), len(y_grid), len(file_list)))
-N2_bck_out = np.nan * np.ones((len(z_grid), len(y_grid), len(file_list)))
-date_out = np.nan * np.ones((num_files, 2))
-for m in range(len(file_list)):
-    file_name = open(file_list[m], 'rb')
-    D = pickle.load(file_name)
-    file_name.close()
+# --- TOGGLE TO RECOMPUTE, OTHERWISE LOAD BELOW
+# file_list = glob.glob('/Users/jake/Documents/baroclinic_modes/Model/time_avg/pickle_protocol_2/*.pkl')
+# # file_name = open('/Users/jake/Documents/baroclinic_modes/Model/test_extraction_1541203200.pkl', 'rb')
+#
+# sig0_bck_out = np.nan * np.ones((len(z_grid), len(y_grid), len(file_list)))
+# t_bck_out = np.nan * np.ones((len(z_grid), len(y_grid), len(file_list)))
+# s_bck_out = np.nan * np.ones((len(z_grid), len(y_grid), len(file_list)))
+# N2_bck_out = np.nan * np.ones((len(z_grid), len(y_grid), len(file_list)))
+# date_out = np.nan * np.ones((num_files, 2))
+# for m in range(len(file_list)):
+#     file_name = open(file_list[m], 'rb')
+#     D = pickle.load(file_name)
+#     file_name.close()
+#
+#     time = D['ocean_time']
+#     t = D['temp']
+#     s = D['salt']
+#     lon_rho = D['lon_rho'][:]
+#     lat_rho = D['lat_rho'][:]
+#     z = D['z'][:]
+#
+#     # -- INTERPOLATE TO REGULAR Y
+#     y = 1852 * 60 * (lat_rho - ref_lat)
+#     # y = 1852 * 60 * np.cos(np.deg2rad(ref_lat)) * (lon_rho - ref_lon)
+#
+#     # -- TIME
+#     time_cor = time/(60*60*24) + 719163  # correct to start (1970)
+#     time_hour = 24*(time_cor - np.int(time_cor))
+#     date_time = datetime.date.fromordinal(np.int(time_cor))
+#
+#     # # ---- SAVE OUTPUT for old PYTHON/PICKLE ------------------------------------------------------------------------
+#     # date_str_out = str(date_time.year) + '_' + str(date_time.month) + '_' + str(date_time.day) + \
+#     #                '_' + str(np.int(np.round(time_hour, 1)))
+#     # my_dict = {'ocean_time': time, 'temp': t, 'salt': s, 'u': u, 'v': v, 'lon_rho': lon_rho, 'lat_rho': lat_rho,
+#     #            'lon_u': lon_u, 'lat_u': lat_u, 'lon_v': lon_v, 'lat_v': lat_v, 'z': z}
+#     # output = open('/Users/jake/Documents/baroclinic_modes/Model/time_avg/pickle_protocol_2/LT_N_S_extraction_' +
+#     #               date_str_out + '.pkl', 'wb')
+#     # pickle.dump(my_dict, output, protocol=2)
+#     # output.close()
+#
+#     # -- GSW
+#     sig0_p = np.nan * np.ones((len(z_grid), len(lat_rho)))
+#     N2_p = np.nan * np.ones((len(z_grid), len(lat_rho)))
+#     t_p = np.nan * np.ones((len(z_grid), len(lat_rho)))
+#     s_p = np.nan * np.ones((len(z_grid), len(lat_rho)))
+#     # loop over each column and interpolate to z
+#     p = gsw.p_from_z(z, ref_lat * np.ones(np.shape(z)))
+#     SA = gsw.SA_from_SP(s, p, lon_rho[0] * np.ones(np.shape(s)), np.tile(lat_rho, (np.shape(p)[0], 1)))
+#     CT = gsw.CT_from_t(s, t, p)
+#     sig0_0 = gsw.sigma0(SA, CT)
+#     N2_0 = gsw.Nsquared(SA, CT, p, lat=ref_lat)[0]
+#     for i in range(len(lat_rho)):
+#         # p = gsw.p_from_z(z[:, i], ref_lat * np.ones(len(z)))
+#         # SA = gsw.SA_from_SP(s[:, i], p, lon_rho[0] * np.ones(len(s[:, i])), lat_rho[i] * np.ones(len(s[:, i])))
+#         # CT = gsw.CT_from_t(s[:, i], t[:, i], p)
+#         # sig0_0 = gsw.sigma0(SA, CT)
+#         # N2_0 = gsw.Nsquared(SA[:, i], CT[:, i], p[:, i], lat=ref_lat)[0]
+#         # -- INTERPOLATE TO REGULAR Z GRID
+#         t_p[:, i] = np.interp(z_grid, z[:, i], t[:, i])
+#         s_p[:, i] = np.interp(z_grid, z[:, i], s[:, i])
+#         sig0_p[:, i] = np.interp(z_grid, z[:, i], sig0_0[:, i])
+#         N2_p[:, i] = np.interp(z_grid, z[0:-1, i], N2_0[:, i])
+#
+#     # loop over each row and interpolate to Y grid
+#     sig0 = np.nan * np.ones((len(z_grid), len(y_grid)))
+#     N2 = np.nan * np.ones((len(z_grid), len(y_grid)))
+#     yg_low = np.where(y_grid > np.round(np.nanmin(y)))[0][0] - 1
+#     yg_up = np.where(y_grid < np.round(np.nanmax(y)))[0][-1] + 1
+#     tt = np.nan * np.ones((len(z_grid), len(y_grid)))
+#     ss = np.nan * np.ones((len(z_grid), len(y_grid)))
+#     for i in range(len(z_grid)):
+#         sig0[i, yg_low:yg_up] = np.interp(y_grid[yg_low:yg_up], y, sig0_p[i, :])
+#         N2[i, yg_low:yg_up] = np.interp(y_grid[yg_low:yg_up], y, N2_p[i, :])
+#         tt[i, yg_low:yg_up] = np.interp(y_grid[yg_low:yg_up], y, t_p[i, :])
+#         ss[i, yg_low:yg_up] = np.interp(y_grid[yg_low:yg_up], y, s_p[i, :])
+#
+#     sig0_bck_out[:, :, m] = sig0.copy()
+#     N2_bck_out[:, :, m] = N2.copy()
+#     date_out[m, :] = np.array([np.int(time_cor), time_hour])
+#     t_bck_out[:, :, m] = tt.copy()
+#     s_bck_out[:, :, m] = ss.copy()
+#
+# # # --- convert in matlab
+# eng = matlab.engine.start_matlab()
+# eng.addpath(r'/Users/jake/Documents/MATLAB/eos80_legacy_gamma_n/')
+# eng.addpath(r'/Users/jake/Documents/MATLAB/eos80_legacy_gamma_n/library/')
+# gamma_bck = np.nan * np.ones(np.shape(sig0_bck_out))
+# for j in range(len(file_list)):
+#     tic = TT.clock()
+#     for i in range(len(y_grid)):
+#         gamma_bck[:, i, j] = np.squeeze(np.array(eng.eos80_legacy_gamma_n(matlab.double(s_bck_out[:, i, j].tolist()),
+#                                                                           matlab.double(t_bck_out[:, i, j].tolist()),
+#                                                                           matlab.double(p_out.tolist()),
+#                                                                           matlab.double([lon_yy[0]]),
+#                                                                           matlab.double([lat_yy[0]]))))
+#     toc = TT.clock()
+#     print('Time step = ' + str(j) + ' = '+ str(toc - tic) + 's')
+# eng.quit()
+# avg_gamma = np.nanmean(np.nanmean(gamma_bck, axis=2), axis=1)
+# my_dict = {'z': z_grid, 'gamma': avg_gamma, 'sig0_back': sig0_bck_out, 'N2_back': N2_bck_out, 'time': date_out}
+# output = open('/Users/jake/Documents/baroclinic_modes/Model/extracted_gridded_bck_gamma.pkl', 'wb')
+# pickle.dump(my_dict, output)
+# output.close()
 
-    time = D['ocean_time']
-    t = D['temp']
-    s = D['salt']
-    lon_rho = D['lon_rho'][:]
-    lat_rho = D['lat_rho'][:]
-    z = D['z'][:]
+pkl_file = open('/Users/jake/Documents/baroclinic_modes/Model/extracted_gridded_bck_gamma.pkl', 'rb')
+BG = pickle.load(pkl_file)
+pkl_file.close()
+avg_gamma = BG['gamma'][:]
+sig0_bck_out = BG['sig0_back'][:]
+N2_bck_out = BG['N2_back'][:]
 
-    # -- INTERPOLATE TO REGULAR Y
-    y = 1852 * 60 * (lat_rho - ref_lat)
-    # y = 1852 * 60 * np.cos(np.deg2rad(ref_lat)) * (lon_rho - ref_lon)
-
-    # -- TIME
-    time_cor = time/(60*60*24) + 719163  # correct to start (1970)
-    time_hour = 24*(time_cor - np.int(time_cor))
-    date_time = datetime.date.fromordinal(np.int(time_cor))
-
-    # -- GSW
-    sig0_p = np.nan * np.ones((len(z_grid), len(lat_rho)))
-    N2_p = np.nan * np.ones((len(z_grid), len(lat_rho)))
-    # loop over each column and interpolate to z
-    for i in range(len(lat_rho)):
-        p = gsw.p_from_z(z[:, i], ref_lat * np.ones(len(z)))
-        SA = gsw.SA_from_SP(s[:, i], p, lon_rho[0] * np.ones(len(s[:, i])), lat_rho[i] * np.ones(len(s[:, i])))
-        CT = gsw.CT_from_t(s[:, i], t[:, i], p)
-        sig0_0 = gsw.sigma0(SA, CT)
-        N2_0 = gsw.Nsquared(SA, CT, p, lat=ref_lat)[0]
-        # -- INTERPOLATE TO REGULAR Z GRID
-        sig0_p[:, i] = np.interp(z_grid, z[:, i], sig0_0)
-        N2_p[:, i] = np.interp(z_grid, z[0:-1, i], N2_0)
-
-    # loop over each row and interpolate to Y grid
-    sig0 = np.nan * np.ones((len(z_grid), len(y_grid)))
-    N2 = np.nan * np.ones((len(z_grid), len(y_grid)))
-    yg_low = np.where(y_grid > np.round(np.nanmin(y)))[0][0] - 1
-    yg_up = np.where(y_grid < np.round(np.nanmax(y)))[0][-1] + 1
-    for i in range(len(z_grid)):
-        sig0[i, yg_low:yg_up] = np.interp(y_grid[yg_low:yg_up], y, sig0_p[i, :])
-        N2[i, yg_low:yg_up] = np.interp(y_grid[yg_low:yg_up], y, N2_p[i, :])
-
-    sig0_bck_out[:, :, m] = sig0.copy()
-    N2_bck_out[:, :, m] = N2.copy()
-    date_out[m, :] = np.array([np.int(time_cor), time_hour])
-
+# avg_sig0 = avg_gamma.copy()  #
 avg_sig0 = np.nanmean(np.nanmean(sig0_bck_out, axis=2), axis=1)
-ddz_avg_sig0 = np.gradient(avg_sig0, z_grid)
+ddz_avg_sig0 = np.nan * np.ones(np.shape(avg_sig0))
+ddz_avg_sig0[0] = (avg_sig0[1] - avg_sig0[0])/(z_grid[1] - z_grid[0])
+ddz_avg_sig0[-1] = (avg_sig0[-1] - avg_sig0[-2])/(z_grid[-1] - z_grid[-2])
+for i in range(1, len(z_grid) - 1):
+    ddz_avg_sig0[i] = (avg_sig0[i+1] - avg_sig0[i-1])/(z_grid[i+1] - z_grid[i-1])
+# ddz_avg_sig0 = np.gradient(avg_sig0, z_grid_s)
 avg_N2 = np.nanmean(np.nanmean(N2_bck_out, axis=2), axis=1)
 
+# ---------------------------------------------------------------------------------------------------------------------
 # -- MODES ------------------------------------------------------------------------------------------------------------
 # --- MODE PARAMETERS
 # frequency zeroed for geostrophic modes
 omega = 0
 # highest baroclinic mode to be calculated
-mmax = 20
+mmax = 25
 nmodes = mmax + 1
 # maximum allowed deep shear [m/s/km]
 deep_shr_max = 0.1
 # minimum depth for which shear is limited [m]
-deep_shr_max_dep = 3500
+deep_shr_max_dep = 3500.0
 # fit limits
-eta_fit_dep_min = 50
-eta_fit_dep_max = 2200
+eta_fit_dep_min = 50.0
+eta_fit_dep_max = 2200.0
 
 # --- compute vertical mode shapes
-G, Gz, c, epsilon = vertical_modes(np.flipud(avg_N2), np.flipud(-1 * z_grid), omega, mmax)  # N2
+G, Gz, c, epsilon = vertical_modes(np.flipud(avg_N2), np.flipud(-1.0 * z_grid), omega, mmax)  # N2
 
 # --- fit eta
 # DG
 eta = np.nan * np.ones(np.shape(dg_sig0))
 for i in range(num_profs):
     eta[:, i] = (np.flipud(dg_sig0[:, i]) - np.flipud(avg_sig0)) / np.flipud(ddz_avg_sig0)
-AG_dg, eta_m_dg, Neta_m_dg, PE_per_mass_dg = eta_fit(num_profs, -1 * np.flipud(z_grid), nmodes, np.flipud(avg_N2), G, c,
+AG_dg, eta_m_dg, Neta_m_dg, PE_per_mass_dg = eta_fit(num_profs, -1.0 * np.flipud(z_grid), nmodes, np.flipud(avg_N2), G, c,
                                                      eta, eta_fit_dep_min, eta_fit_dep_max)
 eta_sm = np.nan * np.ones(np.shape(avg_sig_pd))
 for i in range(np.shape(avg_sig_pd)[1]):
     eta_sm[:, i] = (np.flipud(avg_sig_pd[:, i]) - np.flipud(avg_sig0)) / np.flipud(ddz_avg_sig0)
-AG_dg_sm, eta_m_dg_sm, Neta_m_dg_sm, PE_per_mass_dg_sm = eta_fit(np.shape(avg_sig_pd)[1], -1 * np.flipud(z_grid),
+AG_dg_sm, eta_m_dg_sm, Neta_m_dg_sm, PE_per_mass_dg_sm = eta_fit(np.shape(avg_sig_pd)[1], -1.0 * np.flipud(z_grid),
                                                                  nmodes, np.flipud(avg_N2), G, c, eta_sm,
                                                                  eta_fit_dep_min, eta_fit_dep_max)
 # Model
 eta_model = np.nan * np.ones(np.shape(sig0_out_s[:, :, 0]))
 for i in range(np.shape(eta_model)[1]):
     eta_model[:, i] = (np.flipud(sig0_out_s[:, i, 0]) - np.flipud(avg_sig0)) / np.flipud(ddz_avg_sig0)
-AG_model, eta_m_model, Neta_m_model, PE_per_mass_model = eta_fit(len(y_grid), -1 * np.flipud(z_grid), nmodes,
+AG_model, eta_m_model, Neta_m_model, PE_per_mass_model = eta_fit(len(y_grid), -1.0 * np.flipud(z_grid), nmodes,
                                                                  np.flipud(avg_N2), G, c, eta_model,
                                                                  eta_fit_dep_min, eta_fit_dep_max)
 
@@ -552,7 +684,7 @@ for i in range(num_profs - 1):
         # Gz(iv,:)\V_g(iv,ip)
         V_m[:, i] = np.squeeze(np.matrix(Gz) * np.transpose(np.matrix(AGz[:, i])))
         # Gz*AGz[:,i];
-        HKE_per_mass_dg[:, i] = (1 / 2) * (AGz[:, i] * AGz[:, i])
+        HKE_per_mass_dg[:, i] = 0.5 * (AGz[:, i] * AGz[:, i])
         ival = np.where(HKE_per_mass_dg[modest, i] >= HKE_noise_threshold)
         if np.size(ival) > 0:
             good_ke_prof[i] = 0  # flag profile as noisy
@@ -575,14 +707,15 @@ for i in range(len(y_grid)):
         # Gz(iv,:)\V_g(iv,ip)
         V_m_model[:, i] = np.squeeze(np.matrix(Gz) * np.transpose(np.matrix(AGz_model[:, i])))
         # Gz*AGz[:,i];
-        HKE_per_mass_model[:, i] = (1 / 2) * (AGz_model[:, i] * AGz_model[:, i])
+        HKE_per_mass_model[:, i] = 0.5 * (AGz_model[:, i] * AGz_model[:, i])
         ival = np.where(HKE_per_mass_model[modest, i] >= HKE_noise_threshold)
         if np.size(ival) > 0:
             good_ke_prof[i] = 0  # flag profile as noisy
     else:
         good_ke_prof[i] = 0  # flag empty profile as noisy as well
 
-# --------------------------------------------------------------------------------------------------------------------
+# ---------------------------------------------------------------------------------------------------------------------
+# ---------------------------------------------------------------------------------------------------------------------
 z_grid_f = np.flipud(z_grid)
 dg_sig0_f = np.flipud(dg_sig0)
 
@@ -591,10 +724,16 @@ f, (ax1, ax2, ax3) = plt.subplots(1, 3, sharey=True)
 for i in range(np.shape(dg_sig0)[1]):
     ax1.plot(dg_sig0[:, i] - avg_sig0, z_grid)
 ax1.grid()
+ax1.set_xlim([-.4, .4])
+ax1.set_ylabel('Z [m]')
+ax1.set_xlabel('Density Anomaly')
+ax1.set_title('Density Anomaly')
 for i in range(np.shape(eta)[1]):
     ax2.plot(eta[:, i], z_grid_f, color='#4682B4', linewidth=1.25)
     ax2.plot(eta_m_dg[:, i], z_grid_f, color='k', linestyle='--', linewidth=.75)
 ax2.grid()
+ax2.set_xlabel('Isopycnal Displacement [m]')
+ax2.set_title('Vertical Displacement')
 
 avg_mod_u = np.nanmean(u_out_s, axis=2)
 for i in range(np.shape(avg_mod_u)[1]):
@@ -604,9 +743,12 @@ for i in range(np.shape(v_g)[1]):
     ax3.plot(V_m[:, i], z_grid, color='k', linestyle='--', linewidth=.75)
 ax2.set_xlim([-200, 200])
 ax3.set_xlim([-.4, .4])
+ax3.set_title('Model and DG Velocity (u)')
+ax3.set_xlabel('Velocity [m/s]')
 plot_pro(ax3)
 
-# --- Energy
+# ---------------------------------------------------------------------------------------------------------------------
+# --- ENERGY
 avg_PE = np.nanmean(PE_per_mass_dg, axis=1)
 avg_PE_smooth = np.nanmean(PE_per_mass_dg_sm, axis=1)
 avg_KE = np.nanmean(HKE_per_mass_dg, axis=1)
@@ -614,7 +756,7 @@ avg_PE_model = np.nanmean(PE_per_mass_model, axis=1)
 avg_KE_model = np.nanmean(HKE_per_mass_model, axis=1)
 dk = ff / c[1]
 sc_x = 1000 * ff / c[1:]
-PE_SD, PE_GM, GMPE, GMKE = PE_Tide_GM(rho0, -1 * z_grid_f, nmodes, np.flipud(np.transpose(np.atleast_2d(avg_N2))), ff)
+PE_SD, PE_GM, GMPE, GMKE = PE_Tide_GM(rho0, -1.0 * z_grid_f, nmodes, np.flipud(np.transpose(np.atleast_2d(avg_N2))), ff)
 
 # --- PLOT ENERGY SPECTRA
 f, (ax1, ax2) = plt.subplots(1, 2, sharey=True)
@@ -656,6 +798,7 @@ ax1.grid()
 ax2.set_xscale('log')
 plot_pro(ax2)
 
+# ---------------------------------------------------------------------------------------------------------------------
 # --- DEPTH OF ISOPYCNALS IN TIME ----------------------------------------------
 # isopycnals i care about
 rho1 = 26.6
