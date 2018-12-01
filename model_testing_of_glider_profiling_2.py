@@ -19,7 +19,7 @@ file_list = glob.glob('/Users/jake/Documents/baroclinic_modes/Model/n_s_extracti
 file_name = open(file_list[0], 'rb')
 D = pickle.load(file_name)
 file_name.close()
-y_grid = np.arange(0, 125000, 500)
+y_grid = np.arange(0, 150000, 500)
 z_grid = np.concatenate((np.arange(-2600, -1000, 20), np.arange(-1000, 0, 10)))
 ref_lat = np.nanmin(D['lat_rho'][:])
 ref_lon = np.nanmin(D['lon_rho'][:])
@@ -28,138 +28,154 @@ y = 1852. * 60. * (D['lat_rho'][:] - ref_lat)
 lat_yy = np.interp(y_grid, y, D['lat_rho'][:])
 lon_yy = D['lon_rho'][:][0] * np.ones(len(y_grid))
 
-# -- LOOP OVER FILES to collect
-num_files = len(file_list)
-sig0_raw = np.nan * np.ones((len(D['z']), len(y), num_files))
-z_raw = np.nan * np.ones((len(D['z']), len(y), num_files))
-t_out = np.nan * np.ones((len(z_grid), len(y_grid), num_files))
-s_out = np.nan * np.ones((len(z_grid), len(y_grid), num_files))
-sig0_out = np.nan * np.ones((len(z_grid), len(y_grid), num_files))
-u_out = np.nan * np.ones((len(z_grid), len(y_grid), num_files))
-time_out = np.nan * np.ones(num_files)
-time_ord = np.nan * np.ones(num_files)
-date_out = np.nan * np.ones((num_files, 2))
-for m in range(num_files):
-    file_name = open(file_list[m], 'rb')
-    D = pickle.load(file_name)
-    file_name.close()
+# --- TOGGLE TO REPROCESS MODEL OUTPUT
+# # -- LOOP OVER FILES to collect
+# num_files = len(file_list)
+# sig0_raw = np.nan * np.ones((len(D['z']), len(y), num_files))
+# z_raw = np.nan * np.ones((len(D['z']), len(y), num_files))
+# t_out = np.nan * np.ones((len(z_grid), len(y_grid), num_files))
+# s_out = np.nan * np.ones((len(z_grid), len(y_grid), num_files))
+# sig0_out = np.nan * np.ones((len(z_grid), len(y_grid), num_files))
+# u_out = np.nan * np.ones((len(z_grid), len(y_grid), num_files))
+# time_out = np.nan * np.ones(num_files)
+# time_ord = np.nan * np.ones(num_files)
+# date_out = np.nan * np.ones((num_files, 2))
+# for m in range(num_files):
+#     file_name = open(file_list[m], 'rb')
+#     D = pickle.load(file_name)
+#     file_name.close()
+#
+#     time = D['ocean_time']
+#     u = D['u']
+#     v = D['v']
+#     t = D['temp']
+#     s = D['salt']
+#     lon_rho = D['lon_rho'][:]
+#     lat_rho = D['lat_rho'][:]
+#     lon_u = D['lon_u'][:]
+#     lat_u = D['lat_u'][:]
+#     lon_v = D['lon_v'][:]
+#     lat_v = D['lat_v'][:]
+#     z = D['z'][:]
+#
+#     # orient for either E/W or N/S section
+#     vel = u
+#
+#     # -- TIME
+#     time_cor = time/(60*60*24) + 719163  # correct to start (1970)
+#     time_hour = 24. * (time_cor - np.int(time_cor))
+#     date_time = datetime.date.fromordinal(np.int(time_cor))
+#
+#     # # ---- SAVE OUTPUT for old PYTHON/PICKLE ------------------------------------------------------------------------
+#     # date_str_out = str(date_time.year) + '_' + str(date_time.month) + '_' + str(date_time.day) + \
+#     #                '_' + str(np.int(np.round(time_hour, 1)))
+#     # my_dict = {'ocean_time': time, 'temp': t, 'salt': s, 'u': u, 'v': v, 'lon_rho': lon_rho, 'lat_rho': lat_rho,
+#     #            'lon_u': lon_u, 'lat_u': lat_u, 'lon_v': lon_v, 'lat_v': lat_v, 'z': z}
+#     # output = open('/Users/jake/Documents/baroclinic_modes/Model/n_s_extraction/pickle_protocol_2/N_S_extraction_' +
+#     #               date_str_out + '.pkl', 'wb')
+#     # pickle.dump(my_dict, output, protocol=2)
+#     # output.close()
+#
+#     # -- INTERPOLATE TO REGULAR Y
+#     y = 1852. * 60. * (lat_rho - ref_lat)
+#     # y = 1852 * 60 * np.cos(np.deg2rad(ref_lat)) * (lon_rho - ref_lon)
+#
+#     # -- GSW
+#     sig0_p = np.nan * np.ones((len(z_grid), len(lat_rho)))
+#     u_g_p = np.nan * np.ones((len(z_grid), len(lat_rho)))
+#     t_p = np.nan * np.ones((len(z_grid), len(lat_rho)))
+#     s_p = np.nan * np.ones((len(z_grid), len(lat_rho)))
+#     # loop over each column and interpolate to z
+#     p = gsw.p_from_z(z, ref_lat * np.ones(np.shape(z)))
+#     SA = gsw.SA_from_SP(s, p, lon_rho[0] * np.ones(np.shape(s)), np.tile(lat_rho, (np.shape(p)[0], 1)))
+#     CT = gsw.CT_from_t(s, t, p)
+#     sig0_0 = gsw.sigma0(SA, CT)
+#     sig0_raw[:, :, m] = sig0_0.copy()
+#     z_raw[:, :, m] = z.copy()
+#     for i in range(len(lat_rho)):
+#         # p = gsw.p_from_z(z[:, i], ref_lat * np.ones(len(z)))
+#         # SA = gsw.SA_from_SP(s[:, i], p, lon_rho[0] * np.ones(len(s[:, i])), lat_rho[i] * np.ones(len(s[:, i])))
+#         # CT = gsw.CT_from_t(s[:, i], t[:, i], p)
+#         # sig0_0 = gsw.sigma0(SA, CT)
+#         # -- INTERPOLATE TO REGULAR Z GRID
+#         t_p[:, i] = np.interp(z_grid, z[:, i], t[:, i])
+#         s_p[:, i] = np.interp(z_grid, z[:, i], s[:, i])
+#         sig0_p[:, i] = np.interp(z_grid, z[:, i], sig0_0[:, i])
+#         u_g_p[:, i] = np.interp(z_grid, z[:, i], vel[:, i])
+#
+#     # loop over each row and interpolate to Y grid
+#     tt = np.nan * np.ones((len(z_grid), len(y_grid)))
+#     ss = np.nan * np.ones((len(z_grid), len(y_grid)))
+#     sig0 = np.nan * np.ones((len(z_grid), len(y_grid)))
+#     u_g = np.nan * np.ones((len(z_grid), len(y_grid)))
+#     yg_low = np.where(y_grid > np.round(np.nanmin(y)))[0][0] - 1
+#     yg_up = np.where(y_grid < np.round(np.nanmax(y)))[0][-1] + 1
+#     for i in range(len(z_grid)):
+#         tt[i, yg_low:yg_up] = np.interp(y_grid[yg_low:yg_up], y, t_p[i, :])
+#         ss[i, yg_low:yg_up] = np.interp(y_grid[yg_low:yg_up], y, s_p[i, :])
+#         sig0[i, yg_low:yg_up] = np.interp(y_grid[yg_low:yg_up], y, sig0_p[i, :])
+#         u_g[i, yg_low:yg_up] = np.interp(y_grid[yg_low:yg_up], y, u_g_p[i, :])
+#
+#     t_out[:, :, m] = tt.copy()
+#     s_out[:, :, m] = ss.copy()
+#     sig0_out[:, :, m] = sig0.copy()
+#     u_out[:, :, m] = u_g.copy()
+#     time_ord[m] = time_cor.copy()
+#     time_out[m] = time.copy()
+#     date_out[m, :] = np.array([np.int(time_cor), time_hour])
+#     print('loaded, gridded, computed density of file = ' + str(m))
+#     # -- END LOOP COLLECTING RESULT OF EACH TIME STEP
+#
+# # SORT TIME STEPS BY TIME
+# sig0_raw = sig0_raw[:, :, np.argsort(time_out)]
+# z_raw = z_raw[:, :, np.argsort(time_out)]
+# t_out_s = t_out[:, :, np.argsort(time_out)]
+# s_out_s = s_out[:, :, np.argsort(time_out)]
+# sig0_out_s = sig0_out[:, :, np.argsort(time_out)]
+# u_out_s = u_out[:, :, np.argsort(time_out)]
+# time_out_s = time_out[np.argsort(time_out)]
+# time_ord_s = time_ord[np.argsort(time_out)]
+# date_out_s = date_out[np.argsort(time_out), :]
+#
+# # --- convert in matlab
+# import matlab.engine
+# eng = matlab.engine.start_matlab()
+# eng.addpath(r'/Users/jake/Documents/MATLAB/eos80_legacy_gamma_n/')
+# eng.addpath(r'/Users/jake/Documents/MATLAB/eos80_legacy_gamma_n/library/')
+# gamma = np.nan * np.ones(np.shape(sig0_out_s))
+# print('Opened Matlab')
+# for j in range(len(time_ord_s)):
+#     tic = TT.clock()
+#     for i in range(len(y_grid)):
+#         gamma[:, i, j] = np.squeeze(np.array(eng.eos80_legacy_gamma_n(matlab.double(s_out_s[:, i, j].tolist()),
+#                                                                       matlab.double(t_out_s[:, i, j].tolist()),
+#                                                                       matlab.double(p_out.tolist()),
+#                                                                       matlab.double([lon_yy[0]]),
+#                                                                       matlab.double([lat_yy[i]]))))
+#     toc = TT.clock()
+#     print('Time step = ' + str(j) + ' = '+ str(toc - tic) + 's')
+# eng.quit()
+# print('Closed Matlab')
+# my_dict = {'z': z_grid, 'gamma': gamma, 'sig0': sig0_out_s, 'u': u_out_s, 'time': time_out_s, 'time_ord': time_ord_s,
+#            'date': date_out_s, 'raw_sig0': sig0_raw, 'raw_z': z_raw}
+# output = open('/Users/jake/Documents/baroclinic_modes/Model/extracted_gridded_gamma.pkl', 'wb')
+# pickle.dump(my_dict, output)
+# output.close()
 
-    time = D['ocean_time']
-    u = D['u']
-    v = D['v']
-    t = D['temp']
-    s = D['salt']
-    lon_rho = D['lon_rho'][:]
-    lat_rho = D['lat_rho'][:]
-    lon_u = D['lon_u'][:]
-    lat_u = D['lat_u'][:]
-    lon_v = D['lon_v'][:]
-    lat_v = D['lat_v'][:]
-    z = D['z'][:]
+# -- LOAD PROCESSED MODEL TIME STEPS WITH COMPUTED GAMMA
+pkl_file = open('/Users/jake/Documents/baroclinic_modes/Model/extracted_gridded_gamma.pkl', 'rb')
+MOD = pickle.load(pkl_file)
+pkl_file.close()
+sig0_out_s = MOD['gamma'][:]
+# sig0_out_s = MOD['sig0'][:]
+u_out_s = MOD['u'][:]
+time_out_s = MOD['time'][:]
+time_ord_s = MOD['time_ord'][:]
+date_out_s = MOD['date'][:]
 
-    # orient for either E/W or N/S section
-    vel = u
-
-    # -- TIME
-    time_cor = time/(60*60*24) + 719163  # correct to start (1970)
-    time_hour = 24. * (time_cor - np.int(time_cor))
-    date_time = datetime.date.fromordinal(np.int(time_cor))
-
-    # # ---- SAVE OUTPUT for old PYTHON/PICKLE ------------------------------------------------------------------------
-    # date_str_out = str(date_time.year) + '_' + str(date_time.month) + '_' + str(date_time.day) + \
-    #                '_' + str(np.int(np.round(time_hour, 1)))
-    # my_dict = {'ocean_time': time, 'temp': t, 'salt': s, 'u': u, 'v': v, 'lon_rho': lon_rho, 'lat_rho': lat_rho,
-    #            'lon_u': lon_u, 'lat_u': lat_u, 'lon_v': lon_v, 'lat_v': lat_v, 'z': z}
-    # output = open('/Users/jake/Documents/baroclinic_modes/Model/n_s_extraction/pickle_protocol_2/N_S_extraction_' +
-    #               date_str_out + '.pkl', 'wb')
-    # pickle.dump(my_dict, output, protocol=2)
-    # output.close()
-
-    # -- INTERPOLATE TO REGULAR Y
-    y = 1852. * 60. * (lat_rho - ref_lat)
-    # y = 1852 * 60 * np.cos(np.deg2rad(ref_lat)) * (lon_rho - ref_lon)
-
-    # -- GSW
-    sig0_p = np.nan * np.ones((len(z_grid), len(lat_rho)))
-    u_g_p = np.nan * np.ones((len(z_grid), len(lat_rho)))
-    t_p = np.nan * np.ones((len(z_grid), len(lat_rho)))
-    s_p = np.nan * np.ones((len(z_grid), len(lat_rho)))
-    # loop over each column and interpolate to z
-    p = gsw.p_from_z(z, ref_lat * np.ones(np.shape(z)))
-    SA = gsw.SA_from_SP(s, p, lon_rho[0] * np.ones(np.shape(s)), np.tile(lat_rho, (np.shape(p)[0], 1)))
-    CT = gsw.CT_from_t(s, t, p)
-    sig0_0 = gsw.sigma0(SA, CT)
-    sig0_raw[:, :, m] = sig0_0.copy()
-    z_raw[:, :, m] = z.copy()
-    for i in range(len(lat_rho)):
-        # p = gsw.p_from_z(z[:, i], ref_lat * np.ones(len(z)))
-        # SA = gsw.SA_from_SP(s[:, i], p, lon_rho[0] * np.ones(len(s[:, i])), lat_rho[i] * np.ones(len(s[:, i])))
-        # CT = gsw.CT_from_t(s[:, i], t[:, i], p)
-        # sig0_0 = gsw.sigma0(SA, CT)
-        # -- INTERPOLATE TO REGULAR Z GRID
-        t_p[:, i] = np.interp(z_grid, z[:, i], t[:, i])
-        s_p[:, i] = np.interp(z_grid, z[:, i], s[:, i])
-        sig0_p[:, i] = np.interp(z_grid, z[:, i], sig0_0[:, i])
-        u_g_p[:, i] = np.interp(z_grid, z[:, i], vel[:, i])
-
-    # loop over each row and interpolate to Y grid
-    tt = np.nan * np.ones((len(z_grid), len(y_grid)))
-    ss = np.nan * np.ones((len(z_grid), len(y_grid)))
-    sig0 = np.nan * np.ones((len(z_grid), len(y_grid)))
-    u_g = np.nan * np.ones((len(z_grid), len(y_grid)))
-    yg_low = np.where(y_grid > np.round(np.nanmin(y)))[0][0] - 1
-    yg_up = np.where(y_grid < np.round(np.nanmax(y)))[0][-1] + 1
-    for i in range(len(z_grid)):
-        tt[i, yg_low:yg_up] = np.interp(y_grid[yg_low:yg_up], y, t_p[i, :])
-        ss[i, yg_low:yg_up] = np.interp(y_grid[yg_low:yg_up], y, s_p[i, :])
-        sig0[i, yg_low:yg_up] = np.interp(y_grid[yg_low:yg_up], y, sig0_p[i, :])
-        u_g[i, yg_low:yg_up] = np.interp(y_grid[yg_low:yg_up], y, u_g_p[i, :])
-
-    t_out[:, :, m] = tt.copy()
-    s_out[:, :, m] = ss.copy()
-    sig0_out[:, :, m] = sig0.copy()
-    u_out[:, :, m] = u_g.copy()
-    time_ord[m] = time_cor.copy()
-    time_out[m] = time.copy()
-    date_out[m, :] = np.array([np.int(time_cor), time_hour])
-    print('loaded, gridded, computed density of file = ' + str(m))
-    # -- END LOOP COLLECTING RESULT OF EACH TIME STEP
-
-# SORT TIME STEPS BY TIME
-sig0_raw = sig0_raw[:, :, np.argsort(time_out)]
-z_raw = z_raw[:, :, np.argsort(time_out)]
-t_out_s = t_out[:, :, np.argsort(time_out)]
-s_out_s = s_out[:, :, np.argsort(time_out)]
-sig0_out_s = sig0_out[:, :, np.argsort(time_out)]
-u_out_s = u_out[:, :, np.argsort(time_out)]
-time_out_s = time_out[np.argsort(time_out)]
-time_ord_s = time_ord[np.argsort(time_out)]
-date_out_s = date_out[np.argsort(time_out), :]
-
-# --- convert in matlab
-import matlab.engine
-eng = matlab.engine.start_matlab()
-eng.addpath(r'/Users/jake/Documents/MATLAB/eos80_legacy_gamma_n/')
-eng.addpath(r'/Users/jake/Documents/MATLAB/eos80_legacy_gamma_n/library/')
-gamma = np.nan * np.ones(np.shape(sig0_out_s))
-print('Opened Matlab')
-for j in range(2):
-    tic = TT.clock()
-    for i in range(len(y_grid)):
-        gamma[:, i, j] = np.squeeze(np.array(eng.eos80_legacy_gamma_n(matlab.double(s_out_s[:, i, j].tolist()),
-                                                                      matlab.double(t_out_s[:, i, j].tolist()),
-                                                                      matlab.double(p_out.tolist()),
-                                                                      matlab.double([lon_yy[0]]),
-                                                                      matlab.double([lat_yy[i]]))))
-    toc = TT.clock()
-    print('Time step = ' + str(j) + ' = '+ str(toc - tic) + 's')
-eng.quit()
-
-my_dict = {'z': z_grid, 'gamma': gamma, 'sig0': sig0_out_s, 'u': u_out_s, 'time': time_out_s, 'time_ord': time_ord_s,
-           'date': date_out_s, 'raw_sig0': sig0_raw, 'raw_z': z_raw}
-output = open('/Users/jake/Documents/baroclinic_modes/Model/extracted_gridded_gamma.pkl', 'wb')
-pickle.dump(my_dict, output)
-output.close()
+sigth_levels = np.array([25, 26, 26.2, 26.4, 26.6, 26.8, 27, 27.2, 27.4, 27.6, 27.7, 27.8, 27.9])
+g = 9.81
+rho0 = 1025.0
 
 # ---------------------------------------------------------------------------------------------------------------------
 # ---------------------------------------------------------------------------------------------------------------------
@@ -168,11 +184,11 @@ output.close()
 # assume glider measurements are made every 10, 15, 30, 45, 120 second intervals
 # time between each model time step is 1hr.
 
-dg_vertical_speed = .14  # m/s
+dg_vertical_speed = .11  # m/s
 dg_glide_slope = 3
-num_dives = 7
+num_dives = 5
 
-y_dg_s = 0
+y_dg_s = 20000
 z_dg_s = 0
 dg_z = np.flipud(z_grid.copy())
 dg_z_g = np.tile(np.concatenate((np.flipud(z_grid.copy())[:, None], np.flipud(z_grid.copy())[:, None]), axis=1),
@@ -234,6 +250,8 @@ for i in range(np.shape(dg_y)[1]):
             dg_sig0[j, i] = np.interp(this_t, [time_ord_s[nearest_model_t_over - 1], time_ord_s[nearest_model_t_over]],
                                    [sig_t_before, sig_t_after])
 
+print('Simulated Glider Flight')
+
 # --- Estimate of DAC
 dg_dac = np.nan * np.ones(np.shape(dg_sig0)[1] - 1)
 for i in range(np.shape(dg_y)[1] - 1):
@@ -251,10 +269,7 @@ for i in range(np.shape(dg_y)[1] - 1):
 
 # ---------------------------------------------------------------------------------------------------------------------
 # --- M/W estimation
-g = 9.81
-rho0 = 1025.0
 ff = np.pi * np.sin(np.deg2rad(ref_lat)) / (12 * 1800)  # Coriolis parameter [s^-1]
-sigth_levels = np.array([26, 26.2, 26.4, 26.6, 26.8, 27, 27.2, 27.4, 27.6, 27.7])
 num_profs = np.shape(dg_sig0)[1]
 order_set = np.arange(0, np.shape(dg_sig0)[1], 2)
 
@@ -365,7 +380,7 @@ for m in range(num_profs - 1):
         v_g[iq, m] = np.nan
 
 v_g = v_g[:, 0:-1]
-
+print('Completed M/W Vel Estimation')
 # ---------------------------------------------------------------------------------------------------------------------
 # --------------------------------------------------------------------------------------------------------------------
 # --- PLOTTING
@@ -373,7 +388,7 @@ v_g = v_g[:, 0:-1]
 # ax.contourf(dg_y, np.flipud(np.tile(z_grid[:, None], (1, np.shape(dg_y)[1]))), np.flipud(dg_sig0),levels=sigth_levels)
 # plot_pro(ax)
 
-h_max = 125  # horizontal domain limit
+h_max = 150  # horizontal domain limit
 u_levels = np.array([-.4, -.35, -.3, -.25, - .2, -.15, -.125, -.1, -.075, -.05, -0.025, 0,
                      0.025, 0.05, 0.075, 0.1, 0.125, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4])
 u_mod_at_mw_y = np.nan * np.ones(np.shape(v_g))
@@ -604,8 +619,7 @@ if plot2 > 0:
 #     toc = TT.clock()
 #     print('Time step = ' + str(j) + ' = '+ str(toc - tic) + 's')
 # eng.quit()
-# avg_gamma = np.nanmean(np.nanmean(gamma_bck, axis=2), axis=1)
-# my_dict = {'z': z_grid, 'gamma': avg_gamma, 'sig0_back': sig0_bck_out, 'N2_back': N2_bck_out, 'time': date_out}
+# my_dict = {'z': z_grid, 'gamma': gamma_bck, 'sig0_back': sig0_bck_out, 'N2_back': N2_bck_out, 'time': date_out}
 # output = open('/Users/jake/Documents/baroclinic_modes/Model/extracted_gridded_bck_gamma.pkl', 'wb')
 # pickle.dump(my_dict, output)
 # output.close()
@@ -613,12 +627,15 @@ if plot2 > 0:
 pkl_file = open('/Users/jake/Documents/baroclinic_modes/Model/extracted_gridded_bck_gamma.pkl', 'rb')
 BG = pickle.load(pkl_file)
 pkl_file.close()
-avg_gamma = BG['gamma'][:]
+gamma_bck = BG['gamma'][:]
 sig0_bck_out = BG['sig0_back'][:]
 N2_bck_out = BG['N2_back'][:]
 
-# avg_sig0 = avg_gamma.copy()  #
-avg_sig0 = np.nanmean(np.nanmean(sig0_bck_out, axis=2), axis=1)
+# select background that coincides with glider dive locations
+in_range = np.where((y_grid > np.nanmin(dg_y)) & (y_grid < np.nanmax(dg_y)))[0]
+avg_gamma = np.nanmean(np.nanmean(gamma_bck[:, in_range, :], axis=2), axis=1)
+avg_sig0 = avg_gamma.copy()  #
+# avg_sig0 = np.nanmean(np.nanmean(sig0_bck_out, axis=2), axis=1)
 ddz_avg_sig0 = np.nan * np.ones(np.shape(avg_sig0))
 ddz_avg_sig0[0] = (avg_sig0[1] - avg_sig0[0])/(z_grid[1] - z_grid[0])
 ddz_avg_sig0[-1] = (avg_sig0[-1] - avg_sig0[-2])/(z_grid[-1] - z_grid[-2])
@@ -646,6 +663,7 @@ eta_fit_dep_max = 2200.0
 # --- compute vertical mode shapes
 G, Gz, c, epsilon = vertical_modes(np.flipud(avg_N2), np.flipud(-1.0 * z_grid), omega, mmax)  # N2
 
+print('Computed Vertical Modes from Background Profiles')
 # --- fit eta
 # DG
 eta = np.nan * np.ones(np.shape(dg_sig0))
@@ -660,11 +678,11 @@ AG_dg_sm, eta_m_dg_sm, Neta_m_dg_sm, PE_per_mass_dg_sm = eta_fit(np.shape(avg_si
                                                                  nmodes, np.flipud(avg_N2), G, c, eta_sm,
                                                                  eta_fit_dep_min, eta_fit_dep_max)
 # Model
-eta_model = np.nan * np.ones(np.shape(sig0_out_s[:, :, 0]))
-for i in range(np.shape(eta_model)[1]):
-    eta_model[:, i] = (np.flipud(sig0_out_s[:, i, 0]) - np.flipud(avg_sig0)) / np.flipud(ddz_avg_sig0)
-AG_model, eta_m_model, Neta_m_model, PE_per_mass_model = eta_fit(len(y_grid), -1.0 * np.flipud(z_grid), nmodes,
-                                                                 np.flipud(avg_N2), G, c, eta_model,
+eta_model = np.nan * np.ones(np.shape(sig0_out_s[:, in_range, 0]))
+for i in range(len(in_range)):
+    eta_model[:, i] = (np.flipud(sig0_out_s[:, in_range[i], 0]) - np.flipud(avg_sig0)) / np.flipud(ddz_avg_sig0)
+AG_model, eta_m_model, Neta_m_model, PE_per_mass_model = eta_fit(np.shape(eta_model)[1], -1.0 * np.flipud(z_grid),
+                                                                 nmodes, np.flipud(avg_N2), G, c, eta_model,
                                                                  eta_fit_dep_min, eta_fit_dep_max)
 
 # --- fit vel
@@ -692,15 +710,15 @@ for i in range(num_profs - 1):
         good_ke_prof[i] = 0  # flag empty profile as noisy as well
 
 # Model
-HKE_per_mass_model = np.nan * np.zeros([nmodes, len(y_grid)])
+HKE_per_mass_model = np.nan * np.zeros([nmodes, np.shape(eta_model)[1]])
 modest = np.arange(11, nmodes)
-good_ke_prof = np.ones(len(y_grid))
-AGz_model = np.zeros([nmodes, len(y_grid)])
+good_ke_prof = np.ones(len(in_range))
+AGz_model = np.zeros([nmodes, len(in_range)])
 HKE_noise_threshold = 1e-5  # 1e-5
-V_m_model = np.nan * np.zeros([np.size(z_grid), len(y_grid)])
-for i in range(len(y_grid)):
+V_m_model = np.nan * np.zeros([np.size(z_grid), len(in_range)])
+for i in range(len(in_range)):
     # fit to velocity profiles
-    this_V = u_out_s[:, i, 0].copy()
+    this_V = u_out_s[:, in_range[i], 0].copy()
     iv = np.where(~np.isnan(this_V))
     if iv[0].size > 1:
         AGz_model[:, i] = np.squeeze(np.linalg.lstsq(np.squeeze(Gz[iv, :]), np.transpose(np.atleast_2d(this_V[iv])))[0])
@@ -735,7 +753,7 @@ ax2.grid()
 ax2.set_xlabel('Isopycnal Displacement [m]')
 ax2.set_title('Vertical Displacement')
 
-avg_mod_u = np.nanmean(u_out_s, axis=2)
+avg_mod_u = np.nanmean(u_out_s[:, in_range, :], axis=2)
 for i in range(np.shape(avg_mod_u)[1]):
     ax3.plot(avg_mod_u[:, i], z_grid, linewidth=0.75, color='#DCDCDC')
 for i in range(np.shape(v_g)[1]):
@@ -755,56 +773,70 @@ avg_KE = np.nanmean(HKE_per_mass_dg, axis=1)
 avg_PE_model = np.nanmean(PE_per_mass_model, axis=1)
 avg_KE_model = np.nanmean(HKE_per_mass_model, axis=1)
 dk = ff / c[1]
-sc_x = 1000 * ff / c[1:]
 PE_SD, PE_GM, GMPE, GMKE = PE_Tide_GM(rho0, -1.0 * z_grid_f, nmodes, np.flipud(np.transpose(np.atleast_2d(avg_N2))), ff)
 
 # --- PLOT ENERGY SPECTRA
+mm = 10
+sc_x = 1000 * ff / c[1:mm]
 f, (ax1, ax2) = plt.subplots(1, 2, sharey=True)
 l_lim = 3 * 10 ** -2
 # DG
-ax1.plot(sc_x, avg_PE[1:] / dk, color='#B22222', label='APE$_{DG}$', linewidth=3)
-ax1.scatter(sc_x, avg_PE[1:] / dk, color='#B22222', s=20)
-ax1.plot(sc_x, avg_PE_smooth[1:] / dk, color='#FF8C00', label='APE$_{DG}$', linewidth=3)
-ax1.scatter(sc_x, avg_PE_smooth[1:] / dk, color='#FF8C00', s=20)
+ax1.plot(sc_x, avg_PE[1:mm] / dk, color='#B22222', label='APE$_{DG_{ind}}$', linewidth=3, linestyle='--')
+ax1.scatter(sc_x, avg_PE[1:mm] / dk, color='#B22222', s=20)
+ax1.plot(sc_x, avg_PE_smooth[1:mm] / dk, color='#B22222', label='APE$_{DG_{avg}}$', linewidth=3)
+ax1.scatter(sc_x, avg_PE_smooth[1:mm] / dk, color='#B22222', s=20)
 
-ax2.plot(1000 * ff / c[1:], avg_KE[1:] / dk, 'g', label='KE$_{DG}$', linewidth=3)
-ax2.scatter(sc_x, avg_KE[1:] / dk, color='g', s=20)  # DG KE
+ax2.plot(1000 * ff / c[1:mm], avg_KE[1:mm] / dk, 'g', label='KE$_{DG}$', linewidth=3)
+ax2.scatter(sc_x, avg_KE[1:mm] / dk, color='g', s=20)  # DG KE
 ax2.plot([l_lim, 1000 * ff / c[1]], avg_KE[0:2] / dk, 'g', linewidth=3)  # DG KE_0
 ax2.scatter(l_lim, avg_KE[0] / dk, color='g', s=25, facecolors='none')  # DG KE_0
 # Model
-ax1.plot(sc_x, avg_PE_model[1:] / dk, color='#B22222', label='APE$_{DG}$', linewidth=2, linestyle='--')
-ax1.scatter(sc_x, avg_PE_model[1:] / dk, color='#B22222', s=20)
-ax2.plot(1000 * ff / c[1:], avg_KE_model[1:] / dk, 'g', label='KE$_{DG}$', linewidth=2, linestyle='--')
-ax2.scatter(sc_x, avg_KE_model[1:] / dk, color='g', s=20)
-ax2.plot([l_lim, 1000 * ff / c[1]], avg_KE_model[0:2] / dk, 'g', linewidth=2, linestyle='--')
+ax1.plot(sc_x, avg_PE_model[1:mm] / dk, color='#FF8C00', label='APE$_{Model}$', linewidth=2)
+ax1.scatter(sc_x, avg_PE_model[1:mm] / dk, color='#FF8C00', s=20)
+ax2.plot(1000 * ff / c[1:mm], avg_KE_model[1:mm] / dk, color='#FF8C00', label='KE$_{Model}$', linewidth=2)
+ax2.scatter(sc_x, avg_KE_model[1:mm] / dk, color='#FF8C00', s=20)
+ax2.plot([l_lim, 1000 * ff / c[1]], avg_KE_model[0:2] / dk, color='#FF8C00', linewidth=2)
 ax2.scatter(l_lim, avg_KE_model[0] / dk, color='g', s=25, facecolors='none')
 
 # test
-ax2.plot(1000 * ff / c[1:4], (avg_KE_model[1:4] - GMKE[0:3]) / dk, 'b', linewidth=2, linestyle='--')
+limm = 5
+ax2.plot(1000 * ff / c[1:limm], (avg_KE_model[1:limm] - GMKE[0:limm - 1]) / dk, 'b', linewidth=4, label='Model - GM')
 
 # GM
-ax1.plot(sc_x, 0.25 * PE_GM / dk, linestyle='--', color='k', linewidth=0.75)
-ax1.plot(sc_x, 0.25 * GMPE / dk, color='k', linewidth=0.75)
-ax1.text(sc_x[0] - .01, 0.5 * PE_GM[1] / dk, r'$1/4 PE_{GM}$', fontsize=10)
-ax2.plot(sc_x, 0.25 * GMKE / dk, color='k', linewidth=0.75)
+# ax1.plot(sc_x, 0.25 * PE_GM / dk, linestyle='--', color='k', linewidth=0.75)
+ax1.plot(1000 * ff / c[1:], 0.25 * GMPE / dk, color='k', linewidth=0.75)
+ax1.text(sc_x[0] - .01, 0.3 * PE_GM[1] / dk, r'$1/4 PE_{GM}$', fontsize=10)
+ax2.plot(1000 * ff / c[1:], 0.25 * GMKE / dk, color='k', linewidth=0.75)
 ax2.text(sc_x[0] - .01, 0.5 * GMKE[1] / dk, r'$1/4 KE_{GM}$', fontsize=10)
 
 ax1.set_xlim([l_lim, 2 * 10 ** 0])
 ax2.set_xlim([l_lim, 2 * 10 ** 0])
-ax2.set_ylim([10 ** (-4), 2 * 10 ** 2])
+ax2.set_ylim([10 ** (-3), 2 * 10 ** 2])
 ax1.set_yscale('log')
 ax1.set_xscale('log')
 ax1.grid()
 ax2.set_xscale('log')
+
+ax1.set_xlabel(r'Scaled Vertical Wavenumber = (L$_{d_{n}}$)$^{-1}$ = $\frac{f}{c_n}$ [$km^{-1}$]', fontsize=12)
+ax1.set_ylabel('Spectral Density', fontsize=12)  # ' (and Hor. Wavenumber)')
+ax1.set_title('Potential Energy Spectrum', fontsize=12)
+ax2.set_xlabel(r'Scaled Vertical Wavenumber = (L$_{d_{n}}$)$^{-1}$ = $\frac{f}{c_n}$ [$km^{-1}$]', fontsize=12)
+ax2.set_title('Kinetic Energy Spectrum', fontsize=12)
+handles, labels = ax1.get_legend_handles_labels()
+ax1.legend(handles, labels, fontsize=12)
+handles, labels = ax2.get_legend_handles_labels()
+ax2.legend(handles, labels, fontsize=12)
+
 plot_pro(ax2)
 
 # ---------------------------------------------------------------------------------------------------------------------
 # --- DEPTH OF ISOPYCNALS IN TIME ----------------------------------------------
 # isopycnals i care about
 rho1 = 26.6
-rho2 = 27
-rho3 = 27.6
+rho2 = 27.2
+rho3 = 27.9
 
+t_s = time_ord_s[0]
 d_time_per_prof = np.nanmean(dg_t, axis=0)
 d_time_per_prof_date = []
 d_dep_rho1 = np.nan * np.ones((3, len(d_time_per_prof)))
@@ -825,13 +857,16 @@ for i in range(len(mw_time)):
 
 
 f, (ax1, ax2, ax3) = plt.subplots(3, 1, sharex=True)
-ax1.scatter(d_time_per_prof, d_dep_rho1[0, :], color='g', s=15, label=r'DG$_{ind}$')
-ax2.scatter(d_time_per_prof, d_dep_rho1[1, :], color='g', s=15)
-ax3.scatter(d_time_per_prof, d_dep_rho1[2, :], color='g', s=15)
+ax1.scatter(24*(d_time_per_prof - t_s), d_dep_rho1[0, :], color='g', s=15, label=r'DG$_{ind}$')
+ax2.scatter(24*(d_time_per_prof - t_s), d_dep_rho1[1, :], color='g', s=15)
+ax3.scatter(24*(d_time_per_prof - t_s), d_dep_rho1[2, :], color='g', s=15)
 
-ax1.plot(mw_time, mw_dep_rho1[0, :], color='b', linewidth=0.75, label=r'DG$_{avg}$')
-ax2.plot(mw_time, mw_dep_rho1[1, :], color='b', linewidth=0.75, label=r'DG$_{avg}$')
-ax3.plot(mw_time, mw_dep_rho1[2, :], color='b', linewidth=0.75, label=r'DG$_{avg}$')
+ax1.plot(24*(mw_time - t_s), mw_dep_rho1[0, :], color='b', linewidth=0.75, label=r'DG$_{avg}$')
+ax1.scatter(24*(mw_time - t_s), mw_dep_rho1[0, :], color='b', s=6)
+ax2.plot(24*(mw_time - t_s), mw_dep_rho1[1, :], color='b', linewidth=0.75, label=r'DG$_{avg}$')
+ax2.scatter(24*(mw_time - t_s), mw_dep_rho1[1, :], color='b', s=6)
+ax3.plot(24*(mw_time - t_s), mw_dep_rho1[2, :], color='b', linewidth=0.75, label=r'DG$_{avg}$')
+ax3.scatter(24*(mw_time - t_s), mw_dep_rho1[2, :], color='b', s=6)
 
 ax1.set_title('Depth of $\gamma^{n}$ = ' + str(rho1))
 ax2.set_title('Depth of $\gamma^{n}$ = ' + str(rho2))
@@ -839,11 +874,31 @@ ax3.set_title('Depth of $\gamma^{n}$ = ' + str(rho3))
 ax1.set_ylabel('Depth [m]')
 ax2.set_ylabel('Depth [m]')
 ax3.set_ylabel('Depth [m]')
+ax3.set_xlabel('Time [Hour]')
 handles, labels = ax1.get_legend_handles_labels()
 ax1.legend(handles, labels, fontsize=10)
-# ax1.set_ylim([500, 850])
-# ax2.set_ylim([1050, 1400])
-# ax3.set_ylim([2600, 2950])
+ax1.set_ylim([-350, -150])
+ax2.set_ylim([-750, -450])
+ax3.set_ylim([-2100, -1800])
+ax1.grid()
+ax2.grid()
+plot_pro(ax3)
+
+f, (ax1, ax2, ax3) = plt.subplots(3, 1, sharex=True)
+for i in range(len(time_ord_s)):
+    ax1.contour(y_grid/1000, z_grid, sig0_out_s[:, :, i], levels=[rho1])
+    ax2.contour(y_grid/1000, z_grid, sig0_out_s[:, :, i], levels=[rho2])
+    ax3.contour(y_grid/1000, z_grid, sig0_out_s[:, :, i], levels=[rho3])
+ax1.set_ylim([-350, -150])
+ax2.set_ylim([-750, -550])
+ax3.set_ylim([-2050, -1850])
+ax1.set_ylabel('Z [m]')
+ax2.set_ylabel('Z [m]')
+ax3.set_ylabel('Z [m]')
+ax1.set_title('Time Variability of Isopycnal Depth; ' + '$\gamma^{n}$ = ' + str(rho1))
+ax2.set_title('Depth of $\gamma^{n}$ = ' + str(rho2))
+ax3.set_title('Depth of $\gamma^{n}$ = ' + str(rho3))
+ax3.set_xlabel('Domain [km]')
 ax1.grid()
 ax2.grid()
 plot_pro(ax3)
