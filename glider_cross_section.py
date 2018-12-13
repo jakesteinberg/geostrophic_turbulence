@@ -288,6 +288,7 @@ class Glider(object):
         avg_sig_out = []
         v_g_out = []
         vbt_out = []
+        shear_out = []
         isopycdep_out = []
         isopycx_out = []
         mwe_lon_out = []
@@ -574,9 +575,9 @@ class Glider(object):
                 vbc_g = np.nan * np.zeros(np.shape(shear))
                 v_g = np.nan * np.zeros((np.size(bin_depth), len(profile_tags)))
                 for m in range(len(profile_tags) - 1):
-                    iq = np.where(~np.isnan(shear[:, m]))
+                    iq = np.where(~np.isnan(shear[:, m]))[0]
                     if np.size(iq) > 10:
-                        z2 = -bin_depth[iq]
+                        z2 = -1.0 * bin_depth[iq]
                         vrel = cumtrapz(0.001 * shear[iq, m], x=z2, initial=0)
                         vrel_av = np.trapz(vrel / (z2[-1] - z2[0]), x=z2)
                         vbc = vrel - vrel_av
@@ -605,6 +606,7 @@ class Glider(object):
                 dist_out.append(dist)               # distance of every data point to transect start position
                 v_g_out.append(v_g)                 # velocity profile at distance ds
                 vbt_out.append(vbt)                 #
+                shear_out.append(shear)
                 isopycdep_out.append(isopycdep)     # isopycnal depth (along each profile)
                 isopycx_out.append(isopycx)         # isopycnal distance (along-transect distance) of isopycnal depth
                 mwe_lon_out.append(mwe_lon)         # lon of m/w profile
@@ -620,14 +622,14 @@ class Glider(object):
             # everywhere there is a len(profile_tags) there was a self.num_profs
 
         return ds_out, dist_out, avg_ct_out, avg_sa_out, avg_sig_out, v_g_out, vbt_out, isopycdep_out, isopycx_out, \
-            mwe_lon_out, mwe_lat_out, DACe_MW_out, DACn_MW_out, profile_tags_out
+            mwe_lon_out, mwe_lat_out, DACe_MW_out, DACn_MW_out, profile_tags_out, shear_out
 
-    def plot_cross_section(self, bin_depth, ds, v_g, dist, profile_tags, isopycdep, isopycx, sigth_levels, time):
+    def plot_cross_section(self, bin_depth, ds, v_g, dist, profile_tags, isopycdep, isopycx, sigth_levels, time, levels):
             sns.set(context="notebook", style="whitegrid", rc={"axes.axisbelow": False})
             fig0, ax0 = plt.subplots()
             matplotlib.rcParams['contour.negative_linestyle'] = 'solid'
             # levels = np.arange(np.float(np.nanmin(v_g)), np.float(np.nanmax(v_g)), .02)
-            levels = np.arange(-.6, .62, .04)
+            # levels = np.arange(-.64, .66, .04)
             vc = ax0.contourf(ds, bin_depth, v_g, levels=levels, cmap=plt.cm.PuOr)
             vcc = ax0.contour(ds, bin_depth, v_g, levels=levels, colors='k', linewidth=.75)
             ax0.contour(ds, bin_depth, v_g, levels=[0], colors='k', linewidth=1.25)

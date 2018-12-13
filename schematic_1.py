@@ -87,8 +87,10 @@ ax.text(-15,y_pos+10,20,r'$u_{x=30} (z)$')
 
 # G'
 GD = netcdf.netcdf_file('BATs_2015_gridded.nc','r')
-df_t = pd.DataFrame(np.float64(GD.variables['Temperature'][:]),index=np.float64(GD.variables['grid'][:]),columns=np.float64(GD.variables['dive_list'][:]))
-df_s = pd.DataFrame(np.float64(GD.variables['Salinity'][:]),index=np.float64(GD.variables['grid'][:]),columns=np.float64(GD.variables['dive_list'][:]))
+df_t = pd.DataFrame(np.float64(GD.variables['Conservative Temperature'][:]),
+                    index=np.float64(GD.variables['grid'][:]),columns=np.float64(GD.variables['dive_list'][:]))
+df_s = pd.DataFrame(np.float64(GD.variables['Absolute Salinity'][:]),
+                    index=np.float64(GD.variables['grid'][:]),columns=np.float64(GD.variables['dive_list'][:]))
 salin_avg = np.nanmean(df_s,axis=1)
 theta_avg = np.nanmean(df_t,axis=1)
 grid = np.float64(df_t.index)
@@ -102,7 +104,7 @@ N = np.sqrt(N2)
 omega = 0  # frequency zeroed for geostrophic modes
 mmax = 60  # highest baroclinic mode to be calculated
 nmodes = mmax + 1  
-G, Gz, c = vertical_modes(N2,-1*grid[1:],omega,mmax)
+G, Gz, c, epsilon = vertical_modes(N2, -1.0 * grid[1:], omega, mmax)
 
 y_pos2 = 15
 ax.plot3D(-20*np.ones(5),y_pos2*np.ones(5),np.linspace(-5000,0,5),color='k',zdir='z')

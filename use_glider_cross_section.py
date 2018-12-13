@@ -24,7 +24,7 @@ from toolkit import plot_pro
 # ---- DG BATS 2015
 # x = Glider(35, np.arange(60, 120), '/Users/jake/Documents/baroclinic_modes/DG/BATS_2015/sg035')
 # ---- DG BATS 2018
-x = Glider(41, np.arange(38, 56), '/Users/jake/Documents/baroclinic_modes/DG/BATS_2018/sg041')
+x = Glider(41, np.arange(51, 56), '/Users/jake/Documents/baroclinic_modes/DG/BATS_2018/sg041')
 
 # -- match max dive depth to bin_depth
 # GD = Dataset('BATs_2015_gridded_apr04.nc', 'r')
@@ -81,18 +81,22 @@ sigth_levels = np.concatenate(
 # ds, dist, avg_ct_per_dep_0, avg_sa_per_dep_0, avg_sig0_per_dep_0, v_g, vbt, \
 # isopycdep, isopycx, mwe_lon, mwe_lat, DACe_MW, DACn_MW, profile_tags_per = \
 #     x.transect_cross_section_1(bin_depth, sig0, ct, sa, lon, lat, dac_u, dac_v, profile_tags, sigth_levels)
+# ds, dist, avg_ct_per_dep_0, avg_sa_per_dep_0, avg_sig0_per_dep_0, v_g, vbt, isopycdep, isopycx, mwe_lon, mwe_lat, \
+# DACe_MW, DACn_MW, profile_tags_per, shear = x.transect_cross_section_1(bin_depth, sig0, ct, sa, lon, lat,
+#                                                                        dac_u, dac_v, profile_tags, sigth_levels)
 # --- for single transects
 ds, dist, v_g, vbt, isopycdep, isopycx, mwe_lon, mwe_lat, DACe_MW, DACn_MW, profile_tags_per = \
     x.transect_cross_section_0(bin_depth, sig0, lon, lat, dac_u, dac_v, profile_tags, sigth_levels)
 
 # -----------------------------------------------------------------------------------------------
 # PLOTTING cross section
+u_levels = np.arange(-1, 1, .04)
 # choose which transect
-# transect_no = 5
+# transect_no = 0
 # x.plot_cross_section(bin_depth, ds[transect_no], v_g[transect_no], dist[transect_no],
 #                      profile_tags_per[transect_no], isopycdep[transect_no], isopycx[transect_no],
 #                      sigth_levels, d_time)
-x.plot_cross_section(bin_depth, ds, v_g, dist, profile_tags_per, isopycdep, isopycx, sigth_levels, d_time)
+x.plot_cross_section(bin_depth, ds, v_g, dist, profile_tags_per, isopycdep, isopycx, sigth_levels, d_time, u_levels)
 
 # -----------------------------------------------------------------------------------------------
 # plot plan view
@@ -101,12 +105,12 @@ x.plot_cross_section(bin_depth, ds, v_g, dist, profile_tags_per, isopycdep, isop
 # bathy_path = '/Users/jake/Documents/Cuddy_tailored/DG_wa_coast/smith_sandwell_wa_coast.nc'
 # plan_window = [-128.5, -123.75, 46.5, 48.5]
 # ABACO
-bathy_path = '/Users/jake/Documents/baroclinic_modes/DG/ABACO_2017/OceanWatch_smith_sandwell.nc'
-plan_window = [-77.5, -73.5, 25.5, 27]
+# bathy_path = '/Users/jake/Documents/baroclinic_modes/DG/ABACO_2017/OceanWatch_smith_sandwell.nc'
+# plan_window = [-77.5, -73.5, 25.5, 27]
 # BATS
 # bathy_path = '/Users/jake/Desktop/bats/bats_bathymetry/GEBCO_2014_2D_-67.7_29.8_-59.9_34.8.nc'
-# bathy_path = '/Users/jake/Desktop/bats/bats_bathymetry/bathymetry_b38e_27c7_f8c3_f3d6_790d_30c7.nc'
-# plan_window = [-66, -63, 32, 37]
+bathy_path = '/Users/jake/Desktop/bats/bats_bathymetry/bathymetry_b38e_27c7_f8c3_f3d6_790d_30c7.nc'
+plan_window = [-66, -63, 32, 37]
 # bath_fid = Dataset(bathy_path, 'r')
 
 # from netCDF4 import Dataset

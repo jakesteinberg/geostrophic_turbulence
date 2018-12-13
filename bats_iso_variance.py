@@ -5,8 +5,6 @@ import matplotlib
 import matplotlib.pyplot as plt
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 import gsw
-import seawater as sw
-import pandas as pd
 import scipy
 import scipy.io as si
 from scipy.optimize import fmin
@@ -34,7 +32,7 @@ def functi_2(p, xe, xb, xs):
 
 # --- PHYSICAL PARAMETERS
 g = 9.81
-rho0 = 1036  # - 1027
+rho0 = 1025  # - 1027
 ref_lat = 31.7
 ref_lon = 64.2
 
@@ -142,16 +140,16 @@ sigth_levels = np.concatenate(
 # sigth_levels = np.concatenate([np.aranger(32, 36.6, 0.2), np.arange(36.6, 36.8, 0.05), np.arange(36.8, 37.4, 0.02)])
 
 # --- SAVE so that we dont have to run transects every time
-savee = 0
+savee = 1
 if savee > 0:
     ds, dist, avg_ct_per_dep_0, avg_sa_per_dep_0, avg_sig0_per_dep_0, v_g, vbt, isopycdep, isopycx, mwe_lon, mwe_lat,\
-    DACe_MW, DACn_MW, profile_tags_per = x.transect_cross_section_1(grid, neutral_density, ct, sa,
-                                                                    lon, lat, dac_u, dac_v, profile_tags, sigth_levels)
+    DACe_MW, DACn_MW, profile_tags_per, shear = x.transect_cross_section_1(grid, neutral_density, ct, sa, lon, lat,
+                                                                           dac_u, dac_v, profile_tags, sigth_levels)
     my_dict = {'ds': ds, 'dist': dist, 'avg_ct_per_dep_0': avg_ct_per_dep_0,
                'avg_sa_per_dep_0': avg_sa_per_dep_0, 'avg_sig0_per_dep_0': avg_sig0_per_dep_0, 'v_g': v_g, 'vbt': vbt,
                'isopycdep': isopycdep, 'isopycx': isopycx, 'mwe_lon': mwe_lon, 'mwe_lat': mwe_lat, 'DACe_MW': DACe_MW,
                'DACn_MW': DACn_MW, 'profile_tags_per': profile_tags_per}
-    output = open('/Users/jake/Documents/baroclinic_modes/DG/sg035_2015_transects_sig2.pkl', 'wb')
+    output = open('/Users/jake/Documents/baroclinic_modes/DG/sg035_2015_transects_sig2_test.pkl', 'wb')
     pickle.dump(my_dict, output)
     output.close()
 else:

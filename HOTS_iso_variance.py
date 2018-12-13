@@ -138,7 +138,7 @@ dk = f_ref / c[1]
 sc_x = 1000 * f_ref / c[1:]
 vert_wavenumber = f_ref / c[1:]
 dk_ke = 1000 * f_ref / c[1]
-PE_SD, PE_GM = PE_Tide_GM(rho0, grid, nmodes, np.transpose(np.atleast_2d(N2)), f_ref)
+PE_SD, PE_GM, GMPE, GMKE = PE_Tide_GM(rho0, grid, nmodes, np.transpose(np.atleast_2d(N2)), f_ref)
 avg_PE = np.nanmean(PE_per_mass, 1)
 
 # load in Station BATs PE Comparison
@@ -152,7 +152,8 @@ sta_bats_f = np.pi * np.sin(np.deg2rad(31.6)) / (12 * 1800)
 sta_bats_dk = sta_bats_f / sta_bats_c[1]
 sta_bats_n2 = np.nanmean(SB['N2_per_season'], axis=1)
 G_B, Gz_B, c_B, epsilon_B = vertical_modes(sta_bats_n2, SB['depth'], omega, mmax)
-PE_SD_bats, PE_GM_bats = PE_Tide_GM(rho0, sta_bats_depth, nmodes, np.transpose(np.atleast_2d(sta_bats_n2)), sta_bats_f)
+PE_SD_bats, PE_GM_bats, GMPE_bats, GMKE_bats = PE_Tide_GM(rho0, sta_bats_depth, nmodes,
+                                                          np.transpose(np.atleast_2d(sta_bats_n2)), sta_bats_f)
 
 # load in Station PAPA PE Comparison
 pkl_file = open('/Users/jake/Documents/baroclinic_modes/Line_P/canada_DFO/papa_energy_spectra_jun13.pkl', 'rb')
@@ -165,7 +166,8 @@ sta_papa_f = np.pi * np.sin(np.deg2rad(49.98)) / (12 * 1800)
 sta_papa_dk = sta_papa_f / sta_papa_c[1]
 sta_papa_n2 = SP['N2']
 G_P, Gz_P, c_P, epsilon_P = vertical_modes(sta_papa_n2, SP['depth'], omega, mmax)
-PE_SD_papa, PE_GM_papa = PE_Tide_GM(rho0, sta_papa_depth, nmodes, np.transpose(np.atleast_2d(sta_papa_n2)), sta_papa_f)
+PE_SD_papa, PE_GM_papa, GMPE_papa, GMKE_papa = PE_Tide_GM(rho0, sta_papa_depth, nmodes,
+                                                          np.transpose(np.atleast_2d(sta_papa_n2)), sta_papa_f)
 
 # load in Station Deep Argo NZ PE Comparison
 pkl_file = open('/Users/jake/Documents/baroclinic_modes/Deep_Argo/float6036_oct17.pkl', 'rb')
@@ -178,7 +180,8 @@ sta_nz_f = np.pi * np.sin(np.deg2rad(49.98)) / (12 * 1800)
 sta_nz_dk = sta_nz_f / sta_nz_c[1]
 sta_nz_n2 = SNZ['N2_avg']
 G_P, Gz_P, c_P, epsilon_P = vertical_modes(sta_nz_n2, SNZ['bin_depth'], omega, mmax)
-PE_SD_nz, PE_GM_nz = PE_Tide_GM(rho0, sta_nz_depth, nmodes, np.transpose(np.atleast_2d(sta_nz_n2)), sta_nz_f)
+PE_SD_nz, PE_GM_nz, GMPE_nz, GMKE_nz = PE_Tide_GM(rho0, sta_nz_depth, nmodes,
+                                                  np.transpose(np.atleast_2d(sta_nz_n2)), sta_nz_f)
 
 
 # f, (ax0, ax1, ax2) = plt.subplots(1, 3)
@@ -231,19 +234,19 @@ mode_num = np.arange(1, 61, 1)
 PE_p = ax.plot(mode_num, avg_PE[1:] / dk, color='#B22222', label='APE$_{ALOHA}$', linewidth=2)  # sc_x
 # BATS
 PE_sta_p = ax.plot(mode_num, np.nanmean(sta_bats_pe[1:], axis=1) / sta_bats_dk,
-                   color='#FF8C00', label='APE$_{BATS}$', linewidth=2)  # 1000 * sta_bats_f / sta_bats_c[1:]
+                   color='#00FF7F', label='APE$_{BATS}$', linewidth=2)  # 1000 * sta_bats_f / sta_bats_c[1:]
 # PAPA
 PE_sta_papa_p = ax.plot(mode_num, np.nanmean(sta_papa_pe[1:], axis=1) / sta_papa_dk,
-                   color='g', label='APE$_{PAPA}$', linewidth=2)
+                   color='#4682B4', label='APE$_{PAPA}$', linewidth=2)
 # NZ
-PE_sta_nz_p = ax.plot(mode_num, sta_nz_pe[1:] / sta_nz_dk,
-                   color='c', label='APE$_{NZ}$', linewidth=2)
+# PE_sta_nz_p = ax.plot(mode_num, sta_nz_pe[1:] / sta_nz_dk,
+#                    color='c', label='APE$_{NZ}$', linewidth=2)
 
 # GM
-ax.plot(mode_num, PE_GM / dk, linestyle='--', color='#B22222', linewidth=0.75)
-ax.plot(mode_num, PE_GM_bats / sta_bats_dk, linestyle='--', color='#FF8C00', linewidth=0.75)
-ax.plot(mode_num, PE_GM_papa / sta_papa_dk, linestyle='--', color='g', linewidth=0.75)
-ax.plot(mode_num, PE_GM_nz / sta_nz_dk, linestyle='--', color='c', linewidth=0.75)
+ax.plot(mode_num, PE_GM / dk, linestyle='--', color='#B22222', linewidth=1)
+ax.plot(mode_num, PE_GM_bats / sta_bats_dk, linestyle='--', color='#00FF7F', linewidth=1)
+ax.plot(mode_num, PE_GM_papa / sta_papa_dk, linestyle='--', color='#4682B4', linewidth=1)
+# ax.plot(mode_num, PE_GM_nz / sta_nz_dk, linestyle='--', color='c', linewidth=0.75)
 # ax.plot(1000 * sta_bats_f / sta_bats_c[1:], PE_GM_bats / sta_bats_dk, linestyle='--', color='#FF8C00', linewidth=0.75)
 # ax.text(sc_x[0] - .005, PE_GM[1] / dk, r'$PE_{GM}$', fontsize=13)
 # -3 slope
@@ -266,46 +269,65 @@ ax.legend(handles, labels, fontsize=14)
 ax.axis([7 * 10 ** -1, 10 ** 2, 3 * 10 ** (-4), 10 ** 3])
 ax.set_xlabel('Mode Number', fontsize=14)
 ax.set_ylabel('Spectral Density', fontsize=18)  # ' (and Hor. Wavenumber)')
-ax.set_title('PE: ALOHA, BATS, PAPA, NZ', fontsize=20)
+ax.set_title('PE: ALOHA, BATS, PAPA', fontsize=20)
 plot_pro(ax)
 
 cmap = matplotlib.cm.get_cmap('Blues')
-f, arm = plt.subplots(3, 2, sharex=True, sharey=True)
+f, arm = plt.subplots(3, 3, sharex=True, sharey=True)
 vmi = 0
 vma = 2.5
 arm[0, 0].pcolor(epsilon[0, :, :], cmap=cmap, vmin=vmi, vmax=vma)
-arm[0, 0].set_title('HOTS mode 0')
+arm[0, 0].set_title('ALOHA mode k=0')
 plt.xticks(np.arange(0.5, 3.5, 1), ('0', '1', '2'))
 plt.yticks(np.arange(0.5, 3.5, 1), ('0', '1', '2'))
+arm[0, 0].set_ylabel('Mode i')
 arm[0, 1].pcolor(epsilon[1, :, :], cmap=cmap, vmin=vmi, vmax=vma)
-arm[0, 1].set_title('HOTS mode 1')
+arm[0, 1].set_title('ALOHA mode k=1')
 plt.xticks(np.arange(0.5, 3.5, 1), ('0', '1', '2'))
 plt.yticks(np.arange(0.5, 3.5, 1), ('0', '1', '2'))
+arm[0, 2].pcolor(epsilon[2, :, :], cmap=cmap, vmin=vmi, vmax=vma)
+arm[0, 2].set_title('ALOHA mode k=2')
+plt.xticks(np.arange(0.5, 3.5, 1), ('0', '1', '2'))
+plt.yticks(np.arange(0.5, 3.5, 1), ('0', '1', '2'))
+arm[0, 0].invert_yaxis()
 
 arm[1, 0].pcolor(epsilon_B[0, :, :], cmap=cmap, vmin=vmi, vmax=vma)
-arm[1, 0].set_title('BATS mode 0')
+arm[1, 0].set_title('BATS mode k=0')
 plt.xticks(np.arange(0.5, 3.5, 1), ('0', '1', '2'))
 plt.yticks(np.arange(0.5, 3.5, 1), ('0', '1', '2'))
+arm[1, 0].set_ylabel('Mode i')
 arm[1, 1].pcolor(epsilon_B[1, :, :], cmap=cmap, vmin=vmi, vmax=vma)
-arm[1, 1].set_title('BATS mode 1')
+arm[1, 1].set_title('BATS mode k=1')
+plt.xticks(np.arange(0.5, 3.5, 1), ('0', '1', '2'))
+plt.yticks(np.arange(0.5, 3.5, 1), ('0', '1', '2'))
+arm[1, 2].pcolor(epsilon_B[2, :, :], cmap=cmap, vmin=vmi, vmax=vma)
+arm[1, 2].set_title('BATS mode k=2')
 plt.xticks(np.arange(0.5, 3.5, 1), ('0', '1', '2'))
 plt.yticks(np.arange(0.5, 3.5, 1), ('0', '1', '2'))
 
 arm[2, 0].pcolor(epsilon_P[0, :, :], cmap=cmap, vmin=vmi, vmax=vma)
-arm[2, 0].set_title('PAPA mode 0')
+arm[2, 0].set_title('PAPA mode k=0')
 plt.xticks(np.arange(0.5, 3.5, 1), ('0', '1', '2'))
 plt.yticks(np.arange(0.5, 3.5, 1), ('0', '1', '2'))
 arm[2, 1].pcolor(epsilon_P[1, :, :], cmap=cmap, vmin=vmi, vmax=vma)
-arm[2, 1].set_title('PAPA mode 1')
+arm[2, 1].set_title('PAPA mode k=1')
 plt.xticks(np.arange(0.5, 3.5, 1), ('0', '1', '2'))
 plt.yticks(np.arange(0.5, 3.5, 1), ('0', '1', '2'))
+arm[2, 2].pcolor(epsilon_P[2, :, :], cmap=cmap, vmin=vmi, vmax=vma)
+arm[2, 2].set_title('PAPA mode k=2')
+plt.xticks(np.arange(0.5, 3.5, 1), ('0', '1', '2'))
+plt.yticks(np.arange(0.5, 3.5, 1), ('0', '1', '2'))
+arm[2, 0].set_xlabel('Mode j')
+arm[2, 0].set_ylabel('Mode i')
+arm[2, 1].set_xlabel('Mode j')
+arm[2, 2].set_xlabel('Mode j')
 
 c_map_ax = f.add_axes([0.933, 0.1, 0.02, 0.8])
 norm = matplotlib.colors.Normalize(vmin=vmi, vmax=vma)
 cb1 = matplotlib.colorbar.ColorbarBase(c_map_ax, cmap=cmap, norm=norm, orientation='vertical')
 cb1.set_label('Epsilon')
-arm[1, 1].grid()
-plot_pro(arm[1, 1])
+arm[2, 2].grid()
+plot_pro(arm[2, 2])
 
 f, ax = plt.subplots()
 ax.plot(Gz[:, 0], grid, linestyle='--', color='r')
