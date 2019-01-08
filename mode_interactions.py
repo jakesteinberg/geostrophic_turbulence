@@ -347,7 +347,6 @@ for i in range(len(modenum[1:])):
 # handles, labels = ax3.get_legend_handles_labels()
 # ax3.legend(handles, labels, fontsize=10)
 # plot_pro(ax3)
-
 # ---------------------------------------------------------------------------------------------------------------------
 # Schematic of Mode Shapes and Interactions
 y_grid = np.arange(-40000, 40000, 1000)
@@ -362,7 +361,8 @@ Fz_3 = np.concatenate((Fz_2, 0 * np.ones(len(np.arange(2050, 4000, 50)))))
 Fz_4 = savgol_filter(Fz_3, 55, 5)
 
 z_grid = -1 * SB['depth']
-rho_1 = savgol_filter(SB['Sigma0'][:, 0], 9, 5) + 1000
+rho_1 = savgol_filter(SB['Sigma0'][:, 0], 7, 5) + 1000
+rho_1 = savgol_filter(rho_1, 15, 5)
 Fz_5 = np.interp(-1. * z_grid, z_3, Fz_4)
 
 [Y, Z] = np.meshgrid(y_grid, z_grid)
@@ -424,7 +424,7 @@ eddy_rho_surf = rho_surf[:, y_grid == 0][:, 0]
 eta_surf = np.nan * np.ones(len(eddy_rho_surf))
 for i in range(len(eddy_rho_surf)):
     idx, rho_idx = find_nearest(rho_1, eddy_rho_surf[i])
-    if idx < 1:
+    if idx <= 1:
         z_rho_1 = -1.0 * z_grid[0:idx+3]
         eta_surf[i] = np.interp(eddy_rho_surf[i], rho_1[0:idx + 3], z_rho_1) - (-1.0 * z_grid[i])
     else:
@@ -447,7 +447,7 @@ for i in range(len(eddy_rho)):
 
 # -- plotting
 rho_levels = np.concatenate((np.arange(1024, 1027.8, 0.2), np.array([1027.76]) ,np.arange(1027.81, 1028, 0.01)))
-u_levels = np.arange(-.5, .5, 0.05)
+u_levels = np.arange(-.4, .4, 0.05)
 u_levels_2 = [-.4, -.3, -.2, -.1, .1, .2, .3, .4]
 
 cmap = matplotlib.cm.get_cmap('RdBu')
@@ -459,13 +459,15 @@ ax1.contour(Y/1000, Z, v_surf, levels=u_levels_2, colors='k', linewidth=0.75)
 ax1.set_xlabel('Km')
 ax1.set_ylabel('Z [m]')
 ax1.set_ylim([-3500, 0])
+ax1.set_title('Surface Eddy')
 ax1.grid()
-ax2.plot(savgol_filter(eta_surf, 25, 7), z_grid)
-ax2.set_xlim([-300, 300])
+ax2.plot(savgol_filter(eta_surf, 25, 7), z_grid, linewidth=2)
+ax2.plot(G_B[:, 1] / 50, z_grid, color='r', linestyle='--')
+ax2.set_xlim([-150, 300])
 ax2.set_xlabel('[m]')
 ax2.set_title('Vertical Isopycnal Displacement')
 ax2.grid()
-ax3.plot(v_surf[:, y_grid == L / 2], z_grid)
+ax3.plot(v_surf[:, y_grid == L / 2], z_grid, linewidth=2)
 ax3.plot(-1. * .2 * Gz_B[:, 0], -1.0 * sta_bats_depth, color='r', linewidth=0.5)
 ax3.plot(Gz_B[:, 1] * (np.nanmin(v) * .2), -1.0 * sta_bats_depth, color='r', linewidth=0.5)
 ax3.plot((-0.02 * Gz_B[:, 0]) + (Gz_B[:, 1] * (np.nanmin(v) * .2)), -1.0 * sta_bats_depth,
@@ -482,16 +484,18 @@ ax1.contour(Y/1000, Z, v, levels=u_levels_2, colors='k', linewidth=0.75)
 ax1.set_xlabel('Km')
 ax1.set_ylabel('Z [m]')
 ax1.set_ylim([-3500, 0])
+ax1.set_title('Subsurface Eddy')
 ax1.grid()
 ax2.plot(savgol_filter(eta, 25, 7), z_grid)
+ax2.plot(G_B[:, 1] / 50, z_grid, color='r', linestyle='--')
 # ax2.plot((rho[:, y_grid == 0][:, 0] - rho_1) / ddz_avg_sigma, z_grid)
 # ax2.plot(rho[:, y_grid == 0][:, 0], z_grid)
 # ax2.plot(rho_1, z_grid)
-ax2.set_xlim([-300, 300])
+ax2.set_xlim([-150, 300])
 ax2.set_xlabel('[m]')
 ax2.set_title('Vertical Isopycnal Displacement')
 ax2.grid()
-ax3.plot(v[:, y_grid == L / 2], z_grid)
+ax3.plot(v[:, y_grid == L / 2], z_grid, linewidth=2)
 ax3.plot(-1. * .2 * Gz_B[:, 0], -1.0 * sta_bats_depth, color='r', linewidth=0.5)
 ax3.plot(Gz_B[:, 1] * (np.nanmin(v) * .2), -1.0 * sta_bats_depth, color='r', linewidth=0.5)
 ax3.plot((-0.02 * Gz_B[:, 0]) + (Gz_B[:, 1] * (np.nanmin(v) * .2)), -1.0 * sta_bats_depth,
@@ -500,6 +504,25 @@ ax3.set_title('Velocity Profile and Mode Shapes')
 ax3.set_xlabel('[m/s]')
 plot_pro(ax3)
 
+
+# ---------------------------------------------------------------------------------------------------------------------
+f, (ax1, ax2) = plt.subplots(1, 2, sharey=True)
+ax1.plot(G_B[:, 1], z_grid, linewidth=2)
+ax1.plot(G_B[:, 2], z_grid, linewidth=2)
+ax1.plot(G_B[:, 3], z_grid, linewidth=2)
+ax2.plot(Gz_B[:, 1], z_grid, linewidth=2)
+ax2.plot(Gz_B[:, 2], z_grid, linewidth=2)
+ax2.plot(Gz_B[:, 3], z_grid, linewidth=2)
+ax1.set_xlim([-2000, 2000])
+ax2.set_xlim([-3, 3])
+ax1.set_ylabel('Depth [m]')
+ax1.set_title('Displacement Modes')
+ax2.set_title('Velocity Modes')
+ax1.grid()
+plot_pro(ax2)
+
+
+# ---------------------------------------------------------------------------------------------------------------------
 
 # OLD
 # # rho_1 = np.concatenate((1026 * np.ones(len(z_grid[0:20])), np.arange(1026, 1027, (1027 - 1026)/len(z_grid[20:100])),

@@ -140,20 +140,23 @@ sigth_levels = np.concatenate(
 # sigth_levels = np.concatenate([np.aranger(32, 36.6, 0.2), np.arange(36.6, 36.8, 0.05), np.arange(36.8, 37.4, 0.02)])
 
 # --- SAVE so that we dont have to run transects every time
-savee = 1
+savee = 0
 if savee > 0:
     ds, dist, avg_ct_per_dep_0, avg_sa_per_dep_0, avg_sig0_per_dep_0, v_g, vbt, isopycdep, isopycx, mwe_lon, mwe_lat,\
-    DACe_MW, DACn_MW, profile_tags_per, shear = x.transect_cross_section_1(grid, neutral_density, ct, sa, lon, lat,
-                                                                           dac_u, dac_v, profile_tags, sigth_levels)
+    DACe_MW, DACn_MW, profile_tags_per, shear, v_g_east, v_g_north = x.transect_cross_section_1(grid, neutral_density,
+                                                                                                ct, sa, lon, lat,
+                                                                                                dac_u, dac_v,
+                                                                                                profile_tags,
+                                                                                                sigth_levels)
     my_dict = {'ds': ds, 'dist': dist, 'avg_ct_per_dep_0': avg_ct_per_dep_0,
                'avg_sa_per_dep_0': avg_sa_per_dep_0, 'avg_sig0_per_dep_0': avg_sig0_per_dep_0, 'v_g': v_g, 'vbt': vbt,
                'isopycdep': isopycdep, 'isopycx': isopycx, 'mwe_lon': mwe_lon, 'mwe_lat': mwe_lat, 'DACe_MW': DACe_MW,
-               'DACn_MW': DACn_MW, 'profile_tags_per': profile_tags_per}
+               'DACn_MW': DACn_MW, 'profile_tags_per': profile_tags_per, 'v_g_east': v_g_east, 'v_g_north': v_g_north}
     output = open('/Users/jake/Documents/baroclinic_modes/DG/sg035_2015_transects_sig2_test.pkl', 'wb')
     pickle.dump(my_dict, output)
     output.close()
 else:
-    pkl_file = open('/Users/jake/Documents/baroclinic_modes/DG/sg035_2015_transects_sig2.pkl', 'rb')
+    pkl_file = open('/Users/jake/Documents/baroclinic_modes/DG/sg035_2015_transects_sig2_test.pkl', 'rb')
     B15 = pickle.load(pkl_file)
     pkl_file.close()
     ds = B15['ds']
@@ -162,6 +165,8 @@ else:
     avg_sa_per_dep_0 = B15['avg_sa_per_dep_0']
     avg_sig0_per_dep_0 = B15['avg_sig0_per_dep_0']
     v_g = B15['v_g']
+    v_g_east = B15['v_g_east']
+    v_g_north = B15['v_g_north']
     vbt = B15['vbt']
     isopycdep = B15['isopycdep']
     isopycx = B15['isopycx']
@@ -172,7 +177,11 @@ else:
     profile_tags_per = B15['profile_tags_per']
 
 # unpack velocity profiles from transect analysis
+dace_mw_0 = DACe_MW[0][0:-1].copy()
+dacn_mw_0 = DACn_MW[0][0:-1].copy()
 dg_v_0 = v_g[0][:, 0:-1].copy()
+dg_v_e_0 = v_g_east[0][:, 0:-1].copy()
+dg_v_n_0 = v_g_north[0][:, 0:-1].copy()
 avg_sig0_per_dep = avg_sig0_per_dep_0[0].copy()
 avg_ct_per_dep = avg_ct_per_dep_0[0].copy()
 avg_sa_per_dep = avg_sa_per_dep_0[0].copy()
@@ -180,7 +189,11 @@ dg_v_lon = mwe_lon[0][0:-1].copy()
 dg_v_lat = mwe_lat[0][0:-1].copy()
 dg_v_dive_no = profile_tags_per[0][0:-1].copy()
 for i in range(1, len(v_g)):
+    dace_mw_0 = np.concatenate((dace_mw_0, DACe_MW[i][0:-1]), axis=0)
+    dacn_mw_0 = np.concatenate((dacn_mw_0, DACn_MW[i][0:-1]), axis=0)
     dg_v_0 = np.concatenate((dg_v_0, v_g[i][:, 0:-1]), axis=1)
+    dg_v_e_0 = np.concatenate((dg_v_e_0, v_g_east[i][:, 0:-1]), axis=1)
+    dg_v_n_0 = np.concatenate((dg_v_n_0, v_g_north[i][:, 0:-1]), axis=1)
     avg_ct_per_dep = np.concatenate((avg_ct_per_dep, avg_ct_per_dep_0[i]), axis=1)
     avg_sa_per_dep = np.concatenate((avg_sa_per_dep, avg_sa_per_dep_0[i]), axis=1)
     avg_sig0_per_dep = np.concatenate((avg_sig0_per_dep, avg_sig0_per_dep_0[i]), axis=1)
@@ -252,7 +265,11 @@ for i in range(np.shape(dg_v_0)[1]):
 
 avg_sig = avg_sig0_per_dep[:, good_v]
 eta_alt = eta_alt[:, good_v]
+dace_mw = dace_mw_0[good_v]
+dacn_mw = dacn_mw_0[good_v]
 dg_v = dg_v_0[:, good_v]
+dg_v_e = dg_v_e_0[:, good_v]
+dg_v_n = dg_v_n_0[:, good_v]
 dg_mw_time = dg_mw_time[good_v]
 dg_v_dive_no = dg_v_dive_no[good_v]
 num_mw_profs = np.shape(eta_alt)[1]
@@ -297,8 +314,8 @@ F_int = np.nan * np.ones((np.size(grid), mmax + 1))
 for i in range(mmax + 1):
     F[:, i] = np.interp(grid, grid2, F_g2[:, i])
     F_int[:, i] = np.interp(grid, grid2, F_int_g2[:, i])
-# -----------------------------------------------------------------------------------
-# ----- SOME VELOCITY PROFILES ARE TOO NOISY AND DEEMED UNTRUSTWORTHY --------------------------------------
+# ---------------------------------------------------------------------------------------------------------------------
+# ----- SOME VELOCITY PROFILES ARE TOO NOISY AND DEEMED UNTRUSTWORTHY -------------------------------------------------
 # select only velocity profiles that seem reasonable
 # criteria are slope of v (dont want kinks)
 # criteria: limit surface velocity to greater that 40cm/s
@@ -383,6 +400,31 @@ if sa > 0:
     pickle.dump(mydict, output)
     output.close()
 
+# --------------------------------------------------------------------
+# PLOT (non-noisy) EAST/NORTH VELOCITY PROFILES
+f, (ax1, ax2, ax3) = plt.subplots(1, 3, sharey=True)
+for i in range(np.shape(dg_v_e)[1]):
+    if good_ke_prof[i] > 0:
+        # ax1.plot(dg_v_e[:, i], grid, color='#D3D3D3')
+        # ax2.plot(dg_v_n[:, i], grid, color='#D3D3D3')
+        ax3.plot(dg_v[:, i], grid)
+ax1.plot(np.nanmean(dg_v_e[:, good_ke_prof > 0], axis=1), grid, color='b', linewidth=2)
+ax2.plot(np.nanmean(dg_v_n[:, good_ke_prof > 0], axis=1), grid, color='b', linewidth=2)
+ax1.plot(np.nanmean(dace_mw[good_ke_prof > 0]) * np.ones(10), np.linspace(0, 4200, 10), color='k', linewidth=1)
+ax2.plot(np.nanmean(dacn_mw[good_ke_prof > 0]) * np.ones(10), np.linspace(0, 4200, 10), color='k', linewidth=1)
+ax1.set_xlim([-.06, 0])
+ax2.set_xlim([-.06, 0])
+ax3.set_xlim([-.75, .75])
+ax1.invert_yaxis()
+ax1.grid()
+ax2.grid()
+ax1.set_title('Mean Zonal Vel')
+ax2.set_title('Mean Meridional Vel')
+ax3.set_title('Cross-Track Vel')
+plot_pro(ax3)
+# --------------------------------------------------------------------
+
+
 # --- ETA COMPUTED FROM INDIVIDUAL DENSITY PROFILES
 # --- compute vertical mode shapes
 G_all, Gz_all, c_all, epsilon_all = vertical_modes(N2_all, grid, omega, mmax)
@@ -437,7 +479,7 @@ for i in range(len(bats_time)):
     bats_time_date.append(datetime.date.fromordinal(np.int(bats_time_ord[i])))
 
 
-# isopycnals i care about
+# isopycnals I care about
 rho1 = 27.0
 rho2 = 27.8
 rho3 = 28.05

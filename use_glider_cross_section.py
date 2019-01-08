@@ -24,7 +24,7 @@ from toolkit import plot_pro
 # ---- DG BATS 2015
 # x = Glider(35, np.arange(60, 120), '/Users/jake/Documents/baroclinic_modes/DG/BATS_2015/sg035')
 # ---- DG BATS 2018
-x = Glider(41, np.arange(51, 56), '/Users/jake/Documents/baroclinic_modes/DG/BATS_2018/sg041')
+x = Glider(41, np.arange(101, 106), '/Users/jake/Documents/baroclinic_modes/DG/BATS_2018/sg041')
 
 # -- match max dive depth to bin_depth
 # GD = Dataset('BATs_2015_gridded_apr04.nc', 'r')
@@ -81,9 +81,10 @@ sigth_levels = np.concatenate(
 # ds, dist, avg_ct_per_dep_0, avg_sa_per_dep_0, avg_sig0_per_dep_0, v_g, vbt, \
 # isopycdep, isopycx, mwe_lon, mwe_lat, DACe_MW, DACn_MW, profile_tags_per = \
 #     x.transect_cross_section_1(bin_depth, sig0, ct, sa, lon, lat, dac_u, dac_v, profile_tags, sigth_levels)
-# ds, dist, avg_ct_per_dep_0, avg_sa_per_dep_0, avg_sig0_per_dep_0, v_g, vbt, isopycdep, isopycx, mwe_lon, mwe_lat, \
-# DACe_MW, DACn_MW, profile_tags_per, shear = x.transect_cross_section_1(bin_depth, sig0, ct, sa, lon, lat,
-#                                                                        dac_u, dac_v, profile_tags, sigth_levels)
+# use this one
+# ds, dist, avg_ct_per_dep_0, avg_sa_per_dep_0, avg_sig0_per_dep_0, v_g, vbt, \
+# isopycdep, isopycx, mwe_lon, mwe_lat, DACe_MW, DACn_MW, profile_tags_per, shear, v_g_east, v_g_north = \
+#     x.transect_cross_section_1(bin_depth, sig0, ct, sa, lon, lat, dac_u, dac_v, profile_tags, sigth_levels)
 # --- for single transects
 ds, dist, v_g, vbt, isopycdep, isopycx, mwe_lon, mwe_lat, DACe_MW, DACn_MW, profile_tags_per = \
     x.transect_cross_section_0(bin_depth, sig0, lon, lat, dac_u, dac_v, profile_tags, sigth_levels)
@@ -95,7 +96,7 @@ u_levels = np.arange(-1, 1, .04)
 # transect_no = 0
 # x.plot_cross_section(bin_depth, ds[transect_no], v_g[transect_no], dist[transect_no],
 #                      profile_tags_per[transect_no], isopycdep[transect_no], isopycx[transect_no],
-#                      sigth_levels, d_time)
+#                      sigth_levels, d_time, u_levels)
 x.plot_cross_section(bin_depth, ds, v_g, dist, profile_tags_per, isopycdep, isopycx, sigth_levels, d_time, u_levels)
 
 # -----------------------------------------------------------------------------------------------

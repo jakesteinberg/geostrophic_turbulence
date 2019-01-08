@@ -44,7 +44,7 @@ deep_shr_max_dep = 3500
 # ----------------------------------------------------------------------------------------------------------------------
 # ---- PROCESSING USING GLIDER PACKAGE
 gs = 50
-ge = 85
+ge = 96
 x = Glider(41, np.arange(gs, ge), '/Users/jake/Documents/baroclinic_modes/DG/BATS_2018/sg041')
 # ----------------------------------------------------------------------------------------------------------------------
 import_dg = si.loadmat('/Users/jake/Documents/baroclinic_modes/sg041_2018_neutral_density_bin.mat')
