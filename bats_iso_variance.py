@@ -15,7 +15,7 @@ import datetime
 # functions I've written
 from glider_cross_section import Glider
 from mode_decompositions import eta_fit, vertical_modes, PE_Tide_GM, vertical_modes_f
-from toolkit import spectrum_fit, nanseg_interp, plot_pro
+from toolkit import spectrum_fit, nanseg_interp, plot_pro, find_nearest
 
 
 def functi_1(p, xe, xb):
@@ -213,15 +213,19 @@ for i in range(0, len(profile_tags_per)):
             dg_mw_time = np.concatenate((dg_mw_time, np.array([np.nanmean(tin)])))
         count = count + 1
 
+# ----------------------------------------------------------------------------------------------------------------------
 # ----- Eta compute from M/W method, which produces an average density per set of profiles
 eta_alt = np.nan * np.ones(np.shape(avg_sig0_per_dep))
 eta_alt_2 = np.nan * np.ones(np.shape(avg_sig0_per_dep))
+eta_alt_3 = np.nan * np.ones(np.shape(avg_sig0_per_dep))
 d_anom_alt = np.nan * np.ones(np.shape(avg_sig0_per_dep))
 gradient_alt = np.nan * np.ones(np.shape(avg_sig0_per_dep))
 for i in range(np.shape(avg_sig0_per_dep)[1]):  # loop over each profile
     # (average of four profiles) - (total long term average, that is seasonal)
     this_time = dg_mw_time[i]
     t_over = np.where(bckgrds_wins > this_time)[0]
+
+    # ETA ALT 2
     # find appropriate average background profiles
     if len(t_over) > 1:
         avg_a_salin = salin_avg[:, t_over[0]]
@@ -230,6 +234,8 @@ for i in range(np.shape(avg_sig0_per_dep)[1]):  # loop over each profile
         avg_a_salin = salin_avg[:, 3]
         avg_c_temp = cons_t_avg[:, 3]
 
+    # compute density at every depth for every profile using sa and ct profiles (really avg of 3/4 profiles)
+    # eta_alt_2 is compute using a local reference pressure
     # loop over each bin depth
     for j in range(1, len(grid) - 1):
         # profile density at depth j with local
@@ -240,6 +246,8 @@ for i in range(np.shape(avg_sig0_per_dep)[1]):  # loop over each profile
         gradient_alt[j, i] = np.nanmean(np.gradient(this_sigma_avg, z[j-1:j+2]))
         eta_alt_2[j, i] = d_anom_alt[j, i] / gradient_alt[j, i]
 
+    # ETA ALT (avg_sig0_per_dep and sigma_theta_avg are really neutral density, imported from matlab binning)
+    # match profile (really avg of 3/4 profiles) with one of 4 seasonal background profiles
     if len(t_over) > 1:
         if t_over[0] == 1:
             eta_alt[:, i] = (avg_sig0_per_dep[:, i] - sigma_theta_avg[:, 0]) / np.squeeze(ddz_avg_sigma[:, 0])
@@ -256,6 +264,19 @@ for i in range(np.shape(avg_sig0_per_dep)[1]):  # loop over each profile
     else:
         eta_alt[:, i] = (avg_sig0_per_dep[:, i] - sigma_theta_avg[:, 3]) / np.squeeze(ddz_avg_sigma[:, 3])
 
+    # ETA ALT 3
+    # try a new way to compute vertical displacement
+    for j in range(len(grid)):
+        # find this profile density at j along avg profile
+        idx, rho_idx = find_nearest(sigma_theta_avg[:, 0], avg_sig0_per_dep[j, i])
+        if idx <= 2:
+            z_rho_1 = grid[0:idx + 3]
+            eta_alt_3[j, i] = np.interp(avg_sig0_per_dep[j, i], sigma_theta_avg[0:idx + 3, 0], z_rho_1) - grid[j]
+        else:
+            z_rho_1 = grid[idx - 2:idx + 3]
+            eta_alt_3[j, i] = np.interp(avg_sig0_per_dep[j, i], sigma_theta_avg[idx - 2:idx + 3, 0], z_rho_1) - grid[j]
+
+# ----------------------------------------------------------------------------------------------------------------------
 # FILTER VELOCITY PROFILES IF THEY ARE TOO NOISY / BAD -- ALSO HAVE TO REMOVE EQUIVALENT ETA PROFILE
 good_v = np.zeros(np.shape(dg_v_0)[1], dtype=bool)
 for i in range(np.shape(dg_v_0)[1]):
@@ -264,7 +285,7 @@ for i in range(np.shape(dg_v_0)[1]):
         good_v[i] = True
 
 avg_sig = avg_sig0_per_dep[:, good_v]
-eta_alt = eta_alt[:, good_v]
+eta_alt = eta_alt_3[:, good_v]
 dace_mw = dace_mw_0[good_v]
 dacn_mw = dacn_mw_0[good_v]
 dg_v = dg_v_0[:, good_v]
@@ -299,7 +320,7 @@ dg_avg_N2 = savgol_filter(dg_avg_N2_coarse, 15, 3)
 # ----------------------------------------------------------------------------------------------------------------------
 # ----------------------------------------------------------------------------------------------------------------------
 # -----------------------------------------------------------------------------------
-# - Vertical Modes
+# --- VERTICAL MODES ---
 
 # --- compute vertical mode shapes
 G, Gz, c, epsilon = vertical_modes(dg_avg_N2, grid, omega, mmax)  # N2
@@ -322,14 +343,14 @@ for i in range(mmax + 1):
 Avg_sig = avg_sig.copy()
 Time2 = dg_mw_time.copy()
 V2 = dg_v.copy()
-Eta2 = eta_alt.copy()
+Eta2 = eta_alt.copy()   # eta used from here on out is eta_alt
 Eta2_c = eta_alt.copy()
 Info2 = dg_v_dive_no.copy()
 prof_lon2 = dg_v_lon.copy()
 prof_lat2 = dg_v_lat.copy()
 # ---------------------------------------------------------------------------------------------------------------
 # ---- PROJECT MODES ONTO EACH PROFILE -------
-# ---- Velocity and Eta
+# ---- Velocity and Eta (ENERGY)
 sz = np.shape(Eta2)
 num_profs = sz[1]
 eta_fit_depth_min = 250
@@ -400,14 +421,21 @@ if sa > 0:
     pickle.dump(mydict, output)
     output.close()
 
-# --------------------------------------------------------------------
+# ---------------------------------------------------------------------------------------------------------------------
+# EAST/NORTH VELOCITY PROFILES
+dg_v_e_avg = np.nanmean(dg_v_e[:, good_ke_prof > 0], axis=1)
+dg_v_n_avg = np.nanmean(dg_v_n[:, good_ke_prof > 0], axis=1)
+dz_dg_v_e_avg = np.gradient(savgol_filter(dg_v_e_avg, 15, 7), z)
+dz_dg_v_n_avg = np.gradient(savgol_filter(dg_v_n_avg, 15, 7), z)
 # PLOT (non-noisy) EAST/NORTH VELOCITY PROFILES
 f, (ax1, ax2, ax3) = plt.subplots(1, 3, sharey=True)
+dz_dg_v = np.nan * np.ones(np.shape(dg_v))
 for i in range(np.shape(dg_v_e)[1]):
     if good_ke_prof[i] > 0:
         # ax1.plot(dg_v_e[:, i], grid, color='#D3D3D3')
         # ax2.plot(dg_v_n[:, i], grid, color='#D3D3D3')
         ax3.plot(dg_v[:, i], grid)
+        dz_dg_v[:, i] = np.gradient(savgol_filter(dg_v[:, i], 13, 5), z)
 ax1.plot(np.nanmean(dg_v_e[:, good_ke_prof > 0], axis=1), grid, color='b', linewidth=2)
 ax2.plot(np.nanmean(dg_v_n[:, good_ke_prof > 0], axis=1), grid, color='b', linewidth=2)
 ax1.plot(np.nanmean(dace_mw[good_ke_prof > 0]) * np.ones(10), np.linspace(0, 4200, 10), color='k', linewidth=1)
@@ -422,9 +450,20 @@ ax1.set_title('Mean Zonal Vel')
 ax2.set_title('Mean Meridional Vel')
 ax3.set_title('Cross-Track Vel')
 plot_pro(ax3)
-# --------------------------------------------------------------------
+# ---------------------------------------------------------------------------------------------------------------------
+# Richardson Number
+Ri = N2[:, 0] / (dz_dg_v_e_avg**2 + dz_dg_v_n_avg**2)
+f, (ax1, ax2) = plt.subplots(1, 2, sharey=True)
+ax1.plot(Ri, grid)
+ax1.set_xlim([0, 1*10**6])
+ax1.grid()
+for i in range(np.shape(dg_v_e)[1]):
+    ax2.plot( N2[:, 0] / (dz_dg_v[:, i]**2), grid)
+ax2.invert_yaxis()
+ax2.set_xlim([0, 1*10**6])
+plot_pro(ax2)
 
-
+# ---------------------------------------------------------------------------------------------------------------------
 # --- ETA COMPUTED FROM INDIVIDUAL DENSITY PROFILES
 # --- compute vertical mode shapes
 G_all, Gz_all, c_all, epsilon_all = vertical_modes(N2_all, grid, omega, mmax)
@@ -479,6 +518,7 @@ for i in range(len(bats_time)):
     bats_time_date.append(datetime.date.fromordinal(np.int(bats_time_ord[i])))
 
 
+# ISOPYCNAL DEPTH IN TIME
 # isopycnals I care about
 rho1 = 27.0
 rho2 = 27.8
@@ -502,7 +542,7 @@ for i in range(len(Time2)):
     mw_dep_rho1[1, i] = np.interp(rho2, mw_sig_ordered[:, i], grid)
     mw_dep_rho1[2, i] = np.interp(rho3, mw_sig_ordered[:, i], grid)
 
-
+# ------
 f, (ax1, ax2, ax3) = plt.subplots(3, 1, sharex=True)
 # ax1.scatter(d_time_per_prof_date, neutral_density[90, :], color='g', s=15, label=r'DG$_{ind}$')
 # ax2.scatter(d_time_per_prof_date, neutral_density[165, :], color='g', s=15)
