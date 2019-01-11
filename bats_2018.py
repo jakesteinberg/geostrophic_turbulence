@@ -12,18 +12,21 @@ from scipy.signal import savgol_filter
 # functions I've written
 from glider_cross_section import Glider
 from mode_decompositions import eta_fit, vertical_modes, PE_Tide_GM, vertical_modes_f
-from toolkit import spectrum_fit, nanseg_interp, plot_pro
+from toolkit import spectrum_fit, nanseg_interp, plot_pro, find_nearest
+
 
 def functi_1(p, xe, xb):
     #  This is the target function that needs to be minimized
     fsq = (xe - p*xb)**2
     return fsq.sum()
 
+
 def functi_2(p, xe, xb, xs):
     #  This is the target function that needs to be minimized
     fsq = (xe - (p[0] * xb + p[1] * xs)) ** 2
     # fsq = (xe - p*xb)**2
     return fsq.sum()
+
 
 # --- PHYSICAL PARAMETERS
 g = 9.81
@@ -44,7 +47,7 @@ deep_shr_max_dep = 3500
 # ----------------------------------------------------------------------------------------------------------------------
 # ---- PROCESSING USING GLIDER PACKAGE
 gs = 50
-ge = 96
+ge = 108
 x = Glider(41, np.arange(gs, ge), '/Users/jake/Documents/baroclinic_modes/DG/BATS_2018/sg041')
 # ----------------------------------------------------------------------------------------------------------------------
 import_dg = si.loadmat('/Users/jake/Documents/baroclinic_modes/sg041_2018_neutral_density_bin.mat')
@@ -107,16 +110,19 @@ sigth_levels = np.concatenate(
      np.arange(27.2, 27.7, 0.2), np.arange(27.7, 28, 0.02), np.arange(28, 28.15, 0.01)])
 # sigth_levels = np.concatenate([np.aranger(32, 36.6, 0.2), np.arange(36.6, 36.8, 0.05), np.arange(36.8, 37.4, 0.02)])
 
-# --- SAVE so that we dont have to run transects every time
+# --- SAVE so that we don't have to run transects every time
 savee = 0
 if savee > 0:
     ds, dist, avg_ct_per_dep_0, avg_sa_per_dep_0, avg_sig0_per_dep_0, v_g, vbt, isopycdep, isopycx, mwe_lon, mwe_lat,\
-    DACe_MW, DACn_MW, profile_tags_per, shear = x.transect_cross_section_1(grid, neutral_density, ct, sa, lon, lat,
-                                                                           dac_u, dac_v, profile_tags, sigth_levels)
+    DACe_MW, DACn_MW, profile_tags_per, shear, v_g_east, v_g_north = x.transect_cross_section_1(grid, neutral_density,
+                                                                                                ct, sa, lon, lat,
+                                                                                                dac_u, dac_v,
+                                                                                                profile_tags,
+                                                                                                sigth_levels)
     my_dict = {'ds': ds, 'dist': dist, 'avg_ct_per_dep_0': avg_ct_per_dep_0,
                'avg_sa_per_dep_0': avg_sa_per_dep_0, 'avg_sig0_per_dep_0': avg_sig0_per_dep_0, 'v_g': v_g, 'vbt': vbt,
                'isopycdep': isopycdep, 'isopycx': isopycx, 'mwe_lon': mwe_lon, 'mwe_lat': mwe_lat, 'DACe_MW': DACe_MW,
-               'DACn_MW': DACn_MW, 'profile_tags_per': profile_tags_per}
+               'DACn_MW': DACn_MW, 'profile_tags_per': profile_tags_per, 'v_g_east': v_g_east, 'v_g_north': v_g_north}
     output = open('/Users/jake/Documents/baroclinic_modes/DG/sg041_2018_transects_gamma.pkl', 'wb')
     pickle.dump(my_dict, output)
     output.close()
@@ -130,6 +136,8 @@ else:
     avg_sa_per_dep_0 = B15['avg_sa_per_dep_0']
     avg_sig0_per_dep_0 = B15['avg_sig0_per_dep_0']
     v_g = B15['v_g']
+    v_g_east = B15['v_g_east']
+    v_g_north = B15['v_g_north']
     vbt = B15['vbt']
     isopycdep = B15['isopycdep']
     isopycx = B15['isopycx']
@@ -140,20 +148,28 @@ else:
     profile_tags_per = B15['profile_tags_per']
 
 # unpack velocity profiles from transect analysis
+dace_mw_0 = DACe_MW[0][0:-1].copy()
+dacn_mw_0 = DACn_MW[0][0:-1].copy()
 dg_v_0 = v_g[0][:, 0:-1].copy()
+dg_v_e_0 = v_g_east[0][:, 0:-1].copy()
+dg_v_n_0 = v_g_north[0][:, 0:-1].copy()
 avg_sig0_per_dep = avg_sig0_per_dep_0[0].copy()
 avg_ct_per_dep = avg_ct_per_dep_0[0].copy()
 avg_sa_per_dep = avg_sa_per_dep_0[0].copy()
-dg_v_lon = mwe_lon[0][0:-1].copy()
-dg_v_lat = mwe_lat[0][0:-1].copy()
+dg_v_lon_0 = mwe_lon[0][0:-1].copy()
+dg_v_lat_0 = mwe_lat[0][0:-1].copy()
 dg_v_dive_no = profile_tags_per[0][0:-1].copy()
 for i in range(1, len(v_g)):
+    dace_mw_0 = np.concatenate((dace_mw_0, DACe_MW[i][0:-1]), axis=0)
+    dacn_mw_0 = np.concatenate((dacn_mw_0, DACn_MW[i][0:-1]), axis=0)
     dg_v_0 = np.concatenate((dg_v_0, v_g[i][:, 0:-1]), axis=1)
+    dg_v_e_0 = np.concatenate((dg_v_e_0, v_g_east[i][:, 0:-1]), axis=1)
+    dg_v_n_0 = np.concatenate((dg_v_n_0, v_g_north[i][:, 0:-1]), axis=1)
     avg_ct_per_dep = np.concatenate((avg_ct_per_dep, avg_ct_per_dep_0[i]), axis=1)
     avg_sa_per_dep = np.concatenate((avg_sa_per_dep, avg_sa_per_dep_0[i]), axis=1)
     avg_sig0_per_dep = np.concatenate((avg_sig0_per_dep, avg_sig0_per_dep_0[i]), axis=1)
-    dg_v_lon = np.concatenate((dg_v_lon, mwe_lon[i][0:-1]))
-    dg_v_lat = np.concatenate((dg_v_lat, mwe_lat[i][0:-1]))
+    dg_v_lon_0 = np.concatenate((dg_v_lon_0, mwe_lon[i][0:-1]))
+    dg_v_lat_0 = np.concatenate((dg_v_lat_0, mwe_lat[i][0:-1]))
     dg_v_dive_no = np.concatenate((dg_v_dive_no, profile_tags_per[i][0:-1]))
 
 # Time matching to eta/v profiles
@@ -168,9 +184,11 @@ for i in range(0, len(profile_tags_per)):
             dg_mw_time = np.concatenate((dg_mw_time, np.array([np.nanmean(tin)])))
         count = count + 1
 
+# ----------------------------------------------------------------------------------------------------------------------
 # ----- Eta compute from M/W method, which produces an average density per set of profiles
 eta_alt = np.nan * np.ones(np.shape(avg_sig0_per_dep))
 eta_alt_2 = np.nan * np.ones(np.shape(avg_sig0_per_dep))
+eta_alt_3 = np.nan * np.ones(np.shape(avg_sig0_per_dep))
 d_anom_alt = np.nan * np.ones(np.shape(avg_sig0_per_dep))
 gradient_alt = np.nan * np.ones(np.shape(avg_sig0_per_dep))
 for i in range(np.shape(avg_sig0_per_dep)[1]):  # loop over each profile
@@ -192,6 +210,19 @@ for i in range(np.shape(avg_sig0_per_dep)[1]):  # loop over each profile
     eta_alt[:, i] = (avg_sig0_per_dep[:, i] - sigma_theta_avg) / np.squeeze(ddz_avg_sigma)
     d_anom_alt[:, i] = (avg_sig0_per_dep[:, i] - sigma_theta_avg)
 
+    # ETA ALT 3
+    # try a new way to compute vertical displacement
+    for j in range(len(grid)):
+        # find this profile density at j along avg profile
+        idx, rho_idx = find_nearest(sigma_theta_avg, avg_sig0_per_dep[j, i])
+        if idx <= 2:
+            z_rho_1 = grid[0:idx + 3]
+            eta_alt_3[j, i] = np.interp(avg_sig0_per_dep[j, i], sigma_theta_avg[0:idx + 3], z_rho_1) - grid[j]
+        else:
+            z_rho_1 = grid[idx - 2:idx + 3]
+            eta_alt_3[j, i] = np.interp(avg_sig0_per_dep[j, i], sigma_theta_avg[idx - 2:idx + 3], z_rho_1) - grid[j]
+
+# ----------------------------------------------------------------------------------------------------------------------
 # FILTER VELOCITY PROFILES IF THEY ARE TOO NOISY / BAD -- ALSO HAVE TO REMOVE EQUIVALENT ETA PROFILE
 good_v = np.zeros(np.shape(dg_v_0)[1], dtype=bool)
 for i in range(np.shape(dg_v_0)[1]):
@@ -200,8 +231,14 @@ for i in range(np.shape(dg_v_0)[1]):
         good_v[i] = True
 
 avg_sig = avg_sig0_per_dep[:, good_v]
-eta_alt = eta_alt[:, good_v]
+eta_alt = eta_alt_3[:, good_v]
+dace_mw = dace_mw_0[good_v]
+dacn_mw = dacn_mw_0[good_v]
+dg_v_lon = dg_v_lon_0[good_v]
+dg_v_lat = dg_v_lat_0[good_v]
 dg_v = dg_v_0[:, good_v]
+dg_v_e = dg_v_e_0[:, good_v]
+dg_v_n = dg_v_n_0[:, good_v]
 dg_mw_time = dg_mw_time[good_v]
 dg_v_dive_no = dg_v_dive_no[good_v]
 num_mw_profs = np.shape(eta_alt)[1]
@@ -333,6 +370,58 @@ if sa > 0:
     pickle.dump(mydict, output)
     output.close()
 
+# ---------------------------------------------------------------------------------------------------------------------
+# EAST/NORTH VELOCITY PROFILES
+dg_v_e_avg = np.nanmean(dg_v_e[:, good_ke_prof > 0], axis=1)
+dg_v_n_avg = np.nanmean(dg_v_n[:, good_ke_prof > 0], axis=1)
+dz_dg_v_e_avg = np.gradient(savgol_filter(dg_v_e_avg, 15, 7), z)
+dz_dg_v_n_avg = np.gradient(savgol_filter(dg_v_n_avg, 15, 7), z)
+# PLOT (non-noisy) EAST/NORTH VELOCITY PROFILES
+f, (ax1, ax2, ax3) = plt.subplots(1, 3, sharey=True)
+dz_dg_v = np.nan * np.ones(np.shape(dg_v))
+for i in range(np.shape(dg_v_e)[1]):
+    if good_ke_prof[i] > 0:
+        # ax1.plot(dg_v_e[:, i], grid, color='#D3D3D3')
+        # ax2.plot(dg_v_n[:, i], grid, color='#D3D3D3')
+        ax3.plot(dg_v[:, i], grid)
+        dz_dg_v[:, i] = np.gradient(savgol_filter(dg_v[:, i], 13, 5), z)
+ax1.plot(np.nanmean(dg_v_e[:, good_ke_prof > 0], axis=1), grid, color='b', linewidth=2)
+ax2.plot(np.nanmean(dg_v_n[:, good_ke_prof > 0], axis=1), grid, color='b', linewidth=2)
+ax1.plot(np.nanmean(dace_mw[good_ke_prof > 0]) * np.ones(10), np.linspace(0, 4200, 10), color='k', linewidth=1)
+ax2.plot(np.nanmean(dacn_mw[good_ke_prof > 0]) * np.ones(10), np.linspace(0, 4200, 10), color='k', linewidth=1)
+ax1.set_xlim([-.1, .05])
+ax2.set_xlim([-.1, .05])
+ax3.set_xlim([-.75, .75])
+ax1.invert_yaxis()
+ax1.grid()
+ax2.grid()
+ax1.set_title('Mean Zonal Vel')
+ax1.set_ylabel('Depth [m]')
+ax1.set_xlabel('[m/s]')
+ax2.set_title('Mean Meridional Vel')
+ax2.set_xlabel('[m/s]')
+ax3.set_title('Cross-Track Vel')
+ax3.set_xlabel('[m/s]')
+plot_pro(ax3)
+
+mw_time_ordered_i = np.argsort(Time2)
+dg_v_lon[good_ke_prof < 0] = np.nan
+dg_v_lat[good_ke_prof < 0] = np.nan
+dace_mw[good_ke_prof < 0] = np.nan
+dacn_mw[good_ke_prof < 0] = np.nan
+dg_v_lon_1 = dg_v_lon[mw_time_ordered_i]
+dg_v_lat_1 = dg_v_lat[mw_time_ordered_i]
+dace_mw_1 = dace_mw[mw_time_ordered_i]
+dacn_mw_1 = dacn_mw[mw_time_ordered_i]
+f, ax = plt.subplots()
+ax.plot(dg_v_lon_1, dg_v_lat_1, color='k', linewidth=0.5)
+ax.scatter(dg_v_lon_1, dg_v_lat_1, color='k', s=3)
+ax.quiver(dg_v_lon_1, dg_v_lat_1, dace_mw_1, dacn_mw_1, color='r', scale=0.8)
+w = 1 / np.cos(np.deg2rad(ref_lat))
+ax.set_aspect(w)
+ax.set_title('Bermuda 2018: DAC')
+plot_pro(ax)
+# ---------------------------------------------------------------------------------------------------------------------
 # --- ETA COMPUTED FROM INDIVIDUAL DENSITY PROFILES
 # --- compute vertical mode shapes
 G_all, Gz_all, c_all, epsilon_all = vertical_modes(N2_all, grid, omega, mmax)
@@ -357,6 +446,7 @@ PE_per_mass_all = PE_per_mass_all[:, np.abs(AG_all[1, :]) > 1*10**-4]
 mw_time_ordered_i = np.argsort(Time2)
 AG_ordered = AG[:, mw_time_ordered_i]
 
+# -- load other data
 pkl_file = open('/Users/jake/Desktop/bats/station_bats_pe_nov05.pkl', 'rb')
 SB = pickle.load(pkl_file)
 pkl_file.close()
@@ -371,6 +461,82 @@ for i in range(len(bats_time)):
     bats_time_ord[i] = datetime.date.toordinal(datetime.date(np.int(bats_year), np.int(bats_month), np.int(bats_day)))
     bats_time_date.append(datetime.date.fromordinal(np.int(bats_time_ord[i])))
 
+# ----------------------------------------------------------------------------------------------------------------------
+# ISOPYCNAL DEPTH IN TIME
+# isopycnals I care about
+rho1 = 27.0
+rho2 = 27.8
+rho3 = 28.05
+
+d_time_per_prof = np.nanmean(d_time, axis=0)
+d_time_per_prof_date = []
+d_dep_rho1 = np.nan * np.ones((3, len(d_time_per_prof)))
+for i in range(len(d_time_per_prof)):
+    d_time_per_prof_date.append(datetime.date.fromordinal(np.int(d_time_per_prof[i])))
+    d_dep_rho1[0, i] = np.interp(rho1, neutral_density[:, i], grid)
+    d_dep_rho1[1, i] = np.interp(rho2, neutral_density[:, i], grid)
+    d_dep_rho1[2, i] = np.interp(rho3, neutral_density[:, i], grid)
+mw_time_ordered = Time2[mw_time_ordered_i]
+mw_sig_ordered = Avg_sig[:, mw_time_ordered_i]
+mw_time_date = []
+mw_dep_rho1 = np.nan * np.ones((3, len(mw_time_ordered)))
+for i in range(len(Time2)):
+    mw_time_date.append(datetime.date.fromordinal(np.int(np.round(mw_time_ordered[i]))))
+    mw_dep_rho1[0, i] = np.interp(rho1, mw_sig_ordered[:, i], grid)
+    mw_dep_rho1[1, i] = np.interp(rho2, mw_sig_ordered[:, i], grid)
+    mw_dep_rho1[2, i] = np.interp(rho3, mw_sig_ordered[:, i], grid)
+
+# ------
+f, (ax1, ax2, ax3) = plt.subplots(3, 1, sharex=True)
+ax1.scatter(d_time_per_prof_date, d_dep_rho1[0, :], color='g', s=15, label=r'DG$_{ind}$')
+ax2.scatter(d_time_per_prof_date, d_dep_rho1[1, :], color='g', s=15)
+ax3.scatter(d_time_per_prof_date, d_dep_rho1[2, :], color='g', s=15)
+
+ax1.plot(mw_time_date, mw_dep_rho1[0, :], color='b', linewidth=0.75, label=r'DG$_{avg}$')
+ax2.plot(mw_time_date, mw_dep_rho1[1, :], color='b', linewidth=0.75, label=r'DG$_{avg}$')
+ax3.plot(mw_time_date, mw_dep_rho1[2, :], color='b', linewidth=0.75, label=r'DG$_{avg}$')
+
+ax1.set_title(x.project + str(r': Depth of $\gamma^{n}$ = ') + str(rho1))
+ax2.set_title('Depth of $\gamma^{n}$ = ' + str(rho2))
+ax3.set_title('Depth of $\gamma^{n}$ = ' + str(rho3))
+ax1.set_ylabel('Depth [m]')
+ax2.set_ylabel('Depth [m]')
+ax3.set_ylabel('Depth [m]')
+handles, labels = ax1.get_legend_handles_labels()
+ax1.legend(handles, labels, fontsize=10)
+# ax1.set_ylim([np.nanmean(Avg_sig[90, mw_time_ordered_i]) - 0.05, np.nanmean(Avg_sig[90, mw_time_ordered_i]) + 0.05])
+# ax2.set_ylim([np.nanmean(Avg_sig[165, mw_time_ordered_i]) - 0.05, np.nanmean(Avg_sig[165, mw_time_ordered_i]) + 0.05])
+ax1.set_ylim([500, 900])
+ax2.set_ylim([1000, 1400])
+ax3.set_ylim([2850, 3250])
+ax1.invert_yaxis()
+ax2.invert_yaxis()
+ax3.invert_yaxis()
+ax1.grid()
+ax2.grid()
+plot_pro(ax3)
+
+f, (ax, ax2, ax3, ax4, ax5) = plt.subplots(5, 1, sharex=True)
+ax.scatter(d_time_per_prof_date, AG_all[1, :], color='g', s=15)
+ax.plot(mw_time_date, AG_ordered[1, :], color='b', linewidth=0.75)
+ax.set_title('Displacement Mode 1 Amplitude')
+ax2.scatter(d_time_per_prof_date, AG_all[2, :], color='g', s=15)
+ax2.plot(mw_time_date, AG_ordered[2, :], color='b', linewidth=0.75)
+ax2.set_title('Displacement Mode 2 Amplitude')
+ax3.scatter(d_time_per_prof_date, AG_all[3, :], color='g', s=15)
+ax3.plot(mw_time_date, AG_ordered[3, :], color='b', linewidth=0.75)
+ax3.set_title('Displacement Mode 3 Amplitude')
+ax4.scatter(d_time_per_prof_date, AG_all[4, :], color='g', s=15)
+ax4.plot(mw_time_date, AG_ordered[4, :], color='b', linewidth=0.75)
+ax4.set_title('Displacement Mode 4 Amplitude')
+ax5.scatter(d_time_per_prof_date, AG_all[5, :], color='g', s=15)
+ax5.plot(mw_time_date, AG_ordered[5, :], color='b', linewidth=0.75)
+ax5.set_title('Displacement Mode 5 Amplitude')
+ax.grid()
+ax2.grid()
+ax3.grid()
+ax4.grid()
+plot_pro(ax5)
 # ----------------------------------------------------------------------------------------------------------------------
 # ----------------------------------------------------------------------------------------------------------------------
 # ---- COMPUTE EOF SHAPES AND COMPARE TO ASSUMED STRUCTURE
@@ -928,3 +1094,90 @@ if sa > 0:
     output = open('/Users/jake/Documents/baroclinic_modes/DG/sg041_energy.pkl', 'wb')
     pickle.dump(my_dict, output)
     output.close()
+
+# - load BATS
+pkl_file = open('/Users/jake/Documents/baroclinic_modes/DG/sg035_2015_energy.pkl', 'rb')
+DGB = pickle.load(pkl_file)
+pkl_file.close()
+bats_dg_KE = DGB['KE']
+bats_dg_PE = DGB['PE']
+bats_dg_KE_all = DGB['KE_all']
+bats_dg_PE_all = DGB['PE_all']
+bats_dg_c = DGB['c']
+bats_dg_f = DGB['f']
+bats_dg_depth = DGB['depth']
+bats_dg_GMKE = DGB['GMKE']
+bats_dg_GMPE = DGB['GMPE']
+dk_bats = bats_dg_f / bats_dg_c[1]
+sc_x_bats = 1000 * bats_dg_f / bats_dg_c[1:]
+# ----------------------------------------------------------------------------------------------------------------------
+# - comparison plot of 36N and BATS
+fig0, (ax0, ax1) = plt.subplots(1, 2, sharey=True)
+
+# Station (by season)
+ax0.fill_between(1000 * sta_bats_f / sta_bats_c[1:mmax + 1], sta_min / sta_bats_dk, sta_max / sta_bats_dk,
+                 label='APE$_{sta. BATS}$', color='#D3D3D3')
+
+# DG PE avg. (36N)
+PE_p = ax1.plot(sc_x, avg_PE[1:] / dk, color='#663399', label='APE$_{36N}$', linewidth=3)
+ax1.scatter(sc_x, avg_PE[1:] / dk, color='#663399', s=20)
+# DG KE (36N)
+KE_p = ax1.plot(1000 * f_ref / c[1:], avg_KE[1:] / dk, color='#FF8C00', label='KE$_{36N}$', linewidth=3)
+ax1.scatter(sc_x, avg_KE[1:] / dk, color='#FF8C00', s=20)                                         # DG KE
+KE_p = ax1.plot([10 ** -2, 1000 * f_ref / c[1]], avg_KE[0:2] / dk, color='#FF8C00', linewidth=3)        # DG KE_0
+ax1.scatter(10 ** -2, avg_KE[0] / dk, color='#FF8C00', s=20, facecolors='none')                   # DG KE_0
+
+# DG PE avg. (BATS)
+ax0.plot(sc_x_bats, bats_dg_PE[1:] / dk_bats, color='#663399', label='APE$_{BATS}$', linewidth=3)
+ax0.scatter(sc_x_bats, bats_dg_PE[1:] / dk_bats, color='#663399', s=20)
+# DG KE (BATS)
+ax0.plot(1000 * bats_dg_f / bats_dg_c[1:], bats_dg_KE[1:] / dk_bats, color='#FF8C00', label=r'KE$_{BATS}$', linewidth=3)
+ax0.scatter(sc_x_bats, bats_dg_KE[1:] / dk_bats, color='#FF8C00', s=20)                                         # DG KE
+ax0.plot([10 ** -2, 1000 * bats_dg_f / bats_dg_c[1]], bats_dg_KE[0:2] / dk_bats, color='#FF8C00', linewidth=3)        # DG KE_0
+ax0.scatter(10 ** -2, bats_dg_KE[0] / dk_bats, color='#FF8C00', s=20, facecolors='none')                   # DG KE_0
+nums = '1', '2', '3', '4', '5', '6', '7', '8'
+for i in range(1, 8):
+    ax0.text( (1000 * bats_dg_f / bats_dg_c[i]) - (1/10)*(1000 * bats_dg_f / bats_dg_c[i]),
+              (bats_dg_KE[i] / dk_bats) - (1/5)*(bats_dg_KE[i] / dk_bats), nums[i - 1], fontsize=7, color='k')
+ax0.text(9 * 10 ** -3, (bats_dg_KE[0] / dk_bats) - 5, '0', color='k', fontsize=7)
+
+# slope reference
+ax0.plot([10**-1, 10**0], [10**2, 10**-1], color='k', linewidth=1)
+ax0.text(1.1 * 10**-1, 10**2, '-3',color='k', fontsize=9)
+ax1.plot([10**-1, 10**0], [10**2, 10**-1], color='k', linewidth=1)
+ax1.text(1.1* 10**-1, 10**2, '-3',color='k', fontsize=9)
+
+# GM
+# ax0.plot(sc_x, 0.25 * PE_GM / dk, linestyle='--', color='k', linewidth=0.75)
+ax1.plot(sc_x, 0.25 * GMPE / dk, color='#663399', linewidth=0.75, linestyle='--')
+ax1.text(sc_x[0] - .01, 0.4 * GMPE[1] / dk, r'$1/4 PE_{GM}$', fontsize=10)
+# ax0.plot(np.array([10**-2, 10]), [PE_SD / dk, PE_SD / dk], linestyle='--', color='k', linewidth=0.75)
+ax1.plot(sc_x, 0.25 * GMKE / dk, color='#FF8C00', linewidth=0.75, linestyle='--')
+ax1.text(sc_x[0] - .01, 0.4 * GMKE[1] / dk, r'$1/4 KE_{GM}$', fontsize=10)
+
+# ax0.plot(sc_x, 0.25 * PE_GM / dk, linestyle='--', color='k', linewidth=0.75)
+ax0.plot(sc_x_bats, 0.25 * bats_dg_GMPE / dk_bats, color='#663399', linewidth=0.75, linestyle='--')
+ax0.text(sc_x_bats[0] - .01, 0.4 * bats_dg_GMPE[1] / dk_bats, r'$1/4 PE_{GM}$', fontsize=10)
+# ax0.plot(np.array([10**-2, 10]), [PE_SD / dk, PE_SD / dk], linestyle='--', color='k', linewidth=0.75)
+ax0.plot(sc_x_bats, 0.25 * bats_dg_GMKE / dk_bats, color='#FF8C00', linewidth=0.75, linestyle='--')
+ax0.text(sc_x_bats[0] - .01, 0.4 * bats_dg_GMKE[1] / dk_bats, r'$1/4 KE_{GM}$', fontsize=10)
+
+handles, labels = ax0.get_legend_handles_labels()
+ax0.legend(handles, labels, fontsize=12)
+handles, labels = ax1.get_legend_handles_labels()
+ax1.legend(handles, labels, fontsize=12)
+ax0.set_xlim([10 ** -2, 2 * 10 ** 0])
+ax0.set_ylim([5 * 10 ** (-4), 5 * 10 ** 2])
+ax1.set_xlim([10 ** -2, 2 * 10 ** 0])
+ax0.set_yscale('log')
+ax0.set_xscale('log')
+ax1.set_xscale('log')
+ax0.set_xlabel(r'Scaled Vertical Wavenumber = (L$_{d_{n}}$)$^{-1}$ = $\frac{f}{c_n}$ [$km^{-1}$]', fontsize=12)
+ax0.set_ylabel('Variance per Vertical Wavenumber', fontsize=12)  # ' (and Hor. Wavenumber)')
+ax0.set_title('BATS (DG035 dive-cycles 20:175, 2015)', fontsize=14)
+ax1.set_xlabel(r'Scaled Vertical Wavenumber = (L$_{d_{n}}$)$^{-1}$ = $\frac{f}{c_n}$ [$km^{-1}$]', fontsize=12)
+ax1.set_title('36N (DG041 dive-cycles 50:110, 2018-)', fontsize=14)
+ax0.grid()
+plot_pro(ax1)
+
+# fig0.savefig('/Users/jake/Documents/baroclinic_modes/Meetings/meeting_end_of_18/bats_36_comparison.pdf')

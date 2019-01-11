@@ -250,32 +250,38 @@ for i in range(np.shape(avg_sig0_per_dep)[1]):  # loop over each profile
     # match profile (really avg of 3/4 profiles) with one of 4 seasonal background profiles
     if len(t_over) > 1:
         if t_over[0] == 1:
+            this_sigma_theta_avg = sigma_theta_avg[:, 0]
             eta_alt[:, i] = (avg_sig0_per_dep[:, i] - sigma_theta_avg[:, 0]) / np.squeeze(ddz_avg_sigma[:, 0])
             d_anom_alt[:, i] = (avg_sig0_per_dep[:, i] - sigma_theta_avg[:, 0])
         elif t_over[0] == 2:
+            this_sigma_theta_avg = sigma_theta_avg[:, 1]
             eta_alt[:, i] = (avg_sig0_per_dep[:, i] - sigma_theta_avg[:, 1]) / np.squeeze(ddz_avg_sigma[:, 1])
             d_anom_alt[:, i] = (avg_sig0_per_dep[:, i] - sigma_theta_avg[:, 1])
         elif t_over[0] == 3:
+            this_sigma_theta_avg = sigma_theta_avg[:, 2]
             eta_alt[:, i] = (avg_sig0_per_dep[:, i] - sigma_theta_avg[:, 2]) / np.squeeze(ddz_avg_sigma[:, 2])
             d_anom_alt[:, i] = (avg_sig0_per_dep[:, i] - sigma_theta_avg[:, 2])
         else:
+            this_sigma_theta_avg = sigma_theta_avg[:, 3]
             eta_alt[:, i] = (avg_sig0_per_dep[:, i] - sigma_theta_avg[:, 3]) / np.squeeze(ddz_avg_sigma[:, 3])
             d_anom_alt[:, i] = (avg_sig0_per_dep[:, i] - sigma_theta_avg[:, 3])
     else:
+        this_sigma_theta_avg = sigma_theta_avg[:, 3]
         eta_alt[:, i] = (avg_sig0_per_dep[:, i] - sigma_theta_avg[:, 3]) / np.squeeze(ddz_avg_sigma[:, 3])
 
     # ETA ALT 3
     # try a new way to compute vertical displacement
     for j in range(len(grid)):
         # find this profile density at j along avg profile
-        idx, rho_idx = find_nearest(sigma_theta_avg[:, 0], avg_sig0_per_dep[j, i])
+        idx, rho_idx = find_nearest(this_sigma_theta_avg, avg_sig0_per_dep[j, i])
         if idx <= 2:
             z_rho_1 = grid[0:idx + 3]
-            eta_alt_3[j, i] = np.interp(avg_sig0_per_dep[j, i], sigma_theta_avg[0:idx + 3, 0], z_rho_1) - grid[j]
+            eta_alt_3[j, i] = np.interp(avg_sig0_per_dep[j, i], this_sigma_theta_avg[0:idx + 3], z_rho_1) - grid[j]
         else:
             z_rho_1 = grid[idx - 2:idx + 3]
-            eta_alt_3[j, i] = np.interp(avg_sig0_per_dep[j, i], sigma_theta_avg[idx - 2:idx + 3, 0], z_rho_1) - grid[j]
+            eta_alt_3[j, i] = np.interp(avg_sig0_per_dep[j, i], this_sigma_theta_avg[idx - 2:idx + 3], z_rho_1) - grid[j]
 
+eta_alt_0 = eta_alt.copy()
 # ----------------------------------------------------------------------------------------------------------------------
 # FILTER VELOCITY PROFILES IF THEY ARE TOO NOISY / BAD -- ALSO HAVE TO REMOVE EQUIVALENT ETA PROFILE
 good_v = np.zeros(np.shape(dg_v_0)[1], dtype=bool)
@@ -453,15 +459,15 @@ plot_pro(ax3)
 # ---------------------------------------------------------------------------------------------------------------------
 # Richardson Number
 Ri = N2[:, 0] / (dz_dg_v_e_avg**2 + dz_dg_v_n_avg**2)
-f, (ax1, ax2) = plt.subplots(1, 2, sharey=True)
-ax1.plot(Ri, grid)
-ax1.set_xlim([0, 1*10**6])
-ax1.grid()
-for i in range(np.shape(dg_v_e)[1]):
-    ax2.plot( N2[:, 0] / (dz_dg_v[:, i]**2), grid)
-ax2.invert_yaxis()
-ax2.set_xlim([0, 1*10**6])
-plot_pro(ax2)
+# f, (ax1, ax2) = plt.subplots(1, 2, sharey=True)
+# ax1.plot(Ri, grid)
+# ax1.set_xlim([0, 1*10**6])
+# ax1.grid()
+# for i in range(np.shape(dg_v_e)[1]):
+#     ax2.plot( N2[:, 0] / (dz_dg_v[:, i]**2), grid)
+# ax2.invert_yaxis()
+# ax2.set_xlim([0, 1*10**6])
+# plot_pro(ax2)
 
 # ---------------------------------------------------------------------------------------------------------------------
 # --- ETA COMPUTED FROM INDIVIDUAL DENSITY PROFILES
@@ -474,35 +480,67 @@ G_all, Gz_all, c_all, epsilon_all = vertical_modes(N2_all, grid, omega, mmax)
 #     eta_per_prof[:, i] = (df_den.iloc[:, i] - sigma_theta_avg)/ddz_avg_sigma
 # --- by season background profile
 eta_per_prof = np.nan * np.ones(sig2.shape)
+eta_per_prof_3 = np.nan * np.ones(sig2.shape)
 d_anom_prof = np.nan * np.ones(sig2.shape)
 for i in range(lon.shape[1]):
     this_time = np.nanmean(d_time[:, i])
     t_over = np.where(bckgrds_wins > this_time)[0]
     if len(t_over) > 1:
         if t_over[0] == 1:
+            this_sigma_theta_avg = sigma_theta_avg[:, 0]
             eta_per_prof[:, i] = (neutral_density[:, i] - sigma_theta_avg[:, 0]) / np.squeeze(ddz_avg_sigma[:, 0])
             d_anom_prof[:, i] = (neutral_density[:, i] - sigma_theta_avg[:, 0])
         elif t_over[0] == 2:
+            this_sigma_theta_avg = sigma_theta_avg[:, 1]
             eta_per_prof[:, i] = (neutral_density[:, i] - sigma_theta_avg[:, 1]) / np.squeeze(ddz_avg_sigma[:, 1])
             d_anom_prof[:, i] = (neutral_density[:, i] - sigma_theta_avg[:, 1])
         elif t_over[0] == 3:
+            this_sigma_theta_avg = sigma_theta_avg[:, 2]
             eta_per_prof[:, i] = (neutral_density[:, i] - sigma_theta_avg[:, 2]) / np.squeeze(ddz_avg_sigma[:, 2])
             d_anom_prof[:, i] = (neutral_density[:, i] - sigma_theta_avg[:, 2])
         else:
+            this_sigma_theta_avg = sigma_theta_avg[:, 3]
             eta_per_prof[:, i] = (neutral_density[:, i] - sigma_theta_avg[:, 3]) / np.squeeze(ddz_avg_sigma[:, 3])
             d_anom_prof[:, i] = (neutral_density[:, i] - sigma_theta_avg[:, 3])
     else:
+        this_sigma_theta_avg = sigma_theta_avg[:, 3]
         eta_per_prof[:, i] = (neutral_density[:, i] - sigma_theta_avg[:, 3]) / np.squeeze(ddz_avg_sigma[:, 3])
         d_anom_prof[:, i] = (neutral_density[:, i] - sigma_theta_avg[:, 3])
 
+    # ETA ALT 3
+    # try a new way to compute vertical displacement
+    for j in range(len(grid)):
+        # find this profile density at j along avg profile
+        idx, rho_idx = find_nearest(this_sigma_theta_avg, neutral_density[j, i])
+        if idx <= 2:
+            z_rho_1 = grid[0:idx + 3]
+            eta_per_prof_3[j, i] = np.interp(neutral_density[j, i], this_sigma_theta_avg[0:idx + 3],
+                                             z_rho_1) - grid[j]
+        else:
+            z_rho_1 = grid[idx - 2:idx + 3]
+            eta_per_prof_3[j, i] = np.interp(neutral_density[j, i], this_sigma_theta_avg[idx - 2:idx + 3],
+                                             z_rho_1) - grid[j]
+
 AG_all, eta_m_all, Neta_m_all, PE_per_mass_all = eta_fit(lon.shape[1], grid, nmodes, N2_all, G_all, c_all,
-                                                         eta_per_prof, eta_fit_depth_min, eta_fit_depth_max)
+                                                         eta_per_prof_3, eta_fit_depth_min, eta_fit_depth_max)
 PE_per_mass_all = PE_per_mass_all[:, np.abs(AG_all[1, :]) > 1*10**-4]
 
 # --- check on mode amplitudes from averaging or individual profiles
 mw_time_ordered_i = np.argsort(Time2)
 AG_ordered = AG[:, mw_time_ordered_i]
-
+# ---------------------------------------------------------------------------------------------------------------------
+# ----------------------------------------------------------------------------------------------------------------------
+# check alternate etas
+f, ax = plt.subplots()
+for i in range(lon.shape[1]):
+    ax.plot(eta_per_prof_3[:, i], grid, color='k', linewidth=0.75)  # individual profiles
+for i in range(np.shape(avg_sig0_per_dep)[1]):
+    ax.plot(eta_alt_3[:, i], grid, color='r', linewidth=0.75)  # direct search
+    ax.plot(-1 * eta_alt_0[:, i], grid, color='b', linewidth=0.75)  # divide by ddz
+ax.set_xlim([-400, 400])
+ax.invert_yaxis()
+plot_pro(ax)
+# ---------------------------------------------------------------------------------------------------------------------
 pkl_file = open('/Users/jake/Desktop/bats/station_bats_pe_nov05.pkl', 'rb')
 SB = pickle.load(pkl_file)
 pkl_file.close()
@@ -815,7 +853,7 @@ if plot_eta > 0:
             ax0.plot(V2[:, j], grid, color='#4682B4', linewidth=1.25)
             ax0.plot(V_m[:, j], grid, color='k', linestyle='--', linewidth=.75)
     for j in range(eta_per_prof.shape[1]):
-        ax15.plot(eta_per_prof[:, j], grid, color='#4682B4', linewidth=1.25)
+        ax15.plot(eta_per_prof_3[:, j], grid, color='#4682B4', linewidth=1.25)
         ax15.plot(eta_m_all[:, j], grid, color='k', linestyle='--', linewidth=.75)
     ax15.set_title(r'Isopycnal Disp. (Ind.)', fontsize=11)
     # -- plot eddy profiles
@@ -1566,10 +1604,12 @@ if plot_eng > 0:
 
 # --- SAVE BATS ENERGIES DG TRANSECTS
 # write python dict to a file
-sa = 0
+sa = 1
 if sa > 0:
-    my_dict = {'depth': grid, 'KE': avg_KE, 'PE': avg_PE, 'c': c, 'f': f_ref, 'N2': N2_all}
-    output = open('/Users/jake/Documents/baroclinic_modes/DG/sg035_energy.pkl', 'wb')
+    my_dict = {'depth': grid, 'KE': avg_KE, 'PE': avg_PE, 'c': c, 'f': f_ref, 'N2': N2_all,
+               'PE_all': PE_per_mass, 'PE__per_prof_all': PE_per_mass_all, 'KE_all': HKE_per_mass,
+               'GMPE': GMPE, 'GMKE': GMKE}
+    output = open('/Users/jake/Documents/baroclinic_modes/DG/sg035_2015_energy.pkl', 'wb')
     pickle.dump(my_dict, output)
     output.close()
 # ----------------------------------------------------------------------------------------------------------------------
