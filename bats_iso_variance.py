@@ -60,8 +60,8 @@ bin_depth = GD.variables['grid'][:]
 # ----------------------------------------------------------------------------------------------------------------------
 # ----------------------------------------------------------------------------------------------------------------------
 # ---- PROCESSING USING GLIDER PACKAGE
-gs = 30
-ge = 163
+gs = 12
+ge = 175
 x = Glider(35, np.arange(gs, ge + 1), '/Users/jake/Documents/baroclinic_modes/DG/BATS_2015/sg035')
 # -------------------------------------------------------------------------------------------------
 # Vertically Bin
@@ -117,14 +117,30 @@ sa, ct, theta, sig0, sig2, dg_N2 = x.density(grid, ref_lat, t, s, lon, lat)
 # -- use to compute background profiles
 t_s = datetime.date.fromordinal(np.int(np.nanmin(d_time)))
 t_e = datetime.date.fromordinal(np.int(np.nanmax(d_time)))
+
 # --- compute 4 seasonal averages (as with station bats)
 # -- construct four background profiles to represent seasons
-d_spring = np.where((time_rec_bin > 735658) & (time_rec_bin < 735750))[0]       # Mar 1 - June 1
-d_summer = np.where((time_rec_bin > 735750) & (time_rec_bin < 735842))[0]       # June 1 - Sept 1
-d_fall = np.where((time_rec_bin > 735842) & (time_rec_bin < 735903))[0]         # Sept 1 - Nov 1
-d_winter = np.where((time_rec_bin > 735903) | (time_rec_bin < 735658))[0]       # Nov 1 - Mar 1
-bckgrds = [d_spring, d_summer, d_fall, d_winter]
-bckgrds_wins = np.array([735658, 735750, 735842, 735903])
+# d_spring = np.where((time_rec_bin > 735648) & (time_rec_bin < 735750) & ((profile_tags < 60) | (profile_tags > 70)))[0]  # Feb 15 (Mar1, 658) - Jun1 (exclude eddy, 60-70)
+# d_summer = np.where((time_rec_bin > 735750) & (time_rec_bin < 735842))[0]       # June 1 - Sept 1
+# d_fall = np.where((time_rec_bin > 735842) & (time_rec_bin < 735903))[0]         # Sept 1 - Nov 1
+# d_winter = np.where((time_rec_bin > 735903) | (time_rec_bin < 735658))[0]       # Nov 1 - Mar 1
+# bckgrds = [d_spring, d_summer, d_fall, d_winter]
+# bckgrds_wins = np.array([735658, 735750, 735842, 735903])
+
+# --- switch to two seasons and split by longitude and exclude eddy
+# - earliest date is Feb2 (735648), latest is Nov 5 (735903) (~275 days)
+# June 1 - Sept 15
+d_summer_w = np.where(((time_rec_bin > 735750) & (time_rec_bin < 735857)) & (np.nanmean(lon, axis=0) < -64.09))[0]
+d_summer_e = np.where(((time_rec_bin > 735750) & (time_rec_bin < 735857)) & (np.nanmean(lon, axis=0) > -64.09))[0]
+# (Feb 2 - June 1) - (Sept 15 - Nov 5)
+d_winter_w = np.where(((time_rec_bin < 735750) | (time_rec_bin > 735857))
+                      & ((profile_tags < 60) | (profile_tags > 70)) & (np.nanmean(lon, axis=0) < -64.09))[0]
+d_winter_e = np.where(((time_rec_bin < 735750) | (time_rec_bin > 735857))
+                      & ((profile_tags < 60) | (profile_tags > 70)) & (np.nanmean(lon, axis=0) > -64.09))[0]
+
+bckgrds = [d_summer_w, d_summer_e, d_winter_w, d_winter_e]
+bckgrds_wins = np.array([735750, 735857])  # summer boundaries
+
 salin_avg = np.nan * np.zeros((len(grid), 4))
 cons_t_avg = np.nan * np.zeros((len(grid), 4))
 theta_avg = np.nan * np.zeros((len(grid), 4))
@@ -150,6 +166,17 @@ N2_all[N2_all < 0] = np.nan
 N2_all = nanseg_interp(grid, N2_all)
 N_all = np.sqrt(N2_all)
 N2_all = savgol_filter(N2_all, 5, 3)
+N2_all[N2_all < 0] = np.nan
+N2_all = nanseg_interp(grid, N2_all)
+
+# f, (ax1, ax2) = plt.subplots(1, 2, sharey=True)
+# coli = 'r', 'm', 'b', 'c'
+# for i in range(4):
+#     ax1.plot(salin_avg[:, i], grid, color=coli[i])
+#     ax2.plot(cons_t_avg[:, i], grid, color=coli[i])
+# ax1.grid()
+# ax1.invert_yaxis()
+# plot_pro(ax2)
 # -------------------------------------------------------------------------------------------------
 # -- compute M/W sections and compute velocity
 # -- USING X.TRANSECT_CROSS_SECTION_1 (THIS WILL SEPARATE TRANSECTS BY TARGET OF EACH DIVE)
@@ -242,16 +269,32 @@ gradient_alt = np.nan * np.ones(np.shape(avg_sig0_per_dep))
 for i in range(np.shape(avg_sig0_per_dep)[1]):  # loop over each profile
     # (average of four profiles) - (total long term average, that is seasonal)
     this_time = dg_mw_time[i]
-    t_over = np.where(bckgrds_wins > this_time)[0]
+    this_lon = dg_v_lon[i]
+    # match profile with appropriate background (in time and space)
+    # t_over = np.where(bckgrds_wins > this_time)[0]
+    bckgrds_wins = np.array([735750, 735857])  # summer boundaries
+    # first sort by lon
+    if this_lon < -64.09:
+        if (this_time > 735750) & (this_time < 735857):  # summer
+            t_over = 0  # summer west
+        else:
+            t_over = 2  # winter west
+    else:
+        if (this_time > 735750) & (this_time < 735857):  # summer
+            t_over = 1  # summer east
+        else:
+            t_over = 3  # winter east
 
     # ETA ALT 2
     # find appropriate average background profiles
-    if len(t_over) > 1:
-        avg_a_salin = salin_avg[:, t_over[0]]
-        avg_c_temp = cons_t_avg[:, t_over[0]]
-    else:
-        avg_a_salin = salin_avg[:, 3]
-        avg_c_temp = cons_t_avg[:, 3]
+    avg_a_salin = salin_avg[:, t_over]
+    avg_c_temp = cons_t_avg[:, t_over]
+    # if len(t_over) > 1:
+    #     avg_a_salin = salin_avg[:, t_over[0]]
+    #     avg_c_temp = cons_t_avg[:, t_over[0]]
+    # else:
+    #     avg_a_salin = salin_avg[:, 3]
+    #     avg_c_temp = cons_t_avg[:, 3]
 
     # compute density at every depth for every profile using sa and ct profiles (really avg of 3/4 profiles)
     # eta_alt_2 is compute using a local reference pressure
@@ -269,26 +312,29 @@ for i in range(np.shape(avg_sig0_per_dep)[1]):  # loop over each profile
 
     # ETA ALT (avg_sig0_per_dep and sigma_theta_avg are really neutral density, imported from matlab binning)
     # match profile (really avg of 3/4 profiles) with one of 4 seasonal background profiles
-    if len(t_over) > 1:
-        if t_over[0] == 1:
-            this_sigma_theta_avg = sigma_theta_avg[:, 0]
-            eta_alt[:, i] = (avg_sig0_per_dep[:, i] - sigma_theta_avg[:, 0]) / np.squeeze(ddz_avg_sigma[:, 0])
-            d_anom_alt[:, i] = (avg_sig0_per_dep[:, i] - sigma_theta_avg[:, 0])
-        elif t_over[0] == 2:
-            this_sigma_theta_avg = sigma_theta_avg[:, 1]
-            eta_alt[:, i] = (avg_sig0_per_dep[:, i] - sigma_theta_avg[:, 1]) / np.squeeze(ddz_avg_sigma[:, 1])
-            d_anom_alt[:, i] = (avg_sig0_per_dep[:, i] - sigma_theta_avg[:, 1])
-        elif t_over[0] == 3:
-            this_sigma_theta_avg = sigma_theta_avg[:, 2]
-            eta_alt[:, i] = (avg_sig0_per_dep[:, i] - sigma_theta_avg[:, 2]) / np.squeeze(ddz_avg_sigma[:, 2])
-            d_anom_alt[:, i] = (avg_sig0_per_dep[:, i] - sigma_theta_avg[:, 2])
-        else:
-            this_sigma_theta_avg = sigma_theta_avg[:, 3]
-            eta_alt[:, i] = (avg_sig0_per_dep[:, i] - sigma_theta_avg[:, 3]) / np.squeeze(ddz_avg_sigma[:, 3])
-            d_anom_alt[:, i] = (avg_sig0_per_dep[:, i] - sigma_theta_avg[:, 3])
-    else:
-        this_sigma_theta_avg = sigma_theta_avg[:, 3]
-        eta_alt[:, i] = (avg_sig0_per_dep[:, i] - sigma_theta_avg[:, 3]) / np.squeeze(ddz_avg_sigma[:, 3])
+    this_sigma_theta_avg = sigma_theta_avg[:, t_over]
+    eta_alt[:, i] = (avg_sig0_per_dep[:, i] - sigma_theta_avg[:, t_over]) / np.squeeze(ddz_avg_sigma[:, t_over])
+    d_anom_alt[:, i] = (avg_sig0_per_dep[:, i] - sigma_theta_avg[:, t_over])
+    # if len(t_over) > 1:
+    #     if t_over == 1:
+    #         this_sigma_theta_avg = sigma_theta_avg[:, 0]
+    #         eta_alt[:, i] = (avg_sig0_per_dep[:, i] - sigma_theta_avg[:, 0]) / np.squeeze(ddz_avg_sigma[:, 0])
+    #         d_anom_alt[:, i] = (avg_sig0_per_dep[:, i] - sigma_theta_avg[:, 0])
+    #     elif t_over == 2:
+    #         this_sigma_theta_avg = sigma_theta_avg[:, 1]
+    #         eta_alt[:, i] = (avg_sig0_per_dep[:, i] - sigma_theta_avg[:, 1]) / np.squeeze(ddz_avg_sigma[:, 1])
+    #         d_anom_alt[:, i] = (avg_sig0_per_dep[:, i] - sigma_theta_avg[:, 1])
+    #     elif t_over == 3:
+    #         this_sigma_theta_avg = sigma_theta_avg[:, 2]
+    #         eta_alt[:, i] = (avg_sig0_per_dep[:, i] - sigma_theta_avg[:, 2]) / np.squeeze(ddz_avg_sigma[:, 2])
+    #         d_anom_alt[:, i] = (avg_sig0_per_dep[:, i] - sigma_theta_avg[:, 2])
+    #     else:
+    #         this_sigma_theta_avg = sigma_theta_avg[:, 3]
+    #         eta_alt[:, i] = (avg_sig0_per_dep[:, i] - sigma_theta_avg[:, 3]) / np.squeeze(ddz_avg_sigma[:, 3])
+    #         d_anom_alt[:, i] = (avg_sig0_per_dep[:, i] - sigma_theta_avg[:, 3])
+    # else:
+    #     this_sigma_theta_avg = sigma_theta_avg[:, 3]
+    #     eta_alt[:, i] = (avg_sig0_per_dep[:, i] - sigma_theta_avg[:, 3]) / np.squeeze(ddz_avg_sigma[:, 3])
 
     # ETA ALT 3
     # try a new way to compute vertical displacement
@@ -498,29 +544,50 @@ eta_per_prof = np.nan * np.ones(sig2.shape)
 eta_per_prof_3 = np.nan * np.ones(sig2.shape)
 d_anom_prof = np.nan * np.ones(sig2.shape)
 for i in range(lon.shape[1]):
+    this_lon = np.nanmean(lon[:, i])
     this_time = np.nanmean(d_time[:, i])
-    t_over = np.where(bckgrds_wins > this_time)[0]
-    if len(t_over) > 1:
-        if t_over[0] == 1:
-            this_sigma_theta_avg = sigma_theta_avg[:, 0]
-            eta_per_prof[:, i] = (neutral_density[:, i] - sigma_theta_avg[:, 0]) / np.squeeze(ddz_avg_sigma[:, 0])
-            d_anom_prof[:, i] = (neutral_density[:, i] - sigma_theta_avg[:, 0])
-        elif t_over[0] == 2:
-            this_sigma_theta_avg = sigma_theta_avg[:, 1]
-            eta_per_prof[:, i] = (neutral_density[:, i] - sigma_theta_avg[:, 1]) / np.squeeze(ddz_avg_sigma[:, 1])
-            d_anom_prof[:, i] = (neutral_density[:, i] - sigma_theta_avg[:, 1])
-        elif t_over[0] == 3:
-            this_sigma_theta_avg = sigma_theta_avg[:, 2]
-            eta_per_prof[:, i] = (neutral_density[:, i] - sigma_theta_avg[:, 2]) / np.squeeze(ddz_avg_sigma[:, 2])
-            d_anom_prof[:, i] = (neutral_density[:, i] - sigma_theta_avg[:, 2])
+    # t_over = np.where(bckgrds_wins > this_time)[0]
+
+    # first sort by lon
+    if this_lon < -64.09:
+        if (this_time > 735750) & (this_time < 735857):  # summer
+            # summer west
+            t_over = 0
         else:
-            this_sigma_theta_avg = sigma_theta_avg[:, 3]
-            eta_per_prof[:, i] = (neutral_density[:, i] - sigma_theta_avg[:, 3]) / np.squeeze(ddz_avg_sigma[:, 3])
-            d_anom_prof[:, i] = (neutral_density[:, i] - sigma_theta_avg[:, 3])
+            # winter west
+            t_over = 2
     else:
-        this_sigma_theta_avg = sigma_theta_avg[:, 3]
-        eta_per_prof[:, i] = (neutral_density[:, i] - sigma_theta_avg[:, 3]) / np.squeeze(ddz_avg_sigma[:, 3])
-        d_anom_prof[:, i] = (neutral_density[:, i] - sigma_theta_avg[:, 3])
+        if (this_time > 735750) & (this_time < 735857):  # summer
+            # summer east
+            t_over = 1
+        else:
+            # winter east
+            t_over = 3
+
+    this_sigma_theta_avg = sigma_theta_avg[:, t_over]
+    eta_per_prof[:, i] = (neutral_density[:, i] - sigma_theta_avg[:, t_over]) / np.squeeze(ddz_avg_sigma[:, t_over])
+    d_anom_prof[:, i] = (neutral_density[:, i] - sigma_theta_avg[:, t_over])
+    # if len(t_over) > 1:
+    #     if t_over[0] == 1:
+    #         this_sigma_theta_avg = sigma_theta_avg[:, 0]
+    #         eta_per_prof[:, i] = (neutral_density[:, i] - sigma_theta_avg[:, 0]) / np.squeeze(ddz_avg_sigma[:, 0])
+    #         d_anom_prof[:, i] = (neutral_density[:, i] - sigma_theta_avg[:, 0])
+    #     elif t_over[0] == 2:
+    #         this_sigma_theta_avg = sigma_theta_avg[:, 1]
+    #         eta_per_prof[:, i] = (neutral_density[:, i] - sigma_theta_avg[:, 1]) / np.squeeze(ddz_avg_sigma[:, 1])
+    #         d_anom_prof[:, i] = (neutral_density[:, i] - sigma_theta_avg[:, 1])
+    #     elif t_over[0] == 3:
+    #         this_sigma_theta_avg = sigma_theta_avg[:, 2]
+    #         eta_per_prof[:, i] = (neutral_density[:, i] - sigma_theta_avg[:, 2]) / np.squeeze(ddz_avg_sigma[:, 2])
+    #         d_anom_prof[:, i] = (neutral_density[:, i] - sigma_theta_avg[:, 2])
+    #     else:
+    #         this_sigma_theta_avg = sigma_theta_avg[:, 3]
+    #         eta_per_prof[:, i] = (neutral_density[:, i] - sigma_theta_avg[:, 3]) / np.squeeze(ddz_avg_sigma[:, 3])
+    #         d_anom_prof[:, i] = (neutral_density[:, i] - sigma_theta_avg[:, 3])
+    # else:
+    #     this_sigma_theta_avg = sigma_theta_avg[:, 3]
+    #     eta_per_prof[:, i] = (neutral_density[:, i] - sigma_theta_avg[:, 3]) / np.squeeze(ddz_avg_sigma[:, 3])
+    #     d_anom_prof[:, i] = (neutral_density[:, i] - sigma_theta_avg[:, 3])
 
     # ETA ALT 3
     # try a new way to compute vertical displacement
@@ -572,9 +639,10 @@ AG_ordered = AG[:, mw_time_ordered_i]
 # ---------------------------------------------------------------------------------------------------------------------
 # ----------------------------------------------------------------------------------------------------------------------
 # check alternate etas
-# these_profiles = np.array([52, 53, 54, 55, 56])
+# these_profiles = np.array([31, 32, 33, 34, 35])
+these_profiles = np.array([52, 53, 54, 55, 56])
 # these_profiles = np.array([78, 79, 80, 81, 82])
-these_profiles = np.array([131, 132, 133, 134, 135])
+# these_profiles = np.array([131, 132, 133, 134, 135])
 # these_profiles = np.array([50, 75, 100, 125])  # dive numbers of profiles to compare (individual dives)
 # these_profiles = np.array([60, 85, 110, 135])  # dive numbers of profiles to compare (individual dives)
 # these_profiles = np.array([62, 62.5, 63, 63.5])  # dive numbers of profiles to compare (individual dives)
@@ -644,14 +712,14 @@ for i in range(len(Time2)):
     mw_dep_rho1[2, i] = np.interp(rho3, mw_sig_ordered[:, i], grid)
 
 # mean depth for each season
-d_spring = [datetime.date.fromordinal(np.int(735658)), datetime.date.fromordinal(np.int(735750))]    # Mar 1 - June 1
-d_summer = [datetime.date.fromordinal(np.int(735750)), datetime.date.fromordinal(np.int(735842))]    # June 1 - Sept 1
-d_fall = [datetime.date.fromordinal(np.int(735842)), datetime.date.fromordinal(np.int(735903))]       # Sept 1 - Nov 1
-dep_rho_season = np.nan * np.ones((3, 3))
-for i in range(3):
-    dep_rho_season[0, i] = np.interp(rho1, sigma_theta_avg[:, i], grid)
-    dep_rho_season[1, i] = np.interp(rho2, sigma_theta_avg[:, i], grid)
-    dep_rho_season[2, i] = np.interp(rho3, sigma_theta_avg[:, i], grid)
+# d_spring = [datetime.date.fromordinal(np.int(735648)), datetime.date.fromordinal(np.int(735750))]    # Mar 1 - June 1
+# d_summer = [datetime.date.fromordinal(np.int(735750)), datetime.date.fromordinal(np.int(735842))]    # June 1 - Sept 1
+# d_fall = [datetime.date.fromordinal(np.int(735842)), datetime.date.fromordinal(np.int(735903))]       # Sept 1 - Nov 1
+# dep_rho_season = np.nan * np.ones((3, 3))
+# for i in range(3):
+#     dep_rho_season[0, i] = np.interp(rho1, sigma_theta_avg[:, i], grid)
+#     dep_rho_season[1, i] = np.interp(rho2, sigma_theta_avg[:, i], grid)
+#     dep_rho_season[2, i] = np.interp(rho3, sigma_theta_avg[:, i], grid)
 
 # ------
 f, (ax1, ax2, ax3) = plt.subplots(3, 1, sharex=True)
@@ -663,15 +731,15 @@ ax1.plot(mw_time_date, mw_dep_rho1[0, :], color='b', linewidth=0.75, label=r'DG$
 ax2.plot(mw_time_date, mw_dep_rho1[1, :], color='b', linewidth=0.75, label=r'DG$_{avg}$')
 ax3.plot(mw_time_date, mw_dep_rho1[2, :], color='b', linewidth=0.75, label=r'DG$_{avg}$')
 
-ax1.plot(d_spring, [dep_rho_season[0, 0], dep_rho_season[0, 0]], linewidth=1.1, color='k', linestyle='--')
-ax1.plot(d_summer, [dep_rho_season[0, 1], dep_rho_season[0, 1]], linewidth=1.1, color='k', linestyle='--')
-ax1.plot(d_fall, [dep_rho_season[0, 2], dep_rho_season[0, 2]], linewidth=1.1, color='k', linestyle='--')
-ax2.plot(d_spring, [dep_rho_season[1, 0], dep_rho_season[1, 0]], linewidth=1.1, color='k', linestyle='--')
-ax2.plot(d_summer, [dep_rho_season[1, 1], dep_rho_season[1, 1]], linewidth=1.1, color='k', linestyle='--')
-ax2.plot(d_fall, [dep_rho_season[1, 2], dep_rho_season[1, 2]], linewidth=1.1, color='k', linestyle='--')
-ax3.plot(d_spring, [dep_rho_season[2, 0], dep_rho_season[2, 0]], linewidth=1.1, color='k', linestyle='--')
-ax3.plot(d_summer, [dep_rho_season[2, 1], dep_rho_season[2, 1]], linewidth=1.1, color='k', linestyle='--')
-ax3.plot(d_fall, [dep_rho_season[2, 2], dep_rho_season[2, 2]], linewidth=1.1, color='k', linestyle='--')
+# ax1.plot(d_spring, [dep_rho_season[0, 0], dep_rho_season[0, 0]], linewidth=1.1, color='k', linestyle='--')
+# ax1.plot(d_summer, [dep_rho_season[0, 1], dep_rho_season[0, 1]], linewidth=1.1, color='k', linestyle='--')
+# ax1.plot(d_fall, [dep_rho_season[0, 2], dep_rho_season[0, 2]], linewidth=1.1, color='k', linestyle='--')
+# ax2.plot(d_spring, [dep_rho_season[1, 0], dep_rho_season[1, 0]], linewidth=1.1, color='k', linestyle='--')
+# ax2.plot(d_summer, [dep_rho_season[1, 1], dep_rho_season[1, 1]], linewidth=1.1, color='k', linestyle='--')
+# ax2.plot(d_fall, [dep_rho_season[1, 2], dep_rho_season[1, 2]], linewidth=1.1, color='k', linestyle='--')
+# ax3.plot(d_spring, [dep_rho_season[2, 0], dep_rho_season[2, 0]], linewidth=1.1, color='k', linestyle='--')
+# ax3.plot(d_summer, [dep_rho_season[2, 1], dep_rho_season[2, 1]], linewidth=1.1, color='k', linestyle='--')
+# ax3.plot(d_fall, [dep_rho_season[2, 2], dep_rho_season[2, 2]], linewidth=1.1, color='k', linestyle='--')
 
 # ax1.scatter(bats_time_date, bats_sig2[90, :], color='m', s=25, label='Ship')
 # ax2.scatter(bats_time_date, bats_sig2[165, :], color='m', s=25)
@@ -1277,11 +1345,11 @@ sc_x = 1000 * f_ref / c[1:]
 # --- AVERAGE ENERGY
 HKE_per_mass_0 = HKE_per_mass.copy()
 PE_per_mass_0 = PE_per_mass.copy()
-HKE_per_mass = HKE_per_mass[:, np.where(good_ke_prof > 0)[0]]
-PE_per_mass = PE_per_mass[:, np.where(good_ke_prof > 0)[0]]
+# HKE_per_mass = HKE_per_mass[:, np.where(good_ke_prof > 0)[0]]
+# PE_per_mass = PE_per_mass[:, np.where(good_ke_prof > 0)[0]]
 used_profiles = dg_v_dive_no[good_ke_prof > 0]
-# calmer = np.concatenate((np.arange(0, 16), np.arange(18, 102), np.arange(106, PE_per_mass.shape[1])))  #excl. labby
-calmer = np.arange(0, np.int(np.sum(good_ke_prof)))
+calmer = np.where((Info2 < 60) | (Info2 >= 71) & (good_ke_prof > 0))[0]  # excl. labby
+# calmer = np.arange(0, np.int(np.sum(good_ke_prof)))
 avg_PE = np.nanmean(PE_per_mass[:, calmer], 1)
 avg_KE = np.nanmean(HKE_per_mass[:, calmer], 1)
 # --- eddy kinetic and potential energy
@@ -1475,17 +1543,29 @@ for i in range(1, mmax+1):
     dg_per_max[i - 1] = np.nanmax(PE_per_mass_all[i, :])
     dg_per_min[i - 1] = np.nanmin(PE_per_mass_all[i, :])
 
-# --- Partition KE, PE by season (like bats)
+# ----------------------------------------------------------
+# --- Partition KE, PE by season (like bats) ---
 # -- construct four background profiles to represent seasons
-d_spring = np.where((Time2 > 735658) & (Time2 < 735750))[0]       # Mar 1 - June 1
-d_summer = np.where((Time2 > 735750) & (Time2 < 735842))[0]       # June 1 - Sept 1
-d_fall = np.where((Time2 > 735842) & (Time2 < 735903))[0]         # Sept 1 - Nov 1
-d_winter = np.where((Time2 > 735903) | (Time2 < 735658))[0]       # Nov 1 - Mar 1
-bckgrds = [d_spring, d_summer, d_fall, d_winter]
+# d_spring = np.where((Time2 > 735648) & (Time2 < 735750) & ((Info2 < 60) | (Info2 > 70)))[0]  # Mar 1 - June 1
+# d_summer = np.where((Time2 > 735750) & (Time2 < 735842))[0]                                  # June 1 - Sept 1
+# d_fall = np.where((Time2 > 735842) & (Time2 < 735903))[0]                                    # Sept 1 - Nov 1
+# d_winter = np.where((Time2 > 735903) | (Time2 < 735658))[0]                                  # Nov 1 - Mar 1
+# d_eddy = np.where((Info2 >= 60) & (Info2 <= 70))[0]
+# bckgrds = [d_spring, d_summer, d_fall, d_eddy, d_winter]
+
+# make backgrounds now just summer winter
+# June 1 - Sept 15
+d_sum = np.where(((Time2 > 735750) & (Time2 < 735857)))[0]
+# (Feb 2 - June 1) - (Sept 15 - Nov 5)
+d_win = np.where(((Time2 < 735750) | (Time2 > 735857)) & ((Info2 < 60) | (Info2 > 70)))[0]
+d_eddy = np.where((Info2 >= 60) & (Info2 <= 70))[0]
+bckgrds = [d_sum, d_win, d_eddy]
+
 f, (ax1, ax2) = plt.subplots(1, 2, sharey=True)
 col_i = 'r', 'm', 'c', 'b'
-labs = 'Mar-Jun (' + str(np.shape(d_spring)[0]) + ')', 'Jun-Sept (' + str(np.shape(d_summer)[0]) + ')', \
-       'Sept-Nov (' + str(np.shape(d_fall)[0]) + ')', 'Nov-Mar'
+# labs = 'Mar-Jun (' + str(np.shape(d_spring)[0]) + ')', 'Jun-Sept (' + str(np.shape(d_summer)[0]) + ')', \
+#        'Sept-Nov (' + str(np.shape(d_fall)[0]) + ')', 'Eddy'
+labs = 'Summer (' + str(np.shape(d_sum)[0]) + ')', 'Winter (' + str(np.shape(d_win)[0]) + ')', 'Eddy'
 ax1.fill_between(1000 * sta_bats_f / sta_bats_c[1:mmax + 1], sta_min / sta_bats_dk, sta_max / sta_bats_dk,
                  label='APE$_{sta.}$', color='#D3D3D3')
 for i in range(3):
