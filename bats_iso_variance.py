@@ -376,10 +376,11 @@ dg_avg_N2 = savgol_filter(dg_avg_N2_coarse, 15, 3)
 # ----------------------------------------------------------------------------------------------------------------------
 # PLOTTING cross section (CHECK)
 # choose which transect
-# transect_no = 29    # 29 = labby
+# transect_no = 35    # 29 = labby
+# u_levels = np.arange(-.5, .5, .04)
 # x.plot_cross_section(grid, ds[transect_no], v_g[transect_no], dist[transect_no],
 #                      profile_tags_per[transect_no], isopycdep[transect_no], isopycx[transect_no],
-#                      sigth_levels, d_time)
+#                      sigth_levels, d_time, u_levels)
 # bathy_path = '/Users/jake/Desktop/bats/bats_bathymetry/bathymetry_b38e_27c7_f8c3_f3d6_790d_30c7.nc'
 # plan_window = [-66, -63, 31, 33]
 # plan_in = np.where((profile_tags >= profile_tags_per[transect_no][0]) & (profile_tags <=
@@ -439,7 +440,7 @@ HKE_per_mass = np.nan * np.zeros([nmodes, num_profs])
 modest = np.arange(11, nmodes)
 good_ke_prof = np.ones(num_profs)
 good_pe_prof = np.ones(num_profs)
-HKE_noise_threshold = 5 * 1e-5  # 1e-5
+HKE_noise_threshold = 1 * 1e-5  # 1e-5
 PE_noise_threshold = 1e5
 for i in range(num_profs):
     # fit to velocity profiles
@@ -504,8 +505,6 @@ f, (ax1, ax2, ax3) = plt.subplots(1, 3, sharey=True)
 dz_dg_v = np.nan * np.ones(np.shape(dg_v))
 for i in range(np.shape(dg_v_e)[1]):
     if good_ke_prof[i] > 0:
-        # ax1.plot(dg_v_e[:, i], grid, color='#D3D3D3')
-        # ax2.plot(dg_v_n[:, i], grid, color='#D3D3D3')
         ax3.plot(dg_v[:, i], grid)
         dz_dg_v[:, i] = np.gradient(savgol_filter(dg_v[:, i], 13, 5), z)
 ax1.plot(np.nanmean(dg_v_e[:, good_ke_prof > 0], axis=1), grid, color='b', linewidth=2)
@@ -515,6 +514,10 @@ ax2.plot(np.nanmean(dacn_mw[good_ke_prof > 0]) * np.ones(10), np.linspace(0, 420
 ax1.set_xlim([-.06, 0])
 ax2.set_xlim([-.06, 0])
 ax3.set_xlim([-.75, .75])
+ax1.set_xlabel('[m/s]')
+ax2.set_xlabel('[m/s]')
+ax3.set_xlabel('[m/s]')
+ax1.set_ylabel('Depth [m]')
 ax1.invert_yaxis()
 ax1.grid()
 ax2.grid()
@@ -995,7 +998,7 @@ if plot_eta > 0:
     ax1.set_xlim([-400, 400])
     ax15.set_xlim([-400, 400])
     ax0.text(190, 800, str(num_profs) + ' Profiles')
-    ax1.set_xlabel(r'Vertical Isopycnal Displacement, $\xi_{\sigma_{\theta}}$ [m]', fontsize=11)
+    ax1.set_xlabel(r'Vertical Isopycnal Displacement, $\xi_{\gamma}$ [m]', fontsize=11)
     ax1.set_title(r'Isopycnal Disp. (Avg.)', fontsize=11)  # + '(' + str(Time[0]) + '-' )
     ax0.axis([-.5, .5, 0, 4750])
     ax0.set_title("Geostrophic Velocity", fontsize=11)  # (" + str(num_profs) + 'profiles)' )
@@ -1560,6 +1563,8 @@ d_sum = np.where(((Time2 > 735750) & (Time2 < 735857)))[0]
 d_win = np.where(((Time2 < 735750) | (Time2 > 735857)) & ((Info2 < 60) | (Info2 > 70)))[0]
 d_eddy = np.where((Info2 >= 60) & (Info2 <= 70))[0]
 bckgrds = [d_sum, d_win, d_eddy]
+k_h_eddy = 1e3 * (f_ref / c[1:]) * np.sqrt(np.nanmean(HKE_per_mass_0[1:, bckgrds[2]], axis=1) /
+                                           np.nanmean(PE_per_mass_0[1:, bckgrds[2]], axis=1))
 
 f, (ax1, ax2) = plt.subplots(1, 2, sharey=True)
 col_i = 'r', 'm', 'c', 'b'
@@ -1578,7 +1583,7 @@ ax1.set_xlabel(r'Scaled Vertical Wavenumber = (L$_{d_{n}}$)$^{-1}$ = $\frac{f}{c
 ax1.set_ylabel('Spectral Density', fontsize=12)
 ax1.set_title('PE')
 ax1.set_xlim([10 ** -2, 2 * 10 ** 0])
-ax1.set_ylim([10 ** (-4), 2 * 10 ** 2])
+ax1.set_ylim([10 ** (-3), 1 * 10 ** 3])
 ax1.set_yscale('log')
 ax1.set_xscale('log')
 ax2.set_xlabel(r'Scaled Vertical Wavenumber = (L$_{d_{n}}$)$^{-1}$ = $\frac{f}{c_n}$ [$km^{-1}$]', fontsize=12)
@@ -1697,7 +1702,7 @@ if plot_eng > 0:
 
     # ax0.axis([10 ** -2, 10 ** 1, 10 ** (-4), 2 * 10 ** 3])
     ax0.set_xlim([10 ** -2, 2 * 10 ** 0])
-    ax0.set_ylim([10 ** (-4), 2 * 10 ** 2])
+    ax0.set_ylim([10 ** -3, 1 * 10 ** 3])
     ax0.set_xlabel(r'Scaled Vertical Wavenumber = (L$_{d_{n}}$)$^{-1}$ = $\frac{f}{c_n}$ [$km^{-1}$]', fontsize=14)
     ax0.set_ylabel('Spectral Density', fontsize=14)  # ' (and Hor. Wavenumber)')
     ax0.set_title('Potential Energy Spectrum', fontsize=14)
@@ -1720,7 +1725,7 @@ if plot_eng > 0:
     # plt.show()
 
     # -------------------------------
-    # -----------------------------------------------------------------------------------------------------------
+    # -----------------------------------------------------------------------------------------------------------------
     # additional plot to highlight the ratio of KE to APE to predict the scale of motion
     fig0, (ax0, ax1) = plt.subplots(1, 2)
     # Limits/scales
@@ -1728,6 +1733,7 @@ if plot_eng > 0:
              color='k', linewidth=1.5, zorder=2, label=r'$L_{d_n}^{-1}$')
     ax0.text(1000 * f_ref / c[-2] + .1, 1000 * f_ref / c[-2], r'f/c$_n$', fontsize=14)
     ax0.plot(sc_x, k_h, color='k', label=r'$k_h$', linewidth=1.5)
+    ax0.plot(sc_x, k_h_eddy, color='c', label='Eddy')
     xx_fill = 1000 * f_ref / c[1:]
     yy_fill = 1000 * f_ref / c[1:]
     # ax0.fill_between(xx_fill, yy_fill, k_h, color='b',interpolate=True)
@@ -1770,7 +1776,7 @@ if plot_eng > 0:
     ax1.text(10 ** x_3h[3] + .02, 10 ** y_g_pe_h[3], str(float("{0:.2f}".format(slope_pe_h[0]))), fontsize=12)
     ax1.plot(10 ** x_3h, 10 ** y_g_ke_h, color='g', linewidth=1.5, linestyle='--', label='KE')
     ax1.text(10 ** x_3h[3] + .01, 10 ** y_g_ke_h[3], str(float("{0:.2f}".format(slope_ke_h[0]))), fontsize=12)
-    ax1.axis([10 ** -2, 10 ** 0, 10 ** (-4), 10 ** 3])
+    ax1.axis([10 ** -2, 10 ** 0, 10 ** (-3), 1 * 10 ** 3])
     handles, labels = ax1.get_legend_handles_labels()
     ax1.legend(handles, labels, fontsize=12)
     ax1.set_xlabel(r'Horizontal Wavenumber [$km^{-1}$]', fontsize=11)
