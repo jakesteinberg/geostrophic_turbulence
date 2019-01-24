@@ -129,14 +129,14 @@ t_e = datetime.date.fromordinal(np.int(np.nanmax(d_time)))
 
 # --- switch to two seasons and split by longitude and exclude eddy
 # - earliest date is Feb2 (735648), latest is Nov 5 (735903) (~275 days)
-# June 1 - Sept 15
+# (June 1 - Sept 15)
 d_summer_w = np.where(((time_rec_bin > 735750) & (time_rec_bin < 735857)) & (np.nanmean(lon, axis=0) < -64.09))[0]
 d_summer_e = np.where(((time_rec_bin > 735750) & (time_rec_bin < 735857)) & (np.nanmean(lon, axis=0) > -64.09))[0]
 # (Feb 2 - June 1) - (Sept 15 - Nov 5)
 d_winter_w = np.where(((time_rec_bin < 735750) | (time_rec_bin > 735857))
-                      & ((profile_tags < 60) | (profile_tags > 70)) & (np.nanmean(lon, axis=0) < -64.09))[0]
+                      & ((profile_tags < 60) | (profile_tags > 73)) & (np.nanmean(lon, axis=0) < -64.09))[0]
 d_winter_e = np.where(((time_rec_bin < 735750) | (time_rec_bin > 735857))
-                      & ((profile_tags < 60) | (profile_tags > 70)) & (np.nanmean(lon, axis=0) > -64.09))[0]
+                      & ((profile_tags < 60) | (profile_tags > 71)) & (np.nanmean(lon, axis=0) > -64.09))[0]
 
 bckgrds = [d_summer_w, d_summer_e, d_winter_w, d_winter_e]
 bckgrds_wins = np.array([735750, 735857])  # summer boundaries
@@ -354,7 +354,7 @@ eta_alt_0 = eta_alt.copy()
 good_v = np.zeros(np.shape(dg_v_0)[1], dtype=bool)
 for i in range(np.shape(dg_v_0)[1]):
     dv_dz = np.gradient(dg_v_0[:, i], -1 * grid)
-    if (np.nanmax(np.abs(dv_dz)) < 0.025):  # & ((i < 28) | (i > 28)):
+    if np.nanmax(np.abs(dv_dz)) < 0.0225:  # & ((i < 28) | (i > 28)):
         good_v[i] = True
 
 avg_sig = avg_sig0_per_dep[:, good_v]
@@ -376,7 +376,7 @@ dg_avg_N2 = savgol_filter(dg_avg_N2_coarse, 15, 3)
 # ----------------------------------------------------------------------------------------------------------------------
 # PLOTTING cross section (CHECK)
 # choose which transect
-# transect_no = 35    # 29 = labby
+# transect_no = 19    # 35 = labby (dives 62-64), 19 = next profile of labby area
 # u_levels = np.arange(-.5, .5, .04)
 # x.plot_cross_section(grid, ds[transect_no], v_g[transect_no], dist[transect_no],
 #                      profile_tags_per[transect_no], isopycdep[transect_no], isopycx[transect_no],
@@ -500,17 +500,40 @@ dg_v_e_avg = np.nanmean(dg_v_e[:, good_ke_prof > 0], axis=1)
 dg_v_n_avg = np.nanmean(dg_v_n[:, good_ke_prof > 0], axis=1)
 dz_dg_v_e_avg = np.gradient(savgol_filter(dg_v_e_avg, 15, 7), z)
 dz_dg_v_n_avg = np.gradient(savgol_filter(dg_v_n_avg, 15, 7), z)
+
+d_sum_v = np.where(((dg_mw_time > 735750) & (dg_mw_time < 735857)))[0]
+d_win_w = np.where(((dg_mw_time < 735750) | (dg_mw_time > 735857)) & ((Info2 < 60) | (Info2 > 71)))[0]
+
 # PLOT (non-noisy) EAST/NORTH VELOCITY PROFILES
 f, (ax1, ax2, ax3) = plt.subplots(1, 3, sharey=True)
 dz_dg_v = np.nan * np.ones(np.shape(dg_v))
 for i in range(np.shape(dg_v_e)[1]):
     if good_ke_prof[i] > 0:
-        ax3.plot(dg_v[:, i], grid)
+        tsort = np.where((i - d_sum_v) == 0)[0]
+        if np.shape(tsort)[0] > 0:  # in summer profile
+            ax3.plot(dg_v[:, i], grid, color='r', linewidth=0.75)
+        else:
+            ax3.plot(dg_v[:, i], grid, color='b', linewidth=0.75)
         dz_dg_v[:, i] = np.gradient(savgol_filter(dg_v[:, i], 13, 5), z)
-ax1.plot(np.nanmean(dg_v_e[:, good_ke_prof > 0], axis=1), grid, color='b', linewidth=2)
-ax2.plot(np.nanmean(dg_v_n[:, good_ke_prof > 0], axis=1), grid, color='b', linewidth=2)
-ax1.plot(np.nanmean(dace_mw[good_ke_prof > 0]) * np.ones(10), np.linspace(0, 4200, 10), color='k', linewidth=1)
-ax2.plot(np.nanmean(dacn_mw[good_ke_prof > 0]) * np.ones(10), np.linspace(0, 4200, 10), color='k', linewidth=1)
+dg_mw_time_good = dg_mw_time[good_ke_prof > 0]
+dg_v_e_good = dg_v_e[:, good_ke_prof > 0]
+dg_v_n_good = dg_v_n[:, good_ke_prof > 0]
+d_sum_v_2 = np.where(((dg_mw_time_good > 735750) & (dg_mw_time_good < 735857)))[0]
+d_win_v_2 = np.where(((dg_mw_time_good < 735750) | (dg_mw_time_good > 735857)))[0]
+
+ax1.plot(np.nanmean(dg_v_e[:, good_ke_prof > 0], axis=1), grid, color='k', linewidth=2, label='all') # total avg prof
+ax1.plot(np.nanmean(dg_v_e_good[:, d_sum_v_2], axis=1), grid, color='r', linewidth=2, label='Summer')  # summer avg prof
+ax1.plot(np.nanmean(dg_v_e_good[:, d_win_v_2], axis=1), grid, color='b', linewidth=2, label='Winter')  # winter avg prof
+ax1.plot(np.nanmean(dace_mw[good_ke_prof > 0]) * np.ones(10), np.linspace(0, 4200, 10),
+         color='k', linewidth=1, linestyle='--', label=r'$\overline{DAC_u}$')
+handles, labels = ax1.get_legend_handles_labels()
+ax1.legend(handles, labels, fontsize=9)
+
+ax2.plot(np.nanmean(dg_v_n[:, good_ke_prof > 0], axis=1), grid, color='k', linewidth=2)
+ax2.plot(np.nanmean(dg_v_n_good[:, d_sum_v_2], axis=1), grid, color='r', linewidth=2)  # summer avg prof
+ax2.plot(np.nanmean(dg_v_n_good[:, d_win_v_2], axis=1), grid, color='b', linewidth=2)  # winter avg prof
+ax2.plot(np.nanmean(dacn_mw[good_ke_prof > 0]) * np.ones(10), np.linspace(0, 4200, 10),
+         color='k', linewidth=1, linestyle='--')
 ax1.set_xlim([-.06, 0])
 ax2.set_xlim([-.06, 0])
 ax3.set_xlim([-.75, .75])
@@ -556,14 +579,14 @@ for i in range(lon.shape[1]):
         if (this_time > 735750) & (this_time < 735857):  # summer
             # summer west
             t_over = 0
-        else:
+        else:  # winter
             # winter west
             t_over = 2
     else:
         if (this_time > 735750) & (this_time < 735857):  # summer
             # summer east
             t_over = 1
-        else:
+        else:  # winter
             # winter east
             t_over = 3
 
@@ -639,16 +662,19 @@ PE_per_mass_all = PE_per_mass_all[:, np.abs(AG_all[1, :]) > 1*10**-4]
 # --- check on mode amplitudes from averaging or individual profiles
 mw_time_ordered_i = np.argsort(Time2)
 AG_ordered = AG[:, mw_time_ordered_i]
+AGz_ordered = AGz[:, mw_time_ordered_i]
 # ---------------------------------------------------------------------------------------------------------------------
 # ----------------------------------------------------------------------------------------------------------------------
-# check alternate etas
+# --- check alternate etas ---
 # these_profiles = np.array([31, 32, 33, 34, 35])
-these_profiles = np.array([52, 53, 54, 55, 56])
-# these_profiles = np.array([78, 79, 80, 81, 82])
+# these_profiles = np.array([52, 53, 54, 55, 56])
+these_profiles = np.array([77, 77.5, 78, 79, 80])
 # these_profiles = np.array([131, 132, 133, 134, 135])
 # these_profiles = np.array([50, 75, 100, 125])  # dive numbers of profiles to compare (individual dives)
 # these_profiles = np.array([60, 85, 110, 135])  # dive numbers of profiles to compare (individual dives)
-# these_profiles = np.array([62, 62.5, 63, 63.5])  # dive numbers of profiles to compare (individual dives)
+# these_profiles = np.array([62, 62.5, 63, 63.5, 64])  # dive numbers of profiles to compare (individual dives)
+# these_profiles = np.array([67, 68, 69, 70, 71])  # dive numbers of profiles to compare (individual dives)
+# these_profiles = np.array([72, 72.5, 73, 73.5, 74])  # dive numbers of profiles to compare (individual dives)
 f, ax = plt.subplots(1, 5, sharey=True)
 for i in range(5):
     ind_rel = profile_tags == these_profiles[i]
@@ -746,7 +772,7 @@ ax3.plot(mw_time_date, mw_dep_rho1[2, :], color='b', linewidth=0.75, label=r'DG$
 
 # ax1.scatter(bats_time_date, bats_sig2[90, :], color='m', s=25, label='Ship')
 # ax2.scatter(bats_time_date, bats_sig2[165, :], color='m', s=25)
-eddy_disps = np.where((profile_tags >= 62) & (profile_tags <=74.5))[0]
+eddy_disps = np.where((profile_tags >= 62) & (profile_tags < 73))[0]
 ax1.plot([d_time_per_prof_date[eddy_disps[0]], d_time_per_prof_date[eddy_disps[0]]], [400, 900],
          color='k', linestyle='--', linewidth=0.75)
 ax1.plot([d_time_per_prof_date[eddy_disps[-1]], d_time_per_prof_date[eddy_disps[-1]]], [400, 900],
@@ -761,6 +787,10 @@ handles, labels = ax1.get_legend_handles_labels()
 ax1.legend(handles, labels, fontsize=10)
 # ax1.set_ylim([np.nanmean(Avg_sig[90, mw_time_ordered_i]) - 0.05, np.nanmean(Avg_sig[90, mw_time_ordered_i]) + 0.05])
 # ax2.set_ylim([np.nanmean(Avg_sig[165, mw_time_ordered_i]) - 0.05, np.nanmean(Avg_sig[165, mw_time_ordered_i]) + 0.05])
+ax1.plot([datetime.date(2015, 5, 31), datetime.date(2015, 5, 31)], [400, 900], color='b', linewidth=1.2)
+ax1.plot([datetime.date(2015, 6, 1), datetime.date(2015, 6, 1)], [400, 900], color='r', linewidth=1.2)
+ax1.plot([datetime.date(2015, 9, 15), datetime.date(2015, 9, 15)], [400, 900], color='r', linewidth=1.2)
+ax1.plot([datetime.date(2015, 9, 16), datetime.date(2015, 9, 16)], [400, 900], color='b', linewidth=1.2)
 ax1.set_ylim([500, 850])
 ax2.set_ylim([1050, 1400])
 ax3.set_ylim([2600, 2950])
@@ -769,6 +799,8 @@ ax2.invert_yaxis()
 ax3.invert_yaxis()
 ax1.grid()
 ax2.grid()
+ax3.set_xlim([datetime.date(2015, 1, 1), datetime.date(2015, 12, 1)])
+ax3.set_xlabel('Date')
 plot_pro(ax3)
 
 f, (ax, ax2, ax3, ax4, ax5) = plt.subplots(5, 1, sharex=True)
@@ -787,13 +819,55 @@ ax4.set_title('Displacement Mode 4 Amplitude')
 ax5.scatter(d_time_per_prof_date, AG_all[5, :], color='g', s=15)
 ax5.plot(mw_time_date, AG_ordered[5, :], color='b', linewidth=0.75)
 ax5.set_title('Displacement Mode 5 Amplitude')
+ax.plot([datetime.date(2015, 5, 31), datetime.date(2015, 5, 31)], [-.1, .1], color='b', linewidth=1.2)
+ax.plot([datetime.date(2015, 6, 1), datetime.date(2015, 6, 1)], [-.1, .1], color='r', linewidth=1.2)
+ax.plot([datetime.date(2015, 9, 15), datetime.date(2015, 9, 15)], [-.1, .1], color='r', linewidth=1.2)
+ax.plot([datetime.date(2015, 9, 16), datetime.date(2015, 9, 16)], [-.1, .1], color='b', linewidth=1.2)
+ax.plot([d_time_per_prof_date[eddy_disps[0]], d_time_per_prof_date[eddy_disps[0]]], [-.1, .1],
+         color='k', linestyle='--', linewidth=0.75)
+ax.plot([d_time_per_prof_date[eddy_disps[-1]], d_time_per_prof_date[eddy_disps[-1]]], [-.1, .1],
+         color='k', linestyle='--', linewidth=0.75)
+ax.set_ylim([-.1, .1])
 ax.grid()
 ax2.grid()
 ax3.grid()
 ax4.grid()
+ax5.set_xlim([datetime.date(2015, 1, 1), datetime.date(2015, 12, 1)])
+ax5.set_xlabel('Date')
+plot_pro(ax5)
+
+f, (ax, ax2, ax3, ax4, ax5) = plt.subplots(5, 1, sharex=True)
+ax.plot(mw_time_date, AGz_ordered[0, :], color='b', linewidth=0.75)
+ax.set_title('Velocity Mode 0 Amplitude')
+ax2.plot(mw_time_date, AGz_ordered[1, :], color='b', linewidth=0.75)
+ax2.set_title('Velocity Mode 1 Amplitude')
+ax3.plot(mw_time_date, AGz_ordered[2, :], color='b', linewidth=0.75)
+ax3.set_title('Velocity Mode 2 Amplitude')
+ax4.plot(mw_time_date, AGz_ordered[3, :], color='b', linewidth=0.75)
+ax4.set_title('Velocity Mode 3 Amplitude')
+ax5.plot(mw_time_date, AGz_ordered[4, :], color='b', linewidth=0.75)
+ax5.set_title('Velocity Mode 4 Amplitude')
+ax.plot([datetime.date(2015, 5, 31), datetime.date(2015, 5, 31)], [-.2, .2], color='b', linewidth=1.2)
+ax.plot([datetime.date(2015, 6, 1), datetime.date(2015, 6, 1)], [-.2, .2], color='r', linewidth=1.2)
+ax.plot([datetime.date(2015, 9, 15), datetime.date(2015, 9, 15)], [-.2, .2], color='r', linewidth=1.2)
+ax.plot([datetime.date(2015, 9, 16), datetime.date(2015, 9, 16)], [-.2, .2], color='b', linewidth=1.2)
+ax.plot([d_time_per_prof_date[eddy_disps[0]], d_time_per_prof_date[eddy_disps[0]]], [-.2, .2],
+         color='k', linestyle='--', linewidth=0.75)
+ax.plot([d_time_per_prof_date[eddy_disps[-1]], d_time_per_prof_date[eddy_disps[-1]]], [-.2, .2],
+         color='k', linestyle='--', linewidth=0.75)
+ax.set_ylim([-.2, .2])
+ax.grid()
+ax2.grid()
+ax2.set_ylim([-.2, .2])
+ax3.grid()
+ax3.set_ylim([-.12, .12])
+ax4.grid()
+ax4.set_ylim([-.07, .07])
+ax5.set_xlabel('Date')
+ax5.set_ylim([-.07, .07])
+ax5.set_xlim([datetime.date(2015, 1, 1), datetime.date(2015, 12, 1)])
 plot_pro(ax5)
 # ------- END OF ITERATION ON EACH PROFILE TO COMPUTE MODE FITS
-# --------------------------------------------------------------------------------------------------
 # ----------------------------------------------------------------------------------------------------------------------
 # ----------------------------------------------------------------------------------------------------------------------
 # ---- COMPUTE EOF SHAPES AND COMPARE TO ASSUMED STRUCTURE
@@ -840,8 +914,8 @@ EOFetaseries = np.transpose(V_AGqa) * np.matrix(AGqa)  # EOF "timeseries' [nmode
 EOFetashape = np.matrix(G[:, 1:]) * V_AGqa  # depth shape of eigenfunctions [ndepths X nmodes]
 EOFetashape1_BTpBC1 = G[:, 1:3] * V_AGqa[0:2, 0]  # truncated 2 mode shape of EOF#1
 EOFetashape2_BTpBC1 = G[:, 1:3] * V_AGqa[0:2, 1]  # truncated 2 mode shape of EOF#2
-# ----------------------------------------------------------------------------------------------------
-# --- EOF of velocity profiles ----------------------------------------
+# --------------------------------------------------------
+# --- EOF of velocity profiles (in two week intervals) ---
 not_shallow = np.isfinite(V2[-15, :])  # & (Time2 > 735750)
 V3 = V2[:, (good_ke_prof > 0) & not_shallow]
 Time3 = Time2[(good_ke_prof > 0) & not_shallow]
@@ -957,7 +1031,7 @@ fvu1 = np.sum((eof1[:, 0] - bc1*min_p1)**2)/np.sum((eof1 - np.mean(eof1))**2)
 fvu2 = np.sum((eof1[:, 0] - bc2*min_p2)**2)/np.sum((eof1 - np.mean(eof1))**2)
 # ----------------------------------------------------------------------------------------------------------------------
 # ----------------------------------------------------------------------------------------------------------------------
-# --- Isolate eddy dives
+# --- Isolate eddy dives ---
 # 2015 - dives 62, 63 ,64
 ed_prof_in = np.where(((x.dives) >= 62) & ((x.dives) <= 64))[0]
 ed_in = np.where((Info2 >= 62) & (Info2 <= 64))[0]
@@ -970,7 +1044,7 @@ mission_end = datetime.date.fromordinal(np.int(Time2.max()))
 # ----------------------------------------------------------------------------------------------------------------------
 # ----------------------------------------------------------------------------------------------------------------------
 # --- PLOT ETA / EOF
-plot_eta = 1
+plot_eta = 0
 if plot_eta > 0:
     f, (ax2, ax1, ax15, ax0) = plt.subplots(1, 4, sharey=True)
     for j in range(len(Time2)):
@@ -1039,9 +1113,9 @@ if plot_eta > 0:
 
 # ----------------------------------------------------------------------------------------------------------------------
 # ----------------------------------------------------------------------------------------------------------------------
-# --- PLOT V STRUCTURE
+# --- PLOT V STRUCTURE ---
 # --- bottom boundary conditions
-plot_v_struct = 1
+plot_v_struct = 0
 if plot_v_struct > 0:
     f, (ax, ax2, ax3, ax4) = plt.subplots(1, 4, sharey=True)
     for i in range(nq):
@@ -1113,10 +1187,10 @@ for i in range(len(sbt_in)):
     sb_dt.append(datetime.datetime(np.int(sbt_in[i]), np.int((sbt_in[i] - np.int(sbt_in[i])) * 12), np.int(
         ((sbt_in[i] - np.int(sbt_in[i])) * 12 - np.int((sbt_in[i] - np.int(sbt_in[i])) * 12)) * 30)))
 
-# PLOTTING
+# --------------------------------------------
+# PLOTTING of DISPLACEMENT MODE AMPLITUDES ---
 plot_mode = 0
 if plot_mode > 0:
-    # DISPLACEMENT MODE AMPLITUDES
     window_size, poly_order = 9, 2
     fm, (ax, ax2) = plt.subplots(2, 1)
     colors = ['#8B0000', '#FF8C00', '#808000', '#5F9EA0', 'g', 'c']
@@ -1149,10 +1223,6 @@ if plot_mode > 0:
     yf_0 = scipy.fftpack.fft(order_0_AGz_grid)
     yf_1 = scipy.fftpack.fft(order_1_AGz_grid)
     xf = np.linspace(0.0, 1.0 / (2.0 * T), N / 2)
-    # f, ax = plt.subplots()
-    # ax.plot(xf, 2.0/N * np.abs(yf_0[:N//2]), 'r')
-    # ax.plot(xf, 2.0 / N * np.abs(yf_1[:N // 2]), 'b')
-    # plot_pro(ax)
 
     # VELOCITY MODE AMPLITUDES
     for mo in range(3):
@@ -1170,7 +1240,7 @@ if plot_mode > 0:
     plot_pro(ax2)
 # ----------------------------------------------------------------------------------------------------------------------
 # ----------------------------------------------------------------------------------------------------------------------
-# --- MODE AMPLITUDE CORRELATIONS IN TIME AND SPACE
+# --- MODE AMPLITUDE CORRELATIONS IN TIME AND SPACE ---
 # --- only makes sense to use eta from individual profiles (doesn't make sense to map correlations from v because
 # --- compute of v smears over 4 profiles)
 prof_lon_i = np.nanmean(lon, axis=0)
@@ -1338,7 +1408,7 @@ if plot_mode_corr > 0:
     plot_pro(ax1)
 
 # ----------------------------------------------------------------------------------------------------------------------
-# --- ENERGY SPECTRA
+# --- ENERGY SPECTRA ---
 # ----------------------------------------------------------------------------------------------------------------------
 # -- initial params
 f_ref = np.pi * np.sin(np.deg2rad(ref_lat)) / (12 * 1800)
@@ -1359,14 +1429,8 @@ avg_KE = np.nanmean(HKE_per_mass[:, calmer], 1)
 PE_ed = np.nanmean(PE_per_mass[:, ed_in[0]:ed_in[-1]], axis=1)
 KE_ed = np.nanmean(HKE_per_mass[:, ed_in[0]:ed_in[-1]], axis=1)
 
-# f, ax = plt.subplots()
-# for i in range(len(calmer)):
-#     ax.plot(np.arange(0, mmax+1), HKE_per_mass, linewidth=0.5)
-# ax.set_yscale('log')
-# ax.set_xscale('log')
-# plot_pro(ax)
-
-# ----- ENERGY parameters ------
+# -------------------------
+# --- ENERGY parameters ---
 vert_wavenumber = f_ref / c[1:]
 dk_ke = 1000 * f_ref / c[1]
 k_h = 1e3 * (f_ref / c[1:]) * np.sqrt(avg_KE[1:] / avg_PE[1:])
@@ -1393,18 +1457,18 @@ PE_i_min = np.where(PE_it == np.nanmin(PE_it))[0]
 k_h_max = 1e3 * (f_ref / c[1:]) * np.sqrt(np.squeeze(KE_i[1:, KE_i_max]) / np.squeeze(PE_i[1:, KE_i_max]))
 k_h_min = 1e3 * (f_ref / c[1:]) * np.sqrt(np.squeeze(KE_i[1:, KE_i_min]) / np.squeeze(PE_i[1:, KE_i_min]))
 
-# ----------------------------------------------------------------------------------------------------------------------
-# --- CURVE FITTING TO FIND BREAK IN SLOPES, WHERE WE MIGHT SEE -5/3 AND THEN -3
+# ----------------------------------------------------------------------------------
+# --- CURVE FITTING TO FIND BREAK IN SLOPES, WHERE WE MIGHT SEE -5/3 AND THEN -3 ---
 xx = sc_x.copy()
 yy = avg_PE[1:] / dk
 yy2 = avg_KE[1:] / dk
-ipoint = 6  # 8  # 11
+ipoint = 5  # 8  # 11
 # fit slopes to PE and KE spectra (with a break point that I determine)
 x_53 = np.log10(xx[0:ipoint+1])
 y_53 = np.log10(yy[0:ipoint+1])
 slope1 = np.polyfit(x_53, y_53, 1)
-x_3 = np.log10(xx[ipoint-1:(ipoint+30)])
-y_3 = np.log10(yy[ipoint-1:(ipoint+30)])
+x_3 = np.log10(xx[ipoint-1:(ipoint+34)])
+y_3 = np.log10(yy[ipoint-1:(ipoint+34)])
 slope2 = np.polyfit(x_3, y_3, 1)
 x_3_2 = np.log10(xx[0:55])
 y_3_2 = np.log10(yy2[0:55])
@@ -1413,7 +1477,8 @@ y_g_53 = np.polyval(slope1, x_53)
 y_g_3 = np.polyval(slope2, x_3)
 y_g_ke = np.polyval(slope_ke, x_3_2)
 
-# --- Use function and iterate over each energy profile
+# -----------------------------------------------------------------------
+# --- Use function to fit slopes and iterate over each energy profile ---
 TE_spectrum = (avg_PE / dk) + (avg_KE / dk)
 TE_spectrum_per = (PE_per_mass / dk) + (HKE_per_mass / dk)
 # find break for every profile
@@ -1461,7 +1526,8 @@ for i in range(PE_per_mass.shape[1]):
 # ax.set_xscale('log')
 # plot_pro(ax)
 
-# -- Histogram of vorticity and transfer rates (for all profiles)
+# --------------------------------------------------------------------
+# --- Histogram of vorticity and transfer rates (for all profiles) ---
 # f, (ax1, ax2, ax3) = plt.subplots(1, 3, sharey=True)
 # ax1.hist(rms_vort_per[~np.isnan(rms_vort_per)], bins=np.arange(np.nanmin(rms_vort_per), 1*10**-9, 5*10**-11),
 #          facecolor='blue', alpha=0.5)
@@ -1476,7 +1542,8 @@ for i in range(PE_per_mass.shape[1]):
 # ax2.grid()
 # plot_pro(ax3)
 
-# find break for average profile (total)
+# ----------------------------------------------
+# --- find break for average profile (total) ---
 in_sp = np.transpose(np.concatenate([sc_x[:, np.newaxis], TE_spectrum[1:][:, np.newaxis]], axis=1))
 min_sp_avg = fmin(spectrum_fit, start_g, args=(tuple(in_sp)))
 this_TE = TE_spectrum[1:]
@@ -1495,11 +1562,11 @@ s2 = -3
 b2 = pe_grid[first_over] - s2 * x_grid[first_over]
 fit_3 = np.polyval(np.array([s2, b2]), x_grid[first_over:])
 fit_total = np.concatenate((fit_53[0:-1], fit_3))
-
-# closest mode number to ak0
+# - closest mode number to ak0
 sc_x_break_i = np.where(sc_x < min_sp_avg)[0][-1]
 
-# --- cascade rates (for average TE spectrum)
+# -----------------------------------------------
+# --- cascade rates (for average TE spectrum) ---
 ak0 = min_sp_avg / 1000  # xx[ipoint] / 1000
 E0 = np.interp(ak0 * 1000, sc_x, TE_spectrum[1:])  # np.mean(yy_tot[ipoint - 3:ipoint + 4])
 ak = vert_wave / ak0
@@ -1512,7 +1579,8 @@ rms_vort = E0 * (ak0 **3) * (0.75*(1 - (sc_x[0] / 1000)/ak0)**(4/3) + np.log(ens
 rms_ener = E0 * (ak0) * ( -3/2 + 3/2*( (ak0 ** (2/3))*((sc_x[0] / 1000) ** (-2/3))) -
                           0.5 * (ak0 ** 2) * (enst_diss ** -2) + 0.5 * ak0 ** 4)
 
-# --- rhines scale
+# --------------------
+# --- rhines scale ---
 r_earth = 6371e3  # earth radius [m]
 beta_ref = f_ref / (np.tan(np.deg2rad(ref_lat)) * r_earth)
 # K_beta = 1 / np.sqrt(np.sqrt(np.sum(avg_KE)) / beta_ref)
@@ -1521,8 +1589,9 @@ K_beta_2 = 1 / np.sqrt(np.sqrt(np.nanmean(V3**2)) / beta_ref)
 non_linearity = np.sqrt(rms_ener) / (beta_ref * ((c[1] / f_ref) ** 2))
 non_linearity_2 = np.sqrt(np.nanmean(V3**2)) / (beta_ref * ((c[1] / f_ref) ** 2))
 
-# ----- LOAD in Comparison DATA
-# -- load in Station BATs PE Comparison
+# -------------------------------
+# --- LOAD in Comparison DATA ---
+# --- load in Station BATs PE Comparison ---
 pkl_file = open('/Users/jake/Desktop/bats/station_bats_pe_nov05.pkl', 'rb')
 SB = pickle.load(pkl_file)
 pkl_file.close()
@@ -1530,6 +1599,25 @@ sta_bats_pe = SB['PE_by_season']
 sta_bats_c = SB['c']
 sta_bats_f = np.pi * np.sin(np.deg2rad(31.6)) / (12 * 1800)
 sta_bats_dk = sta_bats_f / sta_bats_c[1]
+# --- load in HKE estimates from Obj. Map ---
+pkl_file = open('/Users/jake/Documents/geostrophic_turbulence/BATS_OM_KE.pkl', 'rb')
+bats_map = pickle.load(pkl_file)
+pkl_file.close()
+sx_c_om = bats_map['sc_x']
+ke_om_u = bats_map['avg_ke_u']
+ke_om_v = bats_map['avg_ke_v']
+ke_om_tot = bats_map['avg_ke_u'] + bats_map['avg_ke_v']
+dk_om = bats_map['dk']
+# --- load in Station HOTS PE Comparison ---
+SH = si.loadmat('/Users/jake/Desktop/bats/station_hots_pe.mat')
+sta_hots_pe = SH['out']['PE'][0][0]
+sta_hots_c = SH['out'][0][0][3]
+sta_hots_f = SH['out'][0][0][2]
+sta_hots_dk = SH['out']['dk'][0][0]
+# --- LOAD ABACO ---
+pkl_file = open('/Users/jake/Documents/geostrophic_turbulence/ABACO_2017_energy.pkl', 'rb')
+abaco_energies = pickle.load(pkl_file)
+pkl_file.close()
 
 # seasonal and variable spread at bats station for each mode
 sta_max = np.nan * np.ones(len(sc_x))
@@ -1546,7 +1634,7 @@ for i in range(1, mmax+1):
     dg_per_max[i - 1] = np.nanmax(PE_per_mass_all[i, :])
     dg_per_min[i - 1] = np.nanmin(PE_per_mass_all[i, :])
 
-# ----------------------------------------------------------
+# ----------------------------------------------
 # --- Partition KE, PE by season (like bats) ---
 # -- construct four background profiles to represent seasons
 # d_spring = np.where((Time2 > 735648) & (Time2 < 735750) & ((Info2 < 60) | (Info2 > 70)))[0]  # Mar 1 - June 1
@@ -1560,63 +1648,49 @@ for i in range(1, mmax+1):
 # June 1 - Sept 15
 d_sum = np.where(((Time2 > 735750) & (Time2 < 735857)))[0]
 # (Feb 2 - June 1) - (Sept 15 - Nov 5)
-d_win = np.where(((Time2 < 735750) | (Time2 > 735857)) & ((Info2 < 60) | (Info2 > 70)))[0]
-d_eddy = np.where((Info2 >= 60) & (Info2 <= 70))[0]
+d_win = np.where(((Time2 < 735750) | (Time2 > 735857)) & ((Info2 < 60) | (Info2 > 71)))[0]
+d_eddy = np.where((Info2 >= 60) & (Info2 <= 71))[0]
 bckgrds = [d_sum, d_win, d_eddy]
+k_h_sum = 1e3 * (f_ref / c[1:]) * np.sqrt(np.nanmean(HKE_per_mass_0[1:, bckgrds[0]], axis=1) /
+                                           np.nanmean(PE_per_mass_0[1:, bckgrds[0]], axis=1))
+k_h_win = 1e3 * (f_ref / c[1:]) * np.sqrt(np.nanmean(HKE_per_mass_0[1:, bckgrds[1]], axis=1) /
+                                           np.nanmean(PE_per_mass_0[1:, bckgrds[1]], axis=1))
 k_h_eddy = 1e3 * (f_ref / c[1:]) * np.sqrt(np.nanmean(HKE_per_mass_0[1:, bckgrds[2]], axis=1) /
                                            np.nanmean(PE_per_mass_0[1:, bckgrds[2]], axis=1))
 
 f, (ax1, ax2) = plt.subplots(1, 2, sharey=True)
-col_i = 'r', 'm', 'c', 'b'
+col_i = 'r', 'b', 'c', 'y'
 # labs = 'Mar-Jun (' + str(np.shape(d_spring)[0]) + ')', 'Jun-Sept (' + str(np.shape(d_summer)[0]) + ')', \
 #        'Sept-Nov (' + str(np.shape(d_fall)[0]) + ')', 'Eddy'
-labs = 'Summer (' + str(np.shape(d_sum)[0]) + ')', 'Winter (' + str(np.shape(d_win)[0]) + ')', 'Eddy'
+labs = 'Summer (' + str(np.shape(d_sum)[0]) + ' profiles)', 'Winter (' + str(np.shape(d_win)[0]) + ' profiles)', 'Eddy'
 ax1.fill_between(1000 * sta_bats_f / sta_bats_c[1:mmax + 1], sta_min / sta_bats_dk, sta_max / sta_bats_dk,
                  label='APE$_{sta.}$', color='#D3D3D3')
 for i in range(3):
     inn = bckgrds[i]
     ax1.plot(sc_x, np.nanmean(PE_per_mass_0[1:, inn], axis=1) / dk, color=col_i[i], label=labs[i])
     ax2.plot(sc_x, np.nanmean(HKE_per_mass_0[1:, inn], axis=1) / dk, color=col_i[i], label=labs[i])
+    ax2.plot([10**-2, 1000 * f_ref / c[1]], np.nanmean(HKE_per_mass_0[:, inn], axis=1)[0:2] / dk, color=col_i[i])
+    ax2.scatter(10**-2, np.nanmean(HKE_per_mass_0[:, inn], axis=1)[0] / dk, color=col_i[i], s=25, facecolors='none')
 handles, labels = ax1.get_legend_handles_labels()
 ax1.legend(handles, labels, fontsize=10)
 ax1.set_xlabel(r'Scaled Vertical Wavenumber = (L$_{d_{n}}$)$^{-1}$ = $\frac{f}{c_n}$ [$km^{-1}$]', fontsize=12)
 ax1.set_ylabel('Spectral Density', fontsize=12)
-ax1.set_title('PE')
-ax1.set_xlim([10 ** -2, 2 * 10 ** 0])
+ax1.set_title('Potential Energy')
+ax1.set_xlim([10 ** -2, 3 * 10 ** 0])
 ax1.set_ylim([10 ** (-3), 1 * 10 ** 3])
 ax1.set_yscale('log')
 ax1.set_xscale('log')
 ax2.set_xlabel(r'Scaled Vertical Wavenumber = (L$_{d_{n}}$)$^{-1}$ = $\frac{f}{c_n}$ [$km^{-1}$]', fontsize=12)
-ax2.set_title('KE')
-ax2.set_xlim([10 ** -2, 2 * 10 ** 0])
+ax2.set_title('Kinetic Energy')
+ax2.set_xlim([10 ** -2, 3 * 10 ** 0])
 ax2.set_xscale('log')
 ax1.grid()
 plot_pro(ax2)
-
-# -- load in HKE estimates from Obj. Map
-pkl_file = open('/Users/jake/Documents/geostrophic_turbulence/BATS_OM_KE.pkl', 'rb')
-bats_map = pickle.load(pkl_file)
-pkl_file.close()
-sx_c_om = bats_map['sc_x']
-ke_om_u = bats_map['avg_ke_u']
-ke_om_v = bats_map['avg_ke_v']
-ke_om_tot = bats_map['avg_ke_u'] + bats_map['avg_ke_v']
-dk_om = bats_map['dk']
-# -- load in Station HOTS PE Comparison
-SH = si.loadmat('/Users/jake/Desktop/bats/station_hots_pe.mat')
-sta_hots_pe = SH['out']['PE'][0][0]
-sta_hots_c = SH['out'][0][0][3]
-sta_hots_f = SH['out'][0][0][2]
-sta_hots_dk = SH['out']['dk'][0][0]
-# -- LOAD ABACO
-pkl_file = open('/Users/jake/Documents/geostrophic_turbulence/ABACO_2017_energy.pkl', 'rb')
-abaco_energies = pickle.load(pkl_file)
-pkl_file.close()
 # ------------------------------------------------------------------------------------------------------------------
 plot_eng = 1
 if plot_eng > 0:
     fig0, (ax0, ax1) = plt.subplots(1, 2, sharey=True)
-    # Station (by season)
+    # -- Station (by season)
     ax0.fill_between(1000 * sta_bats_f / sta_bats_c[1:mmax+1], sta_min / sta_bats_dk, sta_max / sta_bats_dk,
                      label='APE$_{sta.}$', color='#D3D3D3')
     # PE_sta_p = ax0.plot(1000 * sta_bats_f / sta_bats_c[1:], np.nanmean(sta_bats_pe[0][1:, :], axis=1) / sta_bats_dk,
@@ -1628,18 +1702,18 @@ if plot_eng > 0:
     # ax0.plot(1000 * sta_bats_f / sta_bats_c[1:], np.nanmean(sta_bats_pe[3][1:, :], axis=1) / sta_bats_dk,
     #                     color='#000080', label='APE$_{ship_{w}}$', linewidth=1)
 
-    # DG PE averaging to find eta
+    # -- DG PE averaging to find eta
     PE_p = ax0.plot(sc_x, avg_PE[1:] / dk, color='#B22222', label='APE$_{DG}$', linewidth=3)
     ax0.scatter(sc_x, avg_PE[1:] / dk, color='#B22222', s=20)
     # ax0.plot(sc_x, PE_per_mass[1:, PE_i_max] / dk, color='#B22222', linewidth=1)
     # ax0.plot(sc_x, PE_per_mass[1:, PE_i_min] / dk, color='#B22222', linewidth=1)
-    # DG PE individual profiles
+    # -- DG PE individual profiles
     PE_p = ax0.plot(1000 * f_ref / c_all[1:], np.nanmean(PE_per_mass_all[1:, :], axis=1) / (f_ref / c_all[1]),
                     color='#B22222', label='APE$_{DG_{ind.}}$', linewidth=1.5, linestyle='--')
     # ax0.fill_between(1000 * f_ref / c_all[1:], dg_per_min / (f_ref / c_all[1]), dg_per_max / (f_ref / c_all[1]),
     #                  label='APE$_{DG_{ind.}}$', color='y')
 
-    # DG KE
+    # -- DG KE
     KE_p = ax1.plot(1000 * f_ref / c[1:], avg_KE[1:] / dk, 'g', label='KE$_{DG}$', linewidth=3)
     ax1.scatter(sc_x, avg_KE[1:] / dk, color='g', s=20)  # DG KE
     KE_p = ax1.plot([10**-2, 1000 * f_ref / c[1]], avg_KE[0:2] / dk, 'g', linewidth=3) # DG KE_0
@@ -1666,11 +1740,10 @@ if plot_eng > 0:
     ax0.plot(10 ** x_53, 10 ** y_g_53, color='b', linewidth=1.25)
     ax0.plot(10 ** x_3, 10 ** y_g_3, color='b', linewidth=1.25)
     ax0.text(10 ** x_53[0] - .012, 10 ** y_g_53[0], str(float("{0:.2f}".format(slope1[0]))), fontsize=10)
-    ax0.text(10 ** x_3[0] - .11, 10 ** y_g_3[0], str(float("{0:.2f}".format(slope2[0]))), fontsize=10)
+    ax0.text(10 ** x_3[0] - .07, 10 ** y_g_3[0], str(float("{0:.2f}".format(slope2[0]))), fontsize=10)
     # KE
     ax1.plot(10 ** x_3_2, 10 ** y_g_ke, color='b', linewidth=1.5, linestyle='--')
     ax1.text(10 ** x_3_2[1] + .01, 10 ** y_g_ke[1], str(float("{0:.2f}".format(slope_ke[0]))), fontsize=12)
-
     # ax0.scatter(vert_wave[ipoint] * 1000, one[ipoint], color='b', s=7)
     # ax0.plot([xx[ipoint], xx[ipoint]], [10 ** (-4), 4 * 10 ** (-4)], color='k', linewidth=2)
     # ax0.text(xx[ipoint + 1], 2 * 10 ** (-4),
@@ -1692,8 +1765,8 @@ if plot_eng > 0:
     #          'Break at Mode ' + str(sc_x_break_i) + ' = ' + str(float("{0:.1f}".format(1 / sc_x[sc_x_break_i]))) + 'km',
     #          fontsize=8)
 
-    # GM
-    ax0.plot(sc_x, 0.25 * PE_GM / dk, linestyle='--', color='k', linewidth=0.75)
+    # -- GM
+    # ax0.plot(sc_x, 0.25 * PE_GM / dk, linestyle='--', color='k', linewidth=0.75)
     ax0.plot(sc_x, 0.25 * GMPE / dk, color='k', linewidth=0.75)
     ax0.text(sc_x[0] - .01, 0.5 * PE_GM[1] / dk, r'$1/4 PE_{GM}$', fontsize=10)
     # ax0.plot(np.array([10**-2, 10]), [PE_SD / dk, PE_SD / dk], linestyle='--', color='k', linewidth=0.75)
@@ -1701,18 +1774,18 @@ if plot_eng > 0:
     ax1.text(sc_x[0] - .01, 0.5 * GMKE[1] / dk, r'$1/4 KE_{GM}$', fontsize=10)
 
     # ax0.axis([10 ** -2, 10 ** 1, 10 ** (-4), 2 * 10 ** 3])
-    ax0.set_xlim([10 ** -2, 2 * 10 ** 0])
+    ax0.set_xlim([10 ** -2, 3 * 10 ** 0])
     ax0.set_ylim([10 ** -3, 1 * 10 ** 3])
     ax0.set_xlabel(r'Scaled Vertical Wavenumber = (L$_{d_{n}}$)$^{-1}$ = $\frac{f}{c_n}$ [$km^{-1}$]', fontsize=14)
     ax0.set_ylabel('Spectral Density', fontsize=14)  # ' (and Hor. Wavenumber)')
-    ax0.set_title('Potential Energy Spectrum', fontsize=14)
+    ax0.set_title('Potential Energy', fontsize=14)
     ax0.set_yscale('log')
     ax0.set_xscale('log')
 
-    ax1.set_xlim([10 ** -2, 2 * 10 ** 0])
+    ax1.set_xlim([10 ** -2, 3 * 10 ** 0])
     ax1.set_xlabel(r'Scaled Vertical Wavenumber = (L$_{d_{n}}$)$^{-1}$ = $\frac{f}{c_n}$ [$km^{-1}$]', fontsize=14)
     ax1.set_ylabel('Spectral Density', fontsize=14)  # ' (and Hor. Wavenumber)')
-    ax1.set_title('Kinetic Energy Spectrum', fontsize=14)
+    ax1.set_title('Kinetic Energy', fontsize=14)
     ax1.set_xscale('log')
     handles, labels = ax0.get_legend_handles_labels()
     ax0.legend(handles, labels, fontsize=12)
@@ -1723,17 +1796,15 @@ if plot_eng > 0:
     # fig0.savefig('/Users/jake/Desktop/bats/dg035_15_PE_b.png',dpi = 300)
     # plt.close()
     # plt.show()
-
-    # -------------------------------
     # -----------------------------------------------------------------------------------------------------------------
-    # additional plot to highlight the ratio of KE to APE to predict the scale of motion
-    fig0, (ax0, ax1) = plt.subplots(1, 2)
+    # --- additional plot to highlight the ratio of KE to APE to predict the scale of motion ---
+    fig0, (ax0, ax2, ax1) = plt.subplots(1, 3)
     # Limits/scales
     ax0.plot([1000 * f_ref / c[1], 1000 * f_ref / c[-2]], [1000 * f_ref / c[1], 1000 * f_ref / c[-2]], linestyle='--',
              color='k', linewidth=1.5, zorder=2, label=r'$L_{d_n}^{-1}$')
     ax0.text(1000 * f_ref / c[-2] + .1, 1000 * f_ref / c[-2], r'f/c$_n$', fontsize=14)
-    ax0.plot(sc_x, k_h, color='k', label=r'$k_h$', linewidth=1.5)
-    ax0.plot(sc_x, k_h_eddy, color='c', label='Eddy')
+    ax0.plot(sc_x, k_h, color='k', label=r'$k_h$ all', linewidth=1.5)
+    ax0.plot(sc_x, k_h_eddy, color='c', label='Eddy', linewidth=0.75)
     xx_fill = 1000 * f_ref / c[1:]
     yy_fill = 1000 * f_ref / c[1:]
     # ax0.fill_between(xx_fill, yy_fill, k_h, color='b',interpolate=True)
@@ -1747,14 +1818,30 @@ if plot_eng > 0:
     ax0.set_yscale('log')
     ax0.set_xscale('log')
     # ax0.axis([10**-2, 10**1, 3*10**(-4), 2*10**(3)])
-    ax0.axis([10 ** -2, 10 ** 1, 10 ** (-3), 10 ** 3])
-    ax0.set_title('Predicted Horizontal Length Scale (KE/APE)', fontsize=12)
-    ax0.set_xlabel(r'Inverse Deformation Radius ($L_{d_n}$)$^{-1}$ = $\frac{f}{c_n}$ [$km^{-1}$]', fontsize=11)
+    ax0.axis([10 ** -2, 3 * 10 ** 0, 10 ** (-3), 10 ** 2])
+    ax0.set_title('Predicted Hor. Scale (KE/PE)', fontsize=12)
+    ax0.set_xlabel(r'$L_{d_n}$$^{-1}$ = $\frac{f}{c_n}$ [$km^{-1}$]', fontsize=11)
     ax0.set_ylabel(r'Horizontal Wavenumber [$km^{-1}$]', fontsize=12)
     handles, labels = ax0.get_legend_handles_labels()
-    ax0.legend([handles[0], handles[1]], [labels[0], labels[1]], fontsize=14)
+    ax0.legend([handles[0], handles[1], handles[2]], [labels[0], labels[1], labels[2]], fontsize=14)
     ax0.set_aspect('equal')
     ax0.grid()
+
+    ax2.plot([1000 * f_ref / c[1], 1000 * f_ref / c[-2]], [1000 * f_ref / c[1], 1000 * f_ref / c[-2]], linestyle='--',
+             color='k', linewidth=1.5, zorder=2, label=r'$L_{d_n}^{-1}$')
+    ax2.plot(sc_x, k_h_sum, color='r', label=r'$k_h$ summer', linewidth=1.5)
+    ax2.plot(sc_x, k_h_win, color='b', label=r'$k_h$ winter', linewidth=1.5)
+    ax2.plot([10**-2, 10**1], 1e3 * np.array([K_beta_2, K_beta_2]), color='k', linestyle='-.')
+    ax2.text(1.1, 0.025, r'k$_{Rhines}$', fontsize=12)
+    ax2.axis([10 ** -2, 3 * 10 ** 0, 10 ** (-3), 10 ** 2])
+    handles, labels = ax2.get_legend_handles_labels()
+    ax2.legend(handles, labels, fontsize=12)
+    ax2.set_yscale('log')
+    ax2.set_xscale('log')
+    ax2.set_title('Summer vs. Winter Hor. Scale')
+    ax2.set_xlabel(r'$L_{d_n}$$^{-1}$ = $\frac{f}{c_n}$ [$km^{-1}$]', fontsize=11)
+    ax2.set_aspect('equal')
+    ax2.grid()
 
     k_xx = k_h.copy()
     yy = avg_PE[1:] / dk
@@ -1776,7 +1863,7 @@ if plot_eng > 0:
     ax1.text(10 ** x_3h[3] + .02, 10 ** y_g_pe_h[3], str(float("{0:.2f}".format(slope_pe_h[0]))), fontsize=12)
     ax1.plot(10 ** x_3h, 10 ** y_g_ke_h, color='g', linewidth=1.5, linestyle='--', label='KE')
     ax1.text(10 ** x_3h[3] + .01, 10 ** y_g_ke_h[3], str(float("{0:.2f}".format(slope_ke_h[0]))), fontsize=12)
-    ax1.axis([10 ** -2, 10 ** 0, 10 ** (-3), 1 * 10 ** 3])
+    ax1.axis([10 ** -2, 3 * 10 ** 0, 10 ** (-3), 1 * 10 ** 3])
     handles, labels = ax1.get_legend_handles_labels()
     ax1.legend(handles, labels, fontsize=12)
     ax1.set_xlabel(r'Horizontal Wavenumber [$km^{-1}$]', fontsize=11)

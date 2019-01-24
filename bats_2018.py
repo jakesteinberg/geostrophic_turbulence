@@ -47,12 +47,12 @@ deep_shr_max_dep = 3500
 # ----------------------------------------------------------------------------------------------------------------------
 # ---- PROCESSING USING GLIDER PACKAGE
 gs = 50
-ge = 108
+ge = 120
 x = Glider(41, np.arange(gs, ge), '/Users/jake/Documents/baroclinic_modes/DG/BATS_2018/sg041')
 # ----------------------------------------------------------------------------------------------------------------------
 import_dg = si.loadmat('/Users/jake/Documents/baroclinic_modes/sg041_2018_neutral_density_bin.mat')
 dg_data = import_dg['out']
-limm = 260
+limm = 471
 profile_tags = dg_data['prof_number'][0][0][0]
 if profile_tags[0] == gs:
     first = 0
@@ -158,7 +158,7 @@ avg_ct_per_dep = avg_ct_per_dep_0[0].copy()
 avg_sa_per_dep = avg_sa_per_dep_0[0].copy()
 dg_v_lon_0 = mwe_lon[0][0:-1].copy()
 dg_v_lat_0 = mwe_lat[0][0:-1].copy()
-dg_v_dive_no = profile_tags_per[0][0:-1].copy()
+dg_v_dive_no_0 = profile_tags_per[0][0:-1].copy()
 for i in range(1, len(v_g)):
     dace_mw_0 = np.concatenate((dace_mw_0, DACe_MW[i][0:-1]), axis=0)
     dacn_mw_0 = np.concatenate((dacn_mw_0, DACn_MW[i][0:-1]), axis=0)
@@ -170,7 +170,7 @@ for i in range(1, len(v_g)):
     avg_sig0_per_dep = np.concatenate((avg_sig0_per_dep, avg_sig0_per_dep_0[i]), axis=1)
     dg_v_lon_0 = np.concatenate((dg_v_lon_0, mwe_lon[i][0:-1]))
     dg_v_lat_0 = np.concatenate((dg_v_lat_0, mwe_lat[i][0:-1]))
-    dg_v_dive_no = np.concatenate((dg_v_dive_no, profile_tags_per[i][0:-1]))
+    dg_v_dive_no_0 = np.concatenate((dg_v_dive_no_0, profile_tags_per[i][0:-1]))
 
 # Time matching to eta/v profiles
 count = 0
@@ -222,6 +222,7 @@ for i in range(np.shape(avg_sig0_per_dep)[1]):  # loop over each profile
             z_rho_1 = grid[idx - 2:idx + 3]
             eta_alt_3[j, i] = np.interp(avg_sig0_per_dep[j, i], sigma_theta_avg[idx - 2:idx + 3], z_rho_1) - grid[j]
 
+eta_alt_0 = eta_alt.copy()
 # ----------------------------------------------------------------------------------------------------------------------
 # FILTER VELOCITY PROFILES IF THEY ARE TOO NOISY / BAD -- ALSO HAVE TO REMOVE EQUIVALENT ETA PROFILE
 good_v = np.zeros(np.shape(dg_v_0)[1], dtype=bool)
@@ -240,7 +241,7 @@ dg_v = dg_v_0[:, good_v]
 dg_v_e = dg_v_e_0[:, good_v]
 dg_v_n = dg_v_n_0[:, good_v]
 dg_mw_time = dg_mw_time[good_v]
-dg_v_dive_no = dg_v_dive_no[good_v]
+dg_v_dive_no = dg_v_dive_no_0[good_v]
 num_mw_profs = np.shape(eta_alt)[1]
 
 # Smooth DG N2 profiles
@@ -387,8 +388,9 @@ for i in range(np.shape(dg_v_e)[1]):
         dz_dg_v[:, i] = np.gradient(savgol_filter(dg_v[:, i], 13, 5), z)
 ax1.plot(np.nanmean(dg_v_e[:, good_ke_prof > 0], axis=1), grid, color='b', linewidth=2)
 ax2.plot(np.nanmean(dg_v_n[:, good_ke_prof > 0], axis=1), grid, color='b', linewidth=2)
-ax1.plot(np.nanmean(dace_mw[good_ke_prof > 0]) * np.ones(10), np.linspace(0, 4200, 10), color='k', linewidth=1)
-ax2.plot(np.nanmean(dacn_mw[good_ke_prof > 0]) * np.ones(10), np.linspace(0, 4200, 10), color='k', linewidth=1)
+ax1.plot(np.nanmean(dace_mw[good_ke_prof > 0]) * np.ones(10), np.linspace(0, 5000, 10), color='k', linewidth=1)
+ax2.plot(np.nanmean(dacn_mw[good_ke_prof > 0]) * np.ones(10), np.linspace(0, 5000, 10), color='k', linewidth=1)
+ax1.set_ylim([0, 5000])
 ax1.set_xlim([-.1, .05])
 ax2.set_xlim([-.1, .05])
 ax3.set_xlim([-.75, .75])
@@ -413,14 +415,14 @@ dg_v_lon_1 = dg_v_lon[mw_time_ordered_i]
 dg_v_lat_1 = dg_v_lat[mw_time_ordered_i]
 dace_mw_1 = dace_mw[mw_time_ordered_i]
 dacn_mw_1 = dacn_mw[mw_time_ordered_i]
-f, ax = plt.subplots()
-ax.plot(dg_v_lon_1, dg_v_lat_1, color='k', linewidth=0.5)
-ax.scatter(dg_v_lon_1, dg_v_lat_1, color='k', s=3)
-ax.quiver(dg_v_lon_1, dg_v_lat_1, dace_mw_1, dacn_mw_1, color='r', scale=0.8)
-w = 1 / np.cos(np.deg2rad(ref_lat))
-ax.set_aspect(w)
-ax.set_title('Bermuda 2018: DAC')
-plot_pro(ax)
+# f, ax = plt.subplots()
+# ax.plot(dg_v_lon_1, dg_v_lat_1, color='k', linewidth=0.5)
+# ax.scatter(dg_v_lon_1, dg_v_lat_1, color='k', s=3)
+# ax.quiver(dg_v_lon_1, dg_v_lat_1, dace_mw_1, dacn_mw_1, color='r', scale=0.8)
+# w = 1 / np.cos(np.deg2rad(ref_lat))
+# ax.set_aspect(w)
+# ax.set_title('Bermuda 2018: DAC')
+# plot_pro(ax)
 # ---------------------------------------------------------------------------------------------------------------------
 # --- ETA COMPUTED FROM INDIVIDUAL DENSITY PROFILES
 # --- compute vertical mode shapes
@@ -432,10 +434,25 @@ G_all, Gz_all, c_all, epsilon_all = vertical_modes(N2_all, grid, omega, mmax)
 #     eta_per_prof[:, i] = (df_den.iloc[:, i] - sigma_theta_avg)/ddz_avg_sigma
 # --- by season background profile
 eta_per_prof = np.nan * np.ones(sig2.shape)
+eta_per_prof_3 = np.nan * np.ones(sig2.shape)
 d_anom_prof = np.nan * np.ones(sig2.shape)
 for i in range(lon.shape[1]):
     eta_per_prof[:, i] = (neutral_density[:, i] - sigma_theta_avg) / np.squeeze(ddz_avg_sigma)
     d_anom_prof[:, i] = (neutral_density[:, i] - sigma_theta_avg)
+
+    # ETA ALT 3
+    # try a new way to compute vertical displacement
+    for j in range(len(grid)):
+        # find this profile density at j along avg profile
+        idx, rho_idx = find_nearest(sigma_theta_avg, neutral_density[j, i])
+        if idx <= 2:
+            z_rho_1 = grid[0:idx + 3]
+            eta_per_prof_3[j, i] = np.interp(neutral_density[j, i], sigma_theta_avg[0:idx + 3],
+                                             z_rho_1) - grid[j]
+        else:
+            z_rho_1 = grid[idx - 2:idx + 3]
+            eta_per_prof_3[j, i] = np.interp(neutral_density[j, i], sigma_theta_avg[idx - 2:idx + 3],
+                                             z_rho_1) - grid[j]
 
 
 AG_all, eta_m_all, Neta_m_all, PE_per_mass_all = eta_fit(lon.shape[1], grid, nmodes, N2_all, G_all, c_all,
@@ -445,6 +462,7 @@ PE_per_mass_all = PE_per_mass_all[:, np.abs(AG_all[1, :]) > 1*10**-4]
 # --- check on mode amplitudes from averaging or individual profiles
 mw_time_ordered_i = np.argsort(Time2)
 AG_ordered = AG[:, mw_time_ordered_i]
+AGz_ordered = AGz[:, mw_time_ordered_i]
 
 # -- load other data
 pkl_file = open('/Users/jake/Desktop/bats/station_bats_pe_nov05.pkl', 'rb')
@@ -514,29 +532,90 @@ ax2.invert_yaxis()
 ax3.invert_yaxis()
 ax1.grid()
 ax2.grid()
+ax3.set_xlim([datetime.date(2018, 10, 1), datetime.date(2019, 2, 15)])
 plot_pro(ax3)
 
 f, (ax, ax2, ax3, ax4, ax5) = plt.subplots(5, 1, sharex=True)
 ax.scatter(d_time_per_prof_date, AG_all[1, :], color='g', s=15)
-ax.plot(mw_time_date, AG_ordered[1, :], color='b', linewidth=0.75)
+ax.plot(mw_time_date, -AG_ordered[1, :], color='b', linewidth=0.75)
 ax.set_title('Displacement Mode 1 Amplitude')
 ax2.scatter(d_time_per_prof_date, AG_all[2, :], color='g', s=15)
-ax2.plot(mw_time_date, AG_ordered[2, :], color='b', linewidth=0.75)
+ax2.plot(mw_time_date, -AG_ordered[2, :], color='b', linewidth=0.75)
 ax2.set_title('Displacement Mode 2 Amplitude')
 ax3.scatter(d_time_per_prof_date, AG_all[3, :], color='g', s=15)
-ax3.plot(mw_time_date, AG_ordered[3, :], color='b', linewidth=0.75)
+ax3.plot(mw_time_date, -AG_ordered[3, :], color='b', linewidth=0.75)
 ax3.set_title('Displacement Mode 3 Amplitude')
 ax4.scatter(d_time_per_prof_date, AG_all[4, :], color='g', s=15)
-ax4.plot(mw_time_date, AG_ordered[4, :], color='b', linewidth=0.75)
+ax4.plot(mw_time_date, -AG_ordered[4, :], color='b', linewidth=0.75)
 ax4.set_title('Displacement Mode 4 Amplitude')
 ax5.scatter(d_time_per_prof_date, AG_all[5, :], color='g', s=15)
-ax5.plot(mw_time_date, AG_ordered[5, :], color='b', linewidth=0.75)
+ax5.plot(mw_time_date, -AG_ordered[5, :], color='b', linewidth=0.75)
 ax5.set_title('Displacement Mode 5 Amplitude')
 ax.grid()
 ax2.grid()
 ax3.grid()
 ax4.grid()
+ax5.set_xlim([datetime.date(2018, 10, 1), datetime.date(2019, 2, 15)])
 plot_pro(ax5)
+
+f, (ax, ax2, ax3, ax4, ax5) = plt.subplots(5, 1, sharex=True)
+ax.plot(mw_time_date, AGz_ordered[0, :], color='b', linewidth=0.75)
+ax.set_title('Velocity Mode 0 Amplitude')
+ax2.plot(mw_time_date, AGz_ordered[1, :], color='b', linewidth=0.75)
+ax2.set_title('Velocity Mode 1 Amplitude')
+ax3.plot(mw_time_date, AGz_ordered[2, :], color='b', linewidth=0.75)
+ax3.set_title('Velocity Mode 2 Amplitude')
+ax4.plot(mw_time_date, AGz_ordered[3, :], color='b', linewidth=0.75)
+ax4.set_title('Velocity Mode 3 Amplitude')
+ax5.plot(mw_time_date, AGz_ordered[4, :], color='b', linewidth=0.75)
+ax5.set_title('Velocity Mode 4 Amplitude')
+ax.set_ylim([-.2, .2])
+ax.grid()
+ax2.grid()
+ax2.set_ylim([-.2, .2])
+ax3.grid()
+ax3.set_ylim([-.12, .12])
+ax4.grid()
+ax4.set_ylim([-.07, .07])
+ax5.set_xlabel('Date')
+ax5.set_ylim([-.07, .07])
+ax5.set_xlim([datetime.date(2018, 10, 1), datetime.date(2019, 2, 15)])
+plot_pro(ax5)
+# ----------------------------------------------------------------------------------------------------------------------
+# --- Eta per select profiles
+# these_profiles = np.array([80, 81, 82, 83, 84])
+# these_profiles = np.array([72, 74, 74.5, 75, 76])
+these_profiles = np.array([86, 86.5, 87, 87.5, 88])
+# these_profiles = np.array([50, 75, 100, 125])  # dive numbers of profiles to compare (individual dives)
+# these_profiles = np.array([60, 85, 110, 135])  # dive numbers of profiles to compare (individual dives)
+# these_profiles = np.array([62, 62.5, 63, 63.5, 64])  # dive numbers of profiles to compare (individual dives)
+# these_profiles = np.array([67, 68, 69, 70, 71])  # dive numbers of profiles to compare (individual dives)
+# these_profiles = np.array([72, 72.5, 73, 73.5, 74])  # dive numbers of profiles to compare (individual dives)
+f, ax = plt.subplots(1, 5, sharey=True)
+for i in range(5):
+    ind_rel = profile_tags == these_profiles[i]
+    avg_rel = dg_v_dive_no_0 == these_profiles[i]
+    ax[i].plot(eta_per_prof_3[:, ind_rel], grid, color='k', linewidth=0.75, label=r'$\gamma$ Ind,Dir')  # individual profiles direct search, gamma
+    ax[i].plot(eta_alt_3[:, avg_rel], grid, color='r', linewidth=0.75, label=r'$\gamma$ Avg,Dir')  # avg direct search, gamma
+    ax[i].plot(-1 * eta_alt_0[:, avg_rel], grid, color='b', linewidth=0.75, label=r'$\gamma$ Avg,ddz')  # avg divide by ddz, gamma
+    ax[i].plot(-1 * eta_alt_2[:, avg_rel], grid, color='g', linewidth=0.75, label=r'$\sigma_{\theta0}$ Avg, ddz')  # avg divide by ddz, pot den, local pref
+    ax[i].set_xlim([-380, 380])
+    ax[i].set_title('Dive-Cycle = ' + str(these_profiles[i]))
+
+handles, labels = ax[0].get_legend_handles_labels()
+ax[0].legend(handles, labels, fontsize=7)
+ax[0].set_ylabel('Depth [m]')
+ax[0].set_xlabel('Vertical Disp. [m]', fontsize=10)
+ax[1].set_xlabel('Vertical Disp. [m]', fontsize=10)
+ax[2].set_xlabel('Vertical Disp. [m]', fontsize=10)
+ax[3].set_xlabel('Vertical Disp. [m]', fontsize=10)
+ax[4].set_xlabel('Vertical Disp. [m]', fontsize=10)
+ax[4].invert_yaxis()
+ax[0].grid()
+ax[1].grid()
+ax[2].grid()
+ax[3].grid()
+plot_pro(ax[4])
 # ----------------------------------------------------------------------------------------------------------------------
 # ----------------------------------------------------------------------------------------------------------------------
 # ---- COMPUTE EOF SHAPES AND COMPARE TO ASSUMED STRUCTURE
