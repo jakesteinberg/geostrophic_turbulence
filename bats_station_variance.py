@@ -18,11 +18,11 @@ from toolkit import plot_pro, nanseg_interp, find_nearest
 g = 9.81
 rho0 = 1035  # - 1027
 GD = Dataset('BATs_2015_gridded_apr04.nc', 'r')
-bin_depth = GD.variables['grid'][:]
-# bin_depth = np.concatenate([np.arange(0, 150, 5), np.arange(150, 300, 5), np.arange(300, 4500, 10)])
+# bin_depth = GD.variables['grid'][:]
+bin_depth = np.concatenate([np.arange(0, 150, 5), np.arange(150, 300, 5), np.arange(300, 4550, 10)])
 ref_lat = 31.7
 ref_lon = -64.2
-grid = bin_depth[0:231]
+grid = bin_depth  # [0:231]
 grid_p = gsw.p_from_z(-1 * grid, ref_lat)
 z = -1 * grid
 
@@ -114,16 +114,18 @@ z = -1 * grid
 #
 # savee = 0
 # if savee > 0:
-#     output_file = open('/Users/jake/Documents/baroclinic_modes/Shipboard/BATS_station/bats_ship_ctd_gridded_oct01.pkl',
+#     output_file = open('/Users/jake/Documents/baroclinic_modes/Shipboard/BATS_station/bats_ship_ctd_gridded_oct01_prot3.pkl',
 #                        'wb')
 #     my_dict = {'grid': grid, 'grid_p': grid_p, 'cast_log': cast_log, 'cast_date': cast_date, 'cast_lat': cast_lat,
 #                'cast_lon': cast_lon, 'cast_temp': cast_t, 'cast_salin': cast_s, 'cast_max_z': cast_max_z}
 #     pickle.dump(my_dict, output_file)
 #     output_file.close()
 
+
 # ------------------------------------------------------------------------------------------------------------
 # ------------- LOAD GRIDDED CASTS -------------
-pkl_file = open('/Users/jake/Documents/baroclinic_modes/Shipboard/BATS_station/bats_ship_ctd_gridded_oct01.pkl', 'rb')
+pkl_file = open(
+    '/Users/jake/Documents/baroclinic_modes/Shipboard/BATS_station/bats_ship_ctd_gridded_oct01_prot3.pkl', 'rb')
 bats_ctd = pickle.load(pkl_file)
 pkl_file.close()
 c_lon = bats_ctd['cast_lon'][0]
@@ -136,6 +138,14 @@ c_date = bats_ctd['cast_date'][0, span]
 c_t = bats_ctd['cast_temp'][:, span]
 c_s = bats_ctd['cast_salin'][:, span]
 c_max_z = bats_ctd['cast_max_z'][0, span]
+
+ordered = np.argsort(c_date)
+c_s = c_s[:, ordered]
+c_t = c_t[:, ordered]
+c_date = c_date[ordered]
+c_lon = -1 * c_lon[ordered]
+c_lat = c_lat[ordered]
+c_log = c_log[ordered]
 
 c_t[c_t < 0.5] = np.nan
 c_t[c_t > 30] = np.nan
@@ -150,15 +160,64 @@ for i in range(len(c_lon)):
     # if c_t[(c_t[:, i] > 15) & (grid > 1000), i].size > 0:
     #     c_t[(c_t[:, i] > 15) & (grid > 1000), i] = np.nan
 
-good_s = np.where(c_s[-10, :] < 35)[0]
-good_t = np.where(c_t[-10, :] < 3)[0]
-good = np.intersect1d(good_s, good_t)
-c_s = c_s[:, good]
-c_t = c_t[:, good]
-c_date = c_date[good]
-c_lon = c_lon[good]
-c_lat = c_lat[good]
-c_log = c_log[good]
+# good_s = np.where(c_s[-10, :] < 34)[0]
+# good_t = np.where(c_t[-10, :] < 2)[0]
+# good = np.intersect1d(good_s, good_t)
+# c_s = c_s[:, good]
+# c_t = c_t[:, good]
+# c_date = c_date[good]
+# c_lon = -1 * c_lon[good]
+# c_lat = c_lat[good]
+# c_log = c_log[good]
+# grid_p[0] = 0
+
+# --- convert to gamma in matlab (need to run glider environment) -----
+# import matlab.engine
+# import time as TT
+# eng = matlab.engine.start_matlab()
+# eng.addpath(r'/Users/jake/Documents/MATLAB/eos80_legacy_gamma_n/')
+# eng.addpath(r'/Users/jake/Documents/MATLAB/eos80_legacy_gamma_n/library/')
+# gamma = np.nan * np.ones(np.shape(c_s))
+# print('Opened Matlab')
+# for i in range(len(c_date)):  # loop over each profile
+#     tic = TT.clock()
+#     gamma[:, i] = np.squeeze(np.array(eng.eos80_legacy_gamma_n(matlab.double(c_s[:, i].tolist()),
+#                                                                matlab.double(c_t[:, i].tolist()),
+#                                                                matlab.double(grid_p.tolist()),
+#                                                                matlab.double([c_lon[i]]),
+#                                                                matlab.double([c_lat[i]]))))
+#     toc = TT.clock()
+#     print('Time step = ' + str(i) + ' = '+ str(toc - tic) + 's')
+# eng.quit()
+# print('Closed Matlab')
+# my_dict = {'z': -1 * grid, 'gamma': gamma}
+# output = open('/Users/jake/Documents/baroclinic_modes/Shipboard/BATS_station/extracted_gridded_gamma.pkl', 'wb')
+# pickle.dump(my_dict, output)
+# output.close()
+#
+# from scipy.io import netcdf
+# f = netcdf.netcdf_file('/Users/jake/Documents/baroclinic_modes/Shipboard/BATS_station/extracted_gridded_gamma_2.nc', 'w')
+# f.createDimension('grid', np.size(grid))
+# f.createDimension('profile_list', np.size(c_date))
+# b_d = f.createVariable('grid', np.float64, ('grid',))
+# b_d[:] = grid
+# b_l = f.createVariable('dive_list', np.float64, ('profile_list',))
+# b_l[:] = c_date
+# b_t = f.createVariable('Gamma', np.float64, ('grid', 'profile_list'))
+# b_t[:] = gamma
+# f.close()
+# -------------------------------------------------------------------------
+
+# -- LOAD PROCESSED MODEL TIME STEPS WITH COMPUTED GAMMA
+# pkl_file = open('/Users/jake/Documents/baroclinic_modes/Shipboard/BATS_station/extracted_gridded_gamma.pkl', 'rb')
+# MOD = pickle.load(pkl_file)
+# pkl_file.close()
+# gamma = MOD['gamma'][:]
+
+# -- load matlabbed gamma as nc
+GD = Dataset('/Users/jake/Documents/baroclinic_modes/Shipboard/BATS_station/extracted_gridded_gamma_2.nc', 'r')
+gamma = GD.variables['Gamma'][:]
+
 
 # grid = GD.variables['grid'][:]
 grid_p = gsw.p_from_z(-1 * grid, ref_lat)
@@ -179,11 +238,13 @@ sigma4 = np.nan * np.zeros((len(grid), num_profs0))
 sigma_theta = np.nan * np.zeros((len(grid), num_profs0))
 f, (ax, ax2) = plt.subplots(1, 2, sharey=True)
 for i in range(num_profs0):
-    theta[:, i] = sw.ptmp(c_s[:, i], c_t[:, i], grid_p, 0)
-    sigma_theta[:, i] = sw.dens(c_s[:, i], theta[:, i], 0) - 1000
     abs_salin[:, i] = gsw.SA_from_SP(c_s[:, i], grid_p, c_lon[i] * np.ones(len(grid_p)),
                                      c_lat[i] * np.ones(len(grid_p)))
     conservative_t[:, i] = gsw.CT_from_t(abs_salin[:, i], c_t[:, i], grid_p)
+
+    # old
+    theta[:, i] = sw.ptmp(c_s[:, i], c_t[:, i], grid_p, 0)
+    sigma_theta[:, i] = sw.dens(c_s[:, i], theta[:, i], 0) - 1000
     sigma0[:, i] = gsw.sigma0(abs_salin[:, i], conservative_t[:, i])
     sigma2[:, i] = gsw.rho(abs_salin[:, i], conservative_t[:, i], 2000) - 1000
     sigma4[:, i] = gsw.sigma4(abs_salin[:, i], conservative_t[:, i])
@@ -222,6 +283,7 @@ c_temp = conservative_t[:, cal_good]
 sigma0 = sigma0[:, cal_good]
 sigma2 = sigma2[:, cal_good]
 sigma4 = sigma4[:, cal_good]
+gamma = gamma[:, cal_good]
 
 # -- construct four background profiles to represent seasons
 date_year = np.floor(c_date)
@@ -253,8 +315,11 @@ for i in range(4):
     inn = bckgrds[i]
     salin_avg[:, i] = np.nanmean(a_salin[:, inn], axis=1)
     conservative_t_avg[:, i] = np.nanmean(c_temp[:, inn], axis=1)
+
     theta_avg[:, i] = np.nanmean(theta[:, inn], axis=1)
-    sigma_theta_avg[:, i] = np.nanmean(sigma0[:, inn], axis=1)
+
+    sigma_theta_avg[:, i] = np.nanmean(gamma[:, inn], axis=1)
+
     sigma_theta_avg2[:, i] = np.nanmean(sigma2[:, inn], axis=1)
     sigma_theta_avg4[:, i] = np.nanmean(sigma4[:, inn], axis=1)
 
@@ -307,6 +372,8 @@ sigma_anom2 = np.nan * np.zeros((len(grid), num_profs))
 sigma_anom4 = np.nan * np.zeros((len(grid), num_profs))
 conservative_t_anom = np.nan * np.zeros((len(grid), num_profs))
 this_eta = np.nan * np.zeros((len(grid), num_profs))
+eta_alt = np.nan * np.zeros((len(grid), num_profs))
+eta_alt_3 = np.nan * np.zeros((len(grid), num_profs))
 this_anom = np.nan * np.zeros((len(grid), num_profs))
 this_gradient = np.nan * np.zeros((len(grid), num_profs))
 for i in range(num_profs):
@@ -320,9 +387,14 @@ for i in range(num_profs):
         else:
             if (this_time > date_month[bckgrds[j]].min()) & (this_time < date_month[bckgrds[j]].max()):
                 cor_b[j] = 1
+
     # average T/S for the relevant season
     avg_a_salin = salin_avg[:, cor_b > 0][:, 0]
     avg_c_temp = conservative_t_avg[:, cor_b > 0][:, 0]
+    avg_sigma_theta = sigma_theta_avg[:, cor_b > 0][:, 0]
+    avg_ddz_sigma_theta = ddz_avg_sigma[:, cor_b > 0][:, 0]
+
+    # eta method = eta_alt_2 = local pot density reference
     for j in range(1, len(grid) - 1):
         # profile density at depth j with local
         this_sigma = gsw.rho(a_salin[j, i], c_temp[j, i], grid_p[j]) - 1000
@@ -331,6 +403,22 @@ for i in range(num_profs):
         # this_gradient = (this_sigma_avg[0] - this_sigma_avg[2]) / (z[j-1] - z[j+1])
         this_gradient[j, i] = np.nanmean(np.gradient(this_sigma_avg, z[j-1:j+2]))
         this_eta[j, i] = this_anom[j, i] / this_gradient[j, i]
+
+    # eta method = eta_alt = divide gamma by local gradient
+    this_sigma_theta_avg = sigma_theta_avg[:, cor_b > 0][:, 0]
+    eta_alt[:, i] = (gamma[:, i] - avg_sigma_theta) / np.squeeze(avg_ddz_sigma_theta)
+
+    # eta method = eta_alt_3
+    for j in range(len(grid)):
+        # find this profile density at j along avg profile
+        idx, rho_idx = find_nearest(this_sigma_theta_avg, gamma[j, i])
+        if idx <= 2:
+            z_rho_1 = grid[0:idx + 3]
+            eta_alt_3[j, i] = np.interp(gamma[j, i], this_sigma_theta_avg[0:idx + 3], z_rho_1) - grid[j]
+        else:
+            z_rho_1 = grid[idx - 2:idx + 3]
+            eta_alt_3[j, i] = np.interp(gamma[j, i], this_sigma_theta_avg[idx - 2:idx + 3], z_rho_1) - grid[j]
+
     eta[:, i] = (sigma0[:, i] - sigma_theta_avg[:, cor_b > 0][:, 0]) / ddz_avg_sigma[:, cor_b > 0][:, 0]
     eta2[:, i] = (sigma2[:, i] - sigma_theta_avg2[:, cor_b > 0][:, 0]) / ddz_avg_sigma2[:, cor_b > 0][:, 0]
     eta4[:, i] = (sigma4[:, i] - sigma_theta_avg4[:, cor_b > 0][:, 0]) / ddz_avg_sigma4[:, cor_b > 0][:, 0]
@@ -339,6 +427,9 @@ for i in range(num_profs):
     sigma_anom2[:, i] = (sigma2[:, i] - np.nanmean(sigma_theta_avg2, axis=1))
     sigma_anom4[:, i] = (sigma4[:, i] - np.nanmean(sigma_theta_avg4, axis=1))
     conservative_t_anom[:, i] = (conservative_t[:, i] - conservative_t_avg[:, cor_b > 0][:, 0])
+
+# store for later
+this_eta_0 = this_eta.copy()
 
 # -- look for long term warming/cooling trends
 f, (ax0, ax1, ax2, ax3) = plt.subplots(4, 1, sharex=True)
@@ -370,7 +461,7 @@ ax3.set_xlabel('Date')
 plot_pro(ax3)
 
 colors = plt.cm.Dark2(np.arange(0, 4, 1))
-# --- T/S plot and lat/lon profile location
+# --- T/S/rho_anom plot and lat/lon profile location
 f, (ax, ax2, ax3, ax4, ax5) = plt.subplots(1, 5)
 for i in range(num_profs):
     ax.scatter(abs_salin[:, i], conservative_t[:, i], s=1)
@@ -398,10 +489,13 @@ omega = 0
 mmax = 60
 nmodes = mmax + 1
 eta_fit_dep_min = 75
-eta_fit_dep_max = 3500
+eta_fit_dep_max = 3750
 
 # -- computer vertical mode shapes
 G, Gz, c, epsilon = vertical_modes(N2_all, grid, omega, mmax)
+
+# -- choose eta to use
+this_eta = eta_alt_3
 
 # -- cycle through seasons
 AG = []
@@ -468,10 +562,12 @@ EOFetashape2_BTpBC1 = G[:, 1:3] * V_AGqa[0:2, 1]  # truncated 2 mode shape of EO
 f, (ax, ax2, ax25, ax3, ax4) = plt.subplots(1, 5, sharey=True)
 for i in range(num_profs):
     ax.plot(this_anom[:, i], grid, linewidth=0.75)
-    ax2.plot(eta[:, i], grid, linewidth=.75, color='#808000')
-    ax25.plot(eta2[:, i], grid, linewidth=.75, color='#808000')
-    ax3.plot(this_eta[:, i], grid, linewidth=.75, color='#808000')
-    ax3.plot(Eta_m[:, i], grid, linewidth=.5, color='k', linestyle='--')
+    # ax2.plot(eta[:, i], grid, linewidth=.75, color='#808000')
+    # ax25.plot(eta2[:, i], grid, linewidth=.75, color='#808000')
+    ax2.plot(eta_alt_3[:, i], grid, linewidth=.75, color='#808000')
+    ax25.plot(eta_alt[:, i], grid, linewidth=.75, color='#808000')
+    ax3.plot(this_eta_0[:, i], grid, linewidth=.75, color='#808000')
+    ax2.plot(Eta_m[:, i], grid, linewidth=.5, color='k', linestyle='--')
 n2p = ax4.plot((np.sqrt(N2_all) * (1800 / np.pi)) / 4, grid, color='k', label='N(z) [cph]')
 for j in range(4):
     ax4.plot(G[:, j] / grid.max(), grid, color='#2F4F4F', linestyle='--')
@@ -484,14 +580,14 @@ ax.set_xlabel(r'$\sigma_{\theta} - \overline{\sigma_{\theta}}$')
 ax.set_ylabel('Depth [m]')
 ax.set_xlim([-.4, .4])
 ax2.grid()
-ax2.set_title('Sig0 Disp. [m]')
+ax2.set_title('Dir. Search Gamma')
 ax2.set_xlabel('[m]')
 ax2.axis([-350, 350, 0, 4750])
 ax25.grid()
-ax25.set_title('Sig2 Disp. [m]')
+ax25.set_title('ddz Gamma')
 ax25.set_xlabel('[m]')
 ax25.axis([-350, 350, 0, 4750])
-ax3.set_title('Sig Local Disp. [m]')
+ax3.set_title('Local Sig_theta / ddz')
 ax3.set_xlabel('[m]')
 ax3.axis([-350, 350, 0, 4750])
 ax3.grid()
@@ -577,13 +673,13 @@ plot_pro(ax4)
 
 # -- density in time
 f, (ax1, ax2) = plt.subplots(2, 1, sharex=True)
-ax1.plot(c_date, sigma2[90, :], color='g')
-ax2.plot(c_date, sigma2[165, :], color='g')
-ax1.set_title('Potential Density at 1500m')
-ax2.set_title('at 3000m')
+ax1.plot(c_date, gamma[90, :], color='g')
+ax2.plot(c_date, gamma[165, :], color='g')
+ax1.set_title('Potential Density at 600m')
+ax2.set_title('at 3400m')
 ax2.set_xlabel('Time [Yr]')
-ax2.set_ylabel(r'$\sigma_{\theta}$ P$_{ref}$ = 2000m')
-ax1.set_ylabel(r'$\sigma_{\theta}$ P$_{ref}$ = 2000m')
+ax2.set_ylabel(r'$\gamma$ P$_{ref}$ = 600 m')
+ax1.set_ylabel(r'$\gamma$ P$_{ref}$ = 3400 m')
 ax1.grid()
 plot_pro(ax2)
 
