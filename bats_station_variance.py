@@ -236,7 +236,7 @@ sigma0 = np.nan * np.zeros((len(grid), num_profs0))
 sigma2 = np.nan * np.zeros((len(grid), num_profs0))
 sigma4 = np.nan * np.zeros((len(grid), num_profs0))
 sigma_theta = np.nan * np.zeros((len(grid), num_profs0))
-f, (ax, ax2) = plt.subplots(1, 2, sharey=True)
+# f, (ax, ax2) = plt.subplots(1, 2, sharey=True)
 for i in range(num_profs0):
     abs_salin[:, i] = gsw.SA_from_SP(c_s[:, i], grid_p, c_lon[i] * np.ones(len(grid_p)),
                                      c_lat[i] * np.ones(len(grid_p)))
@@ -252,20 +252,20 @@ for i in range(num_profs0):
     go = ~np.isnan(abs_salin[:, i])
     N2_per[np.where(go)[0][0:-1], i] = gsw.Nsquared(abs_salin[go, i], conservative_t[go, i], grid_p[go], lat=ref_lat)[0]
 
-    ax.plot(abs_salin[:, i], grid_p, color='r', linewidth=0.5)
-    # ax2.plot(N2_per[:, i], grid_p, color='r', linewidth=0.5)
-    ax2.plot(sigma0[:, i], grid_p, color='r', linewidth=0.5)
-    ax2.plot(sigma2[:, i], grid_p, color='b', linewidth=0.5)
-    ax2.plot(sigma4[:, i] - 9, grid_p, color='g', linewidth=0.5)
-    # ax2.plot(sigma_theta[:, i], grid_p, color='g', linewidth=0.5)
-ax.set_title('Abs. Salin')
-# ax2.set_xlim([0, 0.0008])
-# ax2.set_title('N2')
-# ax3.set_xlim([24, 30.5])
-ax2.set_title('Reference Pressure Comp.')
-ax2.invert_yaxis()
-ax.grid()
-plot_pro(ax2)
+    # ax.plot(abs_salin[:, i], grid_p, color='r', linewidth=0.5)
+    # # ax2.plot(N2_per[:, i], grid_p, color='r', linewidth=0.5)
+    # ax2.plot(sigma0[:, i], grid_p, color='r', linewidth=0.5)
+    # ax2.plot(sigma2[:, i], grid_p, color='b', linewidth=0.5)
+    # ax2.plot(sigma4[:, i] - 9, grid_p, color='g', linewidth=0.5)
+    # # ax2.plot(sigma_theta[:, i], grid_p, color='g', linewidth=0.5)
+# ax.set_title('Abs. Salin')
+# # ax2.set_xlim([0, 0.0008])
+# # ax2.set_title('N2')
+# # ax3.set_xlim([24, 30.5])
+# ax2.set_title('Reference Pressure Comp.')
+# ax2.invert_yaxis()
+# ax.grid()
+# plot_pro(ax2)
 
 # --- exclude profiles with density perturbations at depth that seem like ctd calibration offsets
 # cal_good = np.where(np.abs(sigma0[grid == 4100, :] - 27.89) < 0.0075)[1]
@@ -309,6 +309,7 @@ sigma_theta_avg4 = np.nan * np.zeros((len(grid), 4))
 ddz_avg_sigma = np.nan * np.zeros((len(grid), 4))
 ddz_avg_sigma2 = np.nan * np.zeros((len(grid), 4))
 ddz_avg_sigma4 = np.nan * np.zeros((len(grid), 4))
+N2_0 = np.nan * np.zeros(sigma_theta_avg.shape)
 N2 = np.nan * np.zeros(sigma_theta_avg.shape)
 N = np.nan * np.zeros(sigma_theta_avg.shape)
 for i in range(4):
@@ -325,18 +326,19 @@ for i in range(4):
 
     # N2[1:] = np.squeeze(sw.bfrq(salin_avg, theta_avg, grid_p, lat=ref_lat)[0])
     go = ~np.isnan(salin_avg[:, i])
-    N2[np.where(go)[0][0:-1], i] = gsw.Nsquared(salin_avg[go, i], conservative_t_avg[go, i], grid_p[go], lat=ref_lat)[0]
-    N2[N2[:, i] < 0] = np.nan
-    N2[:, i] = nanseg_interp(grid, N2[:, i])
-    # last_good = np.where(~np.isnan(N2[:, i]))[0][-1]
-    # if last_good.size > 0:
-    #     N2[last_good + 1:, i] = N2[last_good, i]
+    N2_0[np.where(go)[0][0:-1], i] = gsw.Nsquared(salin_avg[go, i], conservative_t_avg[go, i], grid_p[go], lat=ref_lat)[0]
+    N2_0[N2_0[:, i] < 0] = np.nan
+    N2[:, i] = nanseg_interp(grid, N2_0[:, i])
+    last_good = np.where(~np.isnan(N2[:, i]))[0][-1]
+    if (last_good.size) > 0 & (last_good > 400):
+        for k in range(len(grid) - (last_good + 1)):
+            N2[last_good + 1 + k:, i] = N2[last_good + k, i] - 1 * 10**-9
     # # N[:, i] = np.sqrt(N2[:, i])
     # # N2[np.where(np.isnan(N2))[0]] = N2[np.where(np.isnan(N2))[0][0] - 1]
 
 # correct last value of N2
-for i in range(7, 0, -1):
-    N2[-i, :] = N2[-i - 1, :] - 1*10**-9
+# for i in range(7, 0, -1):
+#     N2[-i, :] = N2[-i - 1, :] - 1*10**-9
 
 # -- N2 using all profiles (not by season)
 N2_all = np.nan * np.zeros(len(grid))
@@ -493,9 +495,17 @@ eta_fit_dep_max = 3750
 
 # -- computer vertical mode shapes
 G, Gz, c, epsilon = vertical_modes(N2_all, grid, omega, mmax)
+# -- per season
+G_0, Gz_0, c_0, epsilon_0 = vertical_modes(N2[:, 0], grid, omega, mmax)
+G_1, Gz_1, c_1, epsilon_1 = vertical_modes(N2[:, 1], grid, omega, mmax)
+G_2, Gz_2, c_2, epsilon_2 = vertical_modes(N2[:, 2], grid, omega, mmax)
+G_3, Gz_3, c_3, epsilon_3 = vertical_modes(N2[:, 3], grid, omega, mmax)
+G_i = [G_0, G_1, G_2, G_3]
+Gz_i = [Gz_0, Gz_1, Gz_2, Gz_3]
+c_i = [c_0, c_1, c_2, c_3]
 
 # -- choose eta to use
-this_eta = eta_alt_3
+this_eta_used = eta_alt_3
 
 # -- cycle through seasons
 AG = []
@@ -503,10 +513,10 @@ PE_per_mass = []
 eta_m = []
 Neta_m = []
 Eta_m = []
-Eta_m = np.nan * np.ones(np.shape(this_eta))
+Eta_m = np.nan * np.ones(np.shape(this_eta_used))
 for i in range(4):
     AG_out, eta_m_out, Neta_m_out, PE_per_mass_out = eta_fit(len(bckgrds[i]), grid, nmodes,
-                                                             N2_all, G, c, this_eta[:, bckgrds[i]],
+                                                             N2[:, i], G_i[i], c_i[i], this_eta_used[:, bckgrds[i]],
                                                              eta_fit_dep_min,
                                                              eta_fit_dep_max)
     AG.append(AG_out)
@@ -523,6 +533,41 @@ AG_all_2, eta_m_all_2, Neta_m_all_2, PE_per_mass_all_2 = eta_fit(num_profs, grid
                                                                  N2_all, G, c, eta2, eta_fit_dep_min, eta_fit_dep_max)
 AG_all, eta_m_all, Neta_m_all, PE_per_mass_all = eta_fit(num_profs, grid, nmodes,
                                                          N2_all, G, c, eta4, eta_fit_dep_min, eta_fit_dep_max)
+
+# --- test season differences in modes
+cols = 'r', 'm', 'c', 'b'
+f, (ax1, ax2, ax3, ax4) = plt.subplots(1, 4, sharey=True)
+for i in range(4):
+    ax1.plot(G_i[i][:, 1], grid, color=cols[i])
+    ax2.plot(G_i[i][:, 2], grid, color=cols[i])
+    ax3.plot(G_i[i][:, 3], grid, color=cols[i])
+    ax4.plot(G_i[i][:, 4], grid, color=cols[i])
+ax1.set_title('Mode 1')
+ax1.set_ylabel('Depth')
+ax1.grid()
+ax2.set_title('Mode 2')
+ax2.grid()
+ax3.set_title('Mode 3')
+ax3.grid()
+ax4.set_title('Mode 4')
+ax4.invert_yaxis()
+plot_pro(ax4)
+f, (ax1, ax2, ax3, ax4) = plt.subplots(1, 4, sharey=True)
+for i in range(4):
+    ax1.plot(Gz_i[i][:, 1], grid, color=cols[i])
+    ax2.plot(Gz_i[i][:, 2], grid, color=cols[i])
+    ax3.plot(Gz_i[i][:, 3], grid, color=cols[i])
+    ax4.plot(Gz_i[i][:, 4], grid, color=cols[i])
+ax1.set_title('Mode 1')
+ax1.set_ylabel('Depth')
+ax1.grid()
+ax2.set_title('Mode 2')
+ax2.grid()
+ax3.set_title('Mode 3')
+ax3.grid()
+ax4.set_title('Mode 4')
+ax4.invert_yaxis()
+plot_pro(ax4)
 
 # --- find EOFs of dynamic vertical displacement (Eta mode amplitudes)
 AG_avg = AG_all.copy()
@@ -600,6 +645,31 @@ ax4.set_xlim([-1, 1])
 ax4.invert_yaxis()
 plot_pro(ax4)
 
+# --- individual eta look
+these_profiles = d_summer[0:5]
+f, ax = plt.subplots(1, 5, sharey=True)
+for i in range(5):
+    ax[i].plot(eta_alt_3[:, these_profiles[i]], grid, color='r', linewidth=0.75, label=r'$\gamma$ Avg,Dir')  # avg direct search, gamma
+    ax[i].plot(-1 * eta_alt[:, these_profiles[i]], grid, color='b', linewidth=0.75, label=r'$\gamma$ Avg,ddz')  # avg divide by ddz, gamma
+    ax[i].plot(-1 * this_eta_0[:, these_profiles[i]], grid, color='g', linewidth=0.75, label=r'$\sigma_{\theta0}$ Avg, ddz')  # avg divide by ddz, pot den, local pref
+    ax[i].set_xlim([-380, 380])
+    ax[i].set_title('Dive-Cycle = ' + str(these_profiles[i]))
+
+handles, labels = ax[0].get_legend_handles_labels()
+ax[0].legend(handles, labels, fontsize=7)
+ax[0].set_ylabel('Depth [m]')
+ax[0].set_xlabel('Vertical Disp. [m]', fontsize=10)
+ax[1].set_xlabel('Vertical Disp. [m]', fontsize=10)
+ax[2].set_xlabel('Vertical Disp. [m]', fontsize=10)
+ax[3].set_xlabel('Vertical Disp. [m]', fontsize=10)
+ax[4].set_xlabel('Vertical Disp. [m]', fontsize=10)
+ax[4].invert_yaxis()
+ax[0].grid()
+ax[1].grid()
+ax[2].grid()
+ax[3].grid()
+plot_pro(ax[4])
+
 # --- PLOT PE PER SEASON
 f_ref = np.pi * np.sin(np.deg2rad(ref_lat)) / (12 * 1800)
 dk = f_ref / c[1]
@@ -611,8 +681,8 @@ ax.plot(sc_x, np.nanmean(PE_per_mass[2][1:], axis=1) / dk, color='c', linewidth=
 ax.plot(sc_x, np.nanmean(PE_per_mass[3][1:], axis=1) / dk, color='b', linewidth=3, label='Nov-Mar')
 ax.set_yscale('log')
 ax.set_xscale('log')
-ax.axis([10 ** -2, 10 ** 1, 10 ** (-4), 2 * 10 ** 3])
-ax.axis([10 ** -2, 10 ** 1, 10 ** (-4), 10 ** 3])
+# ax.axis([10 ** -2, 10 ** 1, 10 ** (-4), 2 * 10 ** 3])
+ax.axis([10 ** -2, 3 * 10 ** 0, 10 ** (-3), 10 ** 3])
 handles, labels = ax.get_legend_handles_labels()
 ax.legend(handles, labels, fontsize=10)
 ax.set_xlabel(r'Scaled Vertical Wavenumber = (L$_{d_{n}}$)$^{-1}$ = $\frac{f}{c_n}$ [$km^{-1}$]', fontsize=12)
@@ -659,12 +729,16 @@ plot_pro(ax)
 # -- MODE AMPLITUDE IN TIME
 f, (ax, ax2, ax3, ax4) = plt.subplots(4, 1, sharex=True)
 ax.plot(c_date, AG_all[1, :], color='g')
+ax.scatter(c_date[d_winter], AG_all[1, d_winter], s=15)
 ax.set_title('Displacement Mode 1 Amp. in Time')
 ax2.plot(c_date, AG_all[2, :], color='g')
+ax2.scatter(c_date[d_winter], AG_all[2, d_winter], s=15)
 ax2.set_title('Displacement Mode 2 Amp. in Time')
 ax3.plot(c_date, AG_all[3, :], color='g')
+ax3.scatter(c_date[d_winter], AG_all[3, d_winter], s=15)
 ax3.set_title('Displacement Mode 3 Amp. in Time')
 ax4.plot(c_date, AG_all[4, :], color='g')
+ax4.scatter(c_date[d_winter], AG_all[4, d_winter], s=15)
 ax4.set_title('Displacement Mode 4 Amp. in Time')
 ax.grid()
 ax2.grid()
@@ -713,6 +787,6 @@ if sa > 0:
                'N2_per_season': N2, 'background indices': bckgrds, 'background order': ['spr', 'sum', 'fall', 'wint'],
                'AG': AG_all, 'AG_per_season': AG, 'Eta': eta, 'Eta_m': eta_m_all, 'NEta_m': Neta_m_all,
                'Eta2': eta2, 'Eta_m_2': eta_m_all_2, 'PE': PE_per_mass_all, 'PE_by_season': PE_per_mass, 'c': c}
-    output = open('/Users/jake/Desktop/bats/station_bats_pe_nov05.pkl', 'wb')
+    output = open('/Users/jake/Desktop/bats/station_bats_pe_jan30.pkl', 'wb')
     pickle.dump(my_dict, output)
     output.close()
