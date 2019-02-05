@@ -130,22 +130,30 @@ t_e = datetime.date.fromordinal(np.int(np.nanmax(d_time)))
 
 # --- switch to three seasons and split by longitude and exclude eddy
 # - earliest date is Feb2 (735648), latest is Nov 5 (735903) (~275 days)
+
+# BATS hydrography
+# Feb2 - May 15
+# May15 - Sept 15
+# Sept 15 - Nov 5
+bd1 = 735750  # june1 (june1 = 735750) (may15 = 735733)
+bd2 = 735856  # sept15
+
 # (June 1 - Sept 15)
-d_summer_w = np.where(((time_rec_bin > 735750) & (time_rec_bin < 735857)) & (np.nanmean(lon, axis=0) < -64.09))[0]
-d_summer_e = np.where(((time_rec_bin > 735750) & (time_rec_bin < 735857)) & (np.nanmean(lon, axis=0) > -64.09))[0]
+d_summer_w = np.where(((time_rec_bin > bd1) & (time_rec_bin < bd2)) & (np.nanmean(lon, axis=0) < -64.09))[0]
+d_summer_e = np.where(((time_rec_bin > bd1) & (time_rec_bin < bd2)) & (np.nanmean(lon, axis=0) > -64.09))[0]
 # (Winter 1 = Feb 2 - June 1) - (Winter 2 = Sept 15 - Nov 5)
-d_winter_w1 = np.where((time_rec_bin < 735750) & ((profile_tags < 60) | (profile_tags > 73))
+d_winter_w1 = np.where((time_rec_bin < bd1) & ((profile_tags < 60) | (profile_tags > 71))
                        & (np.nanmean(lon, axis=0) < -64.09))[0]
-d_winter_e1 = np.where((time_rec_bin < 735750) & ((profile_tags < 60) | (profile_tags > 71))
+d_winter_e1 = np.where((time_rec_bin < bd1) & ((profile_tags < 60) | (profile_tags > 71))
                        & (np.nanmean(lon, axis=0) > -64.09))[0]
-d_winter_w2 = np.where((time_rec_bin > 735857) & ((profile_tags < 60) | (profile_tags > 73))
+d_winter_w2 = np.where((time_rec_bin > bd2) & ((profile_tags < 60) | (profile_tags > 71))
                        & (np.nanmean(lon, axis=0) < -64.09))[0]
-d_winter_e2 = np.where((time_rec_bin > 735857) & ((profile_tags < 60) | (profile_tags > 71))
+d_winter_e2 = np.where((time_rec_bin > bd2) & ((profile_tags < 60) | (profile_tags > 71))
                        & (np.nanmean(lon, axis=0) > -64.09))[0]
 
 bckgrds = [d_summer_w, d_summer_e, d_winter_w1, d_winter_e1, d_winter_w2, d_winter_e2]
 bckgrds_info = ['Summer West', 'Summer East','Winter1 West', 'Winter1 East','Winter2 West', 'Winter2 East']
-bckgrds_wins = np.array([735750, 735857])  # summer boundaries
+bckgrds_wins = np.array([bd1, bd2])  # summer boundaries
 
 salin_avg = np.nan * np.zeros((len(grid), len(bckgrds)))
 cons_t_avg = np.nan * np.zeros((len(grid), len(bckgrds)))
@@ -298,16 +306,16 @@ for i in range(np.shape(avg_sig0_per_dep)[1]):  # loop over each profile
     # first sort by lon
     # [d_summer_w, d_summer_e, d_winter_w1, d_winter_e1, d_winter_w2, d_winter_e2]
     if this_lon < -64.09:
-        if (this_time > 735750) & (this_time < 735857):  # summer
+        if (this_time > bd1) & (this_time < bd2):  # summer
             t_over = 0  # summer west
-        elif this_time < 735750:
+        elif this_time < bd1:
             t_over = 2  # winter west 1
         else:
             t_over = 4  # winter west 2
     else:
-        if (this_time > 735750) & (this_time < 735857):  # summer
+        if (this_time > bd1) & (this_time < bd2):  # summer
             t_over = 1  # summer east
-        elif this_time < 735750:
+        elif this_time < bd1:
             t_over = 3  # winter east 1
         else:
             t_over = 5  # winter west 2
@@ -424,6 +432,13 @@ dg_avg_N2 = savgol_filter(dg_avg_N2_coarse, 15, 3)
 # --- VERTICAL MODES ---
 # --- compute vertical mode shapes
 G, Gz, c, epsilon = vertical_modes(dg_avg_N2, grid, omega, mmax)  # N2
+# by season
+G_0, Gz_0, c_0, epsilon_0 = vertical_modes(np.nanmean(N2[:, 0:2], axis=1), grid, omega, mmax)  # winter1
+G_1, Gz_1, c_1, epsilon_1 = vertical_modes(np.nanmean(N2[:, 2:4], axis=1), grid, omega, mmax)  # summer
+G_2, Gz_2, c_2, epsilon_2 = vertical_modes(np.nanmean(N2[:, 4:], axis=1), grid, omega, mmax)  # winter2
+Gs = [G_0, G_1, G_2]
+Gzs = [Gz_0, Gz_1, Gz_2]
+epsilons = [epsilon_0, epsilon_1, epsilon_2]
 
 # --- compute alternate vertical modes
 bc_bot = 2  # 1 = flat, 2 = rough
@@ -437,14 +452,6 @@ for i in range(mmax + 1):
     F[:, i] = np.interp(grid, grid2, F_g2[:, i])
     F_int[:, i] = np.interp(grid, grid2, F_int_g2[:, i])
 
-# seasonal variations in epsilon
-G0, Gz0, c0, epsilon0 = vertical_modes(N2[:, 0], grid, omega, mmax)  # N2
-G1, Gz1, c1, epsilon1 = vertical_modes(N2[:, 1], grid, omega, mmax)  # N2
-G2, Gz2, c2, epsilon2 = vertical_modes(N2[:, 2], grid, omega, mmax)  # N2
-G3, Gz3, c3, epsilon3 = vertical_modes(N2[:, 3], grid, omega, mmax)  # N2
-G4, Gz4, c4, epsilon4 = vertical_modes(N2[:, 4], grid, omega, mmax)  # N2
-G5, Gz5, c5, epsilon5 = vertical_modes(N2[:, 5], grid, omega, mmax)  # N2
-epsilons = [epsilon0, epsilon1, epsilon2, epsilon3, epsilon4, epsilon5]
 # ---------------------------------------------------------------------------------------------------------------------
 # ----- SOME VELOCITY PROFILES ARE TOO NOISY AND DEEMED UNTRUSTWORTHY -------------------------------------------------
 # select only velocity profiles that seem reasonable
@@ -458,7 +465,12 @@ Eta2_c = eta_alt.copy()
 Info2 = dg_v_dive_no.copy()
 prof_lon2 = dg_v_lon.copy()
 prof_lat2 = dg_v_lat.copy()
-# ---------------------------------------------------------------------------------------------------------------
+# for this selection find appropriate background structure
+d2_summer = np.where((Time2 > bd1) & (Time2 < bd2))[0]
+d2_winter1 = np.where((Time2 < bd1) & ((Info2 < 60) | (Info2 > 71)))[0]
+d2_winter2 = np.where(Time2 > bd2)[0]
+bckgrds2 = [d2_summer, d2_winter1, d2_winter2]
+# ----------------------------------------------------------------------------------------------------------------------
 # ---- PROJECT MODES ONTO EACH PROFILE -------
 # ---- Velocity and Eta (ENERGY)
 sz = np.shape(Eta2)
@@ -479,6 +491,16 @@ good_pe_prof = np.ones(num_profs)
 HKE_noise_threshold = 1 * 1e-5  # 1e-5
 PE_noise_threshold = 1e5
 for i in range(num_profs):
+    if len(np.intersect1d(d2_winter1, i)) | ((Info2[i] > 60) & (Info2[i] < 71)):
+        G = G_0
+        Gz = Gz_0
+    elif len(np.intersect1d(d2_summer, i)):
+        G = G_1
+        Gz = Gz_1
+    else:
+        G = G_2
+        Gz = Gz_2
+
     # fit to velocity profiles
     this_V = V2[:, i].copy()
     iv = np.where(~np.isnan(this_V))
@@ -537,7 +559,7 @@ dg_v_n_avg = np.nanmean(dg_v_n[:, good_ke_prof > 0], axis=1)
 dz_dg_v_e_avg = np.gradient(savgol_filter(dg_v_e_avg, 15, 7), z)
 dz_dg_v_n_avg = np.gradient(savgol_filter(dg_v_n_avg, 15, 7), z)
 
-d_sum_v = np.where(((dg_mw_time > 735750) & (dg_mw_time < 735857)))[0]
+d_sum_v = np.where(((dg_mw_time > bd1) & (dg_mw_time < bd2)))[0]
 d_win_w = np.where(((dg_mw_time < 735750) | (dg_mw_time > 735857)) & ((Info2 < 60) | (Info2 > 71)))[0]
 
 # PLOT (non-noisy) EAST/NORTH VELOCITY PROFILES
@@ -554,24 +576,28 @@ for i in range(np.shape(dg_v_e)[1]):
 dg_mw_time_good = dg_mw_time[good_ke_prof > 0]
 dg_v_e_good = dg_v_e[:, good_ke_prof > 0]
 dg_v_n_good = dg_v_n[:, good_ke_prof > 0]
-d_sum_v_2 = np.where(((dg_mw_time_good > 735750) & (dg_mw_time_good < 735857)))[0]
-d_win_v_2 = np.where(((dg_mw_time_good < 735750) | (dg_mw_time_good > 735857)))[0]
 
-ax1.plot(np.nanmean(dg_v_e[:, good_ke_prof > 0], axis=1), grid, color='k', linewidth=2, label='all') # total avg prof
+d_win1_v_2 = np.where(dg_mw_time_good < bd1)[0]
+d_sum_v_2 = np.where(((dg_mw_time_good > bd1) & (dg_mw_time_good < bd2)))[0]
+d_win2_v_2 = np.where(dg_mw_time_good > bd2)[0]
+
+ax1.plot(np.nanmean(dg_v_e[:, good_ke_prof > 0], axis=1), grid, color='k', linewidth=2, label='total') # total avg prof
+ax1.plot(np.nanmean(dg_v_e_good[:, d_win1_v_2], axis=1), grid, color='b', linewidth=2, label='Winter1')  # winter avg prof
 ax1.plot(np.nanmean(dg_v_e_good[:, d_sum_v_2], axis=1), grid, color='r', linewidth=2, label='Summer')  # summer avg prof
-ax1.plot(np.nanmean(dg_v_e_good[:, d_win_v_2], axis=1), grid, color='b', linewidth=2, label='Winter')  # winter avg prof
+ax1.plot(np.nanmean(dg_v_e_good[:, d_win2_v_2], axis=1), grid, color='g', linewidth=2, label='Winter2')  # winter avg prof
 ax1.plot(np.nanmean(dace_mw[good_ke_prof > 0]) * np.ones(10), np.linspace(0, 4200, 10),
          color='k', linewidth=1, linestyle='--', label=r'$\overline{DAC_u}$')
 handles, labels = ax1.get_legend_handles_labels()
 ax1.legend(handles, labels, fontsize=9)
 
 ax2.plot(np.nanmean(dg_v_n[:, good_ke_prof > 0], axis=1), grid, color='k', linewidth=2)
+ax2.plot(np.nanmean(dg_v_n_good[:, d_win1_v_2], axis=1), grid, color='b', linewidth=2)  # winter avg prof
 ax2.plot(np.nanmean(dg_v_n_good[:, d_sum_v_2], axis=1), grid, color='r', linewidth=2)  # summer avg prof
-ax2.plot(np.nanmean(dg_v_n_good[:, d_win_v_2], axis=1), grid, color='b', linewidth=2)  # winter avg prof
+ax2.plot(np.nanmean(dg_v_n_good[:, d_win2_v_2], axis=1), grid, color='g', linewidth=2)  # winter avg prof
 ax2.plot(np.nanmean(dacn_mw[good_ke_prof > 0]) * np.ones(10), np.linspace(0, 4200, 10),
          color='k', linewidth=1, linestyle='--')
-ax1.set_xlim([-.06, 0])
-ax2.set_xlim([-.06, 0])
+ax1.set_xlim([-.07, 0.01])
+ax2.set_xlim([-.07, 0.01])
 ax3.set_xlim([-.75, .75])
 ax1.set_xlabel('[m/s]')
 ax2.set_xlabel('[m/s]')
@@ -612,16 +638,16 @@ for i in range(lon.shape[1]):
 
     # [d_summer_w, d_summer_e, d_winter_w1, d_winter_e1, d_winter_w2, d_winter_e2]
     if this_lon < -64.09:
-        if (this_time > 735750) & (this_time < 735857):  # summer
+        if (this_time > bd1) & (this_time < bd2):  # summer
             t_over = 0  # summer west
-        elif this_time < 735750:
+        elif this_time < bd1:
             t_over = 2  # winter west 1
         else:
             t_over = 4  # winter west 2
     else:
-        if (this_time > 735750) & (this_time < 735857):  # summer
+        if (this_time > bd1) & (this_time < bd2):  # summer
             t_over = 1  # summer east
-        elif this_time < 735750:
+        elif this_time < bd1:
             t_over = 3  # winter east 1
         else:
             t_over = 5  # winter west 2
@@ -1628,7 +1654,7 @@ non_linearity_2 = np.sqrt(np.nanmean(V3**2)) / (beta_ref * ((c[1] / f_ref) ** 2)
 # -------------------------------
 # --- LOAD in Comparison DATA ---
 # --- load in Station BATs PE Comparison ---
-pkl_file = open('/Users/jake/Desktop/bats/station_bats_pe_nov05.pkl', 'rb')
+pkl_file = open('/Users/jake/Desktop/bats/station_bats_pe_jan30.pkl', 'rb')  # update jan 2019
 SB = pickle.load(pkl_file)
 pkl_file.close()
 sta_bats_pe = SB['PE_by_season']
@@ -1682,18 +1708,18 @@ for i in range(1, mmax+1):
 
 # make backgrounds now just summer winter
 # Summer = June 1 - Sept 15
-d_sum = np.where(((Time2 > 735750) & (Time2 < 735857)))[0]
+d_sum = np.where(((Time2 > bd1) & (Time2 < bd2)))[0]
 # Winter1 = (Feb 2 - June 1)
-d_win1 = np.where((Time2 < 735750) & ((Info2 < 60) | (Info2 > 71)))[0]
+d_win1 = np.where((Time2 < bd1) & ((Info2 < 60) | (Info2 > 71)))[0]
 # Winter2 = (Sept 15 - Nov 5)
-d_win2 = np.where(Time2 > 735857)[0]
+d_win2 = np.where(Time2 > bd2)[0]
 # Eddy
 d_eddy = np.where((Info2 >= 60) & (Info2 <= 71))[0]
 # combine
 bckgrds = [d_win1, d_sum, d_win2, d_eddy]
-k_h_sum = 1e3 * (f_ref / c[1:]) * np.sqrt(np.nanmean(HKE_per_mass_0[1:, bckgrds[0]], axis=1) /
+k_h_win1 = 1e3 * (f_ref / c[1:]) * np.sqrt(np.nanmean(HKE_per_mass_0[1:, bckgrds[0]], axis=1) /
                                            np.nanmean(PE_per_mass_0[1:, bckgrds[0]], axis=1))
-k_h_win1 = 1e3 * (f_ref / c[1:]) * np.sqrt(np.nanmean(HKE_per_mass_0[1:, bckgrds[1]], axis=1) /
+k_h_sum = 1e3 * (f_ref / c[1:]) * np.sqrt(np.nanmean(HKE_per_mass_0[1:, bckgrds[1]], axis=1) /
                                            np.nanmean(PE_per_mass_0[1:, bckgrds[1]], axis=1))
 k_h_win2 = 1e3 * (f_ref / c[1:]) * np.sqrt(np.nanmean(HKE_per_mass_0[1:, bckgrds[2]], axis=1) /
                                            np.nanmean(PE_per_mass_0[1:, bckgrds[2]], axis=1))
@@ -1701,7 +1727,7 @@ k_h_eddy = 1e3 * (f_ref / c[1:]) * np.sqrt(np.nanmean(HKE_per_mass_0[1:, bckgrds
                                            np.nanmean(PE_per_mass_0[1:, bckgrds[3]], axis=1))
 
 f, (ax1, ax2) = plt.subplots(1, 2, sharey=True)
-col_i = 'b', 'r', 'c', 'y'
+cols = 'b', 'r', 'g', 'y', 'm'
 # labs = 'Mar-Jun (' + str(np.shape(d_spring)[0]) + ')', 'Jun-Sept (' + str(np.shape(d_summer)[0]) + ')', \
 #        'Sept-Nov (' + str(np.shape(d_fall)[0]) + ')', 'Eddy'
 labs = 'Feb-May (' + str(np.shape(d_win1)[0]) + ' profiles)', 'Jun-Sept (' + str(np.shape(d_sum)[0]) + ' profiles)',\
@@ -1710,10 +1736,12 @@ ax1.fill_between(1000 * sta_bats_f / sta_bats_c[1:mmax + 1], sta_min / sta_bats_
                  label='APE$_{sta.}$', color='#D3D3D3')
 for i in range(4):
     inn = bckgrds[i]
-    ax1.plot(sc_x, np.nanmean(PE_per_mass_0[1:, inn], axis=1) / dk, color=col_i[i], label=labs[i], linewidth=1.5)
-    ax2.plot(sc_x, np.nanmean(HKE_per_mass_0[1:, inn], axis=1) / dk, color=col_i[i], label=labs[i], linewidth=1.5)
-    ax2.plot([10**-2, 1000 * f_ref / c[1]], np.nanmean(HKE_per_mass_0[:, inn], axis=1)[0:2] / dk, color=col_i[i], linewidth=1.5)
-    ax2.scatter(10**-2, np.nanmean(HKE_per_mass_0[:, inn], axis=1)[0] / dk, color=col_i[i], s=25, facecolors='none')
+    ax1.plot(sc_x, np.nanmean(PE_per_mass_0[1:, inn], axis=1) / dk, color=cols[i], label=labs[i], linewidth=1.5)
+    ax1.scatter(sc_x, np.nanmean(PE_per_mass_0[1:, inn], axis=1) / dk, color=cols[i], s=15)
+    ax2.plot(sc_x, np.nanmean(HKE_per_mass_0[1:, inn], axis=1) / dk, color=cols[i], label=labs[i], linewidth=1.5)
+    ax2.scatter(sc_x, np.nanmean(HKE_per_mass_0[1:, inn], axis=1) / dk, color=cols[i], s=15)
+    ax2.plot([10**-2, 1000 * f_ref / c[1]], np.nanmean(HKE_per_mass_0[:, inn], axis=1)[0:2] / dk, color=cols[i], linewidth=1.5)
+    ax2.scatter(10**-2, np.nanmean(HKE_per_mass_0[:, inn], axis=1)[0] / dk, color=cols[i], s=25, facecolors='none')
 handles, labels = ax1.get_legend_handles_labels()
 ax1.legend(handles, labels, fontsize=10)
 ax1.set_xlabel(r'Scaled Vertical Wavenumber = (L$_{d_{n}}$)$^{-1}$ = $\frac{f}{c_n}$ [$km^{-1}$]', fontsize=12)
@@ -1872,9 +1900,9 @@ if plot_eng > 0:
 
     ax2.plot([1000 * f_ref / c[1], 1000 * f_ref / c[-2]], [1000 * f_ref / c[1], 1000 * f_ref / c[-2]], linestyle='--',
              color='k', linewidth=1.5, zorder=2, label=r'$L_{d_n}^{-1}$')
-    ax2.plot(sc_x, k_h_sum, color='r', label=r'$k_h$ summer', linewidth=1.5)
     ax2.plot(sc_x, k_h_win1, color='b', label=r'$k_h$ winter1', linewidth=1.5)
-    ax2.plot(sc_x, k_h_win2, color='g', label=r'$k_h$ winter1', linewidth=1.5)
+    ax2.plot(sc_x, k_h_sum, color='r', label=r'$k_h$ summer', linewidth=1.5)
+    ax2.plot(sc_x, k_h_win2, color='g', label=r'$k_h$ winter2', linewidth=1.5)
     ax2.plot([10**-2, 10**1], 1e3 * np.array([K_beta_2, K_beta_2]), color='k', linestyle='-.')
     ax2.text(1.1, 0.025, r'k$_{Rhines}$', fontsize=12)
     ax2.axis([10 ** -2, 3 * 10 ** 0, 10 ** (-3), 10 ** 2])
@@ -1919,7 +1947,7 @@ if plot_eng > 0:
 
 # --- SAVE BATS ENERGIES DG TRANSECTS
 # write python dict to a file
-sa = 1
+sa = 0
 if sa > 0:
     my_dict = {'depth': grid, 'KE': avg_KE, 'PE': avg_PE, 'c': c, 'f': f_ref, 'N2_all': N2_all, 'N2_per': N2,
                'PE_all': PE_per_mass_0, 'PE_per_prof_all': PE_per_mass_all, 'KE_all': HKE_per_mass_0,
