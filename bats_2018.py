@@ -102,6 +102,21 @@ N2_all[N2_all < 0] = np.nan
 N2_all = nanseg_interp(grid, N2_all)
 N_all = np.sqrt(N2_all)
 N2_all = savgol_filter(N2_all, 5, 3)
+
+this_n2 = np.nan * np.ones(np.shape(sa))
+for i in range(np.shape(ct)[1]):
+    go = ~np.isnan(sa[:, i])
+    this_n2[np.where(go)[0][0:-1], i] = gsw.Nsquared(sa[go, i], ct[go, i], grid_p[go], lat=ref_lat)[0]
+
+# f, ax = plt.subplots()
+# colls = 'r', 'g', 'b', 'm'
+# inn = [0, 50, 100, 158]
+# for i in range(1, 4):
+#     ax.plot(np.nanmean(this_n2[:, inn[i - 1]:inn[i]], axis=1), grid, color=colls[i - 1])
+# ax.invert_yaxis()
+# ax.set_title(r'36N N$^2$ (Oct - Feb)')
+# ax.set_ylabel('Depth [m]')
+# plot_pro(ax)
 # -------------------------------------------------------------------------------------------------
 # -- compute M/W sections and compute velocity
 # -- USING X.TRANSECT_CROSS_SECTION_1 (THIS WILL SEPARATE TRANSECTS BY TARGET OF EACH DIVE)
@@ -111,7 +126,7 @@ sigth_levels = np.concatenate(
 # sigth_levels = np.concatenate([np.aranger(32, 36.6, 0.2), np.arange(36.6, 36.8, 0.05), np.arange(36.8, 37.4, 0.02)])
 
 # --- SAVE so that we don't have to run transects every time
-savee = 1
+savee = 0
 if savee > 0:
     ds, dist, avg_ct_per_dep_0, avg_sa_per_dep_0, avg_sig0_per_dep_0, v_g, vbt, isopycdep, isopycx, mwe_lon, mwe_lat,\
     DACe_MW, DACn_MW, profile_tags_per, shear, v_g_east, v_g_north = x.transect_cross_section_1(grid, neutral_density,
@@ -415,14 +430,15 @@ dg_v_lon_1 = dg_v_lon[mw_time_ordered_i]
 dg_v_lat_1 = dg_v_lat[mw_time_ordered_i]
 dace_mw_1 = dace_mw[mw_time_ordered_i]
 dacn_mw_1 = dacn_mw[mw_time_ordered_i]
-# f, ax = plt.subplots()
-# ax.plot(dg_v_lon_1, dg_v_lat_1, color='k', linewidth=0.5)
-# ax.scatter(dg_v_lon_1, dg_v_lat_1, color='k', s=3)
-# ax.quiver(dg_v_lon_1, dg_v_lat_1, dace_mw_1, dacn_mw_1, color='r', scale=0.8)
-# w = 1 / np.cos(np.deg2rad(ref_lat))
-# ax.set_aspect(w)
-# ax.set_title('Bermuda 2018: DAC')
-# plot_pro(ax)
+
+f, ax = plt.subplots()
+ax.plot(dg_v_lon_1, dg_v_lat_1, color='k', linewidth=0.5)
+ax.scatter(dg_v_lon_1, dg_v_lat_1, color='k', s=3)
+ax.quiver(dg_v_lon_1, dg_v_lat_1, dace_mw_1, dacn_mw_1, color='r', scale=0.8)
+w = 1 / np.cos(np.deg2rad(ref_lat))
+ax.set_aspect(w)
+ax.set_title('Bermuda 2018: DAC')
+plot_pro(ax)
 # ---------------------------------------------------------------------------------------------------------------------
 # --- ETA COMPUTED FROM INDIVIDUAL DENSITY PROFILES
 # --- compute vertical mode shapes
@@ -782,15 +798,15 @@ if plot_eta > 0:
             ax0.plot(V2[:, j], grid, color='#4682B4', linewidth=1.25)
             ax0.plot(V_m[:, j], grid, color='k', linestyle='--', linewidth=.75)
     for j in range(eta_per_prof.shape[1]):
-        ax15.plot(eta_per_prof[:, j], grid, color='#4682B4', linewidth=1.25)
-        ax15.plot(eta_m_all[:, j], grid, color='k', linestyle='--', linewidth=.75)
+        ax15.plot(-1 * eta_per_prof[:, j], grid, color='#4682B4', linewidth=1.25)
+        ax15.plot(-1 * eta_m_all[:, j], grid, color='k', linestyle='--', linewidth=.75)
     ax15.set_title(r'Isopycnal Disp. (Ind.)', fontsize=11)
     handles, labels = ax1.get_legend_handles_labels()
     ax1.legend(handles, labels, fontsize=10)
     ax1.set_xlim([-400, 400])
     ax15.set_xlim([-400, 400])
     ax0.text(190, 800, str(num_profs) + ' Profiles')
-    ax1.set_xlabel(r'Vertical Isopycnal Displacement, $\xi_{\sigma_{\theta}}$ [m]', fontsize=11)
+    ax1.set_xlabel(r'Vertical Isopycnal Displacement, $\xi_{\gamma}$ [m]', fontsize=11)
     ax1.set_title(r'Isopycnal Disp. (Avg.)', fontsize=11)  # + '(' + str(Time[0]) + '-' )
     ax0.axis([-1, 1, 0, 5000])
     ax0.set_title("Geostrophic Velocity", fontsize=11)  # (" + str(num_profs) + 'profiles)' )

@@ -11,7 +11,7 @@ import glob
 from netCDF4 import Dataset
 # functions I've written
 from grids import make_bin_gen
-from mode_decompositions import vertical_modes, eta_fit, vertical_modes_f
+from mode_decompositions import vertical_modes, eta_fit, PE_Tide_GM
 from toolkit import plot_pro, nanseg_interp, find_nearest
 
 # ------ physical parameters
@@ -711,6 +711,8 @@ for i in range(1, mmax+1):
     sta_max[2, i - 1] = np.nanstd(PE_per_mass[2][i, :])
     sta_min[2, i - 1] = np.nanstd(PE_per_mass[2][i, :])
 
+PE_SD, PE_GM, GMPE, GMKE = PE_Tide_GM(1035, grid, nmodes, np.transpose(np.atleast_2d(np.nanmean(N2, axis=1))), f_ref)
+
 # --- PLOT PE PER SEASON
 f, ax = plt.subplots()
 for i in range(slen):
@@ -721,6 +723,8 @@ for i in range(slen):
     #                 (np.nanmean(PE_per_mass[i][1:], axis=1) / dk) + (sta_max[i, :] / dk), color=cols[i], alpha=0.5)
     ax.plot(sc_x, np.nanmean(PE_per_mass[i][1:], axis=1) / dk, color=cols[i], linewidth=3, label=season_labs[i])
     ax.scatter(sc_x, np.nanmean(PE_per_mass[i][1:], axis=1) / dk, s=15, color=cols[i])
+dk = f_ref / c_i[1][1]
+ax.plot(sc_x, GMPE / dk, color='k', linewidth=0.75, linestyle='--')
 # ax.plot(sc_x, np.nanmean(PE_per_mass[1][1:], axis=1) / dk, color='m', linewidth=3, label='Jun-Sept')
 # ax.plot(sc_x, np.nanmean(PE_per_mass[2][1:], axis=1) / dk, color='c', linewidth=3, label='Sept-Nov')
 # ax.plot(sc_x, np.nanmean(PE_per_mass[3][1:], axis=1) / dk, color='b', linewidth=3, label='Nov-Mar')
