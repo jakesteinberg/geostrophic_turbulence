@@ -45,6 +45,38 @@ G_B_1, Gz_B_1, c_B_1, epsilon_B_1 = vertical_modes(sta_bats_n2_1, SB['depth'], o
 sta_bats_n2_2 = SB['N2_per_season'][:, 2]
 G_B_2, Gz_B_2, c_B_2, epsilon_B_2 = vertical_modes(sta_bats_n2_2, SB['depth'], omega, mmax)
 ratio = sta_bats_n2_2 / sta_bats_f
+
+f, (ax1, ax2) = plt.subplots(1, 2, sharey=True)
+ax1.plot(sta_bats_n2_0 * 40000000, sta_bats_depth, label=r'N$^2$ $\times$ $ \left( 4 \times 10^{7} \right) $',color='k')
+ax1.plot(G_B_0[:, 1], sta_bats_depth, label='m=1', color='#228B22', linewidth=1.5)
+ax1.plot(G_B_0[:, 2], sta_bats_depth, label='m=2', color='#1E90FF', linewidth=1.5)
+ax1.plot(G_B_0[:, 3], sta_bats_depth, label='m=3', color='#FF4500', linewidth=1.5)
+ax1.plot(G_B_0[:, 4], sta_bats_depth, label='m=4', color='#778899', linewidth=1.5)
+ax2.plot(Gz_B_0[:, 0], sta_bats_depth, color='k')
+ax2.plot(Gz_B_0[:, 1], sta_bats_depth, color='#228B22', linewidth=1.5)
+ax2.plot(Gz_B_0[:, 2], sta_bats_depth, color='#1E90FF', linewidth=1.5)
+ax2.plot(Gz_B_0[:, 3], sta_bats_depth, color='#FF4500', linewidth=1.5)
+ax1.set_xlim([-3000, 3000])
+ax1.set_ylim([0, 4800])
+ax1.set_title(r'Displacement Modes G$_{m}$(z)')
+ax1.set_ylabel('Depth [m]')
+ax1.set_xlabel('Normalized Mode Amplitude')
+handles, labels = ax1.get_legend_handles_labels()
+ax1.legend(handles, labels, fontsize=8)
+ax1.invert_yaxis()
+ax1.grid()
+ax2.set_xlim([-3, 3])
+ax2.set_title(r'Velocity Modes F$_{m}$(z)')
+ax2.set_xlabel('Normalized Mode Amplitude')
+plot_pro(ax2)
+
+test = sta_bats_n2_0 * (G_B_0[:, 1]**2) /(sta_bats_c[1]**2)
+test2 = sta_bats_n2_0 * (G_B_0[:, 2]**2) /(sta_bats_c[2]**2)
+h = np.nanmax(sta_bats_depth)
+normG = (1/h)*np.trapz(test, sta_bats_depth)
+normG_pr = (1/h)*np.trapz(Gz_B_0[:, 1]**2, sta_bats_depth)
+normG_2 = (1/h)*np.trapz(test2, sta_bats_depth)
+normG_pr_2 = (1/h)*np.trapz(Gz_B_0[:, 2]**2, sta_bats_depth)
 # --------------------------------------------------------------------------------------------------------------------
 # ABACO SHIP
 # just one year!!

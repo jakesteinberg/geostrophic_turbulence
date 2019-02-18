@@ -72,6 +72,8 @@ def vertical_modes(N2_0, Depth, omega, mmax):
         if dw_dz[0] < 0:
             norm_constant = -1 * norm_constant
         Gz[:, i] = dw_dz / norm_constant
+
+        norm_constant_G = np.sqrt(np.trapz((wmodes[:, i] * wmodes[:, i]), (-1 * z)) / (-1 * z[-1]))
         G[:, i] = wmodes[:, i] / norm_constant
 
     epsilon = np.nan * np.zeros((5, 5, 5))  # barotropic and first 5 baroclinic
