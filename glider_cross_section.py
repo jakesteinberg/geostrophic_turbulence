@@ -440,15 +440,15 @@ class Glider(object):
                     for j in range(np.size(bin_depth)):
                         # find array of indices for M / W sampling
                         if i < 2:
-                            c_i_m = np.arange(i, i + 3)
-                            # c_i_m = []  # omit partial "M" estimate
+                            # c_i_m = np.arange(i, i + 3)
+                            c_i_m = []  # omit partial "M" estimate
                             c_i_w = np.arange(i, i + 4)
                         elif (i >= 2) and (i < len(profile_tags) - 2):
                             c_i_m = np.arange(i - 1, i + 3)
                             c_i_w = np.arange(i, i + 4)
                         elif i >= len(profile_tags) - 2:
-                            c_i_m = np.arange(i - 1, len(profile_tags))
-                            # c_i_m = []  # omit partial "M" estimated
+                            # c_i_m = np.arange(i - 1, len(profile_tags))
+                            c_i_m = []  # omit partial "M" estimated
                             c_i_w = []
                         nm = np.size(c_i_m)
                         nw = np.size(c_i_w)
@@ -735,7 +735,7 @@ class Glider(object):
             for p in range(np.size(sig_good[0])):
                 ax0.plot(isopycx[sig_good[0][p], :], isopycdep[sig_good[0][p], :], color='#708090', linewidth=.75)
                 ax0.text(np.nanmax(isopycx[sig_good[0][p], :]) + 2, np.nanmean(isopycdep[sig_good[0][p], :]),
-                         str(sigth_levels[sig_good[0][p]]), fontsize=8)
+                         str(sigth_levels[sig_good[0][p]]), fontsize=7)
             ax0.clabel(vcc, inline=1, fontsize=8, fmt='%1.2f', color='k')
             ax0.axis([0, np.max(ds) + 4, 0, np.max(bin_depth) + 200])
             ax0.invert_yaxis()
@@ -748,6 +748,7 @@ class Glider(object):
             plt.colorbar(vc, label='[m/s]')
             plt.tight_layout()
             plot_pro(ax0)
+            return fig0
 
     def plot_t_s(self, ct, sa):
         sa_gr = np.arange(32, 38, 0.1)
@@ -915,15 +916,15 @@ class Glider(object):
             for j in range(np.size(bin_depth)):
                 # find array of indices for M / W sampling
                 if i < 2:
-                    c_i_m = np.arange(i, i + 3)
-                    # c_i_m = []  # omit partial "M" estimate
+                    # c_i_m = np.arange(i, i + 3)
+                    c_i_m = []  # omit partial "M" estimate
                     c_i_w = np.arange(i, i + 4)
                 elif (i >= 2) and (i < len(profile_tags) - 2):
                     c_i_m = np.arange(i - 1, i + 3)
                     c_i_w = np.arange(i, i + 4)
                 elif i >= len(profile_tags) - 2:
-                    c_i_m = np.arange(i - 1, len(profile_tags))
-                    # c_i_m = []  # omit partial "M" estimated
+                    # c_i_m = np.arange(i - 1, len(profile_tags))
+                    c_i_m = []  # omit partial "M" estimated
                     c_i_w = []
                 nm = np.size(c_i_m)
                 nw = np.size(c_i_w)
