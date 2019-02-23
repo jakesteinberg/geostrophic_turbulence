@@ -11,7 +11,7 @@ from zrfun import get_basic_info, get_z
 # - path on fjord to output
 # --- '/boildat1/parker/LiveOcean_roms/output/cas4_v2_lo6biom/f2018.11.01/'
 # --- LOAD
-file_list = glob.glob('/boildat1/parker/LiveOcean_roms/output/cas4_v2_lo6biom/f2018.11.04/ocean_his_0*.nc')
+file_list = glob.glob('/boildat1/parker/LiveOcean_roms/output/cas4_v2_lo6biom/f2018.10.26/ocean_his_0*.nc')
 # file_list = glob.glob('/boildat1/parker/LiveOcean_roms/output/cas4_v2_lo6biom/f2018.11.01/*ocean_his_007*.nc')
 for i in range(len(file_list)):
     file_name = file_list[i]
@@ -36,11 +36,13 @@ for i in range(len(file_list)):
 
     # --- CHOOSE SLICE
     # north/south
-    lon_select_i = 30
-    lat_select_i = range(160, 275)
+    # lon_select_i = 30
+    # lat_select_i = range(160, 275)
     # east/west
     # lon_select_i = range(50, 130)
-    # lat_select_i = 350
+    # lat_select_i = 350  # old = 160
+    lon_select_i = range(20, 145)
+    lat_select_i = 355
 
     # --- TIME COR
     time_cor = time / (60 * 60 * 24) + 719163  # correct to start (1970)
@@ -59,7 +61,7 @@ for i in range(len(file_list)):
     # optional for plan view plotting
     # 'lon_all': lon_rho[350:650, 65:95], 'lat_all': lat_rho[350:650, 65:95],
     # 'z_bath': z[0, 350:650, 65:95]}
-    output = open('/home/jstein/N_S_nov4_nov6_offshore/N_S_extraction_' + date_str_out + '.pkl', 'wb')
+    output = open('/home/jstein/EW_oct26_28_eddy/E_W_ext_' + date_str_out + '.pkl', 'wb')
     # output = open('/Users/jake/Documents/baroclinic_modes/Model/test_extraction_' + str(np.int(time)) + '.pkl', 'wb')
     pickle.dump(my_dict, output)
     output.close()
@@ -77,6 +79,7 @@ for i in range(len(file_list)):
 # - save this output in /jstein/ directory on fjord
 # - get pkl files
 
+# should choose horizontal slice (more geostrophic)
 # ---------------------------------------------------------------------------------------------------------------------
 # --- RUN MY DOWNLOADED FILE FOR SLICE SELECTION AND CONTEXT PLOT (toggle on when running on my computer)
 # file_name = '/Users/jake/Documents/baroclinic_modes/Model/LiveOcean_11_01_18/ocean_his_0001.nc'
@@ -101,16 +104,18 @@ for i in range(len(file_list)):
 #
 # # --- CHOOSE SLICE
 # # N/S slice
-# lon_select_i = 30
-# lat_select_i = range(160, 275)
+# # lon_select_i = 103
+# # lat_select_i = range(275, 475)
 # # nov 1 - 3 (eddy) lon = 103, lat = 275-475
 #
 # # E/W slice
-# # lon_select_i = range(50, 130)
-# # lat_select_i = 350
+# lon_select_i = range(20, 145)
+# lat_select_i = 355
 #
 # # resolution test
 # ref_lat = 45.5
+# ref_lon = -125
+# x = 1852. * 60. * np.cos(np.deg2rad(ref_lat)) * (lon_rho[lat_select_i, lon_select_i] - ref_lon)
 # y = 1852. * 60. * (lat_rho[lat_select_i, lon_select_i] - ref_lat)
 #
 # # --- PLOT
@@ -118,7 +123,7 @@ for i in range(len(file_list)):
 # from toolkit import plot_pro
 # f, ax = plt.subplots()
 # ax.contour(lon_rho, lat_rho, z[0, :, :], levels=[-25, -20, -15, -10, -5], colors='k')
-# bc = ax.contour(lon_rho, lat_rho, z[0, :, :], levels=[-2900, -2800, -2700, -2600, -2500, -2000, -1000], colors='b')
+# bc = ax.contour(lon_rho, lat_rho, z[0, :, :], levels=[-3000, -2900, -2800, -2700, -2600, -2500, -2000, -1000], colors='b')
 # ax.clabel(bc, inline_spacing=-3, fmt='%.4g', colors='b')
 # ax.plot(lon_rho[lat_select_i, lon_select_i], lat_rho[lat_select_i, lon_select_i], color='r')
 # ax.axis([-128, -122, 42, 48])

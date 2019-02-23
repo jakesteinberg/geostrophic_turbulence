@@ -8,11 +8,12 @@ from scipy.integrate import cumtrapz
 from mode_decompositions import eta_fit, vertical_modes, PE_Tide_GM, vertical_modes_f
 # -- plotting
 import matplotlib.pyplot as plt
-from toolkit import plot_pro
+from toolkit import plot_pro, nanseg_interp
 
 # -- LOAD extracter and PROCESSED MODEL TIME STEPS WITH COMPUTED GAMMA
 # this file has combined all model output and computed gamma (using model_testing_of_glider_profiling_2.py)
-pkl_file = open('/Users/jake/Documents/baroclinic_modes/Model/extracted_gridded_gamma.pkl', 'rb')
+pkl_file = open('/Users/jake/Documents/baroclinic_modes/Model/e_w_extraction_eddy_oct29_oct31/'
+                'gamma_output/extracted_gridded_gamma.pkl', 'rb')
 MOD = pickle.load(pkl_file)
 pkl_file.close()
 sig0_out_s = MOD['gamma'][:]
@@ -21,6 +22,9 @@ u_out_s = MOD['u'][:]
 time_out_s = MOD['time'][:]
 time_ord_s = MOD['time_ord'][:]
 date_out_s = MOD['date'][:]
+z_grid = MOD['z'][:]
+xy_grid = MOD['dist_grid'][:]
+ref_lat = 44
 
 sigth_levels = np.array([25, 26, 26.2, 26.4, 26.6, 26.8, 27, 27.2, 27.4, 27.6, 27.7, 27.8, 27.9])
 g = 9.81
@@ -33,47 +37,112 @@ rho0 = 1025.0
 # assume glider measurements are made every 10, 15, 30, 45, 120 second intervals
 # time between each model time step is 1hr.
 
-dg_vertical_speed = .11  # m/s
+dg_vertical_speed = .5  # m/s
 dg_glide_slope = 3
-num_dives = 5
+num_dives = 6
 
-y_dg_s = 20000
-z_dg_s = 0
-dg_z = np.flipud(z_grid.copy())
+# need to specify D_TGT or have glider 'fly' until it hits bottom
+data_loc = np.nanmean(sig0_out_s, axis=2)  # (depth X xy_grid)
+
+y_dg_s = 50000  # horizontal position, start of glider dives
+z_dg_s = 0     # depth, start of glider dives
+
+# glider dives are simulated by considered the depth grid as fixed and march down and up while stepping horizontally
+# following the desired glide slope and vertical velocity
+
+# --- DG Z
+dg_z = np.flipud(z_grid.copy())  # vertical grid points
 dg_z_g = np.tile(np.concatenate((np.flipud(z_grid.copy())[:, None], np.flipud(z_grid.copy())[:, None]), axis=1),
-                 (1, num_dives))
+                 (1, num_dives))  # grid of vertical grid points across all dives
+# --- DG X,Y
 dg_y = np.nan * np.ones((len(dg_z), num_dives*2))
 dg_y[0, 0] = y_dg_s
-for i in range(1, len(dg_z)):
-    dg_y[i, 0] =  dg_glide_slope * (dg_z[i - 1] - dg_z[i]) + dg_y[i - 1, 0]
-dg_y[-1, 1] = dg_y[-1, 0]
-for i in range(len(dg_z) - 2, 0, -1):
-    dg_y[i, 1] = dg_glide_slope * (dg_z[i] - dg_z[i + 1]) + dg_y[i + 1, 1]
+
+# fix projected depth of dive
+
+# first dive
+xyg_start = np.where(xy_grid > y_dg_s)[0][0]  # hor start loc
+xyg_proj_end = np.where(xy_grid > (y_dg_s + np.abs(2500)*3*2))[0][0]  # projected hor position at dive end  HERE!
+data_depth_max = z_grid[np.where(np.isnan(np.mean(data_loc[:, xyg_start:xyg_proj_end+1], 1)))[0][-1]] \
+                 + np.abs(z_grid[-2] - z_grid[-1])  # depth of water (depth glider will dive to) estimate
+dg_z_ind = np.where(dg_z >= data_depth_max)[0]
+for i in range(1, len(dg_z_ind)):
+    dg_y[i, 0] = dg_glide_slope * (dg_z[i - 1] - dg_z[i]) + dg_y[i - 1, 0]
+# first climb
+dg_y[dg_z_ind[-1], 1] = dg_y[dg_z_ind[-1], 0]
+for i in range(len(dg_z_ind) - 2, 0, -1):
+    dg_y[dg_z_ind[i], 1] = dg_glide_slope * (dg_z[dg_z_ind[i]] - dg_z[dg_z_ind[i + 1]]) + dg_y[i + 1, 1]
 dg_y[0, 1] = dg_glide_slope * (dg_z[0] - dg_z[1]) + dg_y[1, 1]
 
-for i in range(2, num_dives*2, 2):
-    dg_y[:, i] = (dg_y[:, 0] - dg_y[0, 0]) + dg_y[0, i - 1] + 10
-    dg_y[:, i + 1] = (dg_y[:, 1] - dg_y[-1, 1]) + dg_y[-1, i]
 
-# DG time
+# all subsequent dive-climb cycles
+for i in range(2, num_dives*2, 2):
+    # hor start loc of dive i
+    xyg_start = np.where(xy_grid > (dg_y[0, i - 1] + 10))[0][0]
+    # projected hor position at dive end
+    xyg_proj_end = np.where(xy_grid > ((dg_y[0, i - 1] + 10) + np.abs(2500) * 3 * 2))[0][0]
+    data_depth_max = z_grid[np.where(np.isnan(np.mean(data_loc[:, xyg_start:xyg_proj_end + 1], 1)))[0][-1]] \
+                     + np.abs(z_grid[-2] - z_grid[-1])  # depth of water (depth glider will dive to) estimate
+    dg_z_ind = np.where(dg_z >= data_depth_max)[0]
+    # dive
+    dg_y[0, i] = (dg_y[0, i - 1] + 10)
+    for j in range(1, len(dg_z_ind)):
+        dg_y[j, i] = dg_glide_slope * (dg_z[j - 1] - dg_z[j]) + dg_y[j - 1, i]
+    # climb
+    dg_y[dg_z_ind[-1], i + 1] = dg_y[dg_z_ind[-1], i]
+    for j in range(len(dg_z_ind) - 2, 0, -1):
+        dg_y[dg_z_ind[j], i + 1] = dg_glide_slope * (dg_z[dg_z_ind[j]] - dg_z[dg_z_ind[j + 1]]) + dg_y[j + 1, i + 1]
+    dg_y[0, i + 1] = dg_glide_slope * (dg_z[0] - dg_z[1]) + dg_y[1, i + 1]
+
+
+    # dg_y[:, i] = (dg_y[:, 0] - dg_y[0, 0]) + dg_y[0, i - 1] + 10
+    # dg_y[:, i + 1] = (dg_y[:, 1] - dg_y[-1, 1]) + dg_y[-1, i]
+
+# for i in range(1, len(dg_z)):
+#     dg_y[i, 0] = dg_glide_slope * (dg_z[i - 1] - dg_z[i]) + dg_y[i - 1, 0]
+# # first climb
+# dg_y[-1, 1] = dg_y[-1, 0]
+# for i in range(len(dg_z) - 2, 0, -1):
+#     dg_y[i, 1] = dg_glide_slope * (dg_z[i] - dg_z[i + 1]) + dg_y[i + 1, 1]
+# dg_y[0, 1] = dg_glide_slope * (dg_z[0] - dg_z[1]) + dg_y[1, 1]
+# # all subsequent dive-climb cycles
+# for i in range(2, num_dives*2, 2):
+#     dg_y[:, i] = (dg_y[:, 0] - dg_y[0, 0]) + dg_y[0, i - 1] + 10
+#     dg_y[:, i + 1] = (dg_y[:, 1] - dg_y[-1, 1]) + dg_y[-1, i]
+
+# test figue
+# f, ax = plt.subplots()
+# u_levels = np.array([-.4, -.35, -.3, -.25, - .2, -.15, -.125, -.1, -.075, -.05, -0.025, 0,
+#                      0.025, 0.05, 0.075, 0.1, 0.125, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4])
+# ax.contourf(np.tile(xy_grid / 1000, (len(z_grid), 1)), np.tile(z_grid[:, None], (1, len(xy_grid))),
+#             np.nanmean(u_out_s, axis=2), levels=u_levels)
+# rhoc = ax.contour(np.tile(xy_grid/1000, (len(z_grid), 1)), np.tile(z_grid[:, None], (1, len(xy_grid))),
+#                   np.nanmean(sig0_out_s, axis=2), levels=sigth_levels, colors='#A9A9A9', linewidth=0.35)
+# ax.scatter(dg_y/1000, dg_z_g, 4, color='k')
+# plot_pro(ax)
+
+# --- DG time
 dg_t = np.nan * np.ones(dg_y.shape)
 dg_t[0, 0] = np.nanmin(time_ord_s)
 for j in range(np.shape(dg_y)[1]):
     # climb portion
     if np.mod(j, 2):
         # loop over z's as the glider climbs
-        dg_t[-1, j] = dg_t[-1, j - 1] + 10 * (1/(60*60*24))
-        for i in range(len(z_grid) - 2, 0, -1):
-            dg_t[i, j] = dg_t[i + 1, j] + (np.abs(dg_z_g[i, j] - dg_z_g[i - 1, j]) / dg_vertical_speed) / (60 * 60 * 24)
-        dg_t[0, j] = dg_t[1, j] + (np.abs(dg_z_g[0, j] - dg_z_g[1, j]) / dg_vertical_speed) / (60 * 60 * 24)
+        max_ind = np.where(np.isnan(dg_y[:, j]))[0][0]
+        dg_t[max_ind - 1, j] = dg_t[max_ind - 1, j - 1] + 50. * (1/(60.*60.*24.)) # first value in climb
+        this_dg_z = dg_z[0:max_ind]
+        for i in range(len(dg_z[0:max_ind]) - 2, 0, -1):
+            dg_t[i, j] = dg_t[i + 1, j] + (np.abs(this_dg_z[i] - this_dg_z[i - 1]) / dg_vertical_speed) / (60 * 60 * 24)
+        dg_t[0, j] = dg_t[1, j] + (np.abs(this_dg_z[0] - this_dg_z[1]) / dg_vertical_speed) / (60 * 60 * 24)
     # dive portion
     else:
         if j < 1:
             dg_t[0, j] = dg_t[0, 0]
         else:
-            dg_t[0, j] = dg_t[0, j - 1]
+            dg_t[0, j] = dg_t[0, j - 1] + 50. * (1/(60.*60.*24.))
         # loop over z's as the glider dives
-        for i in range(1, len(z_grid)):
+        max_ind = np.where(np.isnan(dg_y[:, j]))[0][0]
+        for i in range(1, len(dg_z[0:max_ind])):
             dg_t[i, j] = dg_t[i - 1, j] + (np.abs(dg_z_g[i, j] - dg_z_g[i - 1, j]) / dg_vertical_speed) / (60 * 60 * 24)
 
 # f, ax = plt.subplots()
@@ -82,28 +151,36 @@ for j in range(np.shape(dg_y)[1]):
 # plot_pro(ax)
 
 # --- Interpolation of Model to each glider measurements
+data_interp = np.flipud(sig0_out_s)
 dg_sig0 = np.nan * np.ones(np.shape(dg_t))
-for i in range(np.shape(dg_y)[1]):
-    for j in range(np.shape(dg_y)[0]):
+for i in range(np.shape(dg_y)[1]):  # xy_grid
+    max_ind = np.where(np.isnan(dg_y[:, i]))[0][0]
+    this_dg_z = dg_z[0:max_ind]
+    for j in range(len(this_dg_z)):  # depth
         if (i < 1) & (j < 1):
-            dg_sig0[j, i] = np.interp(dg_y[j, i], y_grid, sig0_out_s[j, :, 0])
+            dg_sig0[j, i] = np.interp(dg_y[j, i], xy_grid, data_interp[j, :, 0])
         else:
             this_t = dg_t[j, i]
             # find time bounding model runs
             nearest_model_t_over = np.where(time_ord_s > this_t)[0][0]
             # print(this_t - time_ord_s[nearest_model_t_over])
             # interpolate to hor position of glider dive for time before and after
-            sig_t_before = np.interp(dg_y[j, i], y_grid, sig0_out_s[j, :, nearest_model_t_over - 1])
-            sig_t_after = np.interp(dg_y[j, i], y_grid, sig0_out_s[j, :, nearest_model_t_over])
+            sig_t_before = np.interp(dg_y[j, i], xy_grid, data_interp[j, :, nearest_model_t_over - 1])
+            sig_t_after = np.interp(dg_y[j, i], xy_grid, data_interp[j, :, nearest_model_t_over])
             # interpolate across time
             dg_sig0[j, i] = np.interp(this_t, [time_ord_s[nearest_model_t_over - 1], time_ord_s[nearest_model_t_over]],
                                    [sig_t_before, sig_t_after])
 
 print('Simulated Glider Flight')
 
+# ---------------------------------------------------------------------------------------------------------------------
+ff = np.pi * np.sin(np.deg2rad(ref_lat)) / (12 * 1800)  # Coriolis parameter [s^-1]
+num_profs = np.shape(dg_sig0)[1]
+order_set = np.arange(0, np.shape(dg_sig0)[1], 2)
+
 # --- Estimate of DAC
 dg_dac = np.nan * np.ones(np.shape(dg_sig0)[1] - 1)
-for i in range(np.shape(dg_y)[1] - 1):
+for i in range(0, num_profs-1, 2):
     min_t = np.nanmin(dg_t[:, i:i + 2])
     max_t = np.nanmax(dg_t[:, i:i + 2])
     # mto = np.where((time_ord_s >= min_t) & (time_ord_s <= max_t))[0]
@@ -112,15 +189,13 @@ for i in range(np.shape(dg_y)[1] - 1):
 
     this_ys = np.nanmin(dg_y[:, i:i + 2])
     this_ye = np.nanmax(dg_y[:, i:i + 2])
-    this_ygs = np.where(y_grid <= this_ys)[0][-1]
-    this_yge = np.where(y_grid >= this_ye)[0][0]
-    dg_dac[i] = -1 * np.nanmean(np.nanmean(u_out_s[:, this_ygs:this_yge, mtun:mtov], axis=2))
+    this_ygs = np.where(xy_grid <= this_ys)[0][-1]
+    this_yge = np.where(xy_grid >= this_ye)[0][0]
+    dg_dac[i] = np.nanmean(np.nanmean(np.nanmean(u_out_s[:, this_ygs:this_yge, mtun:mtov], axis=2), axis=0))
+    # this seems wrong (want a dac from each dive-climb cycle), then can double it for each profile?
 
 # ---------------------------------------------------------------------------------------------------------------------
 # --- M/W estimation
-ff = np.pi * np.sin(np.deg2rad(ref_lat)) / (12 * 1800)  # Coriolis parameter [s^-1]
-num_profs = np.shape(dg_sig0)[1]
-order_set = np.arange(0, np.shape(dg_sig0)[1], 2)
 
 mw_y = np.nan * np.zeros(num_profs - 1)
 sigma_theta_out = np.nan * np.zeros((np.size(z_grid), num_profs - 1))
@@ -191,7 +266,8 @@ for i in order_set:
     sigma_theta_out[:, i] = sigma_theta_pa_M
     shear[:, i] = shearM
     avg_sig_pd[:, i] = p_avg_sig_M
-    mw_y[i] = dg_y[-1, i]
+    iq = np.where(~np.isnan(shearM))[0]
+    mw_y[i] = dg_y[iq[-1], i]
 
     if i < num_profs - 2:
         sigma_theta_out[:, i + 1] = sigma_theta_pa_W
@@ -203,24 +279,26 @@ for i in order_set:
     sigthmin = np.nanmin(np.array(dg_sig0[:, i]))
     sigthmax = np.nanmax(np.array(dg_sig0[:, i]))
     isigth = (sigth_levels > sigthmin) & (sigth_levels < sigthmax)
-    isopycdep[isigth, i] = np.interp(sigth_levels[isigth], np.flipud(dg_sig0[:, i]), np.flipud(z_grid))
-    isopycx[isigth, i] = np.interp(sigth_levels[isigth], np.flipud(dg_sig0[:, i]), dg_y[:, i])
+    isopycdep[isigth, i] = np.interp(sigth_levels[isigth], dg_sig0[:, i], np.flipud(z_grid))
+    isopycx[isigth, i] = np.interp(sigth_levels[isigth], dg_sig0[:, i], dg_y[:, i])
 
     sigthmin = np.nanmin(np.array(dg_sig0[:, i + 1]))
     sigthmax = np.nanmax(np.array(dg_sig0[:, i + 1]))
     isigth = (sigth_levels > sigthmin) & (sigth_levels < sigthmax)
-    isopycdep[isigth, i + 1] = np.interp(sigth_levels[isigth], np.flipud(dg_sig0[:, i + 1]), np.flipud(z_grid))
-    isopycx[isigth, i + 1] = np.interp(sigth_levels[isigth], np.flipud(dg_sig0[:, i + 1]), dg_y[:, i + 1])
+    isopycdep[isigth, i + 1] = np.interp(sigth_levels[isigth], dg_sig0[:, i + 1], np.flipud(z_grid))
+    isopycx[isigth, i + 1] = np.interp(sigth_levels[isigth], dg_sig0[:, i + 1], dg_y[:, i + 1])
 
+# interpolate dac to be centered on m/w locations
+dg_dac = nanseg_interp(mw_y, dg_dac)
 # FOR EACH TRANSECT COMPUTE GEOSTROPHIC VELOCITY
 vbc_g = np.nan * np.zeros(np.shape(shear))
 v_g = np.nan * np.zeros((np.size(z_grid), num_profs))
 for m in range(num_profs - 1):
     iq = np.where(~np.isnan(shear[:, m]))
     if np.size(iq) > 10:
-        z2 = z_grid[iq]
+        z2 = dg_z[iq]
         vrel = cumtrapz(shear[iq, m], x=z2, initial=0)
-        vrel_av = np.trapz(vrel / (z2[-1] - z2[0]), x=z2)
+        vrel_av = np.trapz(vrel / (z2[-1] - 0), x=z2)
         vbc = vrel - vrel_av
         vbc_g[iq, m] = vbc
         v_g[iq, m] = dg_dac[m] + vbc
@@ -228,7 +306,7 @@ for m in range(num_profs - 1):
         vbc_g[iq, m] = np.nan
         v_g[iq, m] = np.nan
 
-v_g = v_g[:, 0:-1]
+v_g = -1 * v_g[:, 0:-1]
 print('Completed M/W Vel Estimation')
 # ---------------------------------------------------------------------------------------------------------------------
 # --------------------------------------------------------------------------------------------------------------------
@@ -237,7 +315,7 @@ print('Completed M/W Vel Estimation')
 # ax.contourf(dg_y, np.flipud(np.tile(z_grid[:, None], (1, np.shape(dg_y)[1]))), np.flipud(dg_sig0),levels=sigth_levels)
 # plot_pro(ax)
 
-h_max = 150  # horizontal domain limit
+h_max = 145  # horizontal domain limit
 u_levels = np.array([-.4, -.35, -.3, -.25, - .2, -.15, -.125, -.1, -.075, -.05, -0.025, 0,
                      0.025, 0.05, 0.075, 0.1, 0.125, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4])
 u_mod_at_mw_y = np.nan * np.ones(np.shape(v_g))
@@ -248,32 +326,32 @@ for i in range(len(mw_y)):
     mw_time[i] = np.nanmean(time_ord_s[nearest_t:nearest_t + 2])
     avg_u_at = np.nanmean(u_out_s[:, :, nearest_t:nearest_t + 2], axis=2)
     for j in range(len(z_grid)):
-        u_mod_at_mw_y[j, i] = np.interp(mw_y[i], y_grid, avg_u_at[j, :])
+        u_mod_at_mw_y[j, i] = np.interp(mw_y[i], xy_grid, avg_u_at[j, :])
 
 plot0 = 1
 if plot0 > 0:
     f, (ax1, ax2, ax3) = plt.subplots(1, 3, sharey=True)
-    ax1.contourf(np.tile(y_grid/1000, (len(z_grid), 1)), np.tile(z_grid[:, None], (1, len(y_grid))),
+    ax1.contourf(np.tile(xy_grid/1000, (len(z_grid), 1)), np.tile(z_grid[:, None], (1, len(xy_grid))),
                  np.nanmean(u_out_s, axis=2), levels=u_levels)
-    uvc = ax1.contour(np.tile(y_grid/1000, (len(z_grid), 1)), np.tile(z_grid[:, None], (1, len(y_grid))),
+    uvc = ax1.contour(np.tile(xy_grid/1000, (len(z_grid), 1)), np.tile(z_grid[:, None], (1, len(xy_grid))),
                       np.nanmean(u_out_s, axis=2), levels=u_levels, colors='k', linewidth=0.75)
     ax1.clabel(uvc, inline_spacing=-3, fmt='%.4g', colors='k')
-    rhoc = ax1.contour(np.tile(y_grid/1000, (len(z_grid), 1)), np.tile(z_grid[:, None], (1, len(y_grid))),
+    rhoc = ax1.contour(np.tile(xy_grid/1000, (len(z_grid), 1)), np.tile(z_grid[:, None], (1, len(xy_grid))),
                        np.nanmean(sig0_out_s, axis=2), levels=sigth_levels, colors='#A9A9A9', linewidth=0.35)
     ax1.scatter(dg_y/1000, dg_z_g, 4, color='k')
     for r in range(np.shape(isopycdep)[0]):
         ax1.plot(isopycx[r, :]/1000, isopycdep[r, :], color='r', linewidth=0.45)
     ax1.set_title(str(datetime.date.fromordinal(np.int(time_ord_s[0]))) +
                   ' -- ' + str(datetime.date.fromordinal(np.int(time_ord_s[-2]))) + ', 72hr. Avg.')
-    ax1.set_ylim([-2650, 0])
+    ax1.set_ylim([-3000, 0])
     ax1.set_xlim([0, h_max])
     ax1.set_xlabel('Km')
     ax1.set_ylabel('Z [m]')
     ax1.grid()
 
-    ax2.contourf(np.tile(mw_y/1000, (len(z_grid), 1)), np.tile(z_grid[:, None], (1, len(mw_y))),
+    ax2.contourf(np.tile(mw_y/1000, (len(z_grid), 1)), np.tile(dg_z[:, None], (1, len(mw_y))),
                  -1 * v_g, levels=u_levels)
-    uvc = ax2.contour(np.tile(mw_y/1000, (len(z_grid), 1)), np.tile(z_grid[:, None], (1, len(mw_y))), -1 * v_g,
+    uvc = ax2.contour(np.tile(mw_y/1000, (len(z_grid), 1)), np.tile(dg_z[:, None], (1, len(mw_y))), -1 * v_g,
                       levels=u_levels, colors='k', linewidth=0.75)
     ax2.clabel(uvc, inline_spacing=-3, fmt='%.4g', colors='k')
     ax2.scatter(dg_y/1000, dg_z_g, 4, color='k')
@@ -284,10 +362,10 @@ if plot0 > 0:
     ax2.set_xlabel('Km')
     ax2.grid()
 
-    ax3.pcolor(np.tile(mw_y/1000, (len(z_grid), 1)), np.tile(z_grid[:, None], (1, len(mw_y))),
-               u_mod_at_mw_y - (-1 * v_g), vmin=np.nanmin(u_levels), vmax=np.nanmax(u_levels))
-    uvc = ax3.contour(np.tile(mw_y/1000, (len(z_grid), 1)), np.tile(z_grid[:, None], (1, len(mw_y))),
-                      u_mod_at_mw_y - (-1 * v_g), levels=u_levels, colors='k', linewidth=0.75)
+    ax3.pcolor(np.tile(mw_y/1000, (len(z_grid), 1)), np.tile(dg_z[:, None], (1, len(mw_y))),
+               np.flipud(u_mod_at_mw_y) - (-1 * v_g), vmin=np.nanmin(u_levels), vmax=np.nanmax(u_levels))
+    uvc = ax3.contour(np.tile(mw_y/1000, (len(z_grid), 1)), np.tile(dg_z[:, None], (1, len(mw_y))),
+                      np.flipud(u_mod_at_mw_y) - (-1 * v_g), levels=u_levels, colors='k', linewidth=0.75)
     ax3.clabel(uvc, inline_spacing=-3, fmt='%.4g', colors='k')
     ax3.set_title('Velocity Difference')
     ax3.set_xlabel('Km')
@@ -296,58 +374,58 @@ if plot0 > 0:
 
 plot1 = 1
 if plot1 > 0:
-    u_anom = u_mod_at_mw_y - (-1 * v_g)
+    u_anom = np.flipud(u_mod_at_mw_y) - (-1 * v_g)
     f, ax = plt.subplots()
     ua_mean = np.nan * np.ones(len(z_grid))
     ua_std = np.nan * np.ones(len(z_grid))
     for i in range(0, len(z_grid), 2):
         ua_mean[i] = np.nanmean(u_anom[i, :])
         ua_std[i] = np.nanstd(u_anom[i, :])
-    ax.errorbar(ua_mean, z_grid, xerr=ua_std)
-    ax.plot(np.nanmean(u_anom, axis=1), z_grid, color='k', linewidth=1.5)
-    ax.set_ylim([-2650, 0])
+    ax.errorbar(ua_mean, dg_z, xerr=ua_std)
+    ax.plot(np.nanmean(u_anom, axis=1), dg_z, color='k', linewidth=1.5)
+    ax.set_ylim([-3000, 0])
     ax.set_xlim([-0.15, 0.15])
     ax.set_title('Model V. - DG V.')
     ax.set_xlabel('Velocity Error [m/s]')
     ax.set_ylabel('Z [m]')
     plot_pro(ax)
 
-plot2 = 0
+plot2 = 1
 if plot2 > 0:
     ti1 = 23
     ti2 = 46
     ti3 = 69
     f, (ax1, ax2, ax3, ax4) = plt.subplots(1, 4, sharey=True)
-    ax1.pcolor(np.tile(y_grid/1000, (len(z_grid), 1)), np.tile(z_grid[:, None], (1, len(y_grid))),
+    ax1.pcolor(np.tile(xy_grid/1000, (len(z_grid), 1)), np.tile(z_grid[:, None], (1, len(xy_grid))),
                u_out_s[:, :, ti1], vmin=np.nanmin(u_levels), vmax=np.nanmax(u_levels))
-    uvc = ax1.contour(np.tile(y_grid/1000, (len(z_grid), 1)), np.tile(z_grid[:, None], (1, len(y_grid))),
+    uvc = ax1.contour(np.tile(xy_grid/1000, (len(z_grid), 1)), np.tile(z_grid[:, None], (1, len(xy_grid))),
                        u_out_s[:, :, ti1], levels=u_levels, colors='k', linewidth=0.75)
-    rhoc = ax1.contour(np.tile(y_grid/1000, (len(z_grid), 1)), np.tile(z_grid[:, None], (1, len(y_grid))),
+    rhoc = ax1.contour(np.tile(xy_grid/1000, (len(z_grid), 1)), np.tile(z_grid[:, None], (1, len(xy_grid))),
                        sig0_out_s[: ,:, ti1], levels=sigth_levels, colors='#A9A9A9', linewidth=0.5)
 
-    ax2.pcolor(np.tile(y_grid/1000, (len(z_grid), 1)), np.tile(z_grid[:, None], (1, len(y_grid))),
+    ax2.pcolor(np.tile(xy_grid/1000, (len(z_grid), 1)), np.tile(z_grid[:, None], (1, len(xy_grid))),
                u_out_s[:, :, ti2], vmin=np.nanmin(u_levels), vmax=np.nanmax(u_levels))
-    uvc = ax2.contour(np.tile(y_grid/1000, (len(z_grid), 1)), np.tile(z_grid[:, None], (1, len(y_grid))),
+    uvc = ax2.contour(np.tile(xy_grid/1000, (len(z_grid), 1)), np.tile(z_grid[:, None], (1, len(xy_grid))),
                        u_out_s[:, :, ti2], levels=u_levels, colors='k', linewidth=0.75)
-    rhoc = ax2.contour(np.tile(y_grid/1000, (len(z_grid), 1)), np.tile(z_grid[:, None], (1, len(y_grid))),
+    rhoc = ax2.contour(np.tile(xy_grid/1000, (len(z_grid), 1)), np.tile(z_grid[:, None], (1, len(xy_grid))),
                        sig0_out_s[: ,:, ti2], levels=sigth_levels, colors='#A9A9A9', linewidth=0.5)
 
-    ax3.pcolor(np.tile(y_grid/1000, (len(z_grid), 1)), np.tile(z_grid[:, None], (1, len(y_grid))),
+    ax3.pcolor(np.tile(xy_grid/1000, (len(z_grid), 1)), np.tile(z_grid[:, None], (1, len(xy_grid))),
                u_out_s[:, :, ti3], vmin=np.nanmin(u_levels), vmax=np.nanmax(u_levels))
-    uvc = ax3.contour(np.tile(y_grid/1000, (len(z_grid), 1)), np.tile(z_grid[:, None], (1, len(y_grid))),
+    uvc = ax3.contour(np.tile(xy_grid/1000, (len(z_grid), 1)), np.tile(z_grid[:, None], (1, len(xy_grid))),
                        u_out_s[:, :, ti3], levels=u_levels, colors='k', linewidth=0.75)
-    rhoc = ax3.contour(np.tile(y_grid/1000, (len(z_grid), 1)), np.tile(z_grid[:, None], (1, len(y_grid))),
+    rhoc = ax3.contour(np.tile(xy_grid/1000, (len(z_grid), 1)), np.tile(z_grid[:, None], (1, len(xy_grid))),
                        sig0_out_s[: ,:, ti3], levels=sigth_levels, colors='#A9A9A9', linewidth=0.5)
 
-    ax4.pcolor(np.tile(y_grid/1000, (len(z_grid), 1)), np.tile(z_grid[:, None], (1, len(y_grid))),
+    ax4.pcolor(np.tile(xy_grid/1000, (len(z_grid), 1)), np.tile(z_grid[:, None], (1, len(xy_grid))),
                np.nanmean(u_out_s, 2), vmin=np.nanmin(u_levels), vmax=np.nanmax(u_levels))
-    uvc = ax4.contour(np.tile(y_grid/1000, (len(z_grid), 1)), np.tile(z_grid[:, None], (1, len(y_grid))),
+    uvc = ax4.contour(np.tile(xy_grid/1000, (len(z_grid), 1)), np.tile(z_grid[:, None], (1, len(xy_grid))),
                        np.nanmean(u_out_s, axis=2), levels=u_levels, colors='k', linewidth=0.75)
-    rhoc = ax4.contour(np.tile(y_grid/1000, (len(z_grid), 1)), np.tile(z_grid[:, None], (1, len(y_grid))),
+    rhoc = ax4.contour(np.tile(xy_grid/1000, (len(z_grid), 1)), np.tile(z_grid[:, None], (1, len(xy_grid))),
                        np.nanmean(sig0_out_s, axis=2), levels=sigth_levels, colors='#A9A9A9', linewidth=0.5)
 
     ax1.set_xlim([0, h_max])
-    ax1.set_ylim([-2650, 0])
+    ax1.set_ylim([-3000, 0])
     ax1.set_title(str(datetime.date.fromordinal(np.int(time_ord_s[ti1]))) + ', ' +
                   str(np.int(date_out_s[ti1, 1])) + 'hrs.')
     ax1.set_ylabel('Z [m]')
@@ -472,282 +550,282 @@ if plot2 > 0:
 # output = open('/Users/jake/Documents/baroclinic_modes/Model/extracted_gridded_bck_gamma.pkl', 'wb')
 # pickle.dump(my_dict, output)
 # output.close()
-
-pkl_file = open('/Users/jake/Documents/baroclinic_modes/Model/extracted_gridded_bck_gamma.pkl', 'rb')
-BG = pickle.load(pkl_file)
-pkl_file.close()
-gamma_bck = BG['gamma'][:]
-sig0_bck_out = BG['sig0_back'][:]
-N2_bck_out = BG['N2_back'][:]
-
-# select background that coincides with glider dive locations
-in_range = np.where((y_grid > np.nanmin(dg_y)) & (y_grid < np.nanmax(dg_y)))[0]
-avg_gamma = np.nanmean(np.nanmean(gamma_bck[:, in_range, :], axis=2), axis=1)
-avg_sig0 = avg_gamma.copy()  #
-# avg_sig0 = np.nanmean(np.nanmean(sig0_bck_out, axis=2), axis=1)
-ddz_avg_sig0 = np.nan * np.ones(np.shape(avg_sig0))
-ddz_avg_sig0[0] = (avg_sig0[1] - avg_sig0[0])/(z_grid[1] - z_grid[0])
-ddz_avg_sig0[-1] = (avg_sig0[-1] - avg_sig0[-2])/(z_grid[-1] - z_grid[-2])
-for i in range(1, len(z_grid) - 1):
-    ddz_avg_sig0[i] = (avg_sig0[i+1] - avg_sig0[i-1])/(z_grid[i+1] - z_grid[i-1])
-# ddz_avg_sig0 = np.gradient(avg_sig0, z_grid_s)
-avg_N2 = np.nanmean(np.nanmean(N2_bck_out, axis=2), axis=1)
+#
+# pkl_file = open('/Users/jake/Documents/baroclinic_modes/Model/extracted_gridded_bck_gamma.pkl', 'rb')
+# BG = pickle.load(pkl_file)
+# pkl_file.close()
+# gamma_bck = BG['gamma'][:]
+# sig0_bck_out = BG['sig0_back'][:]
+# N2_bck_out = BG['N2_back'][:]
+#
+# # select background that coincides with glider dive locations
+# in_range = np.where((y_grid > np.nanmin(dg_y)) & (y_grid < np.nanmax(dg_y)))[0]
+# avg_gamma = np.nanmean(np.nanmean(gamma_bck[:, in_range, :], axis=2), axis=1)
+# avg_sig0 = avg_gamma.copy()  #
+# # avg_sig0 = np.nanmean(np.nanmean(sig0_bck_out, axis=2), axis=1)
+# ddz_avg_sig0 = np.nan * np.ones(np.shape(avg_sig0))
+# ddz_avg_sig0[0] = (avg_sig0[1] - avg_sig0[0])/(z_grid[1] - z_grid[0])
+# ddz_avg_sig0[-1] = (avg_sig0[-1] - avg_sig0[-2])/(z_grid[-1] - z_grid[-2])
+# for i in range(1, len(z_grid) - 1):
+#     ddz_avg_sig0[i] = (avg_sig0[i+1] - avg_sig0[i-1])/(z_grid[i+1] - z_grid[i-1])
+# # ddz_avg_sig0 = np.gradient(avg_sig0, z_grid_s)
+# avg_N2 = np.nanmean(np.nanmean(N2_bck_out, axis=2), axis=1)
 
 # ---------------------------------------------------------------------------------------------------------------------
 # -- MODES ------------------------------------------------------------------------------------------------------------
-# --- MODE PARAMETERS
-# frequency zeroed for geostrophic modes
-omega = 0
-# highest baroclinic mode to be calculated
-mmax = 25
-nmodes = mmax + 1
-# maximum allowed deep shear [m/s/km]
-deep_shr_max = 0.1
-# minimum depth for which shear is limited [m]
-deep_shr_max_dep = 3500.0
-# fit limits
-eta_fit_dep_min = 50.0
-eta_fit_dep_max = 2200.0
-
-# --- compute vertical mode shapes
-G, Gz, c, epsilon = vertical_modes(np.flipud(avg_N2), np.flipud(-1.0 * z_grid), omega, mmax)  # N2
-
-print('Computed Vertical Modes from Background Profiles')
-# --- fit eta
-# DG
-eta = np.nan * np.ones(np.shape(dg_sig0))
-for i in range(num_profs):
-    eta[:, i] = (np.flipud(dg_sig0[:, i]) - np.flipud(avg_sig0)) / np.flipud(ddz_avg_sig0)
-AG_dg, eta_m_dg, Neta_m_dg, PE_per_mass_dg = eta_fit(num_profs, -1.0 * np.flipud(z_grid), nmodes, np.flipud(avg_N2), G, c,
-                                                     eta, eta_fit_dep_min, eta_fit_dep_max)
-eta_sm = np.nan * np.ones(np.shape(avg_sig_pd))
-for i in range(np.shape(avg_sig_pd)[1]):
-    eta_sm[:, i] = (np.flipud(avg_sig_pd[:, i]) - np.flipud(avg_sig0)) / np.flipud(ddz_avg_sig0)
-AG_dg_sm, eta_m_dg_sm, Neta_m_dg_sm, PE_per_mass_dg_sm = eta_fit(np.shape(avg_sig_pd)[1], -1.0 * np.flipud(z_grid),
-                                                                 nmodes, np.flipud(avg_N2), G, c, eta_sm,
-                                                                 eta_fit_dep_min, eta_fit_dep_max)
-# Model
-eta_model = np.nan * np.ones(np.shape(sig0_out_s[:, in_range, 0]))
-for i in range(len(in_range)):
-    eta_model[:, i] = (np.flipud(sig0_out_s[:, in_range[i], 0]) - np.flipud(avg_sig0)) / np.flipud(ddz_avg_sig0)
-AG_model, eta_m_model, Neta_m_model, PE_per_mass_model = eta_fit(np.shape(eta_model)[1], -1.0 * np.flipud(z_grid),
-                                                                 nmodes, np.flipud(avg_N2), G, c, eta_model,
-                                                                 eta_fit_dep_min, eta_fit_dep_max)
-
-# --- fit vel
-# DG
-HKE_per_mass_dg = np.nan * np.zeros([nmodes, num_profs - 1])
-modest = np.arange(11, nmodes)
-good_ke_prof = np.ones(num_profs - 1)
-AGz = np.zeros([nmodes, num_profs - 1])
-HKE_noise_threshold = 1e-5  # 1e-5
-V_m = np.nan * np.zeros([np.size(z_grid), num_profs - 1])
-for i in range(num_profs - 1):
-    # fit to velocity profiles
-    this_V = -1 * v_g[:, i].copy()
-    iv = np.where(~np.isnan(this_V))
-    if iv[0].size > 1:
-        AGz[:, i] = np.squeeze(np.linalg.lstsq(np.squeeze(Gz[iv, :]), np.transpose(np.atleast_2d(this_V[iv])))[0])
-        # Gz(iv,:)\V_g(iv,ip)
-        V_m[:, i] = np.squeeze(np.matrix(Gz) * np.transpose(np.matrix(AGz[:, i])))
-        # Gz*AGz[:,i];
-        HKE_per_mass_dg[:, i] = 0.5 * (AGz[:, i] * AGz[:, i])
-        ival = np.where(HKE_per_mass_dg[modest, i] >= HKE_noise_threshold)
-        if np.size(ival) > 0:
-            good_ke_prof[i] = 0  # flag profile as noisy
-    else:
-        good_ke_prof[i] = 0  # flag empty profile as noisy as well
-
-# Model
-HKE_per_mass_model = np.nan * np.zeros([nmodes, np.shape(eta_model)[1]])
-modest = np.arange(11, nmodes)
-good_ke_prof = np.ones(len(in_range))
-AGz_model = np.zeros([nmodes, len(in_range)])
-HKE_noise_threshold = 1e-5  # 1e-5
-V_m_model = np.nan * np.zeros([np.size(z_grid), len(in_range)])
-for i in range(len(in_range)):
-    # fit to velocity profiles
-    this_V = u_out_s[:, in_range[i], 0].copy()
-    iv = np.where(~np.isnan(this_V))
-    if iv[0].size > 1:
-        AGz_model[:, i] = np.squeeze(np.linalg.lstsq(np.squeeze(Gz[iv, :]), np.transpose(np.atleast_2d(this_V[iv])))[0])
-        # Gz(iv,:)\V_g(iv,ip)
-        V_m_model[:, i] = np.squeeze(np.matrix(Gz) * np.transpose(np.matrix(AGz_model[:, i])))
-        # Gz*AGz[:,i];
-        HKE_per_mass_model[:, i] = 0.5 * (AGz_model[:, i] * AGz_model[:, i])
-        ival = np.where(HKE_per_mass_model[modest, i] >= HKE_noise_threshold)
-        if np.size(ival) > 0:
-            good_ke_prof[i] = 0  # flag profile as noisy
-    else:
-        good_ke_prof[i] = 0  # flag empty profile as noisy as well
-
-# ---------------------------------------------------------------------------------------------------------------------
-# ---------------------------------------------------------------------------------------------------------------------
-z_grid_f = np.flipud(z_grid)
-dg_sig0_f = np.flipud(dg_sig0)
-
-# --- PLOT DENSITY ANOMALIES, ETA, AND VELOCITIES
-f, (ax1, ax2, ax3) = plt.subplots(1, 3, sharey=True)
-for i in range(np.shape(dg_sig0)[1]):
-    ax1.plot(dg_sig0[:, i] - avg_sig0, z_grid)
-ax1.grid()
-ax1.set_xlim([-.4, .4])
-ax1.set_ylabel('Z [m]')
-ax1.set_xlabel('Density Anomaly')
-ax1.set_title('Density Anomaly')
-for i in range(np.shape(eta)[1]):
-    ax2.plot(eta[:, i], z_grid_f, color='#4682B4', linewidth=1.25)
-    ax2.plot(eta_m_dg[:, i], z_grid_f, color='k', linestyle='--', linewidth=.75)
-ax2.grid()
-ax2.set_xlabel('Isopycnal Displacement [m]')
-ax2.set_title('Vertical Displacement')
-
-avg_mod_u = np.nanmean(u_out_s[:, in_range, :], axis=2)
-for i in range(np.shape(avg_mod_u)[1]):
-    ax3.plot(avg_mod_u[:, i], z_grid, linewidth=0.75, color='#DCDCDC')
-for i in range(np.shape(v_g)[1]):
-    ax3.plot(-1 * v_g[:, i], z_grid)
-    ax3.plot(V_m[:, i], z_grid, color='k', linestyle='--', linewidth=.75)
-ax2.set_xlim([-200, 200])
-ax3.set_xlim([-.4, .4])
-ax3.set_title('Model and DG Velocity (u)')
-ax3.set_xlabel('Velocity [m/s]')
-plot_pro(ax3)
-
-# ---------------------------------------------------------------------------------------------------------------------
-# --- ENERGY
-avg_PE = np.nanmean(PE_per_mass_dg, axis=1)
-avg_PE_smooth = np.nanmean(PE_per_mass_dg_sm, axis=1)
-avg_KE = np.nanmean(HKE_per_mass_dg, axis=1)
-avg_PE_model = np.nanmean(PE_per_mass_model, axis=1)
-avg_KE_model = np.nanmean(HKE_per_mass_model, axis=1)
-dk = ff / c[1]
-PE_SD, PE_GM, GMPE, GMKE = PE_Tide_GM(rho0, -1.0 * z_grid_f, nmodes, np.flipud(np.transpose(np.atleast_2d(avg_N2))), ff)
-
-# --- PLOT ENERGY SPECTRA
-mm = 10
-sc_x = 1000 * ff / c[1:mm]
-f, (ax1, ax2) = plt.subplots(1, 2, sharey=True)
-l_lim = 3 * 10 ** -2
-# DG
-ax1.plot(sc_x, avg_PE[1:mm] / dk, color='#B22222', label='APE$_{DG_{ind}}$', linewidth=3, linestyle='--')
-ax1.scatter(sc_x, avg_PE[1:mm] / dk, color='#B22222', s=20)
-ax1.plot(sc_x, avg_PE_smooth[1:mm] / dk, color='#B22222', label='APE$_{DG_{avg}}$', linewidth=3)
-ax1.scatter(sc_x, avg_PE_smooth[1:mm] / dk, color='#B22222', s=20)
-
-ax2.plot(1000 * ff / c[1:mm], avg_KE[1:mm] / dk, 'g', label='KE$_{DG}$', linewidth=3)
-ax2.scatter(sc_x, avg_KE[1:mm] / dk, color='g', s=20)  # DG KE
-ax2.plot([l_lim, 1000 * ff / c[1]], avg_KE[0:2] / dk, 'g', linewidth=3)  # DG KE_0
-ax2.scatter(l_lim, avg_KE[0] / dk, color='g', s=25, facecolors='none')  # DG KE_0
-# Model
-ax1.plot(sc_x, avg_PE_model[1:mm] / dk, color='#FF8C00', label='APE$_{Model}$', linewidth=2)
-ax1.scatter(sc_x, avg_PE_model[1:mm] / dk, color='#FF8C00', s=20)
-ax2.plot(1000 * ff / c[1:mm], avg_KE_model[1:mm] / dk, color='#FF8C00', label='KE$_{Model}$', linewidth=2)
-ax2.scatter(sc_x, avg_KE_model[1:mm] / dk, color='#FF8C00', s=20)
-ax2.plot([l_lim, 1000 * ff / c[1]], avg_KE_model[0:2] / dk, color='#FF8C00', linewidth=2)
-ax2.scatter(l_lim, avg_KE_model[0] / dk, color='g', s=25, facecolors='none')
-
-# test
-limm = 5
-ax2.plot(1000 * ff / c[1:limm], (avg_KE_model[1:limm] - GMKE[0:limm - 1]) / dk, 'b', linewidth=4, label='Model - GM')
-
-# GM
-# ax1.plot(sc_x, 0.25 * PE_GM / dk, linestyle='--', color='k', linewidth=0.75)
-ax1.plot(1000 * ff / c[1:], 0.25 * GMPE / dk, color='k', linewidth=0.75)
-ax1.text(sc_x[0] - .01, 0.3 * PE_GM[1] / dk, r'$1/4 PE_{GM}$', fontsize=10)
-ax2.plot(1000 * ff / c[1:], 0.25 * GMKE / dk, color='k', linewidth=0.75)
-ax2.text(sc_x[0] - .01, 0.5 * GMKE[1] / dk, r'$1/4 KE_{GM}$', fontsize=10)
-
-ax1.set_xlim([l_lim, 2 * 10 ** 0])
-ax2.set_xlim([l_lim, 2 * 10 ** 0])
-ax2.set_ylim([10 ** (-3), 2 * 10 ** 2])
-ax1.set_yscale('log')
-ax1.set_xscale('log')
-ax1.grid()
-ax2.set_xscale('log')
-
-ax1.set_xlabel(r'Scaled Vertical Wavenumber = (L$_{d_{n}}$)$^{-1}$ = $\frac{f}{c_n}$ [$km^{-1}$]', fontsize=12)
-ax1.set_ylabel('Spectral Density', fontsize=12)  # ' (and Hor. Wavenumber)')
-ax1.set_title('Potential Energy Spectrum', fontsize=12)
-ax2.set_xlabel(r'Scaled Vertical Wavenumber = (L$_{d_{n}}$)$^{-1}$ = $\frac{f}{c_n}$ [$km^{-1}$]', fontsize=12)
-ax2.set_title('Kinetic Energy Spectrum', fontsize=12)
-handles, labels = ax1.get_legend_handles_labels()
-ax1.legend(handles, labels, fontsize=12)
-handles, labels = ax2.get_legend_handles_labels()
-ax2.legend(handles, labels, fontsize=12)
-
-plot_pro(ax2)
-
-# ---------------------------------------------------------------------------------------------------------------------
-# --- DEPTH OF ISOPYCNALS IN TIME ----------------------------------------------
-# isopycnals i care about
-rho1 = 26.6
-rho2 = 27.2
-rho3 = 27.9
-
-t_s = time_ord_s[0]
-d_time_per_prof = np.nanmean(dg_t, axis=0)
-d_time_per_prof_date = []
-d_dep_rho1 = np.nan * np.ones((3, len(d_time_per_prof)))
-for i in range(len(d_time_per_prof)):
-    d_time_per_prof_date.append(datetime.date.fromordinal(np.int(d_time_per_prof[i])))
-    d_dep_rho1[0, i] = np.interp(rho1, dg_sig0_f[:, i], z_grid_f)
-    d_dep_rho1[1, i] = np.interp(rho2, dg_sig0_f[:, i], z_grid_f)
-    d_dep_rho1[2, i] = np.interp(rho3, dg_sig0_f[:, i], z_grid_f)
-mw_time_ordered = mw_time
-mw_sig_ordered = np.flipud(avg_sig_pd)
-mw_time_date = []
-mw_dep_rho1 = np.nan * np.ones((3, len(mw_time_ordered)))
-for i in range(len(mw_time)):
-    mw_time_date.append(datetime.date.fromordinal(np.int(np.round(mw_time_ordered[i]))))
-    mw_dep_rho1[0, i] = np.interp(rho1, mw_sig_ordered[:, i], z_grid_f)
-    mw_dep_rho1[1, i] = np.interp(rho2, mw_sig_ordered[:, i], z_grid_f)
-    mw_dep_rho1[2, i] = np.interp(rho3, mw_sig_ordered[:, i], z_grid_f)
-
-
-f, (ax1, ax2, ax3) = plt.subplots(3, 1, sharex=True)
-ax1.scatter(24*(d_time_per_prof - t_s), d_dep_rho1[0, :], color='g', s=15, label=r'DG$_{ind}$')
-ax2.scatter(24*(d_time_per_prof - t_s), d_dep_rho1[1, :], color='g', s=15)
-ax3.scatter(24*(d_time_per_prof - t_s), d_dep_rho1[2, :], color='g', s=15)
-
-ax1.plot(24*(mw_time - t_s), mw_dep_rho1[0, :], color='b', linewidth=0.75, label=r'DG$_{avg}$')
-ax1.scatter(24*(mw_time - t_s), mw_dep_rho1[0, :], color='b', s=6)
-ax2.plot(24*(mw_time - t_s), mw_dep_rho1[1, :], color='b', linewidth=0.75, label=r'DG$_{avg}$')
-ax2.scatter(24*(mw_time - t_s), mw_dep_rho1[1, :], color='b', s=6)
-ax3.plot(24*(mw_time - t_s), mw_dep_rho1[2, :], color='b', linewidth=0.75, label=r'DG$_{avg}$')
-ax3.scatter(24*(mw_time - t_s), mw_dep_rho1[2, :], color='b', s=6)
-
-ax1.set_title('Depth of $\gamma^{n}$ = ' + str(rho1))
-ax2.set_title('Depth of $\gamma^{n}$ = ' + str(rho2))
-ax3.set_title('Depth of $\gamma^{n}$ = ' + str(rho3))
-ax1.set_ylabel('Depth [m]')
-ax2.set_ylabel('Depth [m]')
-ax3.set_ylabel('Depth [m]')
-ax3.set_xlabel('Time [Hour]')
-handles, labels = ax1.get_legend_handles_labels()
-ax1.legend(handles, labels, fontsize=10)
-ax1.set_ylim([-350, -150])
-ax2.set_ylim([-750, -450])
-ax3.set_ylim([-2100, -1800])
-ax1.grid()
-ax2.grid()
-plot_pro(ax3)
-
-f, (ax1, ax2, ax3) = plt.subplots(3, 1, sharex=True)
-for i in range(len(time_ord_s)):
-    ax1.contour(y_grid/1000, z_grid, sig0_out_s[:, :, i], levels=[rho1])
-    ax2.contour(y_grid/1000, z_grid, sig0_out_s[:, :, i], levels=[rho2])
-    ax3.contour(y_grid/1000, z_grid, sig0_out_s[:, :, i], levels=[rho3])
-ax1.set_ylim([-350, -150])
-ax2.set_ylim([-750, -550])
-ax3.set_ylim([-2050, -1850])
-ax1.set_ylabel('Z [m]')
-ax2.set_ylabel('Z [m]')
-ax3.set_ylabel('Z [m]')
-ax1.set_title('Time Variability of Isopycnal Depth; ' + '$\gamma^{n}$ = ' + str(rho1))
-ax2.set_title('Depth of $\gamma^{n}$ = ' + str(rho2))
-ax3.set_title('Depth of $\gamma^{n}$ = ' + str(rho3))
-ax3.set_xlabel('Domain [km]')
-ax1.grid()
-ax2.grid()
-plot_pro(ax3)
+# # --- MODE PARAMETERS
+# # frequency zeroed for geostrophic modes
+# omega = 0
+# # highest baroclinic mode to be calculated
+# mmax = 25
+# nmodes = mmax + 1
+# # maximum allowed deep shear [m/s/km]
+# deep_shr_max = 0.1
+# # minimum depth for which shear is limited [m]
+# deep_shr_max_dep = 3500.0
+# # fit limits
+# eta_fit_dep_min = 50.0
+# eta_fit_dep_max = 2200.0
+#
+# # --- compute vertical mode shapes
+# G, Gz, c, epsilon = vertical_modes(np.flipud(avg_N2), np.flipud(-1.0 * z_grid), omega, mmax)  # N2
+#
+# print('Computed Vertical Modes from Background Profiles')
+# # --- fit eta
+# # DG
+# eta = np.nan * np.ones(np.shape(dg_sig0))
+# for i in range(num_profs):
+#     eta[:, i] = (np.flipud(dg_sig0[:, i]) - np.flipud(avg_sig0)) / np.flipud(ddz_avg_sig0)
+# AG_dg, eta_m_dg, Neta_m_dg, PE_per_mass_dg = eta_fit(num_profs, -1.0 * np.flipud(z_grid), nmodes, np.flipud(avg_N2), G, c,
+#                                                      eta, eta_fit_dep_min, eta_fit_dep_max)
+# eta_sm = np.nan * np.ones(np.shape(avg_sig_pd))
+# for i in range(np.shape(avg_sig_pd)[1]):
+#     eta_sm[:, i] = (np.flipud(avg_sig_pd[:, i]) - np.flipud(avg_sig0)) / np.flipud(ddz_avg_sig0)
+# AG_dg_sm, eta_m_dg_sm, Neta_m_dg_sm, PE_per_mass_dg_sm = eta_fit(np.shape(avg_sig_pd)[1], -1.0 * np.flipud(z_grid),
+#                                                                  nmodes, np.flipud(avg_N2), G, c, eta_sm,
+#                                                                  eta_fit_dep_min, eta_fit_dep_max)
+# # Model
+# eta_model = np.nan * np.ones(np.shape(sig0_out_s[:, in_range, 0]))
+# for i in range(len(in_range)):
+#     eta_model[:, i] = (np.flipud(sig0_out_s[:, in_range[i], 0]) - np.flipud(avg_sig0)) / np.flipud(ddz_avg_sig0)
+# AG_model, eta_m_model, Neta_m_model, PE_per_mass_model = eta_fit(np.shape(eta_model)[1], -1.0 * np.flipud(z_grid),
+#                                                                  nmodes, np.flipud(avg_N2), G, c, eta_model,
+#                                                                  eta_fit_dep_min, eta_fit_dep_max)
+#
+# # --- fit vel
+# # DG
+# HKE_per_mass_dg = np.nan * np.zeros([nmodes, num_profs - 1])
+# modest = np.arange(11, nmodes)
+# good_ke_prof = np.ones(num_profs - 1)
+# AGz = np.zeros([nmodes, num_profs - 1])
+# HKE_noise_threshold = 1e-5  # 1e-5
+# V_m = np.nan * np.zeros([np.size(z_grid), num_profs - 1])
+# for i in range(num_profs - 1):
+#     # fit to velocity profiles
+#     this_V = -1 * v_g[:, i].copy()
+#     iv = np.where(~np.isnan(this_V))
+#     if iv[0].size > 1:
+#         AGz[:, i] = np.squeeze(np.linalg.lstsq(np.squeeze(Gz[iv, :]), np.transpose(np.atleast_2d(this_V[iv])))[0])
+#         # Gz(iv,:)\V_g(iv,ip)
+#         V_m[:, i] = np.squeeze(np.matrix(Gz) * np.transpose(np.matrix(AGz[:, i])))
+#         # Gz*AGz[:,i];
+#         HKE_per_mass_dg[:, i] = 0.5 * (AGz[:, i] * AGz[:, i])
+#         ival = np.where(HKE_per_mass_dg[modest, i] >= HKE_noise_threshold)
+#         if np.size(ival) > 0:
+#             good_ke_prof[i] = 0  # flag profile as noisy
+#     else:
+#         good_ke_prof[i] = 0  # flag empty profile as noisy as well
+#
+# # Model
+# HKE_per_mass_model = np.nan * np.zeros([nmodes, np.shape(eta_model)[1]])
+# modest = np.arange(11, nmodes)
+# good_ke_prof = np.ones(len(in_range))
+# AGz_model = np.zeros([nmodes, len(in_range)])
+# HKE_noise_threshold = 1e-5  # 1e-5
+# V_m_model = np.nan * np.zeros([np.size(z_grid), len(in_range)])
+# for i in range(len(in_range)):
+#     # fit to velocity profiles
+#     this_V = u_out_s[:, in_range[i], 0].copy()
+#     iv = np.where(~np.isnan(this_V))
+#     if iv[0].size > 1:
+#         AGz_model[:, i] = np.squeeze(np.linalg.lstsq(np.squeeze(Gz[iv, :]), np.transpose(np.atleast_2d(this_V[iv])))[0])
+#         # Gz(iv,:)\V_g(iv,ip)
+#         V_m_model[:, i] = np.squeeze(np.matrix(Gz) * np.transpose(np.matrix(AGz_model[:, i])))
+#         # Gz*AGz[:,i];
+#         HKE_per_mass_model[:, i] = 0.5 * (AGz_model[:, i] * AGz_model[:, i])
+#         ival = np.where(HKE_per_mass_model[modest, i] >= HKE_noise_threshold)
+#         if np.size(ival) > 0:
+#             good_ke_prof[i] = 0  # flag profile as noisy
+#     else:
+#         good_ke_prof[i] = 0  # flag empty profile as noisy as well
+#
+# # ---------------------------------------------------------------------------------------------------------------------
+# # ---------------------------------------------------------------------------------------------------------------------
+# z_grid_f = np.flipud(z_grid)
+# dg_sig0_f = np.flipud(dg_sig0)
+#
+# # --- PLOT DENSITY ANOMALIES, ETA, AND VELOCITIES
+# f, (ax1, ax2, ax3) = plt.subplots(1, 3, sharey=True)
+# for i in range(np.shape(dg_sig0)[1]):
+#     ax1.plot(dg_sig0[:, i] - avg_sig0, z_grid)
+# ax1.grid()
+# ax1.set_xlim([-.4, .4])
+# ax1.set_ylabel('Z [m]')
+# ax1.set_xlabel('Density Anomaly')
+# ax1.set_title('Density Anomaly')
+# for i in range(np.shape(eta)[1]):
+#     ax2.plot(eta[:, i], z_grid_f, color='#4682B4', linewidth=1.25)
+#     ax2.plot(eta_m_dg[:, i], z_grid_f, color='k', linestyle='--', linewidth=.75)
+# ax2.grid()
+# ax2.set_xlabel('Isopycnal Displacement [m]')
+# ax2.set_title('Vertical Displacement')
+#
+# avg_mod_u = np.nanmean(u_out_s[:, in_range, :], axis=2)
+# for i in range(np.shape(avg_mod_u)[1]):
+#     ax3.plot(avg_mod_u[:, i], z_grid, linewidth=0.75, color='#DCDCDC')
+# for i in range(np.shape(v_g)[1]):
+#     ax3.plot(-1 * v_g[:, i], z_grid)
+#     ax3.plot(V_m[:, i], z_grid, color='k', linestyle='--', linewidth=.75)
+# ax2.set_xlim([-200, 200])
+# ax3.set_xlim([-.4, .4])
+# ax3.set_title('Model and DG Velocity (u)')
+# ax3.set_xlabel('Velocity [m/s]')
+# plot_pro(ax3)
+#
+# # ---------------------------------------------------------------------------------------------------------------------
+# # --- ENERGY
+# avg_PE = np.nanmean(PE_per_mass_dg, axis=1)
+# avg_PE_smooth = np.nanmean(PE_per_mass_dg_sm, axis=1)
+# avg_KE = np.nanmean(HKE_per_mass_dg, axis=1)
+# avg_PE_model = np.nanmean(PE_per_mass_model, axis=1)
+# avg_KE_model = np.nanmean(HKE_per_mass_model, axis=1)
+# dk = ff / c[1]
+# PE_SD, PE_GM, GMPE, GMKE = PE_Tide_GM(rho0, -1.0 * z_grid_f, nmodes, np.flipud(np.transpose(np.atleast_2d(avg_N2))), ff)
+#
+# # --- PLOT ENERGY SPECTRA
+# mm = 10
+# sc_x = 1000 * ff / c[1:mm]
+# f, (ax1, ax2) = plt.subplots(1, 2, sharey=True)
+# l_lim = 3 * 10 ** -2
+# # DG
+# ax1.plot(sc_x, avg_PE[1:mm] / dk, color='#B22222', label='APE$_{DG_{ind}}$', linewidth=3, linestyle='--')
+# ax1.scatter(sc_x, avg_PE[1:mm] / dk, color='#B22222', s=20)
+# ax1.plot(sc_x, avg_PE_smooth[1:mm] / dk, color='#B22222', label='APE$_{DG_{avg}}$', linewidth=3)
+# ax1.scatter(sc_x, avg_PE_smooth[1:mm] / dk, color='#B22222', s=20)
+#
+# ax2.plot(1000 * ff / c[1:mm], avg_KE[1:mm] / dk, 'g', label='KE$_{DG}$', linewidth=3)
+# ax2.scatter(sc_x, avg_KE[1:mm] / dk, color='g', s=20)  # DG KE
+# ax2.plot([l_lim, 1000 * ff / c[1]], avg_KE[0:2] / dk, 'g', linewidth=3)  # DG KE_0
+# ax2.scatter(l_lim, avg_KE[0] / dk, color='g', s=25, facecolors='none')  # DG KE_0
+# # Model
+# ax1.plot(sc_x, avg_PE_model[1:mm] / dk, color='#FF8C00', label='APE$_{Model}$', linewidth=2)
+# ax1.scatter(sc_x, avg_PE_model[1:mm] / dk, color='#FF8C00', s=20)
+# ax2.plot(1000 * ff / c[1:mm], avg_KE_model[1:mm] / dk, color='#FF8C00', label='KE$_{Model}$', linewidth=2)
+# ax2.scatter(sc_x, avg_KE_model[1:mm] / dk, color='#FF8C00', s=20)
+# ax2.plot([l_lim, 1000 * ff / c[1]], avg_KE_model[0:2] / dk, color='#FF8C00', linewidth=2)
+# ax2.scatter(l_lim, avg_KE_model[0] / dk, color='g', s=25, facecolors='none')
+#
+# # test
+# limm = 5
+# ax2.plot(1000 * ff / c[1:limm], (avg_KE_model[1:limm] - GMKE[0:limm - 1]) / dk, 'b', linewidth=4, label='Model - GM')
+#
+# # GM
+# # ax1.plot(sc_x, 0.25 * PE_GM / dk, linestyle='--', color='k', linewidth=0.75)
+# ax1.plot(1000 * ff / c[1:], 0.25 * GMPE / dk, color='k', linewidth=0.75)
+# ax1.text(sc_x[0] - .01, 0.3 * PE_GM[1] / dk, r'$1/4 PE_{GM}$', fontsize=10)
+# ax2.plot(1000 * ff / c[1:], 0.25 * GMKE / dk, color='k', linewidth=0.75)
+# ax2.text(sc_x[0] - .01, 0.5 * GMKE[1] / dk, r'$1/4 KE_{GM}$', fontsize=10)
+#
+# ax1.set_xlim([l_lim, 2 * 10 ** 0])
+# ax2.set_xlim([l_lim, 2 * 10 ** 0])
+# ax2.set_ylim([10 ** (-3), 2 * 10 ** 2])
+# ax1.set_yscale('log')
+# ax1.set_xscale('log')
+# ax1.grid()
+# ax2.set_xscale('log')
+#
+# ax1.set_xlabel(r'Scaled Vertical Wavenumber = (L$_{d_{n}}$)$^{-1}$ = $\frac{f}{c_n}$ [$km^{-1}$]', fontsize=12)
+# ax1.set_ylabel('Spectral Density', fontsize=12)  # ' (and Hor. Wavenumber)')
+# ax1.set_title('Potential Energy Spectrum', fontsize=12)
+# ax2.set_xlabel(r'Scaled Vertical Wavenumber = (L$_{d_{n}}$)$^{-1}$ = $\frac{f}{c_n}$ [$km^{-1}$]', fontsize=12)
+# ax2.set_title('Kinetic Energy Spectrum', fontsize=12)
+# handles, labels = ax1.get_legend_handles_labels()
+# ax1.legend(handles, labels, fontsize=12)
+# handles, labels = ax2.get_legend_handles_labels()
+# ax2.legend(handles, labels, fontsize=12)
+#
+# plot_pro(ax2)
+#
+# # ---------------------------------------------------------------------------------------------------------------------
+# # --- DEPTH OF ISOPYCNALS IN TIME ----------------------------------------------
+# # isopycnals i care about
+# rho1 = 26.6
+# rho2 = 27.2
+# rho3 = 27.9
+#
+# t_s = time_ord_s[0]
+# d_time_per_prof = np.nanmean(dg_t, axis=0)
+# d_time_per_prof_date = []
+# d_dep_rho1 = np.nan * np.ones((3, len(d_time_per_prof)))
+# for i in range(len(d_time_per_prof)):
+#     d_time_per_prof_date.append(datetime.date.fromordinal(np.int(d_time_per_prof[i])))
+#     d_dep_rho1[0, i] = np.interp(rho1, dg_sig0_f[:, i], z_grid_f)
+#     d_dep_rho1[1, i] = np.interp(rho2, dg_sig0_f[:, i], z_grid_f)
+#     d_dep_rho1[2, i] = np.interp(rho3, dg_sig0_f[:, i], z_grid_f)
+# mw_time_ordered = mw_time
+# mw_sig_ordered = np.flipud(avg_sig_pd)
+# mw_time_date = []
+# mw_dep_rho1 = np.nan * np.ones((3, len(mw_time_ordered)))
+# for i in range(len(mw_time)):
+#     mw_time_date.append(datetime.date.fromordinal(np.int(np.round(mw_time_ordered[i]))))
+#     mw_dep_rho1[0, i] = np.interp(rho1, mw_sig_ordered[:, i], z_grid_f)
+#     mw_dep_rho1[1, i] = np.interp(rho2, mw_sig_ordered[:, i], z_grid_f)
+#     mw_dep_rho1[2, i] = np.interp(rho3, mw_sig_ordered[:, i], z_grid_f)
+#
+#
+# f, (ax1, ax2, ax3) = plt.subplots(3, 1, sharex=True)
+# ax1.scatter(24*(d_time_per_prof - t_s), d_dep_rho1[0, :], color='g', s=15, label=r'DG$_{ind}$')
+# ax2.scatter(24*(d_time_per_prof - t_s), d_dep_rho1[1, :], color='g', s=15)
+# ax3.scatter(24*(d_time_per_prof - t_s), d_dep_rho1[2, :], color='g', s=15)
+#
+# ax1.plot(24*(mw_time - t_s), mw_dep_rho1[0, :], color='b', linewidth=0.75, label=r'DG$_{avg}$')
+# ax1.scatter(24*(mw_time - t_s), mw_dep_rho1[0, :], color='b', s=6)
+# ax2.plot(24*(mw_time - t_s), mw_dep_rho1[1, :], color='b', linewidth=0.75, label=r'DG$_{avg}$')
+# ax2.scatter(24*(mw_time - t_s), mw_dep_rho1[1, :], color='b', s=6)
+# ax3.plot(24*(mw_time - t_s), mw_dep_rho1[2, :], color='b', linewidth=0.75, label=r'DG$_{avg}$')
+# ax3.scatter(24*(mw_time - t_s), mw_dep_rho1[2, :], color='b', s=6)
+#
+# ax1.set_title('Depth of $\gamma^{n}$ = ' + str(rho1))
+# ax2.set_title('Depth of $\gamma^{n}$ = ' + str(rho2))
+# ax3.set_title('Depth of $\gamma^{n}$ = ' + str(rho3))
+# ax1.set_ylabel('Depth [m]')
+# ax2.set_ylabel('Depth [m]')
+# ax3.set_ylabel('Depth [m]')
+# ax3.set_xlabel('Time [Hour]')
+# handles, labels = ax1.get_legend_handles_labels()
+# ax1.legend(handles, labels, fontsize=10)
+# ax1.set_ylim([-350, -150])
+# ax2.set_ylim([-750, -450])
+# ax3.set_ylim([-2100, -1800])
+# ax1.grid()
+# ax2.grid()
+# plot_pro(ax3)
+#
+# f, (ax1, ax2, ax3) = plt.subplots(3, 1, sharex=True)
+# for i in range(len(time_ord_s)):
+#     ax1.contour(y_grid/1000, z_grid, sig0_out_s[:, :, i], levels=[rho1])
+#     ax2.contour(y_grid/1000, z_grid, sig0_out_s[:, :, i], levels=[rho2])
+#     ax3.contour(y_grid/1000, z_grid, sig0_out_s[:, :, i], levels=[rho3])
+# ax1.set_ylim([-350, -150])
+# ax2.set_ylim([-750, -550])
+# ax3.set_ylim([-2050, -1850])
+# ax1.set_ylabel('Z [m]')
+# ax2.set_ylabel('Z [m]')
+# ax3.set_ylabel('Z [m]')
+# ax1.set_title('Time Variability of Isopycnal Depth; ' + '$\gamma^{n}$ = ' + str(rho1))
+# ax2.set_title('Depth of $\gamma^{n}$ = ' + str(rho2))
+# ax3.set_title('Depth of $\gamma^{n}$ = ' + str(rho3))
+# ax3.set_xlabel('Domain [km]')
+# ax1.grid()
+# ax2.grid()
+# plot_pro(ax3)
