@@ -230,21 +230,25 @@ def eta_fit(num_profs, grid, nmodes, n2, G, c, eta, eta_fit_dep_min, eta_fit_dep
     PE_per_mass = np.nan * np.zeros([nmodes, num_profs])
     for i in range(num_profs):
         # fit to eta profiles
-        this_eta = eta[:, i].copy()
+        if len(np.shape(eta)) > 1:
+            this_eta = eta[:, i].copy()
+            eta_fs = eta[:, i].copy()  # ETA
+        else:
+            this_eta = eta.copy()
+            eta_fs = eta.copy()  # ETA
         # obtain matrix of NEta
-        Neta[:, i] = bvf * this_eta
+        # old, Neta[:, i] = bvf * this_eta
         # find indices within fitting range
         iw = np.where((grid >= eta_fit_dep_min) & (grid <= eta_fit_dep_max))
         if iw[0].size > 1:
-            eta_fs = eta[:, i].copy()  # ETA
-
             i_sh = np.where((grid < eta_fit_dep_min))
             eta_fs[i_sh[0]] = grid[i_sh] * this_eta[iw[0][0]] / grid[iw[0][0]]
 
             i_dp = np.where((grid > eta_fit_dep_max))
             eta_fs[i_dp[0]] = (grid[i_dp] - grid[-1]) * this_eta[iw[0][-1]] / (grid[iw[0][-1]] - grid[-1])
 
-            AG[1:, i] = np.squeeze(np.linalg.lstsq(G[:, 1:], np.transpose(np.atleast_2d(eta_fs)))[0])
+            AG[1:, i] = np.squeeze(np.linalg.lstsq(G[:, 1:], eta_fs)[0])
+            # AG[1:, i] = np.squeeze(np.linalg.lstsq(G[:, 1:], np.transpose(np.atleast_2d(eta_fs)))[0])
             Eta_m[:, i] = np.squeeze(np.matrix(G) * np.transpose(np.matrix(AG[:, i])))
             NEta_m[:, i] = bvf * np.array(np.squeeze(np.matrix(G) * np.transpose(np.matrix(AG[:, i]))))
             PE_per_mass[:, i] = (0.5) * AG[:, i] * AG[:, i] * c * c

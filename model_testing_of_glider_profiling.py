@@ -11,7 +11,7 @@ from zrfun import get_basic_info, get_z
 # - path on fjord to output
 # --- '/boildat1/parker/LiveOcean_roms/output/cas4_v2_lo6biom/f2018.11.01/'
 # --- LOAD
-file_list = glob.glob('/boildat1/parker/LiveOcean_roms/output/cas4_v2_lo6biom/f2018.10.26/ocean_his_0*.nc')
+file_list = glob.glob('/boildat1/parker/LiveOcean_roms/output/cas4_v2_lo6biom/f2018.11.01/ocean_his_0*.nc')
 # file_list = glob.glob('/boildat1/parker/LiveOcean_roms/output/cas4_v2_lo6biom/f2018.11.01/*ocean_his_007*.nc')
 for i in range(len(file_list)):
     file_name = file_list[i]
@@ -36,13 +36,13 @@ for i in range(len(file_list)):
 
     # --- CHOOSE SLICE
     # north/south
-    # lon_select_i = 30
-    # lat_select_i = range(160, 275)
+    lon_select_i = 103
+    lat_select_i = range(275, 475)
     # east/west
     # lon_select_i = range(50, 130)
     # lat_select_i = 350  # old = 160
-    lon_select_i = range(20, 145)
-    lat_select_i = 355
+    # lon_select_i = range(20, 145)
+    # lat_select_i = 355
 
     # --- TIME COR
     time_cor = time / (60 * 60 * 24) + 719163  # correct to start (1970)
@@ -61,7 +61,7 @@ for i in range(len(file_list)):
     # optional for plan view plotting
     # 'lon_all': lon_rho[350:650, 65:95], 'lat_all': lat_rho[350:650, 65:95],
     # 'z_bath': z[0, 350:650, 65:95]}
-    output = open('/home/jstein/EW_oct26_28_eddy/E_W_ext_' + date_str_out + '.pkl', 'wb')
+    output = open('/home/jstein/NS_nov1_3_eddy/N_S_ext_' + date_str_out + '.pkl', 'wb')
     # output = open('/Users/jake/Documents/baroclinic_modes/Model/test_extraction_' + str(np.int(time)) + '.pkl', 'wb')
     pickle.dump(my_dict, output)
     output.close()
@@ -107,10 +107,12 @@ for i in range(len(file_list)):
 # # lon_select_i = 103
 # # lat_select_i = range(275, 475)
 # # nov 1 - 3 (eddy) lon = 103, lat = 275-475
+# lon_select_i = 103
+# lat_select_i = range(275, 475)
 #
-# # E/W slice
-# lon_select_i = range(20, 145)
-# lat_select_i = 355
+# # E/W slice (w/ eddy)
+# # lon_select_i = range(20, 145)
+# # lat_select_i = 355
 #
 # # resolution test
 # ref_lat = 45.5
