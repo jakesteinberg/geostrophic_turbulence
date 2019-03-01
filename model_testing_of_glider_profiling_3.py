@@ -425,16 +425,24 @@ if plot0 > 0:
     ax3.set_xlim([0, h_max])
     plot_pro(ax3)
 
-plot1 = 0
+plot1 = 1
 if plot1 > 0:
     ua_mean = np.nan * np.ones((len(dg_z), len(dg_dac_mid)))
     ua_std = np.nan * np.ones((len(dg_z), len(dg_dac_mid)))
+    ua_avg_mean = np.nan * np.ones((len(dg_z), len(dg_dac_mid)))
+    ua_avg_std = np.nan * np.ones((len(dg_z), len(dg_dac_mid)))
     for i in range(len(dg_dac_mid)):
-        these_u = u_mod_at_mw[i]
+        these_u = u_mod_at_mw[i]  # each u_mod_at_mw[i] contains all model profiles spanning the distance covered by
+        # one m/w set of profiles and including the amount of time it took to collect m/w profiles
         u_anoms = these_u - np.transpose(np.tile(v_g[:, i], (np.shape(these_u)[1], np.shape(these_u)[2], 1)), (2, 0, 1))
+
+        these_u_space_avg = np.nanmean(these_u, axis=1)  # avg spatially then get statistic on time variability
+        u_avg_anoms = these_u_space_avg - np.transpose(np.tile(v_g[:, i], (np.shape(these_u_space_avg)[1], 1)))
         for j in range(len(dg_z)):
             ua_mean[j, i] = np.nanmean(u_anoms[j, :, :])
             ua_std[j, i] = np.nanstd(u_anoms[j, :, :])
+            ua_avg_mean[j, i] = np.nanmean(u_avg_anoms[j, :])
+            ua_avg_std[j, i] = np.nanstd(u_avg_anoms[j, :])
 
     # u_anom = u_mod_at_mw - v_g
     # ua_mean = np.nan * np.ones(len(z_grid))
@@ -444,9 +452,10 @@ if plot1 > 0:
     #     ua_std[i] = np.nanstd(u_anom[i, :])
     f, ax = plt.subplots()
     ax.errorbar(np.nanmean(ua_mean, axis=1), dg_z, xerr=np.nanmean(ua_std, axis=1))
+    ax.errorbar(np.nanmean(ua_avg_mean, axis=1), dg_z, xerr=np.nanmean(ua_avg_std, axis=1))
     ax.plot(np.nanmean(ua_mean, axis=1), dg_z, color='k', linewidth=2.5)
-    ax.set_ylim([-3000, 0])
-    ax.set_xlim([-0.15, 0.15])
+    ax.set_ylim([-2800, 0])
+    ax.set_xlim([-0.2, 0.2])
     ax.set_title('Model V. - DG V.')
     ax.set_xlabel('Velocity Error [m/s]')
     ax.set_ylabel('z [m]')
@@ -538,6 +547,7 @@ isop_dep5 = np.nan * np.ones((len(isops), np.shape(these_data)[1]))
 isop_dep6 = np.nan * np.ones((len(isops), np.shape(these_data)[1]))
 for i in range(np.shape(these_data)[1]):
     for j in range(len(isops)):
+        # each of these is at a different time in the ~ 30 hr window
         isop_dep[j, i] = np.interp(isops[j], these_data[:, i], -1. * dg_z)
         isop_dep2[j, i] = np.interp(isops[j], these_data2[:, i], -1. * dg_z)
         isop_dep3[j, i] = np.interp(isops[j], these_data3[:, i], -1. * dg_z)
@@ -565,11 +575,76 @@ for j in range(len(isops)):
     dg_isop_dep[j, 3] = np.interp(isops[j], dg_sig0[:, 3], -1. * dg_z)
     dg_isop_xy[j, 3] = np.interp(isops[j], dg_sig0[:, 3], dg_y[:, 3])
 
-time_hr = (time_ord_s - time_ord_s[0])
+# ---------------------------------------------------------------------------------------------------------------------
+# -- Variances
+# fraction of variance contained in igw/tide fluctuations (compared to total variance of isopynal depth
+l = 0
+# 30 hr avg model isopycnal depth as a function of xy_grid
+avg_isop_pos = np.nanmean(np.squeeze(np.array([[isop_dep[l, :]], [isop_dep2[l, :]], [isop_dep3[l, :]],
+                                               [isop_dep4[l, :]], [isop_dep5[l, :]], [isop_dep6[l, :]]])), axis=0)
 
+# xy within glider dives
+inn = np.where((xy_grid >= dg_y[0,0]) & (xy_grid <= dg_y[0, 3]))[0]
+
+# at each xy_grid point square difference between 30 hr avg and hourly output
+isop_anom = (isop_dep[l, inn] - avg_isop_pos[inn])**2
+isop_anom2 = (isop_dep2[l, inn] - avg_isop_pos[inn])**2
+isop_anom3 = (isop_dep3[l, inn] - avg_isop_pos[inn])**2
+isop_anom4 = (isop_dep4[l, inn] - avg_isop_pos[inn])**2
+isop_anom5 = (isop_dep5[l, inn] - avg_isop_pos[inn])**2
+isop_anom6 = (isop_dep6[l, inn] - avg_isop_pos[inn])**2
+# list of square differences
+combo_0 = np.concatenate((isop_anom, isop_anom2, isop_anom3, isop_anom4, isop_anom5, isop_anom6))
+# mean square differences
+igw_var = (1./len(combo_0)) * np.nansum(combo_0)  # model noise signal
+# at each xy_grid point square difference between avg of 30 hr avg (horizontal line) and hourly output
+isop_anom_t = (isop_dep[l, inn] - np.nanmean(avg_isop_pos[inn]))**2
+isop_anom2_t = (isop_dep2[l, inn] - np.nanmean(avg_isop_pos[inn]))**2
+isop_anom3_t = (isop_dep3[l, inn] - np.nanmean(avg_isop_pos[inn]))**2
+isop_anom4_t = (isop_dep4[l, inn] - np.nanmean(avg_isop_pos[inn]))**2
+isop_anom5_t = (isop_dep5[l, inn] - np.nanmean(avg_isop_pos[inn]))**2
+isop_anom6_t = (isop_dep6[l, inn] - np.nanmean(avg_isop_pos[inn]))**2
+combo_1 = np.concatenate((isop_anom_t, isop_anom2_t, isop_anom3_t, isop_anom4_t, isop_anom5_t, isop_anom6_t))
+# mean square differences
+tot_var = (1./len(combo_1)) * np.nansum(combo_1)
+frac_igw_var = igw_var / tot_var
+
+# mean square of difference from avg of 30 hr avg and 30 hr avg
+model_eddy_rms = np.nanmean((avg_isop_pos[inn] - np.nanmean(avg_isop_pos[inn]))**2)  # model eddy signal
+
+# glider slope of 4 points
+dg_isop_slope = np.polyfit(dg_isop_xy[l, :], dg_isop_dep[l, :], 1)
+dg_mean_isop = np.polyval(dg_isop_slope, dg_isop_xy[l, :])
+dg_igw_var = np.nanmean((dg_isop_dep[l, :] - dg_mean_isop)**2)  # noise signal
+
+# mean square of difference from avg of dg_isop_slope and dg_isop_slope
+dg_eddy_rms = np.nanmean((dg_mean_isop - np.nanmean(dg_mean_isop))**2)  # eddy signal
+
+# # variance of difference between glider measurement and mean isop pos
+# avg_isop_dep_at_dg = np.nan * np.ones(len(dg_isop_xy[l, :]))
+# dg_mod_anom = np.nan * np.ones(len(dg_isop_xy[l, :]))
+# for i in range(len(dg_isop_xy[l, :])):
+#     avg_isop_dep_at_dg[i] = np.interp(dg_isop_xy[l, i], xy_grid, avg_isop_pos)
+#     dg_mod_anom[i] = (dg_isop_dep[l, i] - avg_isop_dep_at_dg[i])**2
+# # mean square difference between DG isopycnal depth and avg model isopycnal depth
+# dg_mod_var = (1./len(dg_mod_anom)) * np.nansum(dg_mod_anom)
+# mod_var_at_dg_loc = (1./len(avg_isop_dep_at_dg)) * np.nansum((avg_isop_dep_at_dg - np.nanmean(avg_isop_dep_at_dg))**2)  # variance of model over the m/w pattern
+#
+# # fraction of variance from igw over m/w pattern
+# inn = np.where((xy_grid >= dg_y[0,0]) & (xy_grid <= dg_y[0, 3]))[0]
+# combo_3 = np.concatenate((isop_anom[inn], isop_anom2[inn], isop_anom3[inn], isop_anom4[inn], isop_anom5[inn], isop_anom6[inn]))
+# igw_var_in = (1./len(combo_3)) * np.nansum(combo_3)
+# combo_4 = np.concatenate((isop_anom_t[inn], isop_anom2_t[inn], isop_anom3_t[inn], isop_anom4_t[inn], isop_anom5_t[inn], isop_anom6_t[inn]))
+# tot_var_in = (1./len(combo_4)) * np.nansum(combo_4)
+# frac_var_from_igw = igw_var_in / tot_var_in
+
+# ---------------------------------------------------------------------------------------------------------------------
 cmap = plt.cm.get_cmap("YlGnBu_r")
 f, ax = plt.subplots(4, 1, sharex=True)
 for i in range(len(isops)):
+    avg_isop_pos_i = np.nanmean(np.squeeze(np.array([[isop_dep[i, :]], [isop_dep2[i, :]], [isop_dep3[i, :]],
+                                                   [isop_dep4[i, :]], [isop_dep5[i, :]], [isop_dep6[i, :]]])), axis=0)
+
     ax[i].set_facecolor('#DCDCDC')
     ax[i].plot(xy_grid/1000, isop_dep[i, :])
     ax[i].plot(xy_grid/1000, isop_dep2[i, :], color=cmap(0.1))
@@ -577,9 +652,7 @@ for i in range(len(isops)):
     ax[i].plot(xy_grid/1000, isop_dep4[i, :], color=cmap(0.5))
     ax[i].plot(xy_grid/1000, isop_dep5[i, :], color=cmap(0.7))
     ax[i].plot(xy_grid/1000, isop_dep6[i, :], color=cmap(0.9))
-    ax[i].plot(xy_grid/1000, np.nanmean(np.squeeze(np.array([[isop_dep[i, :]], [isop_dep2[i, :]],
-                                             [isop_dep3[i, :]], [isop_dep4[i, :]],
-                                             [isop_dep5[i, :]], [isop_dep6[i, :]]])), axis=0), color='r', linestyle='--')
+    ax[i].plot(xy_grid/1000, avg_isop_pos_i, color='r', linestyle='--')
     ax[i].scatter(dg_isop_xy[i, :]/1000, dg_isop_dep[i, :], s=40, color='k', zorder=10)
 
     ax[i].plot([dg_y[0, 0]/1000, dg_y[0, 0]/1000], [0, 2000], linestyle='--', color='k')

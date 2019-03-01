@@ -890,8 +890,10 @@ if time_series > 0:
 # --- TIME SERIES ANALYSIS OF ISOPYCNAL DEPTHS AND MODE AMPLITUDES ----
 # -- attempt fft to find period of oscillation
 # define data and time, remove mean
-data = d_dep_rho1[2, 141:] - np.nanmean(d_dep_rho1[2, 141:])  # depth of isopycnal in time w/ mean removed
-ttime = d_time_per_prof[141:]  # time
+# data = d_dep_rho1[2, 141:] - np.nanmean(d_dep_rho1[2, 141:])  # depth of isopycnal in time w/ mean removed
+# ttime = d_time_per_prof[141:]  # time
+data = mw_dep_rho1[1, 98:] - np.nanmean(mw_dep_rho1[1, 98:])  # depth of isopycnal in time w/ mean removed
+ttime = mw_time_ordered[98:]  # time
 
 # interpolate nan
 # nan_loc = np.where(np.isnan(data))[0]
@@ -900,7 +902,7 @@ ttime = d_time_per_prof[141:]  # time
 # regular time
 ttime_grid = np.arange(np.round(ttime[0]), np.round(ttime[-1]))  - np.round(ttime[0])  # ~ 162 day time series
 # regular data
-y = np.interp(ttime_grid, ttime, data)  # interpolate data to regular time grid
+y = np.interp(ttime_grid, ttime - ttime[0], data)  # interpolate data to regular time grid
 
 # remove trend
 trend = np.polyfit(ttime_grid, y, 1)
@@ -920,21 +922,11 @@ xf = np.linspace(0.0, 1.0/(2.0*T), N_sp/2)
 
 f, ax = plt.subplots()
 ax.plot(xf, 2.0/N_sp * np.abs(yf[0:N_sp//2]))
+ax.set_title('M/W Depth of Gamma = 27.8')
+ax.set_xlabel('Inverse Days')
 plot_pro(ax)
 
-# Time_grid = np.arange(np.round(Time2.min()), np.round(Time2.max()), 1)
-# order_0_AGz = AGz[0, np.argsort(Time2)]
-# y_AGz_0 = savgol_filter(order_0_AGz, window_size, poly_order)
-# order_0_AGz_grid = np.interp(Time_grid, Time2, y_AGz_0)
-# order_1_AGz = AGz[1, np.argsort(Time2)]
-# y_AGz_1 = savgol_filter(order_1_AGz, window_size, poly_order)
-# order_1_AGz_grid = np.interp(Time_grid, Time2, y_AGz_1)
-#
-# N = len(order_0_AGz_grid)
-# T = Time_grid[1] - Time_grid[0]
-# yf_0 = scipy.fftpack.fft(order_0_AGz_grid)
-# yf_1 = scipy.fftpack.fft(order_1_AGz_grid)
-# xf = np.linspace(0.0, 1.0 / (2.0 * T), N / 2)
+# https://stackoverflow.com/questions/25735153/plotting-a-fast-fourier-transform-in-python
 
 
 # ------- END OF ITERATION ON EACH PROFILE TO COMPUTE MODE FITS
