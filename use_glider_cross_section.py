@@ -22,9 +22,9 @@ from toolkit import plot_pro
 # x = Glider(39, np.concatenate((np.arange(70, 83), np.arange(84, 86))),
 #            r'/Users/jake/Documents/baroclinic_modes/DG/ABACO_2018/sg039')
 # ---- DG BATS 2015
-# x = Glider(35, np.arange(60, 120), '/Users/jake/Documents/baroclinic_modes/DG/BATS_2015/sg035')
+x = Glider(35, np.arange(62, 65), '/Users/jake/Documents/baroclinic_modes/DG/BATS_2015/sg035')
 # ---- DG BATS 2018
-x = Glider(41, np.arange(67, 71), '/Users/jake/Documents/baroclinic_modes/DG/BATS_2018/sg041')
+# x = Glider(41, np.arange(67, 71), '/Users/jake/Documents/baroclinic_modes/DG/BATS_2018/sg041')
 
 # -- match max dive depth to bin_depth
 # GD = Dataset('BATs_2015_gridded_apr04.nc', 'r')
@@ -74,7 +74,7 @@ sa, ct, theta, sig0, sig2, N2 = x.density(bin_depth, ref_lat, t, s, lon, lat)
 # compute M/W sections and compute velocity
 sigth_levels = np.concatenate(
     [np.arange(23, 25.4, 0.4), np.arange(26.2, 27.2, 0.2),
-     np.arange(27.2, 27.8, 0.2), np.arange(27.7, 27.8, 0.02), np.arange(27.8, 27.9, 0.01)])
+     np.arange(27.2, 27.8, 0.2), np.arange(27.72, 27.8, 0.02), np.arange(27.8, 27.9, 0.01)])
 # sigth_levels = np.concatenate(
 #     [np.arange(23, 26.5, 0.5), np.arange(26.2, 27.2, 0.2),
 #      np.arange(27.2, 27.7, 0.2), np.arange(27.7, 28, 0.02), np.arange(28, 28.15, 0.01)])
@@ -92,7 +92,7 @@ ds, dist, v_g, vbt, isopycdep, isopycx, mwe_lon, mwe_lat, DACe_MW, DACn_MW, prof
 
 # -----------------------------------------------------------------------------------------------
 # PLOTTING cross section
-u_levels = np.arange(-0.8, 0.8, .04)
+u_levels = np.arange(-0.4, 0.4, .04)
 # choose which transect
 # transect_no = 0
 # x.plot_cross_section(bin_depth, ds[transect_no], v_g[transect_no], dist[transect_no],
@@ -100,7 +100,7 @@ u_levels = np.arange(-0.8, 0.8, .04)
 #                      sigth_levels, d_time, u_levels)
 fig0 = x.plot_cross_section(bin_depth, ds, v_g, dist, profile_tags_per, isopycdep, isopycx, sigth_levels, d_time, u_levels)
 
-# fig0.savefig("/Users/jake/Documents/baroclinic_modes/write_up/test_cross.pdf", dpi=150)
+fig0.savefig("/Users/jake/Documents/Conferences/USCLIVAR_19/eddy_cross.jpeg", dpi=450)
 # -----------------------------------------------------------------------------------------------
 # plot plan view
 # load in bathymetry and lat/lon plotting bounds
@@ -113,7 +113,8 @@ fig0 = x.plot_cross_section(bin_depth, ds, v_g, dist, profile_tags_per, isopycde
 # BATS
 # bathy_path = '/Users/jake/Desktop/bats/bats_bathymetry/GEBCO_2014_2D_-67.7_29.8_-59.9_34.8.nc'
 bathy_path = '/Users/jake/Desktop/bats/bats_bathymetry/bathymetry_b38e_27c7_f8c3_f3d6_790d_30c7.nc'
-plan_window = [-66, -63, 32, 37]
+plan_window = [-66, -63, 31, 33]
+# plan_window = [-66, -63, 32, 37]
 # bath_fid = Dataset(bathy_path, 'r')
 
 # from netCDF4 import Dataset

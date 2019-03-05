@@ -916,15 +916,15 @@ class Glider(object):
             for j in range(np.size(bin_depth)):
                 # find array of indices for M / W sampling
                 if i < 2:
-                    # c_i_m = np.arange(i, i + 3)
-                    c_i_m = []  # omit partial "M" estimate
+                    c_i_m = np.arange(i, i + 3)
+                    # c_i_m = []  # omit partial "M" estimate
                     c_i_w = np.arange(i, i + 4)
                 elif (i >= 2) and (i < len(profile_tags) - 2):
                     c_i_m = np.arange(i - 1, i + 3)
                     c_i_w = np.arange(i, i + 4)
                 elif i >= len(profile_tags) - 2:
-                    # c_i_m = np.arange(i - 1, len(profile_tags))
-                    c_i_m = []  # omit partial "M" estimated
+                    c_i_m = np.arange(i - 1, len(profile_tags))
+                    # c_i_m = []  # omit partial "M" estimated
                     c_i_w = []
                 nm = np.size(c_i_m)
                 nw = np.size(c_i_w)
