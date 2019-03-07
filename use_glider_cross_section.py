@@ -22,7 +22,7 @@ from toolkit import plot_pro
 # x = Glider(39, np.concatenate((np.arange(70, 83), np.arange(84, 86))),
 #            r'/Users/jake/Documents/baroclinic_modes/DG/ABACO_2018/sg039')
 # ---- DG BATS 2015
-x = Glider(35, np.arange(62, 65), '/Users/jake/Documents/baroclinic_modes/DG/BATS_2015/sg035')
+x = Glider(35, np.arange(68, 71), '/Users/jake/Documents/baroclinic_modes/DG/BATS_2015/sg035')
 # ---- DG BATS 2018
 # x = Glider(41, np.arange(67, 71), '/Users/jake/Documents/baroclinic_modes/DG/BATS_2018/sg041')
 
@@ -100,7 +100,7 @@ u_levels = np.arange(-0.4, 0.4, .04)
 #                      sigth_levels, d_time, u_levels)
 fig0 = x.plot_cross_section(bin_depth, ds, v_g, dist, profile_tags_per, isopycdep, isopycx, sigth_levels, d_time, u_levels)
 
-fig0.savefig("/Users/jake/Documents/Conferences/USCLIVAR_19/eddy_cross.jpeg", dpi=450)
+# fig0.savefig("/Users/jake/Documents/Conferences/USCLIVAR_19/eddy_cross.jpeg", dpi=450)
 # -----------------------------------------------------------------------------------------------
 # plot plan view
 # load in bathymetry and lat/lon plotting bounds

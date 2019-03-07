@@ -46,8 +46,8 @@ deep_shr_max = 0.1
 deep_shr_max_dep = 3500
 # ----------------------------------------------------------------------------------------------------------------------
 # ---- PROCESSING USING GLIDER PACKAGE
-gs = 50
-ge = 129
+gs = 65
+ge = 149
 x = Glider(41, np.arange(gs, ge), '/Users/jake/Documents/baroclinic_modes/DG/BATS_2018/sg041')
 # ----------------------------------------------------------------------------------------------------------------------
 import_dg = si.loadmat('/Users/jake/Documents/baroclinic_modes/sg041_2018_neutral_density_bin.mat')
@@ -548,7 +548,7 @@ ax2.invert_yaxis()
 ax3.invert_yaxis()
 ax1.grid()
 ax2.grid()
-ax3.set_xlim([datetime.date(2018, 10, 1), datetime.date(2019, 2, 15)])
+ax3.set_xlim([datetime.date(2018, 10, 1), datetime.date(2019, 3, 10)])
 plot_pro(ax3)
 
 f, (ax, ax2, ax3, ax4, ax5) = plt.subplots(5, 1, sharex=True)
@@ -571,7 +571,7 @@ ax.grid()
 ax2.grid()
 ax3.grid()
 ax4.grid()
-ax5.set_xlim([datetime.date(2018, 10, 1), datetime.date(2019, 2, 15)])
+ax5.set_xlim([datetime.date(2018, 10, 1), datetime.date(2019, 3, 10)])
 plot_pro(ax5)
 
 f, (ax, ax2, ax3, ax4, ax5) = plt.subplots(5, 1, sharex=True)
@@ -595,7 +595,7 @@ ax4.grid()
 ax4.set_ylim([-.07, .07])
 ax5.set_xlabel('Date')
 ax5.set_ylim([-.07, .07])
-ax5.set_xlim([datetime.date(2018, 10, 1), datetime.date(2019, 2, 15)])
+ax5.set_xlim([datetime.date(2018, 10, 1), datetime.date(2019, 3, 10)])
 plot_pro(ax5)
 # ----------------------------------------------------------------------------------------------------------------------
 # --- Eta per select profiles
@@ -992,7 +992,7 @@ non_linearity_2 = np.sqrt(np.nanmean(V3**2)) / (beta_ref * ((c[1] / f_ref) ** 2)
 
 # ----- LOAD in Comparison DATA
 # -- load in Station BATs PE Comparison
-pkl_file = open('/Users/jake/Desktop/bats/station_bats_pe_nov05.pkl', 'rb')
+pkl_file = open('/Users/jake/Desktop/bats/station_bats_pe_jan30.pkl', 'rb')
 SB = pickle.load(pkl_file)
 pkl_file.close()
 sta_bats_pe = SB['PE_by_season']
@@ -1009,9 +1009,9 @@ for i in range(1, mmax+1):
     test1 = np.nanmean(sta_bats_pe[0][i, :])
     test2 = np.nanmean(sta_bats_pe[1][i, :])
     test3 = np.nanmean(sta_bats_pe[2][i, :])
-    test4 = np.nanmean(sta_bats_pe[3][i, :])
-    sta_max[i - 1] = np.max([test1, test2, test3, test4])
-    sta_min[i - 1] = np.min([test1, test2, test3, test4])
+    # test4 = np.nanmean(sta_bats_pe[3][i, :])
+    sta_max[i - 1] = np.max([test1, test2, test3])
+    sta_min[i - 1] = np.min([test1, test2, test3])
     dg_per_max[i - 1] = np.nanmax(PE_per_mass_all[i, :])
     dg_per_min[i - 1] = np.nanmin(PE_per_mass_all[i, :])
 
@@ -1181,7 +1181,7 @@ if plot_eng > 0:
     ax1.set_xscale('log')
     plot_pro(ax1)
 
-# --- SAVE BATS ENERGIES DG TRANSECTS
+# --- SAVE 36N ENERGIES DG TRANSECTS
 # write python dict to a file
 sa = 0
 if sa > 0:
@@ -1196,8 +1196,9 @@ DGB = pickle.load(pkl_file)
 pkl_file.close()
 bats_dg_KE = DGB['KE']
 bats_dg_PE = DGB['PE']
-bats_dg_KE_all = DGB['KE_all']
-bats_dg_PE_all = DGB['PE_all']
+bats_dg_bckgrds = DGB['background_eddy_indicies_for_energy'][0]  # winter index
+bats_dg_KE_all = np.nanmean(DGB['KE_all'][:, bats_dg_bckgrds], axis=1)
+bats_dg_PE_all = np.nanmean(DGB['PE_all'][:, bats_dg_bckgrds], axis=1)
 bats_dg_c = DGB['c']
 bats_dg_f = DGB['f']
 bats_dg_depth = DGB['depth']
@@ -1211,75 +1212,79 @@ fig0, (ax0, ax1) = plt.subplots(1, 2, sharey=True)
 
 # Station (by season)
 ax0.fill_between(1000 * sta_bats_f / sta_bats_c[1:mmax + 1], sta_min / sta_bats_dk, sta_max / sta_bats_dk,
-                 label='APE$_{ship}$', color='#D3D3D3')
-
+                 label='PE$_{ship}$', color='#D3D3D3')
+scols = ['#00BFFF', '#6B8E23', '#800000']
 # DG PE avg. (36N)
-PE_p = ax1.plot(sc_x, avg_PE[1:] / dk, color='#663399', label='APE', linewidth=3)
-ax1.scatter(sc_x, avg_PE[1:] / dk, color='#663399', s=20)
+PE_p = ax1.plot(sc_x, avg_PE[1:] / dk, color=scols[0], label='PE', linewidth=3)
+ax1.scatter(sc_x, avg_PE[1:] / dk, color=scols[0], s=20)
 # DG KE (36N)
-KE_p = ax1.plot(1000 * f_ref / c[1:], avg_KE[1:] / dk, color='#FF8C00', label='KE', linewidth=3)
-ax1.scatter(sc_x, avg_KE[1:] / dk, color='#FF8C00', s=20)                                         # DG KE
-KE_p = ax1.plot([10 ** -2, 1000 * f_ref / c[1]], avg_KE[0:2] / dk, color='#FF8C00', linewidth=3)        # DG KE_0
-ax1.scatter(10 ** -2, avg_KE[0] / dk, color='#FF8C00', s=20, facecolors='none')                   # DG KE_0
+KE_p = ax1.plot(1000 * f_ref / c[1:], avg_KE[1:] / dk, color=scols[2], label='KE', linewidth=3)
+ax1.scatter(sc_x, avg_KE[1:] / dk, color=scols[2], s=20)                                         # DG KE
+KE_p = ax1.plot([10 ** -2, 1000 * f_ref / c[1]], avg_KE[0:2] / dk, color=scols[2], linewidth=3)        # DG KE_0
+ax1.scatter(10 ** -2, avg_KE[0] / dk, color=scols[2], s=20, facecolors='none')                   # DG KE_0
 
 # DG PE avg. (BATS)
-ax0.plot(sc_x_bats, bats_dg_PE[1:] / dk_bats, color='#663399', label='APE', linewidth=3)
-ax0.scatter(sc_x_bats, bats_dg_PE[1:] / dk_bats, color='#663399', s=20)
+ax0.plot(sc_x_bats, bats_dg_PE_all[1:] / dk_bats, color=scols[0], label='PE', linewidth=3)
+ax0.scatter(sc_x_bats, bats_dg_PE_all[1:] / dk_bats, color=scols[0], s=20)
 # DG KE (BATS)
-ax0.plot(1000 * bats_dg_f / bats_dg_c[1:], bats_dg_KE[1:] / dk_bats, color='#FF8C00', label=r'KE', linewidth=3)
-ax0.scatter(sc_x_bats, bats_dg_KE[1:] / dk_bats, color='#FF8C00', s=20)                                         # DG KE
-ax0.plot([10 ** -2, 1000 * bats_dg_f / bats_dg_c[1]], bats_dg_KE[0:2] / dk_bats, color='#FF8C00', linewidth=3)        # DG KE_0
-ax0.scatter(10 ** -2, bats_dg_KE[0] / dk_bats, color='#FF8C00', s=20, facecolors='none')                   # DG KE_0
+ax0.plot(1000 * bats_dg_f / bats_dg_c[1:], bats_dg_KE_all[1:] / dk_bats, color=scols[2], label=r'KE', linewidth=3)
+ax0.scatter(sc_x_bats, bats_dg_KE_all[1:] / dk_bats, color=scols[2], s=20)                                         # DG KE
+ax0.plot([10 ** -2, 1000 * bats_dg_f / bats_dg_c[1]], bats_dg_KE_all[0:2] / dk_bats, color=scols[2], linewidth=3)        # DG KE_0
+ax0.scatter(10 ** -2, bats_dg_KE_all[0] / dk_bats, color=scols[2], s=20, facecolors='none')                   # DG KE_0
 nums = '1', '2', '3', '4', '5', '6', '7', '8'
 for i in range(1, 8):
     ax0.text( (1000 * bats_dg_f / bats_dg_c[i]) - (1/10)*(1000 * bats_dg_f / bats_dg_c[i]),
-              (bats_dg_KE[i] / dk_bats) - (1/5)*(bats_dg_KE[i] / dk_bats), nums[i - 1], fontsize=7, color='k')
+              (bats_dg_KE_all[i] / dk_bats) - (1/4)*(bats_dg_KE_all[i] / dk_bats), nums[i - 1], fontsize=7, color='k')
     ax0.text( (1000 * bats_dg_f / bats_dg_c[i]),
-              (bats_dg_PE[i] / dk_bats) + (1/8)*(bats_dg_PE[i] / dk_bats), nums[i - 1], fontsize=7, color='k')
+              (bats_dg_PE_all[i] / dk_bats) + (1/7)*(bats_dg_PE_all[i] / dk_bats), nums[i - 1], fontsize=7, color='k')
             #  + (1/15)*(1000 * bats_dg_f / bats_dg_c[i])
 
-    ax1.text( (1000 * f_ref / c[i]) - (1/10)*(1000 * f_ref / c[i]),
-              (avg_KE[i] / dk) - (1/5)*(avg_KE[i] / dk), nums[i - 1], fontsize=7, color='k')
-    ax1.text( (1000 * f_ref / c[i]),
-              (avg_PE[i] / dk) + (1/8)*(avg_PE[i] / dk), nums[i - 1], fontsize=7, color='k')
+    ax1.text((1000 * f_ref / c[i]) - (1/10)*(1000 * f_ref / c[i]),
+              (avg_KE[i] / dk) - (1/4)*(avg_KE[i] / dk), nums[i - 1], fontsize=7, color='k')
+    ax1.text((1000 * f_ref / c[i]),
+              (avg_PE[i] / dk) + (1/7)*(avg_PE[i] / dk), nums[i - 1], fontsize=7, color='k')
               #  + (1/15)*(1000 * f_ref / c[i])
-ax0.text(9 * 10 ** -3, (bats_dg_KE[0] / dk_bats) - 5, '0', color='k', fontsize=7)
+ax0.text(9 * 10 ** -3, (bats_dg_KE_all[0] / dk_bats) - 5, '0', color='k', fontsize=7)
 ax1.text(9 * 10 ** -3, (avg_KE[0] / dk) - 5, '0', color='k', fontsize=7)
-
-# slope reference
-ax0.plot([10**-1, 10**0], [10**1, 10**-2], color='k', linewidth=1.2)
-# ax0.text(1.1 * 10**-1, 10**1, '-3',color='k', fontsize=9)
-ax1.plot([10**-1, 10**0], [10**1, 10**-2], color='k', linewidth=1.2)
-# ax1.text(1.1* 10**-1, 10**1, '-3',color='k', fontsize=9)
 
 # GM
 # ax0.plot(sc_x, 0.25 * PE_GM / dk, linestyle='--', color='k', linewidth=0.75)
-ax1.plot(sc_x, 0.25 * GMPE / dk, color='#663399', linewidth=0.75, linestyle='--')
-ax1.text(sc_x[0] - .01, 0.4 * GMPE[1] / dk, r'$\frac{1}{4}$PE$_{GM}$', fontsize=10)
+ax1.plot(sc_x, 0.25 * GMPE / dk, color=scols[0], linewidth=0.75, linestyle='--')
+ax1.text(sc_x[0] - .01, 0.4 * GMPE[1] / dk, r'$\frac{1}{4}$PE$_{GM}$', fontsize=8)
 # ax0.plot(np.array([10**-2, 10]), [PE_SD / dk, PE_SD / dk], linestyle='--', color='k', linewidth=0.75)
-ax1.plot(sc_x, 0.25 * GMKE / dk, color='#FF8C00', linewidth=0.75, linestyle='--')
-ax1.text(sc_x[0] - .01, 0.4 * GMKE[1] / dk, r'$\frac{1}{4}$KE$_{GM}$', fontsize=10)
+ax1.plot(sc_x, 0.25 * GMKE / dk, color=scols[2], linewidth=0.75, linestyle='--')
+ax1.text(sc_x[0] - .01, 0.4 * GMKE[1] / dk, r'$\frac{1}{4}$KE$_{GM}$', fontsize=8)
 
 # ax0.plot(sc_x, 0.25 * PE_GM / dk, linestyle='--', color='k', linewidth=0.75)
-ax0.plot(sc_x_bats, 0.25 * bats_dg_GMPE / dk_bats, color='#663399', linewidth=0.75, linestyle='--')
-ax0.text(sc_x_bats[0] - .01, 0.4 * bats_dg_GMPE[1] / dk_bats, r'$\frac{1}{4}$PE$_{GM}$', fontsize=10)
+ax0.plot(sc_x_bats, 0.25 * bats_dg_GMPE / dk_bats, color=scols[0], linewidth=0.75, linestyle='--')
+ax0.text(sc_x_bats[0] - .01, 0.4 * bats_dg_GMPE[1] / dk_bats, r'$\frac{1}{4}$PE$_{GM}$', fontsize=8)
 # ax0.plot(np.array([10**-2, 10]), [PE_SD / dk, PE_SD / dk], linestyle='--', color='k', linewidth=0.75)
-ax0.plot(sc_x_bats, 0.25 * bats_dg_GMKE / dk_bats, color='#FF8C00', linewidth=0.75, linestyle='--')
-ax0.text(sc_x_bats[0] - .01, 0.4 * bats_dg_GMKE[1] / dk_bats, r'$\frac{1}{4}$KE$_{GM}$', fontsize=10)
+ax0.plot(sc_x_bats, 0.25 * bats_dg_GMKE / dk_bats, color=scols[2], linewidth=0.75, linestyle='--')
+ax0.text(sc_x_bats[0] - .01, 0.4 * bats_dg_GMKE[1] / dk_bats, r'$\frac{1}{4}$KE$_{GM}$', fontsize=8)
+
+# slopess
+ax0.plot([10**-2, 10**0], [10**3, 10**-3], color='k', linewidth=0.5)
+ax0.plot([10**-2, 10**1], [3*10**2, 3*10**-4], color='k', linewidth=0.5)
+ax0.text(2*10**0, 3*10**-3, '-2', fontsize=10)
+ax0.text(4.5*10**-1, 2*10**-3, '-3', fontsize=10)
+ax1.plot([10**-2, 10**0], [10**3, 10**-3], color='k', linewidth=0.5)
+ax1.plot([10**-2, 10**1], [3*10**2, 3*10**-4], color='k', linewidth=0.5)
+ax1.text(2*10**0, 3*10**-3, '-2', fontsize=10)
+ax1.text(4.5*10**-1, 2*10**-3, '-3', fontsize=10)
 
 handles, labels = ax0.get_legend_handles_labels()
 ax0.legend(handles, labels, fontsize=12)
 handles, labels = ax1.get_legend_handles_labels()
 ax1.legend(handles, labels, fontsize=12)
-ax0.set_xlim([10 ** -2, 2 * 10 ** 0])
-ax0.set_ylim([5 * 10 ** (-4), 5 * 10 ** 2])
-ax1.set_xlim([10 ** -2, 2 * 10 ** 0])
+ax0.set_xlim([10 ** -2, 3 * 10 ** 0])
+ax0.set_ylim([1 * 10 ** (-3), 1 * 10 ** 3])
+ax1.set_xlim([10 ** -2, 3 * 10 ** 0])
 ax0.set_yscale('log')
 ax0.set_xscale('log')
 ax1.set_xscale('log')
 ax0.set_xlabel(r'Scaled Vertical Wavenumber = (L$_{d_{n}}$)$^{-1}$ = $\frac{f}{c_n}$ [$km^{-1}$]', fontsize=12)
 ax0.set_ylabel('Variance per Vertical Wavenumber', fontsize=12)  # ' (and Hor. Wavenumber)')
-ax0.set_title('BATS (DG035 dive-cycles 20:175, 2015)', fontsize=14)
+ax0.set_title('BATS Winter (DG035, 2015)', fontsize=14)
 ax1.set_xlabel(r'Scaled Vertical Wavenumber = (L$_{d_{n}}$)$^{-1}$ = $\frac{f}{c_n}$ [$km^{-1}$]', fontsize=12)
 ax1.set_title(r'36$^{\circ}$N (DG041 dive-cycles 50:110, 2018-)', fontsize=14)
 ax0.grid()

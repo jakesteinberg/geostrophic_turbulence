@@ -195,42 +195,42 @@ plot_pro(ax1)
 cmap = matplotlib.cm.get_cmap('hot_r')
 f, arm = plt.subplots(4, 5, sharex=True, sharey=True)
 vmi = 0
-vma = 2.5
+vma = 2.75
 fs = 8
 modes = [0, 1, 2, 3]
 mode_labs = '0', '1', '2', '3', '4'
 epsils = [epsilon_const, epsilon_AL, epsilon_P, epsilon_B_0, epsilon_B_1]
-epsils_labs = ['Constant N2', 'Aloha', 'Papa', 'Bats Wint', 'Bats Sum']
+epsils_labs = ['Constant N$^2$', 'ALOHA', 'PAPA', 'BATS Winter', 'BATS Summer']
 for i in range(len(epsils)):
     arm[0, i].pcolor(epsils[i][modes[0], :, :], cmap=cmap, vmin=vmi, vmax=vma)
-    arm[0, i].set_title(epsils_labs[i] + ' Mode i =' + str(modes[0]), fontsize=fs)
+    arm[0, i].set_title(epsils_labs[i] + ', i=' + str(modes[0]), fontsize=fs)
     plt.xticks(np.arange(0.5, len(mode_labs) + .5, 1), mode_labs)
     plt.yticks(np.arange(0.5, len(mode_labs) + .5, 1), mode_labs)
 
     arm[1, i].pcolor(epsils[i][modes[1], :, :], cmap=cmap, vmin=vmi, vmax=vma)
-    arm[1, i].set_title(epsils_labs[i] + ' Mode i =' + str(modes[1]), fontsize=fs)
+    arm[1, i].set_title(epsils_labs[i] + ', i=' + str(modes[1]), fontsize=fs)
     plt.xticks(np.arange(0.5, len(mode_labs) + .5, 1), mode_labs)
     plt.yticks(np.arange(0.5, len(mode_labs) + .5, 1), mode_labs)
 
     arm[2, i].pcolor(epsils[i][modes[2], :, :], cmap=cmap, vmin=vmi, vmax=vma)
-    arm[2, i].set_title(epsils_labs[i] + ' Mode i =' + str(modes[2]), fontsize=fs)
+    arm[2, i].set_title(epsils_labs[i] + ', i=' + str(modes[2]), fontsize=fs)
     plt.xticks(np.arange(0.5, len(mode_labs) + .5, 1), mode_labs)
     plt.yticks(np.arange(0.5, len(mode_labs) + .5, 1), mode_labs)
 
     arm[3, i].pcolor(epsils[i][modes[3], :, :], cmap=cmap, vmin=vmi, vmax=vma)
-    arm[3, i].set_title(epsils_labs[i] + ' Mode i =' + str(modes[3]), fontsize=fs)
+    arm[3, i].set_title(epsils_labs[i] + ', i=' + str(modes[3]), fontsize=fs)
     plt.xticks(np.arange(0.5, len(mode_labs) + .5, 1), mode_labs)
     plt.yticks(np.arange(0.5, len(mode_labs) + .5, 1), mode_labs)
 arm[0, 0].invert_yaxis()
-arm[0, 0].set_ylabel('Mode j')
-arm[1, 0].set_ylabel('Mode j')
-arm[2, 0].set_ylabel('Mode j')
-arm[3, 0].set_ylabel('Mode j')
-arm[3, 0].set_xlabel('Mode m')
-arm[3, 1].set_xlabel('Mode m')
-arm[3, 2].set_xlabel('Mode m')
-arm[3, 3].set_xlabel('Mode m')
-arm[3, 4].set_xlabel('Mode m')
+arm[0, 0].set_ylabel('j', fontsize=fs)
+arm[1, 0].set_ylabel('j', fontsize=fs)
+arm[2, 0].set_ylabel('j', fontsize=fs)
+arm[3, 0].set_ylabel('j', fontsize=fs)
+arm[3, 0].set_xlabel('m', fontsize=fs)
+arm[3, 1].set_xlabel('m', fontsize=fs)
+arm[3, 2].set_xlabel('m', fontsize=fs)
+arm[3, 3].set_xlabel('m', fontsize=fs)
+arm[3, 4].set_xlabel('m', fontsize=fs)
 c_map_ax = f.add_axes([0.925, 0.1, 0.02, 0.8])
 norm = matplotlib.colors.Normalize(vmin=vmi, vmax=vma)
 cb1 = matplotlib.colorbar.ColorbarBase(c_map_ax, cmap=cmap, norm=norm, orientation='vertical')
@@ -403,178 +403,180 @@ for i in range(len(modenum[1:])):
 # ax3.legend(handles, labels, fontsize=10)
 # plot_pro(ax3)
 # ---------------------------------------------------------------------------------------------------------------------
-# Schematic of Mode Shapes and Interactions
-y_grid = np.arange(-40000, 40000, 1000)
-# z_grid = np.arange(0, -4000, -10)
-load_F = si.loadmat('/Users/jake/Documents/Cuddy_tailored/normalized_anomaly.mat')
-Fz = load_F['out']['F_z'][0][0]
-z_grid_Fz = load_F['out']['depth'][0][0][:, 0]
+# SAMPLE EDDY (MODE INTERACTIONS)
+samp_ed = 0
+if samp_ed > 0:
+    # Schematic of Mode Shapes and Interactions
+    y_grid = np.arange(-40000, 40000, 1000)
+    # z_grid = np.arange(0, -4000, -10)
+    load_F = si.loadmat('/Users/jake/Documents/Cuddy_tailored/normalized_anomaly.mat')
+    Fz = load_F['out']['F_z'][0][0]
+    z_grid_Fz = load_F['out']['depth'][0][0][:, 0]
 
-Fz_2 = savgol_filter(Fz[:, 0], 45, 5) - .16
-z_3 = np.concatenate((2. * z_grid_Fz, np.arange(2050, 4000, 50)))
-Fz_3 = np.concatenate((Fz_2, 0 * np.ones(len(np.arange(2050, 4000, 50)))))
-Fz_4 = savgol_filter(Fz_3, 55, 5)
+    Fz_2 = savgol_filter(Fz[:, 0], 45, 5) - .16
+    z_3 = np.concatenate((2. * z_grid_Fz, np.arange(2050, 4000, 50)))
+    Fz_3 = np.concatenate((Fz_2, 0 * np.ones(len(np.arange(2050, 4000, 50)))))
+    Fz_4 = savgol_filter(Fz_3, 55, 5)
 
-z_grid = -1 * SB['depth']
-rho_1 = savgol_filter(SB['Sigma0'][:, 0], 7, 5) + 1000
-rho_1 = savgol_filter(rho_1, 15, 5)
-Fz_5 = np.interp(-1. * z_grid, z_3, Fz_4)
+    z_grid = -1 * SB['depth']
+    rho_1 = savgol_filter(SB['Sigma0'][:, 0], 7, 5) + 1000
+    rho_1 = savgol_filter(rho_1, 15, 5)
+    Fz_5 = np.interp(-1. * z_grid, z_3, Fz_4)
 
-[Y, Z] = np.meshgrid(y_grid, z_grid)
-y_i = np.where((y_grid >= 0) & (y_grid <= 35000))[0]
-y_i_2 = np.where((y_grid >= -35000) & (y_grid <= 0))[0]
-z_i = np.where(z_grid > -5000)[0]
+    [Y, Z] = np.meshgrid(y_grid, z_grid)
+    y_i = np.where((y_grid >= 0) & (y_grid <= 35000))[0]
+    y_i_2 = np.where((y_grid >= -35000) & (y_grid <= 0))[0]
+    z_i = np.where(z_grid > -5000)[0]
 
-# physical parameters
-g = 9.80665
-om = 7.2921 * 10**-5 # rot rate of earth
-rho0 = 1025.0
-f1 = 2.0 * om * np.sin(np.deg2rad((47.5)))
+    # physical parameters
+    g = 9.80665
+    om = 7.2921 * 10**-5 # rot rate of earth
+    rho0 = 1025.0
+    f1 = 2.0 * om * np.sin(np.deg2rad((47.5)))
 
-A = 0.17
-L = 12000.0
-H = 1600.0
-rho_0 = 1026.0
+    A = 0.17
+    L = 12000.0
+    H = 1600.0
+    rho_0 = 1026.0
 
-# -- surface eddy
-A2 = 0.000175
-L2 = 10000.0
-H_sc = 0.4
-H_sc_2 = 0.25
-rho_pr_s = -1.0 * (A2) * rho_0 * np.e**(1.0 * Z[z_i[0]:z_i[-1]+1, y_i[0]:y_i[-1]+1] /(H_sc_2 * H)) * \
-           np.e**(-1.0 * (Y[z_i[0]:z_i[-1]+1, y_i[0]:y_i[-1]+1]**2) / (3 * L2**2))
-rho_surf = np.nan*np.ones(np.shape(Y))
-rho_b = np.tile(rho_1[:, None], (1, len(y_grid)))
-rho_surf[z_i[0]:z_i[-1]+1, y_i[0]:y_i[-1]+1] = rho_b[z_i[0]:z_i[-1]+1, y_i[0]:y_i[-1]+1] + rho_pr_s
-rho_surf[z_i[0]:z_i[-1]+1, y_i_2[0]:y_i_2[-1]] = np.fliplr(rho_b[z_i[0]:z_i[-1]+1, y_i[0]:y_i[-1]] + rho_pr_s[:, 1:])
-v_s = (450.0 * A2 * g / (rho_0 * f1)) * (2 * Y[z_i[0]:z_i[-1]+1, y_i[0]:y_i[-1]+1] / (3 * L2**2)) * \
-      np.e**(-(Y[z_i[0]:z_i[-1]+1, y_i[0]:y_i[-1]+1]**2)/(3 * L2**2)) * \
-      (1.0 * H_sc * H * np.e**(Z[z_i[0]:z_i[-1]+1, y_i[0]:y_i[-1]+1] / (H_sc * H)))
-v_surf = np.nan*np.ones(np.shape(Y))
-v_surf[z_i[0]:z_i[-1]+1, y_i[0]:y_i[-1]+1] = -1.0 * v_s
-v_surf[z_i[0]:z_i[-1]+1, y_i_2[0]:y_i_2[-1]] = np.fliplr(v_s[:, 1:])
+    # -- surface eddy
+    A2 = 0.000175
+    L2 = 10000.0
+    H_sc = 0.4
+    H_sc_2 = 0.25
+    rho_pr_s = -1.0 * (A2) * rho_0 * np.e**(1.0 * Z[z_i[0]:z_i[-1]+1, y_i[0]:y_i[-1]+1] /(H_sc_2 * H)) * \
+               np.e**(-1.0 * (Y[z_i[0]:z_i[-1]+1, y_i[0]:y_i[-1]+1]**2) / (3 * L2**2))
+    rho_surf = np.nan*np.ones(np.shape(Y))
+    rho_b = np.tile(rho_1[:, None], (1, len(y_grid)))
+    rho_surf[z_i[0]:z_i[-1]+1, y_i[0]:y_i[-1]+1] = rho_b[z_i[0]:z_i[-1]+1, y_i[0]:y_i[-1]+1] + rho_pr_s
+    rho_surf[z_i[0]:z_i[-1]+1, y_i_2[0]:y_i_2[-1]] = np.fliplr(rho_b[z_i[0]:z_i[-1]+1, y_i[0]:y_i[-1]] + rho_pr_s[:, 1:])
+    v_s = (450.0 * A2 * g / (rho_0 * f1)) * (2 * Y[z_i[0]:z_i[-1]+1, y_i[0]:y_i[-1]+1] / (3 * L2**2)) * \
+        np.e**(-(Y[z_i[0]:z_i[-1]+1, y_i[0]:y_i[-1]+1]**2)/(3 * L2**2)) * \
+        (1.0 * H_sc * H * np.e**(Z[z_i[0]:z_i[-1]+1, y_i[0]:y_i[-1]+1] / (H_sc * H)))
+    v_surf = np.nan*np.ones(np.shape(Y))
+    v_surf[z_i[0]:z_i[-1]+1, y_i[0]:y_i[-1]+1] = -1.0 * v_s
+    v_surf[z_i[0]:z_i[-1]+1, y_i_2[0]:y_i_2[-1]] = np.fliplr(v_s[:, 1:])
 
-# -- subsurface eddy
-A = 0.00007
-rho_pr = A * rho_0 * np.transpose(np.tile(Fz_5, (len(y_i), 1))) * \
-         np.e**((-Y[z_i[0]:z_i[-1]+1, y_i[0]:y_i[-1]+1]**2)/(2 * L**2))
-rho = np.nan*np.ones(np.shape(Y))
-rho_b = np.tile(rho_1[:, None], (1, len(y_grid)))
-rho[z_i[0]:z_i[-1]+1, y_i[0]:y_i[-1]+1] = rho_b[z_i[0]:z_i[-1]+1, y_i[0]:y_i[-1]+1] + rho_pr
-rho[z_i[0]:z_i[-1]+1, y_i_2[0]:y_i_2[-1]] = np.fliplr(rho_b[z_i[0]:z_i[-1]+1, y_i[0]:y_i[-1]] + rho_pr[:, 1:])
+    # -- subsurface eddy
+    A = 0.00007
+    rho_pr = A * rho_0 * np.transpose(np.tile(Fz_5, (len(y_i), 1))) * \
+            np.e**((-Y[z_i[0]:z_i[-1]+1, y_i[0]:y_i[-1]+1]**2)/(2 * L**2))
+    rho = np.nan*np.ones(np.shape(Y))
+    rho_b = np.tile(rho_1[:, None], (1, len(y_grid)))
+    rho[z_i[0]:z_i[-1]+1, y_i[0]:y_i[-1]+1] = rho_b[z_i[0]:z_i[-1]+1, y_i[0]:y_i[-1]+1] + rho_pr
+    rho[z_i[0]:z_i[-1]+1, y_i_2[0]:y_i_2[-1]] = np.fliplr(rho_b[z_i[0]:z_i[-1]+1, y_i[0]:y_i[-1]] + rho_pr[:, 1:])
 
-int_Fz = np.concatenate((np.array([-4]), cumtrapz(Fz_5, z_grid)))
-v_r = (A * g * Y[z_i[0]:z_i[-1]+1, y_i[0]:y_i[-1]+1])/(f1 * L**2) * \
-      np.e**((-Y[z_i[0]:z_i[-1]+1, y_i[0]:y_i[-1]+1]**2) / (2*L**2)) * np.transpose(np.tile(int_Fz, (len(y_i), 1)));
-v = np.nan*np.ones(np.shape(Y))
-v[z_i[0]:z_i[-1]+1, y_i[0]:y_i[-1]+1] = v_r
-v[z_i[0]:z_i[-1]+1, y_i_2[0]:y_i_2[-1]] = np.fliplr(-1. * v_r[:, 1:])
-# v[np.abs(v) < 0.01] = 0.0
+    int_Fz = np.concatenate((np.array([-4]), cumtrapz(Fz_5, z_grid)))
+    v_r = (A * g * Y[z_i[0]:z_i[-1]+1, y_i[0]:y_i[-1]+1])/(f1 * L**2) * \
+        np.e**((-Y[z_i[0]:z_i[-1]+1, y_i[0]:y_i[-1]+1]**2) / (2*L**2)) * np.transpose(np.tile(int_Fz, (len(y_i), 1)));
+    v = np.nan*np.ones(np.shape(Y))
+    v[z_i[0]:z_i[-1]+1, y_i[0]:y_i[-1]+1] = v_r
+    v[z_i[0]:z_i[-1]+1, y_i_2[0]:y_i_2[-1]] = np.fliplr(-1. * v_r[:, 1:])
+    # v[np.abs(v) < 0.01] = 0.0
 
-# -- alternate computation of displacement
-ddz_avg_sigma = savgol_filter(np.gradient(rho_1 - 1000.0, z_grid), 35, 5)
+    # -- alternate computation of displacement
+    ddz_avg_sigma = savgol_filter(np.gradient(rho_1 - 1000.0, z_grid), 35, 5)
 
-# surface
-eddy_rho_surf = rho_surf[:, y_grid == 0][:, 0]
-eta_surf = np.nan * np.ones(len(eddy_rho_surf))
-for i in range(len(eddy_rho_surf)):
-    idx, rho_idx = find_nearest(rho_1, eddy_rho_surf[i])
-    if idx <= 1:
-        z_rho_1 = -1.0 * z_grid[0:idx+3]
-        eta_surf[i] = np.interp(eddy_rho_surf[i], rho_1[0:idx + 3], z_rho_1) - (-1.0 * z_grid[i])
-    else:
-        z_rho_1 = -1.0 * z_grid[idx-2:idx+3]
-        eta_surf[i] = np.interp(eddy_rho_surf[i], rho_1[idx-2:idx+3], z_rho_1) - (-1.0 * z_grid[i])
+    # surface
+    eddy_rho_surf = rho_surf[:, y_grid == 0][:, 0]
+    eta_surf = np.nan * np.ones(len(eddy_rho_surf))
+    for i in range(len(eddy_rho_surf)):
+        idx, rho_idx = find_nearest(rho_1, eddy_rho_surf[i])
+        if idx <= 1:
+            z_rho_1 = -1.0 * z_grid[0:idx+3]
+            eta_surf[i] = np.interp(eddy_rho_surf[i], rho_1[0:idx + 3], z_rho_1) - (-1.0 * z_grid[i])
+        else:
+            z_rho_1 = -1.0 * z_grid[idx-2:idx+3]
+            eta_surf[i] = np.interp(eddy_rho_surf[i], rho_1[idx-2:idx+3], z_rho_1) - (-1.0 * z_grid[i])
 
-# subsurface
-eddy_rho = rho[:, y_grid == 0][:, 0]
-eta = np.nan * np.ones(len(eddy_rho))
-for i in range(len(eddy_rho)):
-    idx, rho_idx = find_nearest(rho_1, eddy_rho[i])
-    if idx <= 2:
-        z_rho_1 = -1.0 * z_grid[0:idx+3]
-        eta[i] = np.interp(eddy_rho[i], rho_1[0:idx + 3], z_rho_1) - (-1.0 * z_grid[i])
-    else:
-        z_rho_1 = -1.0 * z_grid[idx-2:idx+3]
-        eta[i] = np.interp(eddy_rho[i], rho_1[idx-2:idx+3], z_rho_1) - (-1.0 * z_grid[i])
-    # z_rho_1 = -1.0 * z_grid[idx-2:idx+3]
-    # eta[i] = np.interp(eddy_rho[i], rho_1[idx-2:idx+3], z_rho_1) - (-1.0 * z_grid[i])
+    # subsurface
+    eddy_rho = rho[:, y_grid == 0][:, 0]
+    eta = np.nan * np.ones(len(eddy_rho))
+    for i in range(len(eddy_rho)):
+        idx, rho_idx = find_nearest(rho_1, eddy_rho[i])
+        if idx <= 2:
+            z_rho_1 = -1.0 * z_grid[0:idx+3]
+            eta[i] = np.interp(eddy_rho[i], rho_1[0:idx + 3], z_rho_1) - (-1.0 * z_grid[i])
+        else:
+            z_rho_1 = -1.0 * z_grid[idx-2:idx+3]
+            eta[i] = np.interp(eddy_rho[i], rho_1[idx-2:idx+3], z_rho_1) - (-1.0 * z_grid[i])
+        # z_rho_1 = -1.0 * z_grid[idx-2:idx+3]
+        # eta[i] = np.interp(eddy_rho[i], rho_1[idx-2:idx+3], z_rho_1) - (-1.0 * z_grid[i])
 
-# -- plotting
-rho_levels = np.concatenate((np.arange(1024, 1027.8, 0.2), np.array([1027.76]) ,np.arange(1027.81, 1028, 0.01)))
-u_levels = np.arange(-.4, .4, 0.05)
-u_levels_2 = [-.4, -.3, -.2, -.1, .1, .2, .3, .4]
+    # -- plotting
+    rho_levels = np.concatenate((np.arange(1024, 1027.8, 0.2), np.array([1027.76]) ,np.arange(1027.81, 1028, 0.01)))
+    u_levels = np.arange(-.4, .4, 0.05)
+    u_levels_2 = [-.4, -.3, -.2, -.1, .1, .2, .3, .4]
 
-cmap = matplotlib.cm.get_cmap('RdBu')
-# surface eddy
-f, (ax1, ax2, ax3) = plt.subplots(1, 3, sharey=True)
-ax1.contour(Y/1000, Z, rho_surf, levels=rho_levels, colors='#A9A9A9', linewidth=0.5)
-ax1.contourf(Y/1000, Z, v_surf, levels=u_levels, cmap=cmap)
-ax1.contour(Y/1000, Z, v_surf, levels=u_levels_2, colors='k', linewidth=0.75)
-ax1.set_xlabel('Km')
-ax1.set_ylabel('Z [m]')
-ax1.set_ylim([-3500, 0])
-ax1.set_title('Surface Eddy')
-ax1.grid()
-ax2.plot(savgol_filter(eta_surf, 25, 7), z_grid, linewidth=2)
-ax2.plot(G_B_0[:, 1] / 50, z_grid, color='r', linestyle='--')
-ax2.set_xlim([-150, 300])
-ax2.set_xlabel('[m]')
-ax2.set_title('Vertical Isopycnal Displacement')
-ax2.grid()
-ax3.plot(v_surf[:, y_grid == L / 2], z_grid, linewidth=2)
-ax3.plot(-1. * .2 * Gz_B_0[:, 0], -1.0 * sta_bats_depth, color='r', linewidth=0.5)
-ax3.plot(Gz_B_0[:, 1] * (np.nanmin(v) * .2), -1.0 * sta_bats_depth, color='r', linewidth=0.5)
-ax3.plot((-0.02 * Gz_B_0[:, 0]) + (Gz_B_0[:, 1] * (np.nanmin(v) * .2)), -1.0 * sta_bats_depth,
-         color='r', linestyle='--')
-ax3.set_title('Velocity Profile and Mode Shapes')
-ax3.set_xlabel('[m/s]')
-plot_pro(ax3)
+    cmap = matplotlib.cm.get_cmap('RdBu')
+    # surface eddy
+    f, (ax1, ax2, ax3) = plt.subplots(1, 3, sharey=True)
+    ax1.contour(Y/1000, Z, rho_surf, levels=rho_levels, colors='#A9A9A9', linewidth=0.5)
+    ax1.contourf(Y/1000, Z, v_surf, levels=u_levels, cmap=cmap)
+    ax1.contour(Y/1000, Z, v_surf, levels=u_levels_2, colors='k', linewidth=0.75)
+    ax1.set_xlabel('Km')
+    ax1.set_ylabel('Z [m]')
+    ax1.set_ylim([-3500, 0])
+    ax1.set_title('Surface Eddy')
+    ax1.grid()
+    ax2.plot(savgol_filter(eta_surf, 25, 7), z_grid, linewidth=2)
+    ax2.plot(G_B_0[:, 1] / 50, z_grid, color='r', linestyle='--')
+    ax2.set_xlim([-150, 300])
+    ax2.set_xlabel('[m]')
+    ax2.set_title('Vertical Isopycnal Displacement')
+    ax2.grid()
+    ax3.plot(v_surf[:, y_grid == L / 2], z_grid, linewidth=2)
+    ax3.plot(-1. * .2 * Gz_B_0[:, 0], -1.0 * sta_bats_depth, color='r', linewidth=0.5)
+    ax3.plot(Gz_B_0[:, 1] * (np.nanmin(v) * .2), -1.0 * sta_bats_depth, color='r', linewidth=0.5)
+    ax3.plot((-0.02 * Gz_B_0[:, 0]) + (Gz_B_0[:, 1] * (np.nanmin(v) * .2)), -1.0 * sta_bats_depth,
+            color='r', linestyle='--')
+    ax3.set_title('Velocity Profile and Mode Shapes')
+    ax3.set_xlabel('[m/s]')
+    plot_pro(ax3)
 
-# subsurface eddy
-f, (ax1, ax2, ax3) = plt.subplots(1, 3, sharey=True)
-ax1.contour(Y/1000, Z, rho, levels=rho_levels, colors='#A9A9A9', linewidth=0.5)
-ax1.contourf(Y/1000, Z, v, levels=u_levels, cmap=cmap)
-ax1.contour(Y/1000, Z, v, levels=u_levels_2, colors='k', linewidth=0.75)
-ax1.set_xlabel('Km')
-ax1.set_ylabel('Z [m]')
-ax1.set_ylim([-3500, 0])
-ax1.set_title('Subsurface Eddy')
-ax1.grid()
-ax2.plot(savgol_filter(eta, 25, 7), z_grid)
-ax2.plot(G_B_0[:, 1] / 50, z_grid, color='r', linestyle='--')
-# ax2.plot((rho[:, y_grid == 0][:, 0] - rho_1) / ddz_avg_sigma, z_grid)
-# ax2.plot(rho[:, y_grid == 0][:, 0], z_grid)
-# ax2.plot(rho_1, z_grid)
-ax2.set_xlim([-150, 300])
-ax2.set_xlabel('[m]')
-ax2.set_title('Vertical Isopycnal Displacement')
-ax2.grid()
-ax3.plot(v[:, y_grid == L / 2], z_grid, linewidth=2)
-ax3.plot(-1. * .2 * Gz_B_0[:, 0], -1.0 * sta_bats_depth, color='r', linewidth=0.5)
-ax3.plot(Gz_B_0[:, 1] * (np.nanmin(v) * .2), -1.0 * sta_bats_depth, color='r', linewidth=0.5)
-ax3.plot((-0.02 * Gz_B_0[:, 0]) + (Gz_B_0[:, 1] * (np.nanmin(v) * .2)), -1.0 * sta_bats_depth,
-         color='r', linestyle='--')
-ax3.set_title('Velocity Profile and Mode Shapes')
-ax3.set_xlabel('[m/s]')
-plot_pro(ax3)
-
-
+    # subsurface eddy
+    f, (ax1, ax2, ax3) = plt.subplots(1, 3, sharey=True)
+    ax1.contour(Y/1000, Z, rho, levels=rho_levels, colors='#A9A9A9', linewidth=0.5)
+    ax1.contourf(Y/1000, Z, v, levels=u_levels, cmap=cmap)
+    ax1.contour(Y/1000, Z, v, levels=u_levels_2, colors='k', linewidth=0.75)
+    ax1.set_xlabel('Km')
+    ax1.set_ylabel('Z [m]')
+    ax1.set_ylim([-3500, 0])
+    ax1.set_title('Subsurface Eddy')
+    ax1.grid()
+    ax2.plot(savgol_filter(eta, 25, 7), z_grid)
+    ax2.plot(G_B_0[:, 1] / 50, z_grid, color='r', linestyle='--')
+    # ax2.plot((rho[:, y_grid == 0][:, 0] - rho_1) / ddz_avg_sigma, z_grid)
+    # ax2.plot(rho[:, y_grid == 0][:, 0], z_grid)
+    # ax2.plot(rho_1, z_grid)
+    ax2.set_xlim([-150, 300])
+    ax2.set_xlabel('[m]')
+    ax2.set_title('Vertical Isopycnal Displacement')
+    ax2.grid()
+    ax3.plot(v[:, y_grid == L / 2], z_grid, linewidth=2)
+    ax3.plot(-1. * .2 * Gz_B_0[:, 0], -1.0 * sta_bats_depth, color='r', linewidth=0.5)
+    ax3.plot(Gz_B_0[:, 1] * (np.nanmin(v) * .2), -1.0 * sta_bats_depth, color='r', linewidth=0.5)
+    ax3.plot((-0.02 * Gz_B_0[:, 0]) + (Gz_B_0[:, 1] * (np.nanmin(v) * .2)), -1.0 * sta_bats_depth,
+            color='r', linestyle='--')
+    ax3.set_title('Velocity Profile and Mode Shapes')
+    ax3.set_xlabel('[m/s]')
+    plot_pro(ax3)
 # ---------------------------------------------------------------------------------------------------------------------
-f, (ax1, ax2) = plt.subplots(1, 2, sharey=True)
-ax1.plot(G_B_0[:, 1], z_grid, linewidth=2)
-ax1.plot(G_B_0[:, 2], z_grid, linewidth=2)
-ax1.plot(G_B_0[:, 3], z_grid, linewidth=2)
-ax2.plot(Gz_B_0[:, 1], z_grid, linewidth=2)
-ax2.plot(Gz_B_0[:, 2], z_grid, linewidth=2)
-ax2.plot(Gz_B_0[:, 3], z_grid, linewidth=2)
-ax1.set_xlim([-2000, 2000])
-ax2.set_xlim([-3, 3])
-ax1.set_ylabel('Depth [m]')
-ax1.set_title('Displacement Modes')
-ax2.set_title('Velocity Modes')
-ax1.grid()
-plot_pro(ax2)
+# MODE SHAPE PLOT
+# f, (ax1, ax2) = plt.subplots(1, 2, sharey=True)
+# ax1.plot(G_B_0[:, 1], z_grid, linewidth=2)
+# ax1.plot(G_B_0[:, 2], z_grid, linewidth=2)
+# ax1.plot(G_B_0[:, 3], z_grid, linewidth=2)
+# ax2.plot(Gz_B_0[:, 1], z_grid, linewidth=2)
+# ax2.plot(Gz_B_0[:, 2], z_grid, linewidth=2)
+# ax2.plot(Gz_B_0[:, 3], z_grid, linewidth=2)
+# ax1.set_xlim([-2000, 2000])
+# ax2.set_xlim([-3, 3])
+# ax1.set_ylabel('Depth [m]')
+# ax1.set_title('Displacement Modes')
+# ax2.set_title('Velocity Modes')
+# ax1.grid()
+# plot_pro(ax2)
 
 
 # ---------------------------------------------------------------------------------------------------------------------
