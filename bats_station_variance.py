@@ -16,9 +16,8 @@ from toolkit import plot_pro, nanseg_interp, find_nearest
 
 # ------ physical parameters
 g = 9.81
-rho0 = 1035  # - 1027
-GD = Dataset('BATs_2015_gridded_apr04.nc', 'r')
-# bin_depth = GD.variables['grid'][:]
+rho0 = 1027  # - 1027
+# GD = Dataset('BATs_2015_gridded_apr04.nc', 'r')
 bin_depth = np.concatenate([np.arange(0, 150, 5), np.arange(150, 300, 5), np.arange(300, 4550, 10)])
 ref_lat = 31.7
 ref_lon = -64.2
@@ -287,34 +286,29 @@ gamma = gamma[:, cal_good]
 
 # -- construct four background profiles to represent seasons
 date_year = np.floor(c_date)
-date_month = c_date - date_year
-# # Mar 1 - June 1
-# d_spring = np.where((date_month > 3 / 12) & (date_month < 6 / 12))[0]
-# # June 1 - Sept 1
-# d_summer = np.where((date_month > 6 / 12) & (date_month < 9 / 12))[0]
-# # Sept 1 - Nov 1
-# d_fall = np.where((date_month > 9 / 12) & (date_month < 11 / 12))[0]
-# # Nov 1 - Mar 1
-# d_winter = np.where((date_month > 11 / 12) | (date_month < 3 / 12))[0]
-# bckgrds = [d_spring, d_summer, d_fall, d_winter]
+date_day = 365 * (c_date - date_year)
+months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']  # (up through)
+days_per_month = np.array([31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31])
+year_days = np.cumsum(days_per_month)
 
 # alternate to match DG at BATS (3 seasons
-# Jan 1 - May 15
-d_winter1 = np.where(date_month < 5.5 / 12)[0]
+# Nov - May (11 - 5)
+d_winter1 = np.where((date_day < year_days[3 - 1]) | (date_day > year_days[11 - 1]))[0]  # true winter
 # June 1 - Sept 1
-d_summer = np.where((date_month > 5.5 / 12) & (date_month < 9.5 / 12))[0]
+d_summer = np.where((date_day > year_days[5 - 1]) & (date_day < year_days[8 - 1]))[0]
 # Sept 1 - Nov 1
-d_winter2 = np.where(date_month > 9.5 / 12)[0]
-bckgrds = [d_winter1, d_summer, d_winter2]
-season_labs = ['Jan-May', 'May-Sept', 'Sept-Dec']
+d_fall = np.where((date_day > year_days[8 - 1]) & (date_day < year_days[11 - 1]))[0]
+bckgrds = [d_winter1, d_summer, d_fall]
+season_labs = ['Dec-Mar', 'May-Sept', 'Sept-Nov']  # mirror to match DG BATS
 
-cols = 'b', 'r', 'g', 'c', 'm'
+# cols = 'b', 'r', 'g', 'c', 'm'
+cols = ['#2F4F4F', '#FF4500', '#DAA520', '#800080']
 bckgrds_lims = np.nan * np.ones((len(bckgrds), 2))
 for i in range(len(bckgrds)):
-    bckgrds_lims[i, :] = np.array([date_month[bckgrds[i]].min(), date_month[bckgrds[i]].max()])
+    bckgrds_lims[i, :] = np.array([date_day[bckgrds[i]].min(), date_day[bckgrds[i]].max()])
 
 # -----------------------------------------------------------------------------
-# FOUR DIFFERENCE BACKGROUND PROFILES
+# DIFFERENT BACKGROUND PROFILES
 slen = np.shape(bckgrds)[0]
 salin_avg = np.nan * np.zeros((len(grid), slen))
 conservative_t_avg = np.nan * np.zeros((len(grid), slen))
@@ -457,36 +451,6 @@ for i in range(num_profs):
 # store for later
 this_eta_0 = this_eta.copy()
 
-# -- look for long term warming/cooling trends
-# f, (ax0, ax1, ax2, ax3) = plt.subplots(4, 1, sharex=True)
-# m0 = np.polyfit(c_date, conservative_t_anom[0, :], 1)
-# cta0 = np.polyval(m0, c_date)
-# m1 = np.polyfit(c_date, conservative_t_anom[65, :], 1)
-# cta1 = np.polyval(m1, c_date)
-# m2 = np.polyfit(c_date, conservative_t_anom[115, :], 1)
-# cta2 = np.polyval(m2, c_date)
-# m3 = np.polyfit(c_date, conservative_t_anom[215, :], 1)
-# cta3 = np.polyval(m3, c_date)
-# ax0.plot(c_date, conservative_t_anom[0, :])
-# ax1.plot(c_date, conservative_t_anom[65, :])
-# ax2.plot(c_date, conservative_t_anom[115, :])
-# ax3.plot(c_date, conservative_t_anom[215, :])
-# ax0.plot(c_date, cta0, color='k')
-# ax1.plot(c_date, cta1, color='k')
-# ax2.plot(c_date, cta2, color='k')
-# ax3.plot(c_date, cta3, color='k')
-# ax0.set_title('T anom at 5m')
-# ax0.set_ylim([-5, 5])
-# ax0.grid()
-# ax1.set_title('T anom at 1000m')
-# ax1.grid()
-# ax2.set_title('T anom at 2000m')
-# ax2.grid()
-# ax3.set_title('T anom at 4000m')
-# ax3.set_xlabel('Date')
-# plot_pro(ax3)
-
-# colors = plt.cm.Dark2(np.arange(0, 4, 1))
 # --- T/S/rho_anom plot and lat/lon profile location
 f, (ax, ax2) = plt.subplots(1, 2, sharey=True)
 # for i in range(num_profs):
@@ -500,7 +464,7 @@ for i in range(slen):
 ax.grid()
 handles, labels = ax.get_legend_handles_labels()
 ax.legend(handles, labels, fontsize=12)
-ax.set_ylim([0, 2000])
+ax.set_ylim([0, 1500])
 ax.set_ylabel('Depth [m]')
 ax.set_title(r'Seasonal $N^2$')
 ax2.set_xlim([-.8, .8])
@@ -512,9 +476,9 @@ plot_pro(ax2)
 # frequency zeroed for geostrophic modes
 omega = 0
 # highest baroclinic mode to be calculated
-mmax = 60
+mmax = 45
 nmodes = mmax + 1
-eta_fit_dep_min = 75
+eta_fit_dep_min = 200
 eta_fit_dep_max = 3750
 
 # -- computer vertical mode shapes
@@ -523,13 +487,12 @@ G, Gz, c, epsilon = vertical_modes(N2_all, grid, omega, mmax)
 G_0, Gz_0, c_0, epsilon_0 = vertical_modes(N2[:, 0], grid, omega, mmax)
 G_1, Gz_1, c_1, epsilon_1 = vertical_modes(N2[:, 1], grid, omega, mmax)
 G_2, Gz_2, c_2, epsilon_2 = vertical_modes(N2[:, 2], grid, omega, mmax)
-# G_3, Gz_3, c_3, epsilon_3 = vertical_modes(N2[:, 3], grid, omega, mmax)
 G_i = [G_0, G_1, G_2]
 Gz_i = [Gz_0, Gz_1, Gz_2]
 c_i = [c_0, c_1, c_2]
 
 # -- choose eta to use
-this_eta_used = eta_alt_3  # this_eta_0  # local sig_theta calc
+this_eta_used = this_eta_0  # this_eta_0  # local sig_theta calc
 
 # -- cycle through seasons
 AG = []
@@ -558,76 +521,79 @@ AG_all_2, eta_m_all_2, Neta_m_all_2, PE_per_mass_all_2 = eta_fit(num_profs, grid
 AG_all, eta_m_all, Neta_m_all, PE_per_mass_all = eta_fit(num_profs, grid, nmodes,
                                                          N2_all, G, c, eta4, eta_fit_dep_min, eta_fit_dep_max)
 
-# --- test season differences in modes
-f, (ax1, ax2, ax3, ax4) = plt.subplots(1, 4, sharey=True)
-for i in range(slen):
-    ax1.plot(G_i[i][:, 1], grid, color=cols[i])
-    ax2.plot(G_i[i][:, 2], grid, color=cols[i])
-    ax3.plot(G_i[i][:, 3], grid, color=cols[i])
-    ax4.plot(G_i[i][:, 4], grid, color=cols[i], label=season_labs[i])
-ax1.set_title('Mode 1')
-ax1.set_ylabel('Depth')
-ax1.grid()
-ax2.set_title('Mode 2')
-ax2.grid()
-ax3.set_title('Mode 3')
-ax3.grid()
-ax4.set_title('Mode 4')
-ax4.invert_yaxis()
-handles, labels = ax4.get_legend_handles_labels()
-ax4.legend(handles, labels, fontsize=10)
-plot_pro(ax4)
-f, (ax1, ax2, ax3, ax4) = plt.subplots(1, 4, sharey=True)
-for i in range(slen):
-    ax1.plot(Gz_i[i][:, 1], grid, color=cols[i])
-    ax2.plot(Gz_i[i][:, 2], grid, color=cols[i])
-    ax3.plot(Gz_i[i][:, 3], grid, color=cols[i])
-    ax4.plot(Gz_i[i][:, 4], grid, color=cols[i], label=season_labs[i])
-ax1.set_title('Mode 1')
-ax1.set_ylabel('Depth')
-ax1.grid()
-ax2.set_title('Mode 2')
-ax2.grid()
-ax3.set_title('Mode 3')
-ax3.grid()
-ax4.set_title('Mode 4')
-ax4.invert_yaxis()
-handles, labels = ax4.get_legend_handles_labels()
-ax4.legend(handles, labels, fontsize=10)
-plot_pro(ax4)
+# --- PLOT differences in vertical structure
+plot_vert = 1
+if plot_vert > 0:
+    # --- test season differences in modes
+    f, (ax1, ax2, ax3, ax4) = plt.subplots(1, 4, sharey=True)
+    for i in range(slen):
+        ax1.plot(G_i[i][:, 1], grid, color=cols[i])
+        ax2.plot(G_i[i][:, 2], grid, color=cols[i])
+        ax3.plot(G_i[i][:, 3], grid, color=cols[i])
+        ax4.plot(G_i[i][:, 4], grid, color=cols[i], label=season_labs[i])
+    ax1.set_title('Mode 1')
+    ax1.set_ylabel('Depth')
+    ax1.grid()
+    ax2.set_title('Mode 2')
+    ax2.grid()
+    ax3.set_title('Mode 3')
+    ax3.grid()
+    ax4.set_title('Mode 4')
+    ax4.invert_yaxis()
+    handles, labels = ax4.get_legend_handles_labels()
+    ax4.legend(handles, labels, fontsize=10)
+    plot_pro(ax4)
+    f, (ax1, ax2, ax3, ax4) = plt.subplots(1, 4, sharey=True)
+    for i in range(slen):
+        ax1.plot(Gz_i[i][:, 1], grid, color=cols[i])
+        ax2.plot(Gz_i[i][:, 2], grid, color=cols[i])
+        ax3.plot(Gz_i[i][:, 3], grid, color=cols[i])
+        ax4.plot(Gz_i[i][:, 4], grid, color=cols[i], label=season_labs[i])
+    ax1.set_title('Mode 1')
+    ax1.set_ylabel('Depth')
+    ax1.grid()
+    ax2.set_title('Mode 2')
+    ax2.grid()
+    ax3.set_title('Mode 3')
+    ax3.grid()
+    ax4.set_title('Mode 4')
+    ax4.invert_yaxis()
+    handles, labels = ax4.get_legend_handles_labels()
+    ax4.legend(handles, labels, fontsize=10)
+    plot_pro(ax4)
 
-# --- plot mode shapes with swath to show variability with N2
-G_min = np.nan * np.ones((len(grid), 4))
-G_max = np.nan * np.ones((len(grid), 4))
-Gz_min = np.nan * np.ones((len(grid), 4))
-Gz_max = np.nan * np.ones((len(grid), 4))
-for i in range(1, 4):
-    G_per_tot = np.concatenate((G_i[0][:, i][:, None], G_i[1][:, i][:, None], G_i[2][:, i][:, None]), axis=1)
-    G_min[:, i] = np.nanmin(G_per_tot, axis=1)
-    G_max[:, i] = np.nanmax(G_per_tot, axis=1)
-    Gz_per_tot = np.concatenate((Gz_i[0][:, i][:, None], Gz_i[1][:, i][:, None], Gz_i[2][:, i][:, None]), axis=1)
-    Gz_min[:, i] = np.nanmin(Gz_per_tot, axis=1)
-    Gz_max[:, i] = np.nanmax(Gz_per_tot, axis=1)
-f, (ax1, ax2) = plt.subplots(1, 2, sharey=True)
-ax1.fill_betweenx(grid, G_min[:, 1], G_max[:, 1], color='#708090')
-ax1.fill_betweenx(grid, G_min[:, 2], G_max[:, 2], color='#DAA520')
-ax1.fill_betweenx(grid, G_min[:, 3], G_max[:, 3], color='#00FA9A')
-ax1.set_ylim([0, 4750])
-ax1.set_ylabel('Depth [m]')
-ax1.set_title('Displacement Modes G(z)')
-ax1.set_xlabel('Normalized Mode Amplitude')
-ax1.invert_yaxis()
-ax1.grid()
-ax2.fill_betweenx(grid, Gz_min[:, 1], Gz_max[:, 1], color='#708090', label='Mode 1')
-ax2.fill_betweenx(grid, Gz_min[:, 2], Gz_max[:, 2], color='#DAA520', label='Mode 2')
-ax2.fill_betweenx(grid, Gz_min[:, 3], Gz_max[:, 3], color='#00FA9A', label='Mode 3')
-handles, labels = ax2.get_legend_handles_labels()
-ax2.legend(handles, labels, fontsize=10)
-ax2.set_title("Velocity Modes G'(z)")
-ax2.set_xlabel('Normalized Mode Amplitude')
-ax2.grid()
-f.savefig("/Users/jake/Documents/Conferences/USClivar_19/mode_shapes.jpeg", dpi=450)
-# plot_pro(ax2)
+    # --- plot mode shapes with swath to show variability with N2
+    G_min = np.nan * np.ones((len(grid), 4))
+    G_max = np.nan * np.ones((len(grid), 4))
+    Gz_min = np.nan * np.ones((len(grid), 4))
+    Gz_max = np.nan * np.ones((len(grid), 4))
+    for i in range(1, 4):
+        G_per_tot = np.concatenate((G_i[0][:, i][:, None], G_i[1][:, i][:, None], G_i[2][:, i][:, None]), axis=1)
+        G_min[:, i] = np.nanmin(G_per_tot, axis=1)
+        G_max[:, i] = np.nanmax(G_per_tot, axis=1)
+        Gz_per_tot = np.concatenate((Gz_i[0][:, i][:, None], Gz_i[1][:, i][:, None], Gz_i[2][:, i][:, None]), axis=1)
+        Gz_min[:, i] = np.nanmin(Gz_per_tot, axis=1)
+        Gz_max[:, i] = np.nanmax(Gz_per_tot, axis=1)
+    f, (ax1, ax2) = plt.subplots(1, 2, sharey=True)
+    ax1.fill_betweenx(grid, G_min[:, 1], G_max[:, 1], color='#708090')
+    ax1.fill_betweenx(grid, G_min[:, 2], G_max[:, 2], color='#DAA520')
+    ax1.fill_betweenx(grid, G_min[:, 3], G_max[:, 3], color='#00FA9A')
+    ax1.set_ylim([0, 4750])
+    ax1.set_ylabel('Depth [m]')
+    ax1.set_title('Displacement Modes G(z)')
+    ax1.set_xlabel('Normalized Mode Amplitude')
+    ax1.invert_yaxis()
+    ax1.grid()
+    ax2.fill_betweenx(grid, Gz_min[:, 1], Gz_max[:, 1], color='#708090', label='Mode 1')
+    ax2.fill_betweenx(grid, Gz_min[:, 2], Gz_max[:, 2], color='#DAA520', label='Mode 2')
+    ax2.fill_betweenx(grid, Gz_min[:, 3], Gz_max[:, 3], color='#00FA9A', label='Mode 3')
+    handles, labels = ax2.get_legend_handles_labels()
+    ax2.legend(handles, labels, fontsize=10)
+    ax2.set_title("Velocity Modes G'(z)")
+    ax2.set_xlabel('Normalized Mode Amplitude')
+    ax2.grid()
+    # f.savefig("/Users/jake/Documents/Conferences/USClivar_19/mode_shapes.jpeg", dpi=450)
+    plot_pro(ax2)
 
 # --- find EOFs of dynamic vertical displacement (Eta mode amplitudes)
 AG_avg = AG_all.copy()
@@ -744,7 +710,7 @@ for i in range(1, mmax+1):
     sta_max[2, i - 1] = np.nanstd(PE_per_mass[2][i, :])
     sta_min[2, i - 1] = np.nanstd(PE_per_mass[2][i, :])
 
-PE_SD, PE_GM, GMPE, GMKE = PE_Tide_GM(1035, grid, nmodes, np.transpose(np.atleast_2d(np.nanmean(N2, axis=1))), f_ref)
+PE_SD, PE_GM, GMPE, GMKE = PE_Tide_GM(1025, grid, nmodes, np.transpose(np.atleast_2d(np.nanmean(N2, axis=1))), f_ref)
 
 # --- PLOT PE PER SEASON
 f, ax = plt.subplots()
@@ -757,10 +723,13 @@ for i in range(slen):
     ax.plot(sc_x, np.nanmean(PE_per_mass[i][1:], axis=1) / dk, color=cols[i], linewidth=3, label=season_labs[i])
     ax.scatter(sc_x, np.nanmean(PE_per_mass[i][1:], axis=1) / dk, s=15, color=cols[i])
 dk = f_ref / c_i[1][1]
-ax.plot(sc_x, GMPE / dk, color='k', linewidth=0.75, linestyle='--')
-# ax.plot(sc_x, np.nanmean(PE_per_mass[1][1:], axis=1) / dk, color='m', linewidth=3, label='Jun-Sept')
-# ax.plot(sc_x, np.nanmean(PE_per_mass[2][1:], axis=1) / dk, color='c', linewidth=3, label='Sept-Nov')
-# ax.plot(sc_x, np.nanmean(PE_per_mass[3][1:], axis=1) / dk, color='b', linewidth=3, label='Nov-Mar')
+ax.plot(sc_x, PE_GM / dk, color='k', linewidth=0.75, linestyle='--')
+
+ax.plot([10**-2, 10**1], [10**4, 10**-5], color='k', linewidth=0.5)
+ax.text(1.1*10**0, 1.4*10**-3, '-3', fontsize=10)
+
+ax.plot([10**-2, 10**1], [10**3, 10**-3], color='k', linewidth=0.5)
+ax.text(2*10**0, 5*10**-3, '-2', fontsize=10)
 ax.set_yscale('log')
 ax.set_xscale('log')
 # ax.axis([10 ** -2, 10 ** 1, 10 ** (-4), 2 * 10 ** 3])
@@ -828,38 +797,38 @@ ax3.grid()
 plot_pro(ax4)
 
 # -- density in time
-f, (ax1, ax2) = plt.subplots(2, 1, sharex=True)
-ax1.plot(c_date, gamma[90, :], color='g')
-ax2.plot(c_date, gamma[165, :], color='g')
-ax1.set_title('Potential Density at 600m')
-ax2.set_title('at 3400m')
-ax2.set_xlabel('Time [Yr]')
-ax2.set_ylabel(r'$\gamma$ P$_{ref}$ = 600 m')
-ax1.set_ylabel(r'$\gamma$ P$_{ref}$ = 3400 m')
-ax1.grid()
-plot_pro(ax2)
+# f, (ax1, ax2) = plt.subplots(2, 1, sharex=True)
+# ax1.plot(c_date, gamma[90, :], color='g')
+# ax2.plot(c_date, gamma[165, :], color='g')
+# ax1.set_title('Potential Density at 600m')
+# ax2.set_title('at 3400m')
+# ax2.set_xlabel('Time [Yr]')
+# ax2.set_ylabel(r'$\gamma$ P$_{ref}$ = 600 m')
+# ax1.set_ylabel(r'$\gamma$ P$_{ref}$ = 3400 m')
+# ax1.grid()
+# plot_pro(ax2)
 
 # -- attempt fft to find period of oscillation
-window_size, poly_order = 9, 2
-Time_grid = np.arange(np.round(c_date.min()), np.round(c_date.max()), 1/12)
-
-order_0_AG = AG_all[1, :]
-y_AG_0 = savgol_filter(order_0_AG, window_size, poly_order)
-order_0_AG_grid = np.interp(Time_grid, c_date, y_AG_0)
-
-order_1_AG = AG_all[2, :]
-y_AGz_1 = savgol_filter(order_1_AG, window_size, poly_order)
-order_1_AG_grid = np.interp(Time_grid, c_date, y_AGz_1)
-
-N = len(order_0_AG_grid)
-T = Time_grid[1] - Time_grid[0]
-yf_0 = scipy.fftpack.fft(order_0_AG_grid)
-yf_1 = scipy.fftpack.fft(order_1_AG_grid)
-xf = np.linspace(0.0, 1.0 / (2.0 * T), N / 2)
-f, ax = plt.subplots()
-ax.plot(xf, 2.0 / N * np.abs(yf_0[:N // 2]), 'r')
-ax.plot(xf, 2.0 / N * np.abs(yf_1[:N // 2]), 'b')
-plot_pro(ax)
+# window_size, poly_order = 9, 2
+# Time_grid = np.arange(np.round(c_date.min()), np.round(c_date.max()), 1/12)
+#
+# order_0_AG = AG_all[1, :]
+# y_AG_0 = savgol_filter(order_0_AG, window_size, poly_order)
+# order_0_AG_grid = np.interp(Time_grid, c_date, y_AG_0)
+#
+# order_1_AG = AG_all[2, :]
+# y_AGz_1 = savgol_filter(order_1_AG, window_size, poly_order)
+# order_1_AG_grid = np.interp(Time_grid, c_date, y_AGz_1)
+#
+# N = len(order_0_AG_grid)
+# T = Time_grid[1] - Time_grid[0]
+# yf_0 = scipy.fftpack.fft(order_0_AG_grid)
+# yf_1 = scipy.fftpack.fft(order_1_AG_grid)
+# xf = np.linspace(0.0, 1.0 / (2.0 * T), N / 2)
+# f, ax = plt.subplots()
+# ax.plot(xf, 2.0 / N * np.abs(yf_0[:N // 2]), 'r')
+# ax.plot(xf, 2.0 / N * np.abs(yf_1[:N // 2]), 'b')
+# plot_pro(ax)
 
 # --- SAVE
 # write python dict to a file
@@ -872,3 +841,33 @@ if sa > 0:
     output = open('/Users/jake/Desktop/bats/station_bats_pe_jan30.pkl', 'wb')
     pickle.dump(my_dict, output)
     output.close()
+
+
+# -- look for long term warming/cooling trends
+# f, (ax0, ax1, ax2, ax3) = plt.subplots(4, 1, sharex=True)
+# m0 = np.polyfit(c_date, conservative_t_anom[0, :], 1)
+# cta0 = np.polyval(m0, c_date)
+# m1 = np.polyfit(c_date, conservative_t_anom[65, :], 1)
+# cta1 = np.polyval(m1, c_date)
+# m2 = np.polyfit(c_date, conservative_t_anom[115, :], 1)
+# cta2 = np.polyval(m2, c_date)
+# m3 = np.polyfit(c_date, conservative_t_anom[215, :], 1)
+# cta3 = np.polyval(m3, c_date)
+# ax0.plot(c_date, conservative_t_anom[0, :])
+# ax1.plot(c_date, conservative_t_anom[65, :])
+# ax2.plot(c_date, conservative_t_anom[115, :])
+# ax3.plot(c_date, conservative_t_anom[215, :])
+# ax0.plot(c_date, cta0, color='k')
+# ax1.plot(c_date, cta1, color='k')
+# ax2.plot(c_date, cta2, color='k')
+# ax3.plot(c_date, cta3, color='k')
+# ax0.set_title('T anom at 5m')
+# ax0.set_ylim([-5, 5])
+# ax0.grid()
+# ax1.set_title('T anom at 1000m')
+# ax1.grid()
+# ax2.set_title('T anom at 2000m')
+# ax2.grid()
+# ax3.set_title('T anom at 4000m')
+# ax3.set_xlabel('Date')
+# plot_pro(ax3)

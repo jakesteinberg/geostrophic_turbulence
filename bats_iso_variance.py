@@ -35,7 +35,6 @@ g = 9.81
 rho0 = 1025  # - 1027
 ref_lat = 31.7
 ref_lon = 64.2
-
 # --- MODE PARAMETERS
 # frequency zeroed for geostrophic modes
 omega = 0
@@ -46,14 +45,9 @@ nmodes = mmax + 1
 deep_shr_max = 0.1
 # minimum depth for which shear is limited [m]
 deep_shr_max_dep = 3500
-
 # --- BIN PARAMETERS
 GD = Dataset('BATs_2015_gridded_apr04.nc', 'r')
 bin_depth = GD.variables['grid'][:]
-# grid = bin_depth
-# grid_p = gsw.p_from_z(-1 * grid, ref_lat)
-# z = -1 * grid
-# sz_g = grid.shape[0]
 
 # ----------------------------------------------------------------------------------------------------------------------
 # ----------------------------------------------------------------------------------------------------------------------
@@ -102,10 +96,8 @@ lat = dg_data['Lat'][0][0][0:limm, d_in]
 dac_u = dg_data['Dac_u'][0][0][0]
 dac_v = dg_data['Dac_v'][0][0][0]
 d_time = dg_data['Time'][0][0][0:limm, d_in] - 366
-# profile_tags = dg_data['prof_number'][0][0][0]
 ref_lat = np.nanmean(lat)
 time_rec_bin = np.nanmean(d_time, axis=0)
-
 grid = dg_data['Depth'][0][0][0:limm, 0]
 grid_p = gsw.p_from_z(-1 * grid, ref_lat)
 grid_p[0] = 0
@@ -119,16 +111,7 @@ sa, ct, theta, sig0, sig2, dg_N2 = x.density(grid, ref_lat, t, s, lon, lat)
 t_s = datetime.date.fromordinal(np.int(np.nanmin(d_time)))
 t_e = datetime.date.fromordinal(np.int(np.nanmax(d_time)))
 
-# --- compute 4 seasonal averages (as with station bats)
-# -- construct four background profiles to represent seasons
-# d_spring = np.where((time_rec_bin > 735648) & (time_rec_bin < 735750) & ((profile_tags < 60) | (profile_tags > 70)))[0]  # Feb 15 (Mar1, 658) - Jun1 (exclude eddy, 60-70)
-# d_summer = np.where((time_rec_bin > 735750) & (time_rec_bin < 735842))[0]       # June 1 - Sept 1
-# d_fall = np.where((time_rec_bin > 735842) & (time_rec_bin < 735903))[0]         # Sept 1 - Nov 1
-# d_winter = np.where((time_rec_bin > 735903) | (time_rec_bin < 735658))[0]       # Nov 1 - Mar 1
-# bckgrds = [d_spring, d_summer, d_fall, d_winter]
-# bckgrds_wins = np.array([735658, 735750, 735842, 735903])
-
-# --- switch to three seasons and split by longitude and exclude eddy
+# --- Three seasons, Split into 4 boxes to manage
 # - earliest date is Feb2 (735648), latest is Nov 5 (735903) (~275 days)
 
 # BATS hydrography
@@ -138,22 +121,27 @@ t_e = datetime.date.fromordinal(np.int(np.nanmax(d_time)))
 bd1 = 735750  # june1 (june1 = 735750) (may15 = 735733)
 bd2 = 735856  # sept15
 
+# split to account for horizontal gradients
+lon_lim = -64.09
+
 # (June 1 - Sept 15)
-d_summer_w = np.where(((time_rec_bin > bd1) & (time_rec_bin < bd2)) & (np.nanmean(lon, axis=0) < -64.09))[0]
-d_summer_e = np.where(((time_rec_bin > bd1) & (time_rec_bin < bd2)) & (np.nanmean(lon, axis=0) > -64.09))[0]
+d_summer_w = np.where(((time_rec_bin > bd1) & (time_rec_bin < bd2)) & (np.nanmean(lon, axis=0) < lon_lim))[0]
+d_summer_e = np.where(((time_rec_bin > bd1) & (time_rec_bin < bd2)) & (np.nanmean(lon, axis=0) > lon_lim))[0]
 # (Winter 1 = Feb 2 - June 1) - (Winter 2 = Sept 15 - Nov 5)
 d_winter_w1 = np.where((time_rec_bin < bd1) & ((profile_tags < 60) | (profile_tags > 71))
-                       & (np.nanmean(lon, axis=0) < -64.09))[0]
+                       & (np.nanmean(lon, axis=0) < lon_lim))[0]
 d_winter_e1 = np.where((time_rec_bin < bd1) & ((profile_tags < 60) | (profile_tags > 71))
-                       & (np.nanmean(lon, axis=0) > -64.09))[0]
+                       & (np.nanmean(lon, axis=0) > lon_lim))[0]
 d_winter_w2 = np.where((time_rec_bin > bd2) & ((profile_tags < 60) | (profile_tags > 71))
-                       & (np.nanmean(lon, axis=0) < -64.09))[0]
+                       & (np.nanmean(lon, axis=0) < lon_lim))[0]
 d_winter_e2 = np.where((time_rec_bin > bd2) & ((profile_tags < 60) | (profile_tags > 71))
-                       & (np.nanmean(lon, axis=0) > -64.09))[0]
+                       & (np.nanmean(lon, axis=0) > lon_lim))[0]
 
 bckgrds = [d_summer_w, d_summer_e, d_winter_w1, d_winter_e1, d_winter_w2, d_winter_e2]
 bckgrds_info = ['Summer West', 'Summer East','Winter1 West', 'Winter1 East','Winter2 West', 'Winter2 East']
-bckgrds_wins = np.array([bd1, bd2])  # summer boundaries
+# ABOVE SETS ORDER OF N2 PROFILES (different that order at the end)
+# bckgrds_wins = np.array([bd1, bd2])  # summer boundaries
+# bckgrds = [d_win1, d_sum, d_win2, d_eddy]  # KEY!! at the end, sets of profiles
 
 salin_avg = np.nan * np.zeros((len(grid), len(bckgrds)))
 cons_t_avg = np.nan * np.zeros((len(grid), len(bckgrds)))
@@ -217,7 +205,7 @@ sigth_levels = np.concatenate(
 # sigth_levels = np.concatenate([np.aranger(32, 36.6, 0.2), np.arange(36.6, 36.8, 0.05), np.arange(36.8, 37.4, 0.02)])
 
 # --- SAVE so that we dont have to run transects every time
-savee = 0
+savee = 1
 if savee > 0:
     ds, dist, avg_ct_per_dep_0, avg_sa_per_dep_0, avg_sig0_per_dep_0, v_g, vbt, isopycdep, isopycx, mwe_lon, mwe_lat,\
     DACe_MW, DACn_MW, profile_tags_per, shear, v_g_east, v_g_north = x.transect_cross_section_1(grid, neutral_density,
@@ -229,11 +217,11 @@ if savee > 0:
                'avg_sa_per_dep_0': avg_sa_per_dep_0, 'avg_sig0_per_dep_0': avg_sig0_per_dep_0, 'v_g': v_g, 'vbt': vbt,
                'isopycdep': isopycdep, 'isopycx': isopycx, 'mwe_lon': mwe_lon, 'mwe_lat': mwe_lat, 'DACe_MW': DACe_MW,
                'DACn_MW': DACn_MW, 'profile_tags_per': profile_tags_per, 'v_g_east': v_g_east, 'v_g_north': v_g_north}
-    output = open('/Users/jake/Documents/baroclinic_modes/DG/sg035_2015_transects_test_2.pkl', 'wb')
+    output = open('/Users/jake/Documents/baroclinic_modes/DG/sg035_2015_transects_test_3.pkl', 'wb')
     pickle.dump(my_dict, output)
     output.close()
 else:
-    pkl_file = open('/Users/jake/Documents/baroclinic_modes/DG/sg035_2015_transects_test_2.pkl', 'rb')
+    pkl_file = open('/Users/jake/Documents/baroclinic_modes/DG/sg035_2015_transects_test_3.pkl', 'rb')
     B15 = pickle.load(pkl_file)
     pkl_file.close()
     ds = B15['ds']
@@ -357,7 +345,7 @@ for i in range(np.shape(avg_sig0_per_dep)[1]):  # loop over each profile
 
     # first sort by lon
     # [d_summer_w, d_summer_e, d_winter_w1, d_winter_e1, d_winter_w2, d_winter_e2]
-    if this_lon < -64.09:
+    if this_lon < lon_lim:
         if (this_time > bd1) & (this_time < bd2):  # summer
             t_over = 0  # summer west
         elif this_time < bd1:
@@ -458,11 +446,14 @@ dg_avg_N2 = savgol_filter(dg_avg_N2_coarse, 15, 3)
 # --- VERTICAL MODES ---
 # --- compute vertical mode shapes
 # by season
-G_0, Gz_0, c_0, epsilon_0 = vertical_modes(np.nanmean(N2[:, 0:2], axis=1), grid, omega, mmax)  # winter1
-G_1, Gz_1, c_1, epsilon_1 = vertical_modes(np.nanmean(N2[:, 2:4], axis=1), grid, omega, mmax)  # summer
+# [d_summer_w, d_summer_e, d_winter_w1, d_winter_e1, d_winter_w2, d_winter_e2] ordering set above
+# now set to match order below
+G_0, Gz_0, c_0, epsilon_0 = vertical_modes(np.nanmean(N2[:, 2:4], axis=1), grid, omega, mmax)  # winter1
+G_1, Gz_1, c_1, epsilon_1 = vertical_modes(np.nanmean(N2[:, 0:2], axis=1), grid, omega, mmax)  # summer
 G_2, Gz_2, c_2, epsilon_2 = vertical_modes(np.nanmean(N2[:, 4:], axis=1), grid, omega, mmax)  # winter2
 Gs = [G_0, G_1, G_2]
 Gzs = [Gz_0, Gz_1, Gz_2]
+cs = [c_0, c_1, c_2]
 epsilons = [epsilon_0, epsilon_1, epsilon_2]
 # test using average over entire year
 G_tot, Gz_tot, c_tot, epsilon_tot = vertical_modes(np.nanmean(N2, axis=1), grid, omega, mmax)  # N2
@@ -479,6 +470,9 @@ for i in range(mmax + 1):
     F[:, i] = np.interp(grid, grid2, F_g2[:, i])
     F_int[:, i] = np.interp(grid, grid2, F_int_g2[:, i])
 
+# --- test season differences in modes
+cols = ['#2F4F4F', '#FF4500', '#DAA520', '#800080']
+season_labs = ['Feb-Apr', 'May-Sept', 'Sept-Nov']
 # ---------------------------------------------------------------------------------------------------------------------
 # ----- SOME VELOCITY PROFILES ARE TOO NOISY AND DEEMED UNTRUSTWORTHY -------------------------------------------------
 # select only velocity profiles that seem reasonable
@@ -531,7 +525,7 @@ for i in range(num_profs):
         Gz = Gz_2
         c = c_2
 
-    Gz[:, 1] = F[:, 0].copy()
+    # Gz[:, 1] = F[:, 0].copy()
     # Gz[:, 2] = F[:, 1].copy()
     # Gz[:, 3] = F[:, 2].copy()
     # Gz[:, 4] = F[:, 3].copy()
@@ -674,7 +668,7 @@ for i in range(lon.shape[1]):
     # t_over = np.where(bckgrds_wins > this_time)[0]
 
     # [d_summer_w, d_summer_e, d_winter_w1, d_winter_e1, d_winter_w2, d_winter_e2]
-    if this_lon < -64.09:
+    if this_lon < lon_lim:
         if (this_time > bd1) & (this_time < bd2):  # summer
             t_over = 0  # summer west
         elif this_time < bd1:
@@ -1107,7 +1101,7 @@ check2 = -14     # lower index to include in eof computation
 grid_check = grid[check1:check2]
 Uzq = V3[check1:check2, :].copy()
 
-loop_on = 0
+loop_on = 1
 if loop_on > 0:
     # loop over every two weeks (to obtain statistics)
     T_week = np.arange(Time3.min(), Time3.max(), 14)
@@ -1267,7 +1261,7 @@ if plot_eta > 0:
     # ax15.grid()
     # plot_pro(ax0)
 
-    f, (ax1, ax0) = plt.subplots(1, 2, sharey=True)
+    f_eta, (ax1, ax0) = plt.subplots(1, 2, sharey=True)
     pzmax = -15
     for j in range(num_profs):
         ax1.plot(Eta2[0:pzmax, j], grid[0:pzmax], color='#4682B4', linewidth=1.25)
@@ -1292,6 +1286,8 @@ if plot_eta > 0:
     ax0.invert_yaxis()
     ax1.grid()
     plot_pro(ax0)
+
+    # f_eta.savefig('/Users/jake/Documents/Conferences/USClivar_19/bats_eta_v.png', dpi=350)
 
     # MODE EOFS
     # max_plot = 3
@@ -1327,7 +1323,7 @@ if plot_eta > 0:
 # ----------------------------------------------------------------------------------------------------------------------
 # --- PLOT V STRUCTURE ---
 # --- bottom boundary conditions
-plot_v_struct = 1
+plot_v_struct = 0
 if plot_v_struct > 0:
     f, (ax, ax2, ax3, ax4) = plt.subplots(1, 4, sharey=True)
     for i in range(nq):
@@ -1371,34 +1367,6 @@ if plot_v_struct > 0:
     ax3.grid()
     ax.invert_yaxis()
     plot_pro(ax4)
-
-# ----------------------------------------------------------------------------------------------------------------------
-# ----------------------------------------------------------------------------------------------------------------------
-# --- MODE AMPLITUDE IN TIME AND SPACE ----------
-# # averaging eta estimation
-# Time3 = Time2[np.argsort(Time2)]
-# Time2_dt = []
-# for i in range(len(Time3)):
-#     Time2_dt.append(datetime.date.fromordinal(np.int(Time3[i])))
-# # individual eta estimation
-# Time_all = time_rec_bin[np.argsort(time_rec_bin)]
-# Time2_all_dt = []
-# for i in range(len(Time_all)):
-#     Time2_all_dt.append(datetime.date.fromordinal(np.int(Time_all[i])))
-#
-# # load in Station BATs mode amplitude Comparison
-# pkl_file = open('/Users/jake/Desktop/bats/station_bats_pe.pkl', 'rb')
-# SB = pickle.load(pkl_file)
-# pkl_file.close()
-# sta_bats_ag = SB['AG']
-# sta_bats_time = SB['time']
-# sba_in = sta_bats_ag[:, sta_bats_time > 2015]
-# sbt_in = sta_bats_time[sta_bats_time > 2015]
-# sb_dt = []
-# for i in range(len(sbt_in)):
-#     sb_dt.append(datetime.datetime(np.int(sbt_in[i]), np.int((sbt_in[i] - np.int(sbt_in[i])) * 12), np.int(
-#         ((sbt_in[i] - np.int(sbt_in[i])) * 12 - np.int((sbt_in[i] - np.int(sbt_in[i])) * 12)) * 30)))
-
 # ----------------------------------------------------------------------------------------------------------------------
 # ----------------------------------------------------------------------------------------------------------------------
 # --- MODE AMPLITUDE CORRELATIONS IN TIME AND SPACE ---
@@ -1694,23 +1662,6 @@ for i in range(PE_per_mass.shape[1]):
 # ax.set_yscale('log')
 # ax.set_xscale('log')
 # plot_pro(ax)
-
-# --------------------------------------------------------------------
-# --- Histogram of vorticity and transfer rates (for all profiles) ---
-# f, (ax1, ax2, ax3) = plt.subplots(1, 3, sharey=True)
-# ax1.hist(rms_vort_per[~np.isnan(rms_vort_per)], bins=np.arange(np.nanmin(rms_vort_per), 1*10**-9, 5*10**-11),
-#          facecolor='blue', alpha=0.5)
-# ax1.set_xlabel('RMS vorticity')
-# ax2.hist(enst_xfer_per, bins=np.arange(np.nanmin(enst_xfer_per), 4*10**-16, 2.5*10**-17), facecolor='blue', alpha=0.5)
-# ax2.set_xlabel('Enstrophy Transfer Rate')
-# ax3.hist(1 / min_sp, 20, facecolor='blue', alpha=0.5)
-# ax3.set_xlabel('Rossby Radius of Break [km]')
-# ax1.set_ylim([0, 70])
-# ax1.set_ylabel('Count (out of ' + str(num_profs) + ')')
-# ax1.grid()
-# ax2.grid()
-# plot_pro(ax3)
-
 # ----------------------------------------------
 # --- find break for average profile (total) ---
 in_sp = np.transpose(np.concatenate([sc_x[:, np.newaxis], TE_spectrum[1:][:, np.newaxis]], axis=1))
@@ -1884,8 +1835,6 @@ ax1.set_facecolor('#F5F5F5')
 ax1.errorbar(np.arange(0, nmodes), np.nanmean(KE_fraction_w1, axis=1), yerr=np.nanstd(KE_fraction_w1, axis=1), label='Winter1', color=cols[0])
 ax1.errorbar(np.arange(0, nmodes) + .1, np.nanmean(KE_fraction_s, axis=1), yerr=np.nanstd(KE_fraction_s, axis=1), label='Summer', color=cols[1])
 ax1.errorbar(np.arange(0, nmodes) + .2, np.nanmean(KE_fraction_w2, axis=1), yerr=np.nanstd(KE_fraction_w2, axis=1), label='Winter2', color=cols[2])
-# ax1.plot(np.arange(0, nmodes), np.nanmean(KE_fraction_w1, axis=1), label='Winter1')
-# ax1.plot(np.arange(0, nmodes), np.nanmean(KE_fraction_w2, axis=1), label='Winter2')
 handles, labels = ax1.get_legend_handles_labels()
 ax1.legend(handles, labels, fontsize=10)
 ax1.set_ylim([0, 90])
@@ -1897,8 +1846,6 @@ ax2.set_facecolor('#F5F5F5')
 ax2.errorbar(np.arange(1, nmodes), np.nanmean(PE_fraction_w1[1:, :], axis=1), yerr=np.nanstd(PE_fraction_w1[1:, :], axis=1), color=cols[0])
 ax2.errorbar(np.arange(1, nmodes) + .1, np.nanmean(PE_fraction_s[1:, :], axis=1), yerr=np.nanstd(PE_fraction_s[1:, :], axis=1), color=cols[1])
 ax2.errorbar(np.arange(1, nmodes) + .2, np.nanmean(PE_fraction_w2[1:, :], axis=1), yerr=np.nanstd(PE_fraction_w2[1:, :], axis=1), color=cols[2])
-# ax2.plot(np.arange(1, nmodes), np.nanmean(PE_fraction_w1[1:, :], axis=1))
-# ax2.plot(np.arange(1, nmodes), np.nanmean(PE_fraction_w2[1:, :], axis=1))
 ax2.set_ylim([0, 90])
 ax2.set_title('Fraction of PE by Mode')
 ax2.set_ylabel('Percent')
@@ -1907,10 +1854,7 @@ plot_pro(ax2)
 
 # -------------------------------
 # --- PLOT ENERGY BY SEASON
-f, (ax1, ax2) = plt.subplots(1, 2, sharey=True)
-# cols = 'b', 'r', 'g', 'y', 'm'
-# labs = 'Mar-Jun (' + str(np.shape(d_spring)[0]) + ')', 'Jun-Sept (' + str(np.shape(d_summer)[0]) + ')', \
-#        'Sept-Nov (' + str(np.shape(d_fall)[0]) + ')', 'Eddy'r
+f_s_en, (ax1, ax2) = plt.subplots(1, 2, sharey=True)
 labs = 'Feb-May (' + str(np.shape(d_win1)[0]) + ' profiles)', 'Jun-Sept (' + str(np.shape(d_sum)[0]) + ' profiles)',\
        'Sept-Nov (' + str(np.shape(d_win2)[0]) + ' profiles)', 'Eddy'
 ax1.fill_between(1000 * sta_bats_f / sta_bats_c[1:mmax + 1], sta_min / sta_bats_dk, sta_max / sta_bats_dk,
@@ -1927,7 +1871,6 @@ for i in range(4):
     ax2.scatter(sc_x, np.nanmean(HKE_per_mass_0[1:, inn], axis=1) / dk, color=cols[i], s=scz[i])
     ax2.plot([10**-2, 1000 * f_ref / c[1]], np.nanmean(HKE_per_mass_0[:, inn], axis=1)[0:2] / dk, color=cols[i], linewidth=1.5)
     ax2.scatter(10**-2, np.nanmean(HKE_per_mass_0[:, inn], axis=1)[0] / dk, color=cols[i], s=scz[i]*1.5, facecolors='none')
-
     seasonal_PE_output[1:, i] = np.nanmean(PE_per_mass_0[1:, inn], axis=1) / dk
     seasonal_KE_output[1:, i] = np.nanmean(HKE_per_mass_0[1:, inn], axis=1) / dk
     seasonal_KE_output[0, i] = np.nanmean(HKE_per_mass_0[:, inn], axis=1)[0] / dk
@@ -1955,6 +1898,8 @@ ax2.set_xscale('log')
 ax1.grid()
 plot_pro(ax2)
 
+# f_s_en.savefig('/Users/jake/Documents/Conferences/USClivar_19/bats_seasonal_energy.png',dpi = 500)
+
 # test save
 # sa_special = 1
 # if sa_special > 0:
@@ -1962,26 +1907,28 @@ plot_pro(ax2)
 #     output = open('/Users/jake/Desktop/bats/energy_one_set_of_modes.pkl', 'wb')
 #     pickle.dump(mydict, output)
 #     output.close()
-pkl_file = open('/Users/jake/Desktop/bats/energy_one_set_of_modes.pkl', 'rb')
-TEST = pickle.load(pkl_file)
-pkl_file.close()
-pe_one_modes = TEST['PE']
-ke_one_modes = TEST['KE']
-scx_one_modes = TEST['sc_x']
-f, (ax1, ax2) = plt.subplots(1, 2, sharey=True)
-pe_diff = (pe_one_modes - seasonal_PE_output) / pe_one_modes
-ke_diff = (ke_one_modes - seasonal_KE_output) / pe_one_modes
-ax1.plot(np.arange(0, 46), pe_diff[:, 0])
-ax1.plot(np.arange(0, 46), pe_diff[:, 1])
-ax1.plot(np.arange(0, 46), pe_diff[:, 2])
-ax2.plot(np.arange(0, 46), ke_diff[:, 0])
-ax2.plot(np.arange(0, 46), ke_diff[:, 1])
-ax2.plot(np.arange(0, 46), ke_diff[:, 2])
-ax1.set_ylim([-1, 1])
-ax1.grid()
-plot_pro(ax2)
+
+# how much does use of seasonal mode shapes matter?
+# pkl_file = open('/Users/jake/Desktop/bats/energy_one_set_of_modes.pkl', 'rb')
+# TEST = pickle.load(pkl_file)
+# pkl_file.close()
+# pe_one_modes = TEST['PE']
+# ke_one_modes = TEST['KE']
+# scx_one_modes = TEST['sc_x']
+# f, (ax1, ax2) = plt.subplots(1, 2, sharey=True)
+# pe_diff = (pe_one_modes - seasonal_PE_output) / pe_one_modes
+# ke_diff = (ke_one_modes - seasonal_KE_output) / pe_one_modes
+# ax1.plot(np.arange(0, 46), pe_diff[:, 0])
+# ax1.plot(np.arange(0, 46), pe_diff[:, 1])
+# ax1.plot(np.arange(0, 46), pe_diff[:, 2])
+# ax2.plot(np.arange(0, 46), ke_diff[:, 0])
+# ax2.plot(np.arange(0, 46), ke_diff[:, 1])
+# ax2.plot(np.arange(0, 46), ke_diff[:, 2])
+# ax1.set_ylim([-1, 1])
+# ax1.grid()
+# plot_pro(ax2)
 # ------------------------------------------------------------------------------------------------------------------
-plot_eng = 0
+plot_eng = 1
 if plot_eng > 0:
     fig0, (ax0, ax1) = plt.subplots(1, 2, sharey=True)
     # -- Station (by season)
@@ -2092,7 +2039,7 @@ if plot_eng > 0:
     # plt.show()
     # -----------------------------------------------------------------------------------------------------------------
     # --- additional plot to highlight the ratio of KE to APE to predict the scale of motion ---
-    fig0, (ax2, ax1, ax3) = plt.subplots(1, 3)
+    fig_special, (ax2, ax1, ax3) = plt.subplots(1, 3)
     # # Limits/scales
     # ax0.plot([1000 * f_ref / c[1], 1000 * f_ref / c[-2]], [1000 * f_ref / c[1], 1000 * f_ref / c[-2]], linestyle='--',
     #          color='k', linewidth=1.5, zorder=2, label=r'$L_{d_n}^{-1}$')
@@ -2206,6 +2153,8 @@ if plot_eng > 0:
     ax3.set_yscale('log')
     ax3.set_xscale('log')
     plot_pro(ax3)
+
+    # fig_special.savefig('/Users/jake/Documents/Conferences/USClivar_19/hor_scales.png',dpi = 400)
 
 # --- SAVE BATS ENERGIES DG TRANSECTS
 # write python dict to a file
@@ -2683,3 +2632,57 @@ if plot_comp > 0:
 # ax4.set_xlim([10 ** -2, 2 * 10 ** 0])
 # ax4.set_xscale('log')
 # plot_pro(ax4)
+
+# mode shape variability with season
+# f, (ax1, ax2, ax3, ax4) = plt.subplots(1, 4, sharey=True)
+# for i in range(len(Gs)):
+#     ax1.plot(Gs[i][:, 1], grid, color=cols[i])
+#     ax2.plot(Gs[i][:, 2], grid, color=cols[i])
+#     ax3.plot(Gs[i][:, 3], grid, color=cols[i])
+#     ax4.plot(Gs[i][:, 4], grid, color=cols[i], label=season_labs[i])
+# ax1.set_title('Mode 1')
+# ax1.set_ylabel('Depth')
+# ax1.grid()
+# ax2.set_title('Mode 2')
+# ax2.grid()
+# ax3.set_title('Mode 3')
+# ax3.grid()
+# ax4.set_title('Mode 4')
+# ax4.invert_yaxis()
+# handles, labels = ax4.get_legend_handles_labels()
+# ax4.legend(handles, labels, fontsize=10)
+# plot_pro(ax4)
+# f, (ax1, ax2, ax3, ax4) = plt.subplots(1, 4, sharey=True)
+# for i in range(len(Gs)):
+#     ax1.plot(Gzs[i][:, 1], grid, color=cols[i])
+#     ax2.plot(Gzs[i][:, 2], grid, color=cols[i])
+#     ax3.plot(Gzs[i][:, 3], grid, color=cols[i])
+#     ax4.plot(Gzs[i][:, 4], grid, color=cols[i], label=season_labs[i])
+# ax1.set_title('Mode 1')
+# ax1.set_ylabel('Depth')
+# ax1.grid()
+# ax2.set_title('Mode 2')
+# ax2.grid()
+# ax3.set_title('Mode 3')
+# ax3.grid()
+# ax4.set_title('Mode 4')
+# ax4.invert_yaxis()
+# handles, labels = ax4.get_legend_handles_labels()
+# ax4.legend(handles, labels, fontsize=10)
+# plot_pro(ax4)
+
+# --------------------------------------------------------------------
+# --- Histogram of vorticity and transfer rates (for all profiles) ---
+# f, (ax1, ax2, ax3) = plt.subplots(1, 3, sharey=True)
+# ax1.hist(rms_vort_per[~np.isnan(rms_vort_per)], bins=np.arange(np.nanmin(rms_vort_per), 1*10**-9, 5*10**-11),
+#          facecolor='blue', alpha=0.5)
+# ax1.set_xlabel('RMS vorticity')
+# ax2.hist(enst_xfer_per, bins=np.arange(np.nanmin(enst_xfer_per), 4*10**-16, 2.5*10**-17), facecolor='blue', alpha=0.5)
+# ax2.set_xlabel('Enstrophy Transfer Rate')
+# ax3.hist(1 / min_sp, 20, facecolor='blue', alpha=0.5)
+# ax3.set_xlabel('Rossby Radius of Break [km]')
+# ax1.set_ylim([0, 70])
+# ax1.set_ylabel('Count (out of ' + str(num_profs) + ')')
+# ax1.grid()
+# ax2.grid()
+# plot_pro(ax3)
