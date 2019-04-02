@@ -31,7 +31,7 @@ def functi_2(p, xe, xb, xs):
 # --- PHYSICAL PARAMETERS
 g = 9.81
 rho0 = 1025  # - 1027
-ref_lat = 31.7
+ref_lat = 36
 ref_lon = 64.2
 
 # --- MODE PARAMETERS
@@ -46,8 +46,8 @@ deep_shr_max = 0.1
 deep_shr_max_dep = 3500
 # ----------------------------------------------------------------------------------------------------------------------
 # ---- PROCESSING USING GLIDER PACKAGE
-gs = 65
-ge = 149
+gs = 50
+ge = 165
 x = Glider(41, np.arange(gs, ge), '/Users/jake/Documents/baroclinic_modes/DG/BATS_2018/sg041')
 # ----------------------------------------------------------------------------------------------------------------------
 import_dg = si.loadmat('/Users/jake/Documents/baroclinic_modes/sg041_2018_neutral_density_bin.mat')
@@ -406,8 +406,8 @@ ax2.plot(np.nanmean(dg_v_n[:, good_ke_prof > 0], axis=1), grid, color='b', linew
 ax1.plot(np.nanmean(dace_mw[good_ke_prof > 0]) * np.ones(10), np.linspace(0, 5000, 10), color='k', linewidth=1)
 ax2.plot(np.nanmean(dacn_mw[good_ke_prof > 0]) * np.ones(10), np.linspace(0, 5000, 10), color='k', linewidth=1)
 ax1.set_ylim([0, 5000])
-ax1.set_xlim([-.1, .05])
-ax2.set_xlim([-.1, .05])
+ax1.set_xlim([-.15, .15])
+ax2.set_xlim([-.15, .15])
 ax3.set_xlim([-.75, .75])
 ax1.invert_yaxis()
 ax1.grid()
@@ -548,7 +548,7 @@ ax2.invert_yaxis()
 ax3.invert_yaxis()
 ax1.grid()
 ax2.grid()
-ax3.set_xlim([datetime.date(2018, 10, 1), datetime.date(2019, 3, 10)])
+ax3.set_xlim([datetime.date(2018, 10, 1), datetime.date(2019, 4, 10)])
 plot_pro(ax3)
 
 f, (ax, ax2, ax3, ax4, ax5) = plt.subplots(5, 1, sharex=True)
@@ -571,7 +571,7 @@ ax.grid()
 ax2.grid()
 ax3.grid()
 ax4.grid()
-ax5.set_xlim([datetime.date(2018, 10, 1), datetime.date(2019, 3, 10)])
+ax5.set_xlim([datetime.date(2018, 10, 1), datetime.date(2019, 4, 10)])
 plot_pro(ax5)
 
 f, (ax, ax2, ax3, ax4, ax5) = plt.subplots(5, 1, sharex=True)
@@ -595,7 +595,7 @@ ax4.grid()
 ax4.set_ylim([-.07, .07])
 ax5.set_xlabel('Date')
 ax5.set_ylim([-.07, .07])
-ax5.set_xlim([datetime.date(2018, 10, 1), datetime.date(2019, 3, 10)])
+ax5.set_xlim([datetime.date(2018, 10, 1), datetime.date(2019, 4, 10)])
 plot_pro(ax5)
 # ----------------------------------------------------------------------------------------------------------------------
 # --- Eta per select profiles
@@ -688,9 +688,12 @@ check1 = 3      # upper index to include in eof computation
 check2 = -14     # lower index to include in eof computation
 grid_check = grid[check1:check2]
 Uzq = V3[check1:check2, :].copy()
+for i in range(len(Uzq[40, :])):
+    if Uzq[40, i] < 0:
+        Uzq[:, i] = -1. * Uzq[:, i]
 
 # loop over every two weeks (to obtain statistics)
-T_week = np.arange(Time3.min(), Time3.max(), 14)
+T_week = np.arange(Time3.min(), Time3.max(), 28)
 PEV_per = np.nan * np.ones((len(T_week) - 1, 10))
 fvu1_per = np.nan * np.ones(len(T_week) - 1)
 fvu2_per = np.nan * np.ones(len(T_week) - 1)
@@ -702,6 +705,9 @@ AGz_eof = np.nan * np.ones((nmodes, len(T_week) - 1))
 AF_eof = np.nan * np.ones((nmodes, len(T_week) - 1))
 for i in range(len(T_week) - 1):
     V4 = Uzq[:, (Time3 > T_week[i]) & (Time3 < T_week[i + 1])].copy()
+    # for j in range(len(V4[40, :])):
+    #     if V4[40, j] < 0:
+    #         V4[:, j] = -1. * V4[:, j]
     nq = np.size(V4[0, :])
     avg_Uzq = np.nanmean(np.transpose(Uzq), axis=0)
     Uzqa = V4 - np.transpose(np.tile(avg_Uzq, [nq, 1]))
@@ -738,7 +744,7 @@ for i in range(len(T_week) - 1):
 
 handles, labels = ax.get_legend_handles_labels()
 ax.legend([handles[0], handles[1], handles[2]], [labels[0], labels[1], labels[2]], fontsize=10)
-ax.set_title('Velocity EOF1 (per two week interval)')
+ax.set_title('Velocity EOF1 (per month)')
 ax.set_ylabel('Depth [m]')
 ax.set_xlabel('EOF magnitude')
 ax.invert_yaxis()
@@ -775,6 +781,48 @@ D_Uzqa, V_Uzqa = np.linalg.eig(cov_Uzqa)
 
 t1 = np.real(D_Uzqa[0:10])
 PEV = t1 / np.sum(t1)
+# ----------------------------------------------------------------------------------------------------------------------
+# --- PLOT V STRUCTURE ---
+# --- bottom boundary conditions
+plot_v_struct = 1
+if plot_v_struct > 0:
+    f, (ax, ax2, ax3, ax4) = plt.subplots(1, 4, sharey=True)
+    for i in range(nq):
+        ax.plot(Uzq[:, i], grid[check1:check2], color='#5F9EA0', linewidth=0.75)
+    ax.plot(np.nanmean(np.abs(V3), axis=1), grid, color='k', label='Average |V|')
+    ax.set_xlim([-.75, .75])
+    ax.set_ylim([0, 4750])
+    ax.set_title('Cross-Track Velocity [V]', fontsize=12)
+    ax.set_xlabel('m/s', fontsize=16)
+    ax.set_ylabel('Depth [m]', fontsize=16)
+    handles, labels = ax.get_legend_handles_labels()
+    ax.legend(handles, labels, fontsize=10)
+
+    ax2.plot(np.zeros(10), np.arange(0, 5000, 500), color='k', linewidth=0.5)
+    ax3.plot(np.zeros(10), np.arange(0, 5000, 500), color='k', linewidth=0.5)
+    for i in range(3):
+        ax2.plot(V_Uzqa[:, i], grid_check, label=r'PEV$_{' + str(i + 1) + '}$ = ' + str(100 * np.round(PEV[i], 2)),
+                 linewidth=2)
+        ax3.plot(Gz[:, i], grid, label='Mode' + str(i), linewidth=2)
+        ax4.plot(F[:, i], grid, label='Mode' + str(i), linewidth=2)
+
+    handles, labels = ax2.get_legend_handles_labels()
+    ax2.legend(handles, labels, fontsize=8, loc="upper left")
+    ax2.set_xlim([-.35, .15])
+    ax2.set_title('Principle EOFs of V', fontsize=12)
+    # ax2.set_xlabel('m/s', fontsize=16)
+    handles, labels = ax3.get_legend_handles_labels()
+    ax3.legend(handles, labels, fontsize=10)
+    ax3.set_xlim([-5, 5])
+    ax3.set_title('Flat Bottom', fontsize=12)
+    ax3.set_xlabel('Mode Amplitude', fontsize=10)
+    ax4.set_title('Sloping Bottom', fontsize=12)
+    ax4.set_xlabel('Mode Amplitude', fontsize=10)
+    ax.grid()
+    ax2.grid()
+    ax3.grid()
+    ax.invert_yaxis()
+    plot_pro(ax4)
 
 # ----------------------------------------------------------------------------------------------------------------------
 # ----------------------------------------------------------------------------------------------------------------------
@@ -808,7 +856,7 @@ if plot_eta > 0:
     ax0.text(190, 800, str(num_profs) + ' Profiles')
     ax1.set_xlabel(r'Vertical Isopycnal Displacement, $\xi_{\gamma}$ [m]', fontsize=11)
     ax1.set_title(r'Isopycnal Disp. (Avg.)', fontsize=11)  # + '(' + str(Time[0]) + '-' )
-    ax0.axis([-1, 1, 0, 5000])
+    ax0.axis([-.75, .75, 0, 5000])
     ax0.set_title("Geostrophic Velocity", fontsize=11)  # (" + str(num_profs) + 'profiles)' )
     ax2.set_ylabel('Depth [m]', fontsize=11)
     ax0.set_xlabel('Cross-Track Velocity, U [m/s]', fontsize=11)
@@ -851,11 +899,14 @@ if plot_eta > 0:
 # ----------------------------------------------------------------------------------------------------------------------
 
 # --- AVERAGE ENERGY
-HKE_per_mass = HKE_per_mass[:, np.where(good_ke_prof > 0)[0]]
-PE_per_mass = PE_per_mass[:, np.where(good_ke_prof > 0)[0]]
+HKE_ordered = HKE_per_mass[:, mw_time_ordered_i]
+PE_ordered = PE_per_mass[:, mw_time_ordered_i]
+good_ke_ordered = good_ke_prof[mw_time_ordered_i]
+Info_ordered = Info2[mw_time_ordered_i]
+HKE_per_mass = HKE_ordered[:, (good_ke_ordered > 0) & ((Info_ordered < 57) | (Info_ordered > 65))]
+PE_per_mass = PE_ordered[:, (good_ke_ordered > 0) & ((Info_ordered < 57) | (Info_ordered > 65))]
 used_profiles = dg_v_dive_no[good_ke_prof > 0]
-# calmer = np.concatenate((np.arange(0, 16), np.arange(18, 102), np.arange(106, PE_per_mass.shape[1])))  # can exclude the labby
-calmer = np.arange(0, np.int(np.sum(good_ke_prof)))
+calmer = np.arange(0, np.shape(HKE_per_mass)[1])  # np.int(np.sum(good_ke_prof))
 avg_PE = np.nanmean(PE_per_mass[:, calmer], 1)
 avg_KE = np.nanmean(HKE_per_mass[:, calmer], 1)
 # --- eddy kinetic and potential energy
@@ -1286,7 +1337,7 @@ ax0.set_xlabel(r'Scaled Vertical Wavenumber = (L$_{d_{n}}$)$^{-1}$ = $\frac{f}{c
 ax0.set_ylabel('Variance per Vertical Wavenumber', fontsize=12)  # ' (and Hor. Wavenumber)')
 ax0.set_title('BATS Winter (DG035, 2015)', fontsize=14)
 ax1.set_xlabel(r'Scaled Vertical Wavenumber = (L$_{d_{n}}$)$^{-1}$ = $\frac{f}{c_n}$ [$km^{-1}$]', fontsize=12)
-ax1.set_title(r'36$^{\circ}$N (DG041 dive-cycles 50:110, 2018-)', fontsize=14)
+ax1.set_title(r'36$^{\circ}$N (DG041 dive-cycles 50:165, 2018-)', fontsize=14)
 ax0.grid()
 plot_pro(ax1)
 
