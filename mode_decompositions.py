@@ -239,18 +239,25 @@ def eta_fit(num_profs, grid, nmodes, n2, G, c, eta, eta_fit_dep_min, eta_fit_dep
         # obtain matrix of NEta
         # old, Neta[:, i] = bvf * this_eta
         # find indices within fitting range
-        iw = np.where((grid >= eta_fit_dep_min) & (grid <= eta_fit_dep_max))
-        if iw[0].size > 1:
+        iw = np.where((grid >= eta_fit_dep_min) & (grid <= eta_fit_dep_max))[0]
+        if iw.size > 1:
             i_sh = np.where((grid < eta_fit_dep_min))
-            eta_fs[i_sh[0]] = grid[i_sh] * this_eta[iw[0][0]] / grid[iw[0][0]]
+            eta_fs[i_sh[0]] = grid[i_sh] * this_eta[iw[0]] / grid[iw[0]]
 
-            i_dp = np.where((grid > eta_fit_dep_max))
-            eta_fs[i_dp[0]] = (grid[i_dp] - grid[-1]) * this_eta[iw[0][-1]] / (grid[iw[0][-1]] - grid[-1])
+            # i_dp = np.where((grid > eta_fit_dep_max))
+            # eta_fs[i_dp[0]] = (grid[i_dp] - grid[-1]) * this_eta[iw[0][-1]] / (grid[iw[0][-1]] - grid[-1])
+            # -- taper fit as z approaches -H
+            i_dp = np.where((grid > eta_fit_dep_max))[0]
+            lgs = grid[iw[-1]]
+            grid_ar = np.nan * np.ones(len(i_dp))
+            for oo in range(len(grid[i_dp])):
+                grid_ar[oo] = np.int(grid[i_dp[oo]])
+            eta_fs[i_dp] = (grid_ar - np.int(grid[-1])) * this_eta[iw[-1]] / (np.int(lgs) - grid[-1])
 
             AG[1:, i] = np.squeeze(np.linalg.lstsq(G[:, 1:], eta_fs)[0])
             # AG[1:, i] = np.squeeze(np.linalg.lstsq(G[:, 1:], np.transpose(np.atleast_2d(eta_fs)))[0])
             Eta_m[:, i] = np.squeeze(np.matrix(G) * np.transpose(np.matrix(AG[:, i])))
             NEta_m[:, i] = bvf * np.array(np.squeeze(np.matrix(G) * np.transpose(np.matrix(AG[:, i]))))
-            PE_per_mass[:, i] = (0.5) * AG[:, i] * AG[:, i] * c * c
+            PE_per_mass[:, i] = 0.5 * AG[:, i] * AG[:, i] * c * c
 
     return (AG, Eta_m, NEta_m, PE_per_mass)
