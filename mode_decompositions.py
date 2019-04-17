@@ -85,7 +85,7 @@ def vertical_modes(N2_0, Depth, omega, mmax):
     return G, Gz, c, epsilon
 
 
-def vertical_modes_f(N2_0, depth, omega, mmax, bc_bot):
+def vertical_modes_f(N2_0, depth, omega, mmax, bc_bot, ref_lat, slope):
     z = -1 * depth
     # ensure that N2 is 1-D array (take average if not)
     if np.size(np.shape(N2_0)) > 1:
@@ -119,9 +119,18 @@ def vertical_modes_f(N2_0, depth, omega, mmax, bc_bot):
     N2_inter = N2.copy()
     N2_inter[0] = N2_inter[1]
 
+    # sloping bottom
+    om = 7.2921 * 10**(-5.)  # rotation rate of earth
+    f_ref = 2. * om * np.sin(np.deg2rad(ref_lat))
+    r_earth = 6371e3  # radius of earth
+    beta_ref_1 = (2.0 * om / r_earth) * np.cos(np.deg2rad(ref_lat))
+    alpha = slope
+    # k_wave_2 = (1 / 50000) ^ 2
+    Lacasce_bc = ((alpha * N2) / (beta_ref_1 * f_ref)) * 1.0
+
     # 1st approximate (k(x)u'(x)) at halfway points
     z12 = (z[1:] - z[0:-1]) / 2 + z[0:-1]
-    k = 1 / N2_inter
+    k = (f_ref**2) / N2_inter  # old 1 / N2_inter
     k12 = np.flipud(np.interp(np.flipud(z12), np.flipud(z), np.flipud(k)))
 
     # ----- vertical increments
@@ -149,7 +158,7 @@ def vertical_modes_f(N2_0, depth, omega, mmax, bc_bot):
 
     D = np.concatenate([[0], np.arange(1, nm1), [n - 1]])
     E = np.concatenate([[0], np.arange(1, nm1), [n - 1]])
-    F = np.concatenate([[N2[0] / gravity], np.ones(len(np.arange(1, nm1))), [0]])
+    F = np.concatenate([[N2[0] / gravity], np.ones(len(np.arange(1, nm1))), [Lacasce_bc[-1]]])  # last term was 0
     mat2 = coo_matrix((F, (D, E)), shape=(n, n))
 
     # compute eigenvalues and vectors
@@ -169,7 +178,8 @@ def vertical_modes_f(N2_0, depth, omega, mmax, bc_bot):
         if wmodes[0, i] < 0:
             norm_constant = -1 * norm_constant
         F[:, i] = wmodes[:, i] / norm_constant
-        G[:, i] = (1 / N2_inter) * np.gradient(wmodes[:, i], z) / norm_constant  # (1 / N2_inter) *
+        G[:, i] = cumtrapz(wmodes[:, i], x=z, initial=0) / norm_constant
+        # G[:, i] = (1 / N2_inter) * np.gradient(wmodes[:, i], z) / norm_constant
         # G[:, i] = cumtrapz(wmodes[:, i], z, initial=0) / norm_constant
 
     epsilon = np.nan * np.zeros((2, 3, 3))
