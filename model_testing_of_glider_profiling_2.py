@@ -12,7 +12,7 @@ from toolkit import plot_pro
 
 
 # ---- LOAD model extraction FILES ------------------------------------------------------------------------------------
-file_path = 'e_w_extraction_nov19_nov21_offshore'
+file_path = 'e_w_extraction_nov19_nov21_offshore'  # 'n_s_extraction_eddy_nov1_nov3'  #
 
 # file_list = glob.glob('/Users/jake/Documents/baroclinic_modes/Model/' + file_path + '/*.pkl')
 # first run will save output as old pickle format (above)
@@ -22,19 +22,19 @@ file_path = 'e_w_extraction_nov19_nov21_offshore'
 file_list = glob.glob('/Users/jake/Documents/baroclinic_modes/Model/' + file_path + '/pickle_protocol_2/*.pkl')
 
 file_name = open(file_list[0], 'rb')
-D = pickle.load(file_name)
+D_0 = pickle.load(file_name)
 file_name.close()
 
 z_bottom_levels = np.arange(-4000, -1000, 100)
-z_lower_limit = z_bottom_levels[np.where(z_bottom_levels < np.nanmin(D['z']))[0][-1]]
+z_lower_limit = z_bottom_levels[np.where(z_bottom_levels < np.nanmin(D_0['z']))[0][-1]]
 
 # for x,y to turn to dist grid, 0 is either min lat or min lon
-ref_lat = np.nanmin(D['lat_rho'][:])
-ref_lon = np.nanmin(D['lon_rho'][:])
-x = 1852. * 60. * np.cos(np.deg2rad(ref_lat)) * (D['lon_rho'][:] - ref_lon)
-y = 1852. * 60. * (D['lat_rho'][:] - ref_lat)
+ref_lat = np.nanmin(D_0['lat_rho'][:])
+ref_lon = np.nanmin(D_0['lon_rho'][:])
+x_0 = 1852. * 60. * np.cos(np.deg2rad(ref_lat)) * (D_0['lon_rho'][:] - ref_lon)
+y_0 = 1852. * 60. * (D_0['lat_rho'][:] - ref_lat)
 # test for n/s or e/w orientation
-x_test = x[-1] - x[0]
+x_test = x_0[-1] - x_0[0]
 N_S = 0
 E_W = 0
 if x_test > 20000:
@@ -42,11 +42,11 @@ if x_test > 20000:
 else:
     N_S = 1
 
-xy_possible_max = np.arange(75000, 175000, 1000)
+xy_possible_max = np.arange(75000, 200000, 1000)
 if E_W:
-    xy_max = xy_possible_max[np.where(xy_possible_max > np.nanmax(x))[0][0]]
+    xy_max = xy_possible_max[np.where(xy_possible_max > np.nanmax(x_0))[0][0]]
 else:
-    xy_max = xy_possible_max[np.where(xy_possible_max > np.nanmax(y))[0][0]]
+    xy_max = xy_possible_max[np.where(xy_possible_max > np.nanmax(y_0))[0][0]]
 
 xy_grid = np.arange(0, xy_max, 1000) # make 1 km (either x or y)
 z_grid = np.concatenate((np.arange(z_lower_limit, -1000, 20), np.arange(-1000, 0, 20)))
@@ -54,23 +54,29 @@ p_out = gsw.p_from_z(z_grid, ref_lat)
 
 # -- set for X or Y
 if N_S:  # Y
-    lat_xy = np.interp(xy_grid, y, D['lat_rho'][:])
-    lon_xy = D['lon_rho'][:][0] * np.ones(len(xy_grid))
+    lat_xy = np.interp(xy_grid, y_0, D_0['lat_rho'][:])
+    lon_xy = D_0['lon_rho'][:][0] * np.ones(len(xy_grid))
 else:  # X
-    lat_xy = D['lat_rho'][:][0] * np.ones(len(xy_grid))
-    lon_xy = np.interp(xy_grid, x, D['lon_rho'][:])
+    lat_xy = D_0['lat_rho'][:][0] * np.ones(len(xy_grid))
+    lon_xy = np.interp(xy_grid, x_0, D_0['lon_rho'][:])
 
 # --- TOGGLE TO REPROCESS MODEL OUTPUT
 # -- LOOP OVER FILES to collect
 num_files = len(file_list)
-sig0_raw = np.nan * np.ones((len(D['z']), len(x), num_files))
-z_raw = np.nan * np.ones((len(D['z']), len(x), num_files))
+if N_S > 0:
+    sig0_raw = np.nan * np.ones((len(D_0['z']), len(y_0), num_files))
+    z_raw = np.nan * np.ones((len(D_0['z']), len(y_0), num_files))
+else:
+    sig0_raw = np.nan * np.ones((len(D_0['z']), len(x_0), num_files))
+    z_raw = np.nan * np.ones((len(D_0['z']), len(x_0), num_files))
+
 t_out = np.nan * np.ones((len(z_grid), len(xy_grid), num_files))
 s_out = np.nan * np.ones((len(z_grid), len(xy_grid), num_files))
 ct_out = np.nan * np.ones((len(z_grid), len(xy_grid), num_files))
 sa_out = np.nan * np.ones((len(z_grid), len(xy_grid), num_files))
 sig0_out = np.nan * np.ones((len(z_grid), len(xy_grid), num_files))
 u_out = np.nan * np.ones((len(z_grid), len(xy_grid), num_files))
+u_off_out = np.nan * np.ones((len(z_grid), len(xy_grid), num_files))
 time_out = np.nan * np.ones(num_files)
 time_ord = np.nan * np.ones(num_files)
 date_out = np.nan * np.ones((num_files, 2))
@@ -95,8 +101,10 @@ for m in range(num_files):
     # orient for either E/W or N/S section
     if N_S:
         vel = u.copy()
+        vel_off = v.copy()
     else:
         vel = v.copy()
+        vel_off = u.copy()
 
     # -- TIME
     time_cor = time/(60*60*24) + 719163  # correct to start (1970)
@@ -110,7 +118,7 @@ for m in range(num_files):
     # my_dict = {'ocean_time': time, 'temp': t, 'salt': s, 'u': u, 'v': v, 'lon_rho': lon_rho, 'lat_rho': lat_rho,
     #            'lon_u': lon_u, 'lat_u': lat_u, 'lon_v': lon_v, 'lat_v': lat_v, 'z': z}
     # output = open('/Users/jake/Documents/baroclinic_modes/Model/' + file_path +
-    #               '/pickle_protocol_2/N_S_extraction_' + date_str_out + '.pkl', 'wb')
+    #               '/pickle_protocol_2/E_W_extraction_' + date_str_out + '.pkl', 'wb')
     # pickle.dump(my_dict, output, protocol=2)
     # output.close()
 
@@ -124,6 +132,7 @@ for m in range(num_files):
     # -- GSW
     sig0_p = np.nan * np.ones((len(z_grid), len(lat_rho)))
     u_g_p = np.nan * np.ones((len(z_grid), len(lat_rho)))
+    u_g_off_p = np.nan * np.ones((len(z_grid), len(lat_rho)))
     t_p = np.nan * np.ones((len(z_grid), len(lat_rho)))
     s_p = np.nan * np.ones((len(z_grid), len(lat_rho)))
     ct_p = np.nan * np.ones((len(z_grid), len(lat_rho)))
@@ -151,6 +160,7 @@ for m in range(num_files):
         sa_p[interp_index, i] = np.interp(z_grid[interp_index], z[:, i], SA[:, i])
         sig0_p[interp_index, i] = np.interp(z_grid[interp_index], z[:, i], sig0_0[:, i])
         u_g_p[interp_index, i] = np.interp(z_grid[interp_index], z[:, i], vel[:, i])
+        u_g_off_p[interp_index, i] = np.interp(z_grid[interp_index], z[:, i], vel_off[:, i])
 
     # loop over each row and interpolate to X or Y grid
     tt = np.nan * np.ones((len(z_grid), len(xy_grid)))
@@ -159,6 +169,7 @@ for m in range(num_files):
     ssa = np.nan * np.ones((len(z_grid), len(xy_grid)))
     sig0 = np.nan * np.ones((len(z_grid), len(xy_grid)))
     u_g = np.nan * np.ones((len(z_grid), len(xy_grid)))
+    u_g_off = np.nan * np.ones((len(z_grid), len(xy_grid)))
 
     # set to X or Y
     if N_S:
@@ -174,6 +185,7 @@ for m in range(num_files):
         ssa[i, dist_g_low:dist_g_up] = np.interp(xy_grid[dist_g_low:dist_g_up], yy, sa_p[i, :])
         sig0[i, dist_g_low:dist_g_up] = np.interp(xy_grid[dist_g_low:dist_g_up], yy, sig0_p[i, :])
         u_g[i, dist_g_low:dist_g_up] = np.interp(xy_grid[dist_g_low:dist_g_up], yy, u_g_p[i, :])
+        u_g_off[i, dist_g_low:dist_g_up] = np.interp(xy_grid[dist_g_low:dist_g_up], yy, u_g_off_p[i, :])
 
     t_out[:, :, m] = tt.copy()
     s_out[:, :, m] = ss.copy()
@@ -181,6 +193,7 @@ for m in range(num_files):
     sa_out[:, :, m] = ssa.copy()
     sig0_out[:, :, m] = sig0.copy()
     u_out[:, :, m] = u_g.copy()
+    u_off_out[:, :, m] = u_g_off.copy()
     time_ord[m] = time_cor.copy()
     time_out[m] = time.copy()
     date_out[m, :] = np.array([np.int(time_cor), time_hour])
@@ -188,7 +201,7 @@ for m in range(num_files):
     # -- END LOOP COLLECTING RESULT OF EACH TIME STEP
 
 # SORT TIME STEPS BY TIME
-sig0_raw = sig0_raw[:, :, np.argsort(time_out)]
+sig0_raw_s = sig0_raw[:, :, np.argsort(time_out)]
 z_raw = z_raw[:, :, np.argsort(time_out)]
 t_out_s = t_out[:, :, np.argsort(time_out)]
 s_out_s = s_out[:, :, np.argsort(time_out)]
@@ -196,6 +209,7 @@ ct_out_s = ct_out[:, :, np.argsort(time_out)]
 sa_out_s = sa_out[:, :, np.argsort(time_out)]
 sig0_out_s = sig0_out[:, :, np.argsort(time_out)]
 u_out_s = u_out[:, :, np.argsort(time_out)]
+u_off_out_s = u_off_out[:, :, np.argsort(time_out)]
 time_out_s = time_out[np.argsort(time_out)]
 time_ord_s = time_ord[np.argsort(time_out)]
 date_out_s = date_out[np.argsort(time_out), :]
@@ -219,8 +233,9 @@ for j in range(len(time_ord_s)):
 eng.quit()
 print('Closed Matlab')
 my_dict = {'z': z_grid, 'gamma': gamma, 'sig0': sig0_out_s, 'CT': t_out_s, 'SA': s_out_s,
-           'u': u_out_s, 'time': time_out_s, 'time_ord': time_ord_s,
-           'date': date_out_s, 'raw_sig0': sig0_raw, 'raw_z': z_raw,
+           'vel_cross_transect': u_out_s, 'vel_along_transect': u_off_out_s,
+           'time': time_out_s, 'time_ord': time_ord_s,
+           'date': date_out_s, 'raw_sig0': sig0_raw_s, 'raw_z': z_raw,
            'dist_grid': xy_grid, 'lon_grid': lon_xy, 'lat_grid': lat_xy}
 output = open('/Users/jake/Documents/baroclinic_modes/Model/' + file_path + '/gamma_output'
               '/extracted_gridded_gamma.pkl', 'wb')

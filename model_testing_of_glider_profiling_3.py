@@ -14,7 +14,7 @@ from zrfun import get_basic_info, get_z
 
 # because we load pickle protocol 2 (needed for matlab engine) we need 'glider' environment (not 'geo_env')
 
-this_path = 'e_w_extraction_nov19_nov21_offshore'  # 'n_s_extraction_eddy_nov1_nov3' #
+this_path = 'e_w_extraction_nov28_nov30_offshore'  # 'n_s_extraction_eddy_nov1_nov3'  #
 
 # PLOT OF GLIDER PATH
 # -- LOAD processed output from model_testing_of glider.py (location of transect)
@@ -32,17 +32,6 @@ h = Db['h'][:]  # bathymetry
 G, S, T = get_basic_info(file_name, only_G=False, only_S=False, only_T=False)
 z = get_z(h, zeta, S)[0]
 
-f, ax = plt.subplots()
-ax.contour(lon_rho, lat_rho, z[0, :, :], levels=[-25, -20, -15, -10, -5], colors='k')
-bc = ax.contour(lon_rho, lat_rho, z[0, :, :], levels=[-3000, -2900, -2800, -2700, -2600, -2500, -2000, -1000], colors='b')
-ax.clabel(bc, inline_spacing=-3, fmt='%.4g', colors='b')
-ax.scatter(D['lon_rho'][:], D['lat_rho'][:], 10, color='r')
-w = 1 / np.cos(np.deg2rad(46))
-ax.set_aspect(w)
-ax.axis([-128, -123, 42, 48])
-plot_pro(ax)
-
-
 # -- LOAD extracter and PROCESSED MODEL TIME STEPS WITH COMPUTED GAMMA
 # this file has combined all model output and computed gamma (using model_testing_of_glider_profiling_2.py)
 # pkl_file = open('/Users/jake/Documents/baroclinic_modes/Model/e_w_extraction_eddy_oct29_oct31/'
@@ -55,13 +44,18 @@ ref_lat = 44
 sig0_out_s = MOD['gamma'][:]
 ct_out_s = MOD['CT'][:]  # temp
 sa_out_s = MOD['SA'][:]  # salin
-u_out_s = MOD['u'][:]  # this is either u or v
+u_out_s = MOD['vel_cross_transect'][:]
+u_off_out_s = MOD['vel_along_transect']
 time_out_s = MOD['time'][:]
 time_ord_s = MOD['time_ord'][:]
 date_out_s = MOD['date'][:]
 z_grid = MOD['z'][:]
 p_grid = gsw.p_from_z(z_grid, ref_lat)
 xy_grid = MOD['dist_grid'][:]
+lon_grid = MOD['lon_grid'][:]
+lat_grid = MOD['lat_grid'][:]
+ref_lon = np.nanmin(lon_grid)
+ref_lat = np.nanmin(lat_grid)
 max_depth_per_xy = np.nan * np.ones(len(xy_grid))
 for i in range(np.shape(sig0_out_s)[1]):
     deepest = z_grid[np.isnan(sig0_out_s[:, i, 0])]
@@ -69,6 +63,20 @@ for i in range(np.shape(sig0_out_s)[1]):
         max_depth_per_xy[i] = np.nanmax(deepest[-1])
     else:
         max_depth_per_xy[i] = z_grid[0]
+
+# check if profile is N_S or E_W
+# transects will be South to North or East to West
+# if South to North, m/w technique estimates relative velocity to port of the glider. this is in the NEGATIVE u
+# direction, so dac u or v values will have to be flipped to estimate abs geostrophic vel
+# if East to West, m/w technique similary will estimate relative velocity to port... in the POSITIVE v direction
+# dac values should NOT be flipped when estimating abs geostrophic vel.
+lon_check = lon_grid[-1] - lon_grid[0]
+E_W = 0
+N_S = 0
+if lon_check > 0.05:
+    E_W = 1
+else:
+    N_S = 1
 
 sigth_levels = np.array([25, 26, 26.2, 26.4, 26.6, 26.8, 27, 27.2, 27.4, 27.6, 27.7, 27.8, 27.9])
 g = 9.81
@@ -81,15 +89,18 @@ rho0 = 1025.0
 # assume glider measurements are made every 10, 15, 30, 45, 120 second intervals
 # time between each model time step is 1hr.
 
-dg_vertical_speed = .1  # m/s
-dg_glide_slope = 3.4
-num_dives = 4
+dg_vertical_speed = .115  # m/s
+dg_glide_slope = 3.2
+num_dives = 5
 
 # need to specify D_TGT or have glider 'fly' until it hits bottom
 data_loc = np.nanmean(sig0_out_s, axis=2)  # (depth X xy_grid)
 
-y_dg_s = 25000  # horizontal position, start of glider dives
+y_dg_s = 00000  # horizontal position, start of glider dives
 z_dg_s = 0     # depth, start of glider dives
+
+# include exclude partial m/w estimates
+partial_mw = 1
 
 # glider dives are simulated by considered the depth grid as fixed and march down and up while stepping horizontally
 # following the desired glide slope and vertical velocity
@@ -244,6 +255,7 @@ order_set = np.arange(0, np.shape(dg_sig0)[1], 2)
 
 # --- Estimate of DAC
 dg_dac = np.nan * np.ones(np.shape(dg_sig0)[1] - 1)
+dg_dac_off = np.nan * np.ones(np.shape(dg_sig0)[1] - 1)
 dg_dac_mid = np.nan * np.ones(np.shape(dg_sig0)[1] - 1)
 mw_time = np.nan * np.ones(np.shape(dg_sig0)[1] - 1)
 for i in range(0, num_profs-1, 2):
@@ -258,6 +270,7 @@ for i in range(0, num_profs-1, 2):
     this_ygs = np.where(xy_grid <= this_ys)[0][-1]
     this_yge = np.where(xy_grid >= this_ye)[0][0]
     dg_dac[i] = np.nanmean(np.nanmean(np.nanmean(u_out_s[:, this_ygs+1:this_yge, mtun+1:mtov], axis=2), axis=0))
+    dg_dac_off[i] = np.nanmean(np.nanmean(np.nanmean(u_off_out_s[:, this_ygs+1:this_yge, mtun+1:mtov], axis=2), axis=0))
     dg_dac_mid[i] = np.nanmean([this_ys, this_ye])
     mw_time[i] = np.nanmean([min_t, max_t])
     if i < num_profs-2:  # exclude timing of last climb (for now)
@@ -268,8 +281,15 @@ for i in range(len(ws)):
     dg_dac_mid[ws[i]] = np.nanmean([dg_dac_mid[ws[i] - 1], dg_dac_mid[ws[i] + 1]])
 # now dg_dac_mid is the same as mw_y computed later (the horizontal position of each m/w profile)
 
+if E_W:
+    dg_dac_v = nanseg_interp(dg_dac_mid, dg_dac)
+    dg_dac_u = nanseg_interp(dg_dac_mid, dg_dac_off)
+else:
+    dg_dac_u = nanseg_interp(dg_dac_mid, dg_dac)
+    dg_dac_v = nanseg_interp(dg_dac_mid, dg_dac_off)
+
 # model velocity profiles at locations within domain spanned by one m/w pattern and in the same time
-u_model = -1 * np.flipud(u_out_s)
+u_model = np.flipud(u_out_s)
 u_mod_at_mw = []
 u_mod_at_mw_avg = np.nan * np.ones((len(dg_z), len(dg_dac_mid)))
 for i in range(len(dg_dac_mid)):
@@ -304,6 +324,27 @@ for i in range(len(dg_dac_mid)):
     # for j in range(len(z_grid)):
     #     u_mod_at_mw_y[j, i] = np.interp(mw_y[i], xy_grid, avg_u_at[j, :])
 
+# ----------------------------------------------------------------------------------------------------------------------
+# transect plan view with DAC
+if E_W:
+    dac_lon = dg_dac_mid / (1852. * 60. * np.cos(np.deg2rad(ref_lat))) + ref_lon
+    dac_lat = ref_lat * np.ones(len(dac_lon))
+else:
+    dac_lat = dg_dac_mid / (1852. * 60) + ref_lat
+    dac_lon = ref_lon * np.ones(len(dac_lat))
+
+f, ax = plt.subplots()
+ax.contour(lon_rho, lat_rho, z[0, :, :], levels=[-25, -20, -15, -10, -5], colors='k', fontsize=6)
+bc = ax.contour(lon_rho, lat_rho, z[0, :, :],
+                levels=[-3000, -2900, -2800, -2700, -2600, -2500, -2000, -1000], colors='b', linewidth=0.5)
+ax.quiver(dac_lon, dac_lat, dg_dac_u, dg_dac_v, scale=.25, width=0.01)
+ax.clabel(bc, inline_spacing=-3, fmt='%.4g', colors='b')
+ax.scatter(D['lon_rho'][:], D['lat_rho'][:], 10, color='r')
+w = 1 / np.cos(np.deg2rad(46))
+ax.set_aspect(w)
+ax.axis([-128, -123, 42, 48])
+plot_pro(ax)
+
 # ---------------------------------------------------------------------------------------------------------------------
 # --- M/W estimation
 
@@ -332,15 +373,19 @@ for i in order_set:
     for j in range(np.size(z_grid)):
         # find array of indices for M / W sampling
         if i < 2:
-            c_i_m = np.arange(i, i + 3)
-            # c_i_m = []  # omit partial "M" estimate
+            if partial_mw:
+                c_i_m = np.arange(i, i + 3)
+            else:
+                c_i_m = []  # omit partial "M" estimate
             c_i_w = np.arange(i, i + 4)
         elif (i >= 2) and (i < num_profs - 2):
             c_i_m = np.arange(i - 1, i + 3)
             c_i_w = np.arange(i, i + 4)
         elif i >= num_profs - 2:
-            c_i_m = np.arange(i - 1, num_profs)
-            # c_i_m = []  # omit partial "M" estimated
+            if partial_mw:
+                c_i_m = np.arange(i - 1, num_profs)
+            else:
+                c_i_m = []  # omit partial "M" estimated
             c_i_w = []
         nm = np.size(c_i_m)
         nw = np.size(c_i_w)
@@ -414,7 +459,10 @@ for i in order_set:
     isopycx[isigth, i + 1] = np.interp(sigth_levels[isigth], dg_sig0[:, i + 1], dg_y[:, i + 1])
 
 # interpolate dac to be centered on m/w locations
-dg_dac = -1. * nanseg_interp(dg_dac_mid, dg_dac) # in the E/W orientation, to port it to the south, so have to flip dac
+if E_W:
+    dg_dac_use = 1. * nanseg_interp(dg_dac_mid, dg_dac) + 0.01 * np.random.rand(len(dg_dac))  # added noise to DAC
+else:
+    dg_dac_use = -1. * nanseg_interp(dg_dac_mid, dg_dac)
 # FOR EACH TRANSECT COMPUTE GEOSTROPHIC VELOCITY
 vbc_g = np.nan * np.zeros(np.shape(shear))
 v_g = np.nan * np.zeros((np.size(z_grid), num_profs))
@@ -426,12 +474,14 @@ for m in range(num_profs - 1):
         vrel_av = np.trapz(vrel / (z2[-1] - 0), x=z2)
         vbc = vrel - vrel_av
         vbc_g[iq, m] = vbc
-        v_g[iq, m] = dg_dac[m] + vbc
+        v_g[iq, m] = dg_dac_use[m] + vbc
     else:
         vbc_g[iq, m] = np.nan
         v_g[iq, m] = np.nan
-
-v_g = -1. * v_g[:, 0:-1]  # then flip everything back to that to the north is positive
+if E_W:
+    v_g = 1. * v_g[:, 0:-1]
+else:
+    v_g = -1. * v_g[:, 0:-1]
 print('Completed M/W Vel Estimation')
 # ---------------------------------------------------------------------------------------------------------------------
 # --------------------------------------------------------------------------------------------------------------------
@@ -440,10 +490,10 @@ print('Completed M/W Vel Estimation')
 # ax.contourf(dg_y, np.flipud(np.tile(z_grid[:, None], (1, np.shape(dg_y)[1]))), np.flipud(dg_sig0),levels=sigth_levels)
 # plot_pro(ax)
 
-h_max = 130  # horizontal domain limit
+h_max = np.nanmax(xy_grid/1000 + 5)  # horizontal domain limit
 z_max = -3250
-u_levels = np.array([-.35, -.3, -.25, - .2, -.15, -.125, -.1, -.075, -.05, -0.025, 0,
-                     0.025, 0.05, 0.075, 0.1, 0.125, 0.15, 0.2, 0.25, 0.3, 0.35])
+u_levels = np.array([-.4, -.35, -.3, -.25, - .2, -.15, -.125, -.1, -.075, -.05, -0.025, 0,
+                     0.025, 0.05, 0.075, 0.1, 0.125, 0.15, 0.2, 0.25, 0.3, 0.35, .4])
 
 plot0 = 1
 if plot0 > 0:
@@ -468,8 +518,8 @@ if plot0 > 0:
     ax1.grid()
 
     ax2.contourf(np.tile(mw_y/1000, (len(z_grid), 1)), np.tile(dg_z[:, None], (1, len(mw_y))),
-                 -1 * v_g, levels=u_levels, cmap=cmap)
-    uvc = ax2.contour(np.tile(mw_y/1000, (len(z_grid), 1)), np.tile(dg_z[:, None], (1, len(mw_y))), -1 * v_g,
+                 v_g, levels=u_levels, cmap=cmap)
+    uvc = ax2.contour(np.tile(mw_y/1000, (len(z_grid), 1)), np.tile(dg_z[:, None], (1, len(mw_y))), v_g,
                       levels=u_levels, colors='k', linewidth=0.75)
     ax2.clabel(uvc, inline_spacing=-3, fmt='%.4g', colors='k')
     ax2.scatter(dg_y/1000, dg_z_g, 4, color='k')
@@ -490,26 +540,47 @@ if plot0 > 0:
     ax3.set_xlim([0, h_max])
     plot_pro(ax3)
 
+# ------------------------------
 # model - glider velocity error
+t_s = datetime.date.fromordinal(np.int(time_ord_s[0]))
+t_e = datetime.date.fromordinal(np.int(time_ord_s[-1]))
+tag = str(t_s.month) + '_' + str(t_s.day) + '_' + str(t_e.month) + '_' + str(t_e.day)
+
+ua_mean = np.nan * np.ones((len(dg_z), len(dg_dac_mid)))
+ua_std = np.nan * np.ones((len(dg_z), len(dg_dac_mid)))
+ua_avg_mean = np.nan * np.ones((len(dg_z), len(dg_dac_mid)))
+ua_avg_std = np.nan * np.ones((len(dg_z), len(dg_dac_mid)))
+for i in range(len(dg_dac_mid)):
+    these_u = u_mod_at_mw[i]  # each u_mod_at_mw[i] contains all model profiles spanning the distance covered by
+    # one m/w set of profiles and including the amount of time it took to collect m/w profiles
+    for j in range(np.shape(these_u)[2]):
+        each_anoms = these_u[:, :, j] - np.tile(v_g[:, i][:, None], (1, np.shape(these_u)[1]))
+        if j < 1:
+            u_anoms = each_anoms.copy()
+        else:
+            u_anoms = np.concatenate((u_anoms, each_anoms), axis=1)
+    # u_anoms = these_u - np.transpose(np.tile(v_g[:, i], (np.shape(these_u)[1], np.shape(these_u)[2], 1)), (2, 0, 1))
+
+    these_u_space_avg = np.nanmean(these_u, axis=1)  # avg spatially then get statistic on time variability
+    # difference between this v_g profile and the avg profile of all model profiles spanning this dive-climb cycle
+    # at each time step
+    u_avg_anoms = these_u_space_avg - np.tile(v_g[:, i][:, None], (1, np.shape(these_u_space_avg)[1]))
+    for j in range(len(dg_z)):
+        ua_mean[j, i] = np.nanmean(u_anoms[j, :])
+        ua_std[j, i] = np.nanstd(u_anoms[j, :])
+        ua_avg_mean[j, i] = np.nanmean(u_avg_anoms[j, :])
+        ua_avg_std[j, i] = np.nanstd(u_avg_anoms[j, :])
+
+save_anom = 1
+if save_anom:
+    my_dict = {'dg_z': dg_z, 'dg_v': v_g, 'model_u_at_mwv_spat_avg': these_u_space_avg, 'model_u_at_mwv': these_u,
+               'u_anom_spat_avg': u_avg_anoms, 'u_anom': u_anoms}
+    output = open('/Users/jake/Documents/baroclinic_modes/Model/velocity_anomalies_' + tag + '.pkl', 'wb')
+    pickle.dump(my_dict, output)
+    output.close()
+
 plot1 = 1
 if plot1 > 0:
-    ua_mean = np.nan * np.ones((len(dg_z), len(dg_dac_mid)))
-    ua_std = np.nan * np.ones((len(dg_z), len(dg_dac_mid)))
-    ua_avg_mean = np.nan * np.ones((len(dg_z), len(dg_dac_mid)))
-    ua_avg_std = np.nan * np.ones((len(dg_z), len(dg_dac_mid)))
-    for i in range(len(dg_dac_mid)):
-        these_u = u_mod_at_mw[i]  # each u_mod_at_mw[i] contains all model profiles spanning the distance covered by
-        # one m/w set of profiles and including the amount of time it took to collect m/w profiles
-        u_anoms = these_u - np.transpose(np.tile(v_g[:, i], (np.shape(these_u)[1], np.shape(these_u)[2], 1)), (2, 0, 1))
-
-        these_u_space_avg = np.nanmean(these_u, axis=1)  # avg spatially then get statistic on time variability
-        u_avg_anoms = these_u_space_avg - np.transpose(np.tile(v_g[:, i], (np.shape(these_u_space_avg)[1], 1)))
-        for j in range(len(dg_z)):
-            ua_mean[j, i] = np.nanmean(u_anoms[j, :, :])
-            ua_std[j, i] = np.nanstd(u_anoms[j, :, :])
-            ua_avg_mean[j, i] = np.nanmean(u_avg_anoms[j, :])
-            ua_avg_std[j, i] = np.nanstd(u_avg_anoms[j, :])
-
     f, ax = plt.subplots()
     # anomaly from each model profile and glider profile (in space and time)
     ax.errorbar(np.nanmean(ua_mean, axis=1), dg_z, xerr=np.nanmean(ua_std, axis=1))
@@ -976,7 +1047,7 @@ for i in range(num_profs - 1):
     G, Gz, c, epsilon = vertical_modes(avg_N2_match, -1.0 * dg_z[good], omega, mmax)  # N2
 
     # fit to velocity profiles
-    this_V = -1 * v_g[good, i].copy()
+    this_V = v_g[good, i].copy()
     iv = np.where(~np.isnan(this_V))
     if iv[0].size > 1:
         AGz[:, i] = np.squeeze(np.linalg.lstsq(np.squeeze(Gz[iv, :]), np.transpose(np.atleast_2d(this_V[iv])))[0])
@@ -1046,7 +1117,7 @@ for i in range(np.shape(avg_mod_u)[1]):
     ax3.plot(avg_mod_u[:, i], dg_z, linewidth=0.75, color='#DCDCDC')
     ax3.plot(V_m_model[:, i], dg_z, color='k', linestyle='--', linewidth=.4)
 for i in range(np.shape(v_g)[1]):
-    ax3.plot(-1 * v_g[:, i], dg_z)
+    ax3.plot(v_g[:, i], dg_z)
     ax3.plot(V_m[:, i], dg_z, color='k', linestyle='--', linewidth=.75)
 ax2.set_xlim([-200, 200])
 ax3.set_xlim([-.4, .4])
