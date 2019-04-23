@@ -11,7 +11,7 @@ from zrfun import get_basic_info, get_z
 # - path on fjord to output
 # --- '/boildat1/parker/LiveOcean_roms/output/cas4_v2_lo6biom/f2018.11.01/'
 # --- LOAD
-file_list = glob.glob('/boildat1/parker/LiveOcean_roms/output/cas4_v2_lo6biom/f2018.11.18/ocean_his_0*.nc')
+file_list = glob.glob('/boildat1/parker/LiveOcean_roms/output/cas4_v2_lo6biom/f2018.10.31/ocean_his_0*.nc')
 # file_list = glob.glob('/boildat1/parker/LiveOcean_roms/output/cas4_v2_lo6biom/f2018.11.01/*ocean_his_007*.nc')
 for i in range(len(file_list)):
     file_name = file_list[i]
@@ -61,7 +61,7 @@ for i in range(len(file_list)):
     # optional for plan view plotting
     # 'lon_all': lon_rho[350:650, 65:95], 'lat_all': lat_rho[350:650, 65:95],
     # 'z_bath': z[0, 350:650, 65:95]}
-    output = open('/home/jstein/E_W_nov16_nov18_offshore/E_W_ext_' + date_str_out + '.pkl', 'wb')
+    output = open('/home/jstein/E_W_oct29_oct31_offshore/E_W_ext_' + date_str_out + '.pkl', 'wb')
     # output = open('/Users/jake/Documents/baroclinic_modes/Model/test_extraction_' + str(np.int(time)) + '.pkl', 'wb')
     pickle.dump(my_dict, output)
     output.close()

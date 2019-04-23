@@ -14,7 +14,7 @@ from zrfun import get_basic_info, get_z
 
 # because we load pickle protocol 2 (needed for matlab engine) we need 'glider' environment (not 'geo_env')
 
-this_path = 'e_w_extraction_nov28_nov30_offshore'  # 'n_s_extraction_eddy_nov1_nov3'  #
+this_path = 'e_w_extraction_oct29_oct31_offshore'  # 'n_s_extraction_eddy_nov1_nov3'  #
 
 # PLOT OF GLIDER PATH
 # -- LOAD processed output from model_testing_of glider.py (location of transect)
@@ -90,13 +90,13 @@ rho0 = 1025.0
 # time between each model time step is 1hr.
 
 dg_vertical_speed = .115  # m/s
-dg_glide_slope = 3.2
+dg_glide_slope = 3
 num_dives = 5
 
 # need to specify D_TGT or have glider 'fly' until it hits bottom
 data_loc = np.nanmean(sig0_out_s, axis=2)  # (depth X xy_grid)
 
-y_dg_s = 00000  # horizontal position, start of glider dives
+y_dg_s = 65000  # horizontal position, start of glider dives
 z_dg_s = 0     # depth, start of glider dives
 
 # include exclude partial m/w estimates
@@ -573,8 +573,8 @@ for i in range(len(dg_dac_mid)):
 
 save_anom = 1
 if save_anom:
-    my_dict = {'dg_z': dg_z, 'dg_v': v_g, 'model_u_at_mwv_spat_avg': these_u_space_avg, 'model_u_at_mwv': these_u,
-               'u_anom_spat_avg': u_avg_anoms, 'u_anom': u_anoms}
+    my_dict = {'dg_z': dg_z, 'dg_v': v_g, 'model_u_at_mwv': u_mod_at_mw,
+               'glide_slope': dg_glide_slope, 'dg_w': dg_vertical_speed}
     output = open('/Users/jake/Documents/baroclinic_modes/Model/velocity_anomalies_' + tag + '.pkl', 'wb')
     pickle.dump(my_dict, output)
     output.close()
