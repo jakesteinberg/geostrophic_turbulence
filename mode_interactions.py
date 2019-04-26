@@ -7,7 +7,7 @@ from mpl_toolkits.mplot3d import Axes3D
 import gsw
 import pickle
 from scipy.signal import savgol_filter
-from mode_decompositions import vertical_modes
+from mode_decompositions import vertical_modes, vertical_modes_f
 from toolkit import plot_pro, find_nearest
 
 
@@ -46,29 +46,59 @@ sta_bats_n2_2 = SB['N2_per_season'][:, 2]
 G_B_2, Gz_B_2, c_B_2, epsilon_B_2 = vertical_modes(sta_bats_n2_2, SB['depth'], omega, mmax)
 ratio = sta_bats_n2_2 / sta_bats_f
 
-f, (ax1, ax2) = plt.subplots(1, 2, sharey=True)
+# --- compute alternate vertical modes (allowing for a sloping bottom)
+bc_bot = 1  # 1 = flat, 2 = rough
+slope = 5.0*10**(-3)
+grid2 = np.concatenate([np.arange(0, 150, 10), np.arange(150, 300, 10), np.arange(300, 4500, 10)])
+n2_interp = np.interp(grid2, SB['depth'], sta_bats_n2_0)
+n2_interp[0] = n2_interp[1] - 0.000001
+F_int_g2, F_g2, c_ff, norm_constant, epsilon2 = vertical_modes_f(n2_interp, grid2, omega, mmax, bc_bot, 31.5, slope)
+F = np.nan * np.ones((np.size(SB['depth']), mmax + 1))
+F_int = np.nan * np.ones((np.size(SB['depth']), mmax + 1))
+for i in range(mmax + 1):
+    F[:, i] = np.interp(SB['depth'], grid2, F_g2[:, i])
+    F_int[:, i] = np.interp(SB['depth'], grid2, F_int_g2[:, i])
+
+plt.rcParams['figure.figsize'] = 11, 5.5
+f, (ax1, ax15, ax2, ax3) = plt.subplots(1, 4, sharey=True)
 ax1.plot(sta_bats_n2_0 * 40000000, sta_bats_depth, label=r'N$^2$ $\times$ $ \left( 4 \times 10^{7} \right) $',color='k')
 ax1.plot(G_B_0[:, 1], sta_bats_depth, label='m=1', color='#228B22', linewidth=1.5)
 ax1.plot(G_B_0[:, 2], sta_bats_depth, label='m=2', color='#1E90FF', linewidth=1.5)
 ax1.plot(G_B_0[:, 3], sta_bats_depth, label='m=3', color='#FF4500', linewidth=1.5)
 ax1.plot(G_B_0[:, 4], sta_bats_depth, label='m=4', color='#778899', linewidth=1.5)
+ax1.set_xlim([-3000, 3000])
+ax1.set_ylim([0, 4800])
+ax1.set_title(r'G$_{m}$(z) (Flat Bottom)')
+ax1.set_ylabel('Depth [m]')
+ax1.set_xlabel('Normalized Mode Amplitude')
+ax15.plot(F_int[:, 1], sta_bats_depth, color='k')
+ax15.plot(F_int[:, 2], sta_bats_depth, color='#228B22', linewidth=1.5)
+ax15.plot(F_int[:, 3], sta_bats_depth, color='#1E90FF', linewidth=1.5)
+ax15.plot(F_int[:, 4], sta_bats_depth, color='#FF4500', linewidth=1.5)
+ax15.set_title(r'G$_{m}$(z) (Slope = $5*10^{-3}$)')
+ax15.set_xlabel('Normalized Mode Amplitude')
+ax15.grid()
+
 ax2.plot(Gz_B_0[:, 0], sta_bats_depth, color='k')
 ax2.plot(Gz_B_0[:, 1], sta_bats_depth, color='#228B22', linewidth=1.5)
 ax2.plot(Gz_B_0[:, 2], sta_bats_depth, color='#1E90FF', linewidth=1.5)
 ax2.plot(Gz_B_0[:, 3], sta_bats_depth, color='#FF4500', linewidth=1.5)
-ax1.set_xlim([-3000, 3000])
-ax1.set_ylim([0, 4800])
-ax1.set_title(r'Displacement Modes G$_{m}$(z)')
-ax1.set_ylabel('Depth [m]')
-ax1.set_xlabel('Normalized Mode Amplitude')
+ax3.plot(F[:, 0], sta_bats_depth, color='k')
+ax3.plot(F[:, 1], sta_bats_depth, color='#228B22', linewidth=1.5)
+ax3.plot(F[:, 2], sta_bats_depth, color='#1E90FF', linewidth=1.5)
+ax3.plot(F[:, 3], sta_bats_depth, color='#FF4500', linewidth=1.5)
 handles, labels = ax1.get_legend_handles_labels()
 ax1.legend(handles, labels, fontsize=8)
 ax1.invert_yaxis()
 ax1.grid()
 ax2.set_xlim([-3, 3])
-ax2.set_title(r'Velocity Modes F$_{m}$(z)')
+ax2.set_title(r'F$_{m}$(z) (Flat Bottom)')
 ax2.set_xlabel('Normalized Mode Amplitude')
-plot_pro(ax2)
+ax2.grid()
+ax3.set_title(r'F$_{m}$(z) (Slope = $5*10^{-3}$)')
+ax3.set_xlabel('Normalized Mode Amplitude')
+plot_pro(ax3)
+f.savefig("/Users/jake/Documents/baroclinic_modes/Meetings/meeting_19_04_18/mode_shapes.jpg", dpi=300)
 
 test = sta_bats_n2_0 * (G_B_0[:, 1]**2) /(sta_bats_c[1]**2)
 test2 = sta_bats_n2_0 * (G_B_0[:, 2]**2) /(sta_bats_c[2]**2)

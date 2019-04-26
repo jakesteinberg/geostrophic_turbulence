@@ -96,11 +96,11 @@ num_dives = 5
 # need to specify D_TGT or have glider 'fly' until it hits bottom
 data_loc = np.nanmean(sig0_out_s, axis=2)  # (depth X xy_grid)
 
-y_dg_s = 65000  # horizontal position, start of glider dives
+y_dg_s = 75000  # horizontal position, start of glider dives
 z_dg_s = 0     # depth, start of glider dives
 
 # include exclude partial m/w estimates
-partial_mw = 1
+partial_mw = 0
 
 # glider dives are simulated by considered the depth grid as fixed and march down and up while stepping horizontally
 # following the desired glide slope and vertical velocity
