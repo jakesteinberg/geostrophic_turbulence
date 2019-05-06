@@ -14,7 +14,7 @@ from zrfun import get_basic_info, get_z
 
 # because we load pickle protocol 2 (needed for matlab engine) we need 'glider' environment (not 'geo_env')
 
-this_path = 'e_w_extraction_oct29_oct31_offshore'  # 'n_s_extraction_eddy_nov1_nov3'  #
+this_path = 'e_w_extraction_nov25_nov27_offshore'  # 'n_s_extraction_eddy_nov1_nov3'  #
 
 # PLOT OF GLIDER PATH
 # -- LOAD processed output from model_testing_of glider.py (location of transect)
@@ -89,14 +89,14 @@ rho0 = 1025.0
 # assume glider measurements are made every 10, 15, 30, 45, 120 second intervals
 # time between each model time step is 1hr.
 
-dg_vertical_speed = .115  # m/s
+dg_vertical_speed = 0.15  # m/s
 dg_glide_slope = 3
 num_dives = 5
 
 # need to specify D_TGT or have glider 'fly' until it hits bottom
 data_loc = np.nanmean(sig0_out_s, axis=2)  # (depth X xy_grid)
 
-y_dg_s = 75000  # horizontal position, start of glider dives
+y_dg_s = 6000  # horizontal position, start of glider dives (75km)
 z_dg_s = 0     # depth, start of glider dives
 
 # include exclude partial m/w estimates
@@ -571,15 +571,7 @@ for i in range(len(dg_dac_mid)):
         ua_avg_mean[j, i] = np.nanmean(u_avg_anoms[j, :])
         ua_avg_std[j, i] = np.nanstd(u_avg_anoms[j, :])
 
-save_anom = 1
-if save_anom:
-    my_dict = {'dg_z': dg_z, 'dg_v': v_g, 'model_u_at_mwv': u_mod_at_mw,
-               'glide_slope': dg_glide_slope, 'dg_w': dg_vertical_speed}
-    output = open('/Users/jake/Documents/baroclinic_modes/Model/velocity_anomalies_' + tag + '.pkl', 'wb')
-    pickle.dump(my_dict, output)
-    output.close()
-
-plot1 = 1
+plot1 = 0
 if plot1 > 0:
     f, ax = plt.subplots()
     # anomaly from each model profile and glider profile (in space and time)
@@ -603,7 +595,7 @@ if plot1 > 0:
             ax.scatter(shear[j, i], np.nanmean(u_avg_anoms), s=3) # avg velocity anomaly at depth x for given shear
     plot_pro(ax)
 
-plot2 = 1
+plot2 = 0
 if plot2 > 0:
     ti1 = 23
     ti2 = 46
@@ -672,6 +664,7 @@ t_near_end = np.where(time_ord_s >= dive_1_t_e)[0][0]
 
 isops = [26.8, 27.4, 27.8, 27.9]
 t_steps = [t_near, t_near + 6, t_near + 12, t_near + 18, t_near + 24, t_near + 30]
+
 # -- model isopycnal depths
 # these_data = data_interp[:, xy_grid_near, :]
 # these_data2 = data_interp[:, xy_grid_near + 2, :]
@@ -785,6 +778,17 @@ dg_eddy_rms = np.nanmean((dg_mean_isop - np.nanmean(dg_mean_isop))**2)  # eddy s
 # tot_var_in = (1./len(combo_4)) * np.nansum(combo_4)
 # frac_var_from_igw = igw_var_in / tot_var_in
 
+dg_isop_slope = np.nan * np.ones((len(isops), 2))
+dg_mean_isop = np.nan * np.ones((len(isops), len(dg_isop_xy[0, :])))
+model_isop_slope = np.nan * np.ones((len(isops), 2))
+model_mean_isop = np.nan * np.ones((len(isops), len(xy_grid[inn])))
+for i in range(4):
+    dg_isop_slope[i, :] = np.polyfit(dg_isop_xy[i, :], dg_isop_dep[i, :], 1)
+    dg_mean_isop[i, :] = np.polyval(dg_isop_slope[i, :], dg_isop_xy[i, :])
+
+    model_isop_slope[i, :] = np.polyfit(xy_grid[inn], isop_dep[i, inn], 1)
+    model_mean_isop[i, :] = np.polyval(model_isop_slope[i, :], xy_grid[inn])
+
 # ---------------------------------------------------------------------------------------------------------------------
 cmap = plt.cm.get_cmap("YlGnBu_r")
 f, ax = plt.subplots(4, 1, sharex=True)
@@ -805,15 +809,17 @@ for i in range(len(isops)):
     ax[i].plot([dg_y[0, 0]/1000, dg_y[0, 0]/1000], [0, 2000], linestyle='--', color='k')
     ax[i].plot([dg_y[0, 1]/1000, dg_y[0, 1]/1000], [0, 2000], linestyle='--', color='k')
     ax[i].plot([dg_y[0, 3]/1000, dg_y[0, 3]/1000], [0, 2000], linestyle='--', color='k')
-ax[0].plot(xy_grid[inn]/1000, model_mean_isop, color='g', linewidth=2)
-ax[0].plot(dg_isop_xy[l, :]/1000, dg_mean_isop, color='m', linewidth=2)
+
+    ax[i].plot(xy_grid[inn] / 1000, model_mean_isop[i, :], color='#FF8C00', linewidth=2)
+    ax[i].plot(dg_isop_xy[i, :] / 1000, dg_mean_isop[i, :], color='m', linewidth=2)
+
 ax[0].set_ylabel('Depth [m]')
 ax[0].set_title('Isopycnal Depths over a 30hr Period (two glider dive-climb cycles)')
-ax[0].set_ylim([250, 400])
+ax[0].set_ylim([225, 375])
 ax[0].invert_yaxis()
 ax[0].grid()
 ax[1].set_ylabel('Depth [m]')
-ax[1].set_ylim([750, 900])
+ax[1].set_ylim([700, 850])
 ax[1].invert_yaxis()
 ax[1].grid()
 ax[2].set_ylabel('Depth [m]')
@@ -821,7 +827,7 @@ ax[2].set_ylim([1500, 1650])
 ax[2].invert_yaxis()
 ax[2].grid()
 ax[3].set_ylabel('Depth [m]')
-ax[3].set_ylim([1850, 2000])
+ax[3].set_ylim([1825, 1975])
 ax[3].invert_yaxis()
 ax[3].set_xlabel('Transect Distance [km]')
 plot_pro(ax[3])
@@ -837,8 +843,73 @@ plot_pro(ax[3])
 # ax.yaxis.set_visible(False)
 # ax.grid()
 # plot_pro(ax)
-
 # ---------------------------------------------------------------------------------------------------------------------
+# -- model densities at fixed depths --
+deps = [250, 1000, 1500, 2000]
+isop_dep = np.nan * np.ones((len(deps), np.shape(these_data)[1], 6))
+for i in range(np.shape(these_data)[1]):  # loop over each horizontal grid point
+    for j in range(len(deps)):  # loop over each dep
+        for k in range(6):  # loop over each 6 hr increment
+            isop_dep[j, i, k] = np.interp(deps[j], -1. * dg_z, data_interp[:, i, t_steps[k]])
+
+# -- glider measured isopycnal depth (over time span)
+dg_isop_dep = np.nan * np.ones((len(deps), 4))
+dg_isop_xy = np.nan * np.ones((len(deps), 4))
+for j in range(len(deps)):
+    for k in range(4):  # loop over dive, climb, dive, climb
+        dg_isop_dep[j, k] = np.interp(deps[j], -1. * dg_z, dg_sig0[:, k])
+        dg_isop_xy[j, k] = np.interp(deps[j], -1. * dg_z, dg_y[:, k])
+
+dg_isop_slope = np.nan * np.ones((len(deps), 2))
+dg_mean_isop = np.nan * np.ones((len(deps), len(dg_isop_xy[0, :])))
+model_isop_slope = np.nan * np.ones((len(deps), 2))
+model_mean_isop = np.nan * np.ones((len(deps), len(xy_grid[inn])))
+for i in range(4):
+    dg_isop_slope[i, :] = np.polyfit(dg_isop_xy[i, :], dg_isop_dep[i, :], 1)
+    dg_mean_isop[i, :] = np.polyval(dg_isop_slope[i, :], dg_isop_xy[i, :])
+
+    model_isop_slope[i, :] = np.polyfit(xy_grid[inn], np.nanmean(isop_dep[i, inn, :], axis=1), 1)
+    model_mean_isop[i, :] = np.polyval(model_isop_slope[i, :], xy_grid[inn])
+
+cmaps = [0.15, 0.3, 0.45, 0.6, 0.75, .9]
+lab_y = [26.64, 27.53, 27.74, 27.92]
+f, ax = plt.subplots(4, 1, sharex=True)
+for i in range(len(deps)):
+    ax[i].set_facecolor('#DCDCDC')
+    for j in range(6):
+        ax[i].plot(xy_grid/1000, isop_dep[i, :, j], color=cmap(cmaps[j]))
+    ax[i].plot(xy_grid/1000, np.nanmean(isop_dep[i, :, :], axis=1), color='r', linestyle='--')
+    ax[i].scatter(dg_isop_xy[i, :]/1000, dg_isop_dep[i, :], s=40, color='k', zorder=10)
+
+    ax[i].plot([dg_y[0, 0]/1000, dg_y[0, 0]/1000], [20, 30], linestyle='--', color='k')
+    ax[i].plot([dg_y[0, 1]/1000, dg_y[0, 1]/1000], [20, 30], linestyle='--', color='k')
+    ax[i].plot([dg_y[0, 3]/1000, dg_y[0, 3]/1000], [20, 30], linestyle='--', color='k')
+
+    ax[i].text(10, lab_y[i], str(deps[i]) + 'm', fontweight='bold')
+
+    ax[i].plot(xy_grid[inn] / 1000, model_mean_isop[i, :], color='#FF8C00', linewidth=2)
+    ax[i].plot(dg_isop_xy[i, :] / 1000, dg_mean_isop[i, :], color='m', linewidth=2)
+
+    ax[i].text(120, lab_y[i], 'Slope Error = ' + str(np.round(100.*np.abs((dg_isop_slope[i, 0] - model_isop_slope[i, 0])/model_isop_slope[i, 0]), 0)) + '%', fontweight='bold')
+
+ax[0].set_ylabel('Neutral Density')
+ax[0].set_title('Density at fixed Depths over a 30hr Period (two glider dive-climb cycles)')
+ax[0].set_ylim([26.6, 26.9])
+ax[0].invert_yaxis()
+ax[0].grid()
+ax[1].set_ylabel('Neutral Density')
+ax[1].set_ylim([27.5, 27.6])
+ax[1].invert_yaxis()
+ax[1].grid()
+ax[2].set_ylabel('Neutral Density')
+ax[2].set_ylim([27.72, 27.82])
+ax[2].invert_yaxis()
+ax[2].grid()
+ax[3].set_ylabel('Neutral Density')
+ax[3].set_ylim([27.9, 28])
+ax[3].invert_yaxis()
+ax[3].set_xlabel('Transect Distance [km]')
+plot_pro(ax[3])
 # --------------------------------------------------------------------------------------------------------------------
 # --- Background density
 
@@ -863,16 +934,24 @@ plot_pro(ax[3])
 # sig0_bck_out = np.interp(z_grid, z_grid_bck, sig0_bck_out_2)
 
 
+pkl_file = open('/Users/jake/Documents/baroclinic_modes/Model/background_density.pkl', 'rb')
+MOD = pickle.load(pkl_file)
+pkl_file.close()
+overlap = np.where((xy_grid > dg_y[0, 0]) & (xy_grid < dg_y[0, -1]))[0]
+bck_sa = np.flipud(MOD['sa_back'][:][:, overlap])
+bck_ct = np.flipud(MOD['ct_back'][:][:, overlap])
+z_back = np.flipud(z_grid)
+z_bm = np.where(z_back <= dg_z)[0]
+
 # or if no big feature is present, avg current profiles for background
-N2_bck_out = gsw.Nsquared(np.nanmean(avg_sa_pd, axis=1), np.nanmean(avg_ct_pd, axis=1),
-                          np.flipud(p_grid), lat=ref_lat)[0]
+N2_bck_out = gsw.Nsquared(np.nanmean(bck_sa[0:z_bm[-1]+1, :], axis=1), np.nanmean(bck_ct[0:z_bm[-1]+1, :], axis=1),
+                          np.flipud(p_grid)[0:z_bm[-1]+1], lat=ref_lat)[0]
 sig0_bck_out = np.nanmean(avg_sig_pd, axis=1)  # avg of glider profiles over this time period
 
 sig0_bck_out = sig0_bck_out[~np.isnan(sig0_bck_out)]
 N2_bck_out = N2_bck_out[~np.isnan(sig0_bck_out)]
 for i in range(len(N2_bck_out)-7, len(N2_bck_out)):
     N2_bck_out[i] = N2_bck_out[i - 1] - 1*10**(-8)
-z_back = np.flipud(z_grid)
 z_back = z_back[~np.isnan(sig0_bck_out)]
 # ---------------------------------------------------------------------------------------------------------------------
 # -- MODES ------------------------------------------------------------------------------------------------------------
@@ -952,12 +1031,22 @@ for i in range(num_profs):
 
 G, Gz, c, epsilon = vertical_modes(avg_N2, -1.0 * z_grid_n2, omega, mmax)  # N2
 
+# ---------------------------------------------------------------------------------------------------------------------
+# remove nan profiles that are the result of deciding to use partial m/w profiles or not
+v_g = v_g[:, ~np.isnan(v_g[30, :])]
+goodie = np.where(~np.isnan(v_g[30, :]))[0]
+u_mod_at_mw = u_mod_at_mw[goodie[0]:goodie[-1]+1]
+avg_sig_pd = avg_sig_pd[:, ~np.isnan(avg_sig_pd[30, :])]
+num_profs_eta = np.shape(avg_sig_pd)[1]
+
+# ---------------------------------------------------------------------------------------------------------------------
+
 # -- eta avg across four profiles
 eta_sm = np.nan * np.ones(np.shape(avg_sig_pd))
-AG_dg_sm = np.zeros((nmodes, num_profs))
-PE_per_mass_dg_sm = np.nan * np.ones((nmodes, num_profs))
-eta_m_dg_sm = np.nan * np.ones((len(dg_z), num_profs))
-Neta_m_dg_sm = np.nan * np.ones((len(dg_z), num_profs))
+AG_dg_sm = np.zeros((nmodes, num_profs_eta))
+PE_per_mass_dg_sm = np.nan * np.ones((nmodes, num_profs_eta))
+eta_m_dg_sm = np.nan * np.ones((len(dg_z), num_profs_eta))
+Neta_m_dg_sm = np.nan * np.ones((len(dg_z), num_profs_eta))
 for i in range(np.shape(avg_sig_pd)[1]):
     good = np.where(~np.isnan(avg_sig_pd[:, i]))[0]
     avg_sig0_match = np.interp(np.abs(dg_z[good]), np.abs(z_grid_n2), avg_sig0)
@@ -1031,35 +1120,37 @@ for i in range(len(in_range)):
     #                                                              nmodes, avg_N2, G, c, eta_model[0:126, :],
     #                                                              eta_fit_dep_min, eta_fit_dep_max)
 
+
 # --- fit velocities ---
 # DG
-HKE_per_mass_dg = np.nan * np.zeros([nmodes, num_profs - 1])
+HKE_per_mass_dg = np.nan * np.zeros([nmodes, num_profs_eta])
 modest = np.arange(11, nmodes)
-good_ke_prof = np.ones(num_profs - 1)
-AGz = np.zeros([nmodes, num_profs - 1])
+good_ke_prof = np.ones(num_profs_eta)
+AGz = np.zeros([nmodes, num_profs_eta])
 HKE_noise_threshold = 1e-5  # 1e-5
-V_m = np.nan * np.zeros((len(dg_z), num_profs - 1))
-for i in range(num_profs - 1):
+V_m = np.nan * np.zeros((len(dg_z), num_profs_eta))
+for i in range(num_profs_eta):
 
     good = np.where(~np.isnan(v_g[:, i]))[0]
-    avg_N2_match = np.interp(np.abs(dg_z[good]), np.abs(z_grid_n2), avg_N2)
 
-    G, Gz, c, epsilon = vertical_modes(avg_N2_match, -1.0 * dg_z[good], omega, mmax)  # N2
+    if len(good) > 20:
+        avg_N2_match = np.interp(np.abs(dg_z[good]), np.abs(z_grid_n2), avg_N2)
+        G, Gz, c, epsilon = vertical_modes(avg_N2_match, -1.0 * dg_z[good], omega, mmax)  # N2
 
-    # fit to velocity profiles
-    this_V = v_g[good, i].copy()
-    iv = np.where(~np.isnan(this_V))
-    if iv[0].size > 1:
-        AGz[:, i] = np.squeeze(np.linalg.lstsq(np.squeeze(Gz[iv, :]), np.transpose(np.atleast_2d(this_V[iv])))[0])
-        # Gz(iv,:)\V_g(iv,ip)
-        V_m[good, i] = np.squeeze(np.matrix(Gz) * np.transpose(np.matrix(AGz[:, i])))
-        # Gz*AGz[:,i];
-        HKE_per_mass_dg[:, i] = 0.5 * (AGz[:, i] * AGz[:, i])
-        ival = np.where(HKE_per_mass_dg[modest, i] >= HKE_noise_threshold)
-        if np.size(ival) > 0:
-            good_ke_prof[i] = 0  # flag profile as noisy
-    else:
-        good_ke_prof[i] = 0  # flag empty profile as noisy as well
+        # fit to velocity profiles
+        this_V = v_g[good, i].copy()
+        iv = np.where(~np.isnan(this_V))
+        if iv[0].size > 1:
+            AGz[:, i] = np.squeeze(np.linalg.lstsq(np.squeeze(Gz[iv, :]), np.transpose(np.atleast_2d(this_V[iv])))[0])
+            # Gz(iv,:)\V_g(iv,ip)
+            V_m[good, i] = np.squeeze(np.matrix(Gz) * np.transpose(np.matrix(AGz[:, i])))
+            # Gz*AGz[:,i];
+            HKE_per_mass_dg[:, i] = 0.5 * (AGz[:, i] * AGz[:, i])
+            ival = np.where(HKE_per_mass_dg[modest, i] >= HKE_noise_threshold)
+            if np.size(ival) > 0:
+                good_ke_prof[i] = 0  # flag profile as noisy
+        else:
+            good_ke_prof[i] = 0  # flag empty profile as noisy as well
 
 # Model
 HKE_per_mass_model = np.nan * np.zeros([nmodes, np.shape(eta_model)[1]])
@@ -1217,6 +1308,22 @@ ax2.legend(handles, labels, fontsize=12)
 
 plot_pro(ax2)
 
+# ---------------------------------------------------------------------------------------------------------------------
+# ---------------------------------------------------------------------------------------------------------------------
+
+save_anom = 1
+if save_anom:
+    my_dict = {'dg_z': dg_z, 'dg_v': v_g, 'model_u_at_mwv': u_mod_at_mw,
+               'KE_dg': HKE_per_mass_dg, 'KE_mod': HKE_per_mass_model,
+               'eta_m_dg': eta_m_dg, 'PE_dg': PE_per_mass_dg,
+               'eta_m_dg_avg': eta_m_dg_sm, 'PE_dg_avg': PE_per_mass_dg_sm,
+               'eta_model': eta_m_model, 'PE_model': PE_per_mass_model,
+               'glide_slope': dg_glide_slope, 'dg_w': dg_vertical_speed}
+    output = open('/Users/jake/Documents/baroclinic_modes/Model/eddy_velocity_anomalies_' + tag + '_in.pkl', 'wb')
+    pickle.dump(my_dict, output)
+    output.close()
+
+# ---------------------------------------------------------------------------------------------------------------------
 # ---------------------------------------------------------------------------------------------------------------------
 # # --- DEPTH OF ISOPYCNALS IN TIME ----------------------------------------------
 # # isopycnals i care about

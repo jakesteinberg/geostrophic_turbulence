@@ -8,6 +8,7 @@ import time as TT
 from scipy.integrate import cumtrapz
 from mode_decompositions import eta_fit, vertical_modes, PE_Tide_GM, vertical_modes_f
 # -- plotting
+import matplotlib
 import matplotlib.pyplot as plt
 from toolkit import plot_pro, nanseg_interp
 from zrfun import get_basic_info, get_z
@@ -81,10 +82,83 @@ for i in range(np.shape(this_one)[1]):
         ax.plot(this_anom[:, i], z_grid, color=cmap(.2))
     else:
         ax.plot(this_anom[:, i], z_grid, color=cmap(.01))
+ax.plot(np.nanmean(this_anom, axis=1), z_grid, linewidth=2.2, color='k')
 plot_pro(ax)
 
+# Ratio of error magnitude at all depths to model velocity at all depths
 f, ax = plt.subplots()
-x_range = np.arange(0, .25, .02)
+for i in range(np.shape(mod_v)[1]):
+    ax.scatter(np.abs(anoms[:, i]/mod_v[:, i]), z_grid, color='#D3D3D3', s=4)
+    if np.nanmax(np.abs(mod_v[:, i])) > 0.175:
+        ax.scatter(np.abs(anoms[:, i] / mod_v[:, i]), z_grid, color='r', s=3)
+    if np.nanmax(np.abs(mod_v[:, i])) < 0.05:
+        ax.scatter(np.abs(anoms[:, i] / mod_v[:, i]), z_grid, color='g', s=3)
+ax.plot(np.nanmean(np.abs(anoms), axis=1)/np.nanmean(np.abs(mod_v), axis=1), z_grid, color='k')
+ax.set_xlim([0, 4])
+plot_pro(ax)
+
+# RMS at different depths
+matplotlib.rcParams['figure.figsize'] = (6.5, 8)
+f, ax = plt.subplots()
+ax.plot(np.nanmean(anoms, axis=1), z_grid, linewidth=2.2, color='k')
+mm = np.nanmean(anoms, axis=1)
+mm_std = np.nan * np.ones(len(z_grid))
+for i in range(len(z_grid)):
+    mm_std[i] = np.nanstd(this_anom[i, :])
+ax.errorbar(mm, z_grid, xerr=mm_std)
+ax.text(0.04, -2400, 'Mean Error = ' + str(np.round(np.nanmean(anoms), 3)) + ' m/s')
+
+binss = np.arange(0, 0.002, 0.0001)
+subax = f.add_axes([0.2, 0.75, .225, .08])
+subax.hist(this_anom[9, :]**2, bins=binss)
+subax.set_xlim([0, 0.002])
+subax.set_ylim([0, 100])
+subax.set_title(str(z_grid[9]) + 'm', fontsize=7)
+subax.set_xticks([0, 0.001])
+subax.tick_params(labelsize=7)
+for spine in plt.gca().spines.values():
+    spine.set_visible(False)
+
+subax = f.add_axes([0.2, 0.55, .225, .08])
+subax.hist(this_anom[49, :]**2, bins=binss)
+subax.set_xlim([0, 0.002])
+subax.set_ylim([0, 100])
+subax.set_title(str(z_grid[49]) + 'm', fontsize=7)
+subax.set_xticks([0, 0.001])
+subax.tick_params(labelsize=7)
+for spine in plt.gca().spines.values():
+    spine.set_visible(False)
+
+subax = f.add_axes([0.2, 0.35, .225, .08])
+subax.hist(this_anom[74, :]**2, bins=binss)
+subax.set_xlim([0, 0.002])
+subax.set_ylim([0, 100])
+subax.set_title(str(z_grid[74]) + 'm', fontsize=7)
+subax.set_xticks([0, 0.001])
+subax.tick_params(labelsize=7)
+for spine in plt.gca().spines.values():
+    spine.set_visible(False)
+
+subax = f.add_axes([0.2, 0.15, .225, .08])
+subax.hist(this_anom[129, :]**2, bins=binss)
+subax.set_xlim([0, 0.002])
+subax.set_ylim([0, 100])
+subax.set_title(str(z_grid[129]) + 'm', fontsize=7)
+subax.set_xticks([0, 0.001])
+subax.tick_params(labelsize=7)
+for spine in plt.gca().spines.values():
+    spine.set_visible(False)
+
+ax.set_xlim([-.15, .1])
+ax.set_ylim([-3000, 0])
+ax.set_xlabel('m/s')
+ax.set_ylabel('Depth [m]')
+ax.set_title(r'Glider M/W Velocity Profile Error ($v_{dg}$ - $\overline{v_{model}}$)')
+plot_pro(ax)
+# f.savefig("/Users/jake/Documents/baroclinic_modes/Meetings/meeting_19_04_18/model_dg_vel_error_w10_gs2.png", dpi=200)
+
+f, ax = plt.subplots()
+x_range = np.arange(0, .2, .02)
 ax.plot(x_range, np.zeros(len(x_range)), linestyle='--', color='k')
 ax.scatter(max_mod_v, avg_anom1, s=5, color='r', label='0-1000m')
 ax.scatter(max_mod_v, avg_anom2, s=5, color='g', label='1000-2000m')
@@ -115,8 +189,8 @@ for i in range(np.shape(anoms)[1]):
     ax.plot(anoms[:, i], z_grid, color='#D3D3D3')
 ax.plot(np.nanmean(anoms, axis=1), z_grid, color='r', linewidth=2)
 ax.text(0.06, -2400, 'Mean Error = ' + str(np.round(np.nanmean(anoms), 3)) + ' m/s')
-ax.set_title(r'Glider M/W Velocity Profile Error ($v_{dg}$ - $\overline{v_model}$)')
+ax.set_title(r'Glider M/W Velocity Profile Error ($v_{dg}$ - $\overline{v_{model}}$)')
 ax.set_ylabel('z [m]')
 ax.set_xlabel('Velocity Error [m/s]')
-ax.set_xlim([-.10, .15])
+ax.set_xlim([-.15, .15])
 plot_pro(ax)

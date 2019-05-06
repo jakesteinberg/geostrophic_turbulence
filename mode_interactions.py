@@ -41,7 +41,7 @@ G_B_0, Gz_B_0, c_B_0, epsilon_B_0 = vertical_modes(sta_bats_n2_0, SB['depth'], o
 # summer
 sta_bats_n2_1 = SB['N2_per_season'][:, 1]
 G_B_1, Gz_B_1, c_B_1, epsilon_B_1 = vertical_modes(sta_bats_n2_1, SB['depth'], omega, mmax)
-# winter2
+# winter2 (Fall)
 sta_bats_n2_2 = SB['N2_per_season'][:, 2]
 G_B_2, Gz_B_2, c_B_2, epsilon_B_2 = vertical_modes(sta_bats_n2_2, SB['depth'], omega, mmax)
 ratio = sta_bats_n2_2 / sta_bats_f
@@ -223,50 +223,54 @@ plot_pro(ax1)
 # ---------------------------------------------------------------------------------------------------------------------
 # Block Diagram of Interaction Coefficients
 cmap = matplotlib.cm.get_cmap('hot_r')
-f, arm = plt.subplots(4, 5, sharex=True, sharey=True)
+
+matplotlib.rcParams['figure.figsize'] = (14, 7)
+
+f, arm = plt.subplots(3, 5, sharex=True, sharey=True)
 vmi = 0
 vma = 2.75
-fs = 8
+fs = 10
 modes = [0, 1, 2, 3]
 mode_labs = '0', '1', '2', '3', '4'
 epsils = [epsilon_const, epsilon_AL, epsilon_P, epsilon_B_0, epsilon_B_1]
 epsils_labs = ['Constant N$^2$', 'ALOHA', 'PAPA', 'BATS Winter', 'BATS Summer']
 for i in range(len(epsils)):
-    arm[0, i].pcolor(epsils[i][modes[0], :, :], cmap=cmap, vmin=vmi, vmax=vma)
-    arm[0, i].set_title(epsils_labs[i] + ', i=' + str(modes[0]), fontsize=fs)
+    # arm[0, i].pcolor(epsils[i][modes[0], :, :], cmap=cmap, vmin=vmi, vmax=vma)
+    # arm[0, i].set_title(epsils_labs[i] + ', i=' + str(modes[0]), fontsize=fs)
+    # plt.xticks(np.arange(0.5, len(mode_labs) + .5, 1), mode_labs)
+    # plt.yticks(np.arange(0.5, len(mode_labs) + .5, 1), mode_labs)
+
+    arm[0, i].pcolor(epsils[i][modes[1], :, :], cmap=cmap, vmin=vmi, vmax=vma)
+    arm[0, i].set_title(epsils_labs[i] + ', i=' + str(modes[1]), fontsize=fs)
     plt.xticks(np.arange(0.5, len(mode_labs) + .5, 1), mode_labs)
     plt.yticks(np.arange(0.5, len(mode_labs) + .5, 1), mode_labs)
 
-    arm[1, i].pcolor(epsils[i][modes[1], :, :], cmap=cmap, vmin=vmi, vmax=vma)
-    arm[1, i].set_title(epsils_labs[i] + ', i=' + str(modes[1]), fontsize=fs)
+    arm[1, i].pcolor(epsils[i][modes[2], :, :], cmap=cmap, vmin=vmi, vmax=vma)
+    arm[1, i].set_title(epsils_labs[i] + ', i=' + str(modes[2]), fontsize=fs)
     plt.xticks(np.arange(0.5, len(mode_labs) + .5, 1), mode_labs)
     plt.yticks(np.arange(0.5, len(mode_labs) + .5, 1), mode_labs)
 
-    arm[2, i].pcolor(epsils[i][modes[2], :, :], cmap=cmap, vmin=vmi, vmax=vma)
-    arm[2, i].set_title(epsils_labs[i] + ', i=' + str(modes[2]), fontsize=fs)
-    plt.xticks(np.arange(0.5, len(mode_labs) + .5, 1), mode_labs)
-    plt.yticks(np.arange(0.5, len(mode_labs) + .5, 1), mode_labs)
-
-    arm[3, i].pcolor(epsils[i][modes[3], :, :], cmap=cmap, vmin=vmi, vmax=vma)
-    arm[3, i].set_title(epsils_labs[i] + ', i=' + str(modes[3]), fontsize=fs)
+    arm[2, i].pcolor(epsils[i][modes[3], :, :], cmap=cmap, vmin=vmi, vmax=vma)
+    arm[2, i].set_title(epsils_labs[i] + ', i=' + str(modes[3]), fontsize=fs)
     plt.xticks(np.arange(0.5, len(mode_labs) + .5, 1), mode_labs)
     plt.yticks(np.arange(0.5, len(mode_labs) + .5, 1), mode_labs)
 arm[0, 0].invert_yaxis()
 arm[0, 0].set_ylabel('j', fontsize=fs)
 arm[1, 0].set_ylabel('j', fontsize=fs)
 arm[2, 0].set_ylabel('j', fontsize=fs)
-arm[3, 0].set_ylabel('j', fontsize=fs)
-arm[3, 0].set_xlabel('m', fontsize=fs)
-arm[3, 1].set_xlabel('m', fontsize=fs)
-arm[3, 2].set_xlabel('m', fontsize=fs)
-arm[3, 3].set_xlabel('m', fontsize=fs)
-arm[3, 4].set_xlabel('m', fontsize=fs)
+# arm[3, 0].set_ylabel('j', fontsize=fs)
+arm[2, 0].set_xlabel('m', fontsize=fs)
+arm[2, 1].set_xlabel('m', fontsize=fs)
+arm[2, 2].set_xlabel('m', fontsize=fs)
+arm[2, 3].set_xlabel('m', fontsize=fs)
+arm[2, 4].set_xlabel('m', fontsize=fs)
 c_map_ax = f.add_axes([0.925, 0.1, 0.02, 0.8])
 norm = matplotlib.colors.Normalize(vmin=vmi, vmax=vma)
 cb1 = matplotlib.colorbar.ColorbarBase(c_map_ax, cmap=cmap, norm=norm, orientation='vertical')
 cb1.set_label('Epsilon')
-arm[3, 4].grid()
-plot_pro(arm[3, 4])
+arm[2, 4].grid()
+plot_pro(arm[2, 4])
+# f.savefig("/Users/jake/Documents/baroclinic_modes/Meetings/meeting_19_04_18/mode_interact.jpg", dpi=300)
 
 # arm[0, 1].pcolor(epsilon_AL[0, :, :], cmap=cmap, vmin=vmi, vmax=vma)
 # arm[0, 1].set_title('ALOHA mode 0', fontsize=fs)
