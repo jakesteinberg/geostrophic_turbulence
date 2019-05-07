@@ -14,9 +14,10 @@ from toolkit import plot_pro, nanseg_interp
 from zrfun import get_basic_info, get_z
 
 
-file_list = glob.glob('/Users/jake/Documents/baroclinic_modes/Model/velocity*.pkl')
+file_list = glob.glob('/Users/jake/Documents/baroclinic_modes/Model/vel*.pkl')
 
 direct_anom = []
+# igw_var = np.nan * np.ones(len(file_list))
 for i in range(len(file_list)):
     pkl_file = open(file_list[i], 'rb')
     MOD = pickle.load(pkl_file)
@@ -25,6 +26,8 @@ for i in range(len(file_list)):
     glider_v = MOD['dg_v'][:]
     model_v = MOD['model_u_at_mwv']
     z_grid = MOD['dg_z'][:]
+    slope_error = MOD['shear_error'][:]
+    igw = MOD['igw_var']
 
     model_mean_per_mw = np.nan * np.ones(np.shape(glider_v))
     for j in range(len(model_v)):
@@ -47,7 +50,8 @@ for i in range(len(file_list)):
         anoms = glider_v - model_mean_per_mw
         anoms_space = spatial_anom
         anoms_time = time_anom
-
+        slope_er = slope_error.copy()
+        igw_var = igw.copy()
     else:
         v = np.concatenate((v, glider_v.copy()), axis=1)
         mod_v = np.concatenate((mod_v, model_mean_per_mw), axis=1)
@@ -56,7 +60,25 @@ for i in range(len(file_list)):
         anoms = np.concatenate((anoms, glider_v - model_mean_per_mw), axis=1)
         anoms_space = np.concatenate((anoms_space, spatial_anom), axis=1)
         anoms_time = np.concatenate((anoms_time, time_anom), axis=1)
+        slope_er = np.concatenate((slope_er, slope_error), axis=1)
+        igw_var = np.concatenate((igw_var, igw), axis=1)
 
+# vertical shear error as a function depth and igwsignal
+f, ax = plt.subplots()
+for i in range(len(z_grid)):
+    low = np.where(igw_var[i, :] < .5)[0]
+    ax.scatter(slope_er[i, :], z_grid[i] * np.ones(len(slope_er[i, :])), s=2, color='b')
+    ax.scatter(slope_er[i, low], z_grid[i] * np.ones(len(slope_er[i, low])), s=2, color='r')
+    ax.scatter(np.nanmean(slope_er[i, low]), z_grid[i], s=15, color='r')
+ax.plot(np.nanmedian(slope_er, axis=1), z_grid, color='k', linewidth=2)
+ax.set_xscale('log')
+ax.set_xlabel('Percent Error')
+ax.set_ylabel('z [m]')
+ax.set_title('Percent Error between Model Shear and Glider Shear')
+ax.set_xlim([1, 10**4])
+plot_pro(ax)
+
+# all velocity anomalies colored by max abs vel attained
 cmap = plt.cm.get_cmap('Spectral_r')
 f, ax = plt.subplots()
 this_one = mod_time_out
