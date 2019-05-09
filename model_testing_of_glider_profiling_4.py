@@ -14,7 +14,7 @@ from toolkit import plot_pro, nanseg_interp
 from zrfun import get_basic_info, get_z
 
 
-file_list = glob.glob('/Users/jake/Documents/baroclinic_modes/Model/vel*.pkl')
+file_list = glob.glob('/Users/jake/Documents/baroclinic_modes/Model/vel_anom_slow_*.pkl')
 
 direct_anom = []
 # igw_var = np.nan * np.ones(len(file_list))
@@ -64,19 +64,30 @@ for i in range(len(file_list)):
         igw_var = np.concatenate((igw_var, igw), axis=1)
 
 # vertical shear error as a function depth and igwsignal
+matplotlib.rcParams['figure.figsize'] = (6.5, 8)
 f, ax = plt.subplots()
+low_er_mean = np.nan * np.ones(len(z_grid))
 for i in range(len(z_grid)):
-    low = np.where(igw_var[i, :] < .5)[0]
+    low = np.where(igw_var[i, :] < .2)[0]
     ax.scatter(slope_er[i, :], z_grid[i] * np.ones(len(slope_er[i, :])), s=2, color='b')
-    ax.scatter(slope_er[i, low], z_grid[i] * np.ones(len(slope_er[i, low])), s=2, color='r')
-    ax.scatter(np.nanmean(slope_er[i, low]), z_grid[i], s=15, color='r')
-ax.plot(np.nanmedian(slope_er, axis=1), z_grid, color='k', linewidth=2)
+    ax.scatter(slope_er[i, low], z_grid[i] * np.ones(len(slope_er[i, low])), s=4, color='r')
+    ax.scatter(np.nanmean(slope_er[i, low]), z_grid[i], s=20, color='r')
+    low_er_mean[i] = np.nanmean(slope_er[i, low])
+ax.plot(low_er_mean, z_grid, linewidth=2.5, color='r', label='Low Noise Error Mean')
+ax.scatter(np.nanmean(slope_er[i, low]), z_grid[i], s=15, color='r', label=r'var$_{igw}$/var$_{gstr}$ < 0.2')
+ax.plot(np.nanmedian(slope_er, axis=1), z_grid, color='b', linewidth=2.5, label='Error Median')
+ax.plot([20, 20], [0, -3000], color='k', linewidth=2.5, linestyle='--')
+handles, labels = ax.get_legend_handles_labels()
+ax.legend(handles, labels, fontsize=12)
 ax.set_xscale('log')
 ax.set_xlabel('Percent Error')
 ax.set_ylabel('z [m]')
-ax.set_title('Percent Error between Model Shear and Glider Shear')
+ax.set_title('Percent Error between Model Shear and Glider Shear (' + str(MOD['glide_slope']) + ':1, w=' + str(MOD['dg_w']) + ' m/s)')
 ax.set_xlim([1, 10**4])
+ax.set_ylim([-3000, 0])
 plot_pro(ax)
+f.savefig("/Users/jake/Documents/baroclinic_modes/Meetings/meeting_19_04_18/model_dg_per_shear_err_slow.png", dpi=200)
+
 
 # all velocity anomalies colored by max abs vel attained
 cmap = plt.cm.get_cmap('Spectral_r')
@@ -107,104 +118,67 @@ for i in range(np.shape(this_one)[1]):
 ax.plot(np.nanmean(this_anom, axis=1), z_grid, linewidth=2.2, color='k')
 plot_pro(ax)
 
-# Ratio of error magnitude at all depths to model velocity at all depths
-f, ax = plt.subplots()
-for i in range(np.shape(mod_v)[1]):
-    ax.scatter(np.abs(anoms[:, i]/mod_v[:, i]), z_grid, color='#D3D3D3', s=4)
-    if np.nanmax(np.abs(mod_v[:, i])) > 0.175:
-        ax.scatter(np.abs(anoms[:, i] / mod_v[:, i]), z_grid, color='r', s=3)
-    if np.nanmax(np.abs(mod_v[:, i])) < 0.05:
-        ax.scatter(np.abs(anoms[:, i] / mod_v[:, i]), z_grid, color='g', s=3)
-ax.plot(np.nanmean(np.abs(anoms), axis=1)/np.nanmean(np.abs(mod_v), axis=1), z_grid, color='k')
-ax.set_xlim([0, 4])
-plot_pro(ax)
-
 # RMS at different depths
 matplotlib.rcParams['figure.figsize'] = (6.5, 8)
 f, ax = plt.subplots()
-ax.plot(np.nanmean(anoms, axis=1), z_grid, linewidth=2.2, color='k')
-mm = np.nanmean(anoms, axis=1)
+# ax.plot(np.nanmean(anoms, axis=1), z_grid, linewidth=2.2, color='k')
+mm = np.nanmean(anoms**2, axis=1)
 mm_std = np.nan * np.ones(len(z_grid))
 for i in range(len(z_grid)):
-    mm_std[i] = np.nanstd(this_anom[i, :])
-ax.errorbar(mm, z_grid, xerr=mm_std)
-ax.text(0.04, -2400, 'Mean Error = ' + str(np.round(np.nanmean(anoms), 3)) + ' m/s')
-
-binss = np.arange(0, 0.002, 0.0001)
-subax = f.add_axes([0.2, 0.75, .225, .08])
-subax.hist(this_anom[9, :]**2, bins=binss)
-subax.set_xlim([0, 0.002])
-subax.set_ylim([0, 100])
-subax.set_title(str(z_grid[9]) + 'm', fontsize=7)
-subax.set_xticks([0, 0.001])
-subax.tick_params(labelsize=7)
-for spine in plt.gca().spines.values():
-    spine.set_visible(False)
-
-subax = f.add_axes([0.2, 0.55, .225, .08])
-subax.hist(this_anom[49, :]**2, bins=binss)
-subax.set_xlim([0, 0.002])
-subax.set_ylim([0, 100])
-subax.set_title(str(z_grid[49]) + 'm', fontsize=7)
-subax.set_xticks([0, 0.001])
-subax.tick_params(labelsize=7)
-for spine in plt.gca().spines.values():
-    spine.set_visible(False)
-
-subax = f.add_axes([0.2, 0.35, .225, .08])
-subax.hist(this_anom[74, :]**2, bins=binss)
-subax.set_xlim([0, 0.002])
-subax.set_ylim([0, 100])
-subax.set_title(str(z_grid[74]) + 'm', fontsize=7)
-subax.set_xticks([0, 0.001])
-subax.tick_params(labelsize=7)
-for spine in plt.gca().spines.values():
-    spine.set_visible(False)
-
-subax = f.add_axes([0.2, 0.15, .225, .08])
-subax.hist(this_anom[129, :]**2, bins=binss)
-subax.set_xlim([0, 0.002])
-subax.set_ylim([0, 100])
-subax.set_title(str(z_grid[129]) + 'm', fontsize=7)
-subax.set_xticks([0, 0.001])
-subax.tick_params(labelsize=7)
-for spine in plt.gca().spines.values():
-    spine.set_visible(False)
-
-ax.set_xlim([-.15, .1])
+    mm_std[i] = np.nanstd(anoms[i, :]**2)
+# ax.errorbar(mm, z_grid, xerr=mm_std)
+ax.plot(mm, z_grid, linewidth=2.2, color='k')
+ax.plot(mm_std, z_grid, linewidth=1.5, color='k', linestyle='--')
+# ax.text(0.005, -2400, 'Mean Error = ' + str(np.round(np.nanmean(anoms), 3)) + ' m/s')
+ax.set_xlim([0, .01])
 ax.set_ylim([-3000, 0])
-ax.set_xlabel('m/s')
+ax.set_xlabel(r'm$^2$/s$^2$')
 ax.set_ylabel('Depth [m]')
-ax.set_title(r'Glider M/W Velocity Profile Error ($v_{dg}$ - $\overline{v_{model}}$)')
+ax.set_title(r'Glider M/W Velocity Profile Error ($v_{dg}$ - $\overline{v_{model}}$)$^2$ ('
+             + str(MOD['glide_slope']) + ':1, w=' + str(MOD['dg_w']) + ' m/s)')
 plot_pro(ax)
-# f.savefig("/Users/jake/Documents/baroclinic_modes/Meetings/meeting_19_04_18/model_dg_vel_error_w10_gs2.png", dpi=200)
+f.savefig("/Users/jake/Documents/baroclinic_modes/Meetings/meeting_19_04_18/model_dg_vel_error_slow.png", dpi=200)
 
-f, ax = plt.subplots()
-x_range = np.arange(0, .2, .02)
-ax.plot(x_range, np.zeros(len(x_range)), linestyle='--', color='k')
-ax.scatter(max_mod_v, avg_anom1, s=5, color='r', label='0-1000m')
-ax.scatter(max_mod_v, avg_anom2, s=5, color='g', label='1000-2000m')
-ax.scatter(max_mod_v, avg_anom3, s=5, color='b', label='2000m-')
-ax.plot(x_range, np.nanmean(avg_anom1) * np.ones(len(x_range)), color='r', linewidth=0.5)
-ax.plot(x_range, np.nanmean(avg_anom2) * np.ones(len(x_range)), color='g', linewidth=0.5)
-ax.plot(x_range, np.nanmean(avg_anom3) * np.ones(len(x_range)), color='b', linewidth=0.5)
-a1p = np.polyfit(max_mod_v, avg_anom1, 1)
-a1f = np.polyval(a1p, max_mod_v)
-ax.plot(max_mod_v, a1f, color='r')
-a2p = np.polyfit(max_mod_v, avg_anom2, 1)
-a2f = np.polyval(a2p, max_mod_v)
-ax.plot(max_mod_v, a2f, color='g')
-a3p = np.polyfit(max_mod_v, avg_anom3, 1)
-a3f = np.polyval(a3p, max_mod_v)
-ax.plot(max_mod_v, a3f, color='b')
-handles, labels = ax.get_legend_handles_labels()
-ax.legend(handles, labels, fontsize=12)
-# ax.set_xlim([0, .5])
-# ax.set_ylim([0, .1])
-ax.set_xlabel('Maximum Square Model Velocity ')
-ax.set_ylabel(r'Average ( DG Vel. - Model Vel. ) $^2$ ')
-ax.set_title('M/W Velocity Profile Error As Function of Model Velocity and Depth')
-plot_pro(ax)
+# binss = np.arange(0, 0.002, 0.0001)
+# subax = f.add_axes([0.2, 0.75, .225, .08])
+# subax.hist(this_anom[9, :]**2, bins=binss)
+# subax.set_xlim([0, 0.002])
+# subax.set_ylim([0, 100])
+# subax.set_title(str(z_grid[9]) + 'm', fontsize=7)
+# subax.set_xticks([0, 0.001])
+# subax.tick_params(labelsize=7)
+# for spine in plt.gca().spines.values():
+#     spine.set_visible(False)
+#
+# subax = f.add_axes([0.2, 0.55, .225, .08])
+# subax.hist(this_anom[49, :]**2, bins=binss)
+# subax.set_xlim([0, 0.002])
+# subax.set_ylim([0, 100])
+# subax.set_title(str(z_grid[49]) + 'm', fontsize=7)
+# subax.set_xticks([0, 0.001])
+# subax.tick_params(labelsize=7)
+# for spine in plt.gca().spines.values():
+#     spine.set_visible(False)
+#
+# subax = f.add_axes([0.2, 0.35, .225, .08])
+# subax.hist(this_anom[74, :]**2, bins=binss)
+# subax.set_xlim([0, 0.002])
+# subax.set_ylim([0, 100])
+# subax.set_title(str(z_grid[74]) + 'm', fontsize=7)
+# subax.set_xticks([0, 0.001])
+# subax.tick_params(labelsize=7)
+# for spine in plt.gca().spines.values():
+#     spine.set_visible(False)
+#
+# subax = f.add_axes([0.2, 0.15, .225, .08])
+# subax.hist(this_anom[129, :]**2, bins=binss)
+# subax.set_xlim([0, 0.002])
+# subax.set_ylim([0, 100])
+# subax.set_title(str(z_grid[129]) + 'm', fontsize=7)
+# subax.set_xticks([0, 0.001])
+# subax.tick_params(labelsize=7)
+# for spine in plt.gca().spines.values():
+#     spine.set_visible(False)
 
 f, ax = plt.subplots()
 for i in range(np.shape(anoms)[1]):

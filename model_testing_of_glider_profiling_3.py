@@ -9,6 +9,7 @@ from scipy.integrate import cumtrapz
 from scipy.signal import savgol_filter
 from mode_decompositions import eta_fit, vertical_modes, PE_Tide_GM, vertical_modes_f
 # -- plotting
+import matplotlib
 import matplotlib.pyplot as plt
 from toolkit import plot_pro, nanseg_interp
 from zrfun import get_basic_info, get_z
@@ -74,13 +75,18 @@ rho0 = 1025.0
 # time between each model time step is 1hr.
 
 # main set of parameters to adjust
-dg_vertical_speed = 0.3  # m/s
+dg_vertical_speed = 0.1  # m/s
 dg_glide_slope = 3
-num_dives = 5
-dac_error = 0.01 # m/s
-y_dg_s = 7000    # horizontal position, start of glider dives (75km)
-z_dg_s = 0       # depth, start of glider dives
-partial_mw = 0   # include exclude partial m/w estimates
+num_dives = 4
+dac_error = 0.01  # m/s
+y_dg_s = 70000     # horizontal position, start of glider dives (75km)
+z_dg_s = 0        # depth, start of glider dives
+partial_mw = 0    # include exclude partial m/w estimates
+
+t_s = datetime.date.fromordinal(np.int(time_ord_s[0]))
+t_e = datetime.date.fromordinal(np.int(time_ord_s[-1]))
+tag = str(t_s.month) + '_' + str(t_s.day) + '_' + str(t_e.month) + '_' + str(t_e.day)
+output_filename = '/Users/jake/Documents/baroclinic_modes/Model/vel_anom_fast_calm_' + tag + '.pkl'
 
 # need to specify D_TGT or have glider 'fly' until it hits bottom
 data_loc = np.nanmean(sig0_out_s, axis=2)  # (depth X xy_grid)
@@ -448,12 +454,13 @@ else:
 print('Completed M/W Vel Estimation')
 # ---------------------------------------------------------------------------------------------------------------------
 # --- PLOTTING
-h_max = np.nanmax(xy_grid/1000 + 5)  # horizontal domain limit
+h_max = np.nanmax(dg_y/1000 + 20)  # horizontal domain limit
 z_max = -3250
 u_levels = np.array([-.4, -.35, -.3, -.25, - .2, -.15, -.125, -.1, -.075, -.05, -0.025, 0,
                      0.025, 0.05, 0.075, 0.1, 0.125, 0.15, 0.2, 0.25, 0.3, 0.35, .4])
 plot0 = 1
 if plot0 > 0:
+    matplotlib.rcParams['figure.figsize'] = (12, 6)
     cmap = plt.cm.get_cmap("viridis")
     f, (ax1, ax2, ax3) = plt.subplots(1, 3, sharey=True)
     ax1.contourf(np.tile(xy_grid/1000, (len(z_grid), 1)), np.tile(z_grid[:, None], (1, len(xy_grid))),
@@ -499,9 +506,6 @@ if plot0 > 0:
 
 # ------------------------------
 # model - glider velocity error
-t_s = datetime.date.fromordinal(np.int(time_ord_s[0]))
-t_e = datetime.date.fromordinal(np.int(time_ord_s[-1]))
-tag = str(t_s.month) + '_' + str(t_s.day) + '_' + str(t_e.month) + '_' + str(t_e.day)
 
 ua_mean = np.nan * np.ones((len(dg_z), len(dg_dac_mid)))
 ua_std = np.nan * np.ones((len(dg_z), len(dg_dac_mid)))
@@ -749,6 +753,7 @@ for i in range(4):
 
 # ---------------------------------------------------------------------------------------------------------------------
 # PLOT DEPTH OF ISOPYCNAL IN SPACE AND TIME
+matplotlib.rcParams['figure.figsize'] = (10, 6)
 cmap = plt.cm.get_cmap("YlGnBu_r")
 f, ax = plt.subplots(4, 1, sharex=True)
 for i in range(len(isops)):
@@ -774,6 +779,7 @@ ax[0].set_title('Isopycnal Depths over a 30hr Period (two glider dive-climb cycl
 ax[0].set_ylim([225, 375])
 ax[0].invert_yaxis()
 ax[0].grid()
+ax[0].set_xlim([0, h_max])
 ax[1].set_ylabel('Depth [m]')
 ax[1].set_ylim([700, 850])
 ax[1].invert_yaxis()
@@ -810,6 +816,8 @@ shear = shear[:, ~np.isnan(shear[30, :])]
 # --------------------------------------------------------------------------------------------------------------------
 # -- DENSITY AT FIXED DEPTHS (this is how we estimate density gradients (drho/dx)
 deps = [250, 1000, 1500, 2000]
+t_steps = [t_near, t_near + 6, t_near + 12, t_near + 18, t_near + 24, t_near + 30, t_near + 36,
+           t_near + 42, t_near + 48, t_near + 54, t_near + 60, t_near + 66, t_near + 71]
 isop_dep = np.nan * np.ones((len(deps), np.shape(these_data)[1], 6))
 for i in range(np.shape(these_data)[1]):  # loop over each horizontal grid point
     for j in range(len(deps)):  # loop over each dep
@@ -865,20 +873,20 @@ for i in range(np.shape(shear)[1]):  # loop over each horizontal profile locatio
                                                                   inn_per_mw_t[i][0]:inn_per_mw_t[i][-1]+1]
             signal_var = np.nanvar(model_mean_isop_all)
             vary = np.nan * np.ones(len(xy_grid))
-            for l in range(len(xy_grid[inn])):
+            for l in range(len(xy_grid[inn_per_mw[i]])):
                 vary[l] = np.nanvar(den_in[l, :] - model_mean_isop_all[l])  # variance in time of iso about model mean
             den_var[j, i] = np.nanmean(vary)/signal_var
 
 # difference in shear between glider and model
 shear_error = np.abs(100. * (shear - (-g * model_isop_slope_all[:, 0, :]/(rho0 * ff))) / (-g * model_isop_slope_all[:, 0, :]/(rho0 * ff)))
-f, ax = plt.subplots()
-for i in range(len(dg_z)):
-    ax.scatter(shear_error[i, :], dg_z[i] * np.ones(len(shear_error[i, :])), s=2, color='b')
-# filtered_error = savgol_filter(np.nanmean(np.log10(shear_error), axis=1), 5, 3)
-ax.plot(np.nanmean(shear_error, axis=1), dg_z, color='k', linewidth=2)
-ax.set_xscale('log')
-ax.set_xlim([1, 10**4])
-plot_pro(ax)
+# f, ax = plt.subplots()
+# for i in range(len(dg_z)):
+#     ax.scatter(shear_error[i, :], dg_z[i] * np.ones(len(shear_error[i, :])), s=2, color='b')
+# # filtered_error = savgol_filter(np.nanmean(np.log10(shear_error), axis=1), 5, 3)
+# ax.plot(np.nanmean(shear_error, axis=1), dg_z, color='k', linewidth=2)
+# ax.set_xscale('log')
+# ax.set_xlim([1, 10**4])
+# plot_pro(ax)
 # ------------
 
 # density gradient computation for 4 depths for plot
@@ -894,8 +902,9 @@ for i in range(4):
     model_isop_slope[i, :] = np.polyfit(xy_grid[inn], np.nanmean(isop_dep[i, inn, :], axis=1), 1)
     model_mean_isop[i, :] = np.polyval(model_isop_slope[i, :], xy_grid[inn])
 
-cmaps = [0.15, 0.3, 0.45, 0.6, 0.75, .9]
-lab_y = [26.64, 27.53, 27.74, 27.92]
+cmaps = [0.15, 0.22, 0.3, 0.37, 0.45, 0.52, 0.6, 0.67, 0.75, 0.82, .9, .98]
+lab_y = [26.66, 27.53, 27.74, 27.92]
+matplotlib.rcParams['figure.figsize'] = (10, 6)
 f, ax = plt.subplots(4, 1, sharex=True)
 for i in range(len(deps)):
     ax[i].set_facecolor('#DCDCDC')
@@ -910,13 +919,18 @@ for i in range(len(deps)):
     ax[i].text(10, lab_y[i], str(deps[i]) + 'm', fontweight='bold')
     ax[i].plot(xy_grid[inn] / 1000, model_mean_isop[i, :], color='#FF8C00', linewidth=2)
     ax[i].plot(dg_isop_xy[i, :] / 1000, dg_mean_isop[i, :], color='m', linewidth=2)
-    ax[i].text(120, lab_y[i], 'Slope Error = ' + str(np.round(100.*np.abs((dg_isop_slope[i, 0] - model_isop_slope[i, 0])/model_isop_slope[i, 0]), 0)) + '%', fontweight='bold')
+    ax[i].text(h_max - 45,
+               lab_y[i], r'du$_g$/dz error = ' + str(np.round(100.*np.abs((dg_isop_slope[i, 0] - model_isop_slope[i, 0])/model_isop_slope[i, 0]), 0)) + '%', fontweight='bold')
 
+ax[i].plot(xy_grid/1000, np.nanmean(isop_dep[i, :, :], axis=1), color='r', linestyle='--', linewidth=1.3, label='72hr. avg. density ')
+handles, labels = ax[3].get_legend_handles_labels()
+ax[3].legend(handles, labels, fontsize=12)
 ax[0].set_ylabel('Neutral Density')
-ax[0].set_title('Density at fixed Depths over a 30hr Period (two glider dive-climb cycles)')
+ax[0].set_title(r'Density along z=z$_i$')
 ax[0].set_ylim([26.6, 26.9])
 ax[0].invert_yaxis()
 ax[0].grid()
+ax[0].set_xlim([0, h_max])
 ax[1].set_ylabel('Neutral Density')
 ax[1].set_ylim([27.5, 27.6])
 ax[1].invert_yaxis()
@@ -1300,7 +1314,7 @@ plot_pro(ax2)
 # ---------------------------------------------------------------------------------------------------------------------
 # ---------------------------------------------------------------------------------------------------------------------
 
-save_anom = 1
+save_anom = 0
 if save_anom:
     my_dict = {'dg_z': dg_z, 'dg_v': v_g, 'model_u_at_mwv': u_mod_at_mw,
                'shear_error': shear_error, 'igw_var': den_var,
@@ -1309,7 +1323,7 @@ if save_anom:
                'eta_m_dg_avg': eta_m_dg_sm, 'PE_dg_avg': PE_per_mass_dg_sm,
                'eta_model': eta_m_model, 'PE_model': PE_per_mass_model,
                'glide_slope': dg_glide_slope, 'dg_w': dg_vertical_speed}
-    output = open('/Users/jake/Documents/baroclinic_modes/Model/vel_anom_eddy_fast_' + tag + '.pkl', 'wb')
+    output = open(output_filename, 'wb')
     pickle.dump(my_dict, output)
     output.close()
 
