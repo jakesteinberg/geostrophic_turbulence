@@ -11,12 +11,13 @@ from mode_decompositions import eta_fit, vertical_modes, PE_Tide_GM, vertical_mo
 # -- plotting
 import matplotlib
 import matplotlib.pyplot as plt
+from mpl_toolkits.axes_grid1 import make_axes_locatable
 from toolkit import plot_pro, nanseg_interp
 from zrfun import get_basic_info, get_z
 
 # because we load pickle protocol 2 (needed for matlab engine) we need 'glider' environment (not 'geo_env')
 
-this_path = 'e_w_extraction_nov19_nov21_offshore'  # 'n_s_extraction_eddy_nov1_nov3'  #
+this_path = 'e_w_extraction_nov28_nov30_offshore'  # 'n_s_extraction_eddy_nov1_nov3'  #
 
 # -- LOAD extracted and PROCESSED MODEL TIME STEPS WITH COMPUTED GAMMA
 # this file has combined all model output and computed gamma (using model_testing_of_glider_profiling_2.py)
@@ -75,9 +76,9 @@ rho0 = 1025.0
 # time between each model time step is 1hr.
 
 # main set of parameters to adjust
-dg_vertical_speed = 0.1  # m/s
+dg_vertical_speed = 0.075  # m/s
 dg_glide_slope = 3
-num_dives = 4
+num_dives = 3
 dac_error = 0.01  # m/s
 y_dg_s = 70000     # horizontal position, start of glider dives (75km)
 z_dg_s = 0        # depth, start of glider dives
@@ -86,7 +87,8 @@ partial_mw = 0    # include exclude partial m/w estimates
 t_s = datetime.date.fromordinal(np.int(time_ord_s[0]))
 t_e = datetime.date.fromordinal(np.int(time_ord_s[-1]))
 tag = str(t_s.month) + '_' + str(t_s.day) + '_' + str(t_e.month) + '_' + str(t_e.day)
-output_filename = '/Users/jake/Documents/baroclinic_modes/Model/vel_anom_fast_calm_' + tag + '.pkl'
+output_filename = '/Users/jake/Documents/baroclinic_modes/Model/vel_anom_slow2_calm_' + tag + '.pkl'
+save_anom = 1
 
 # need to specify D_TGT or have glider 'fly' until it hits bottom
 data_loc = np.nanmean(sig0_out_s, axis=2)  # (depth X xy_grid)
@@ -307,14 +309,22 @@ if plan_plot:
     f, ax = plt.subplots()
     ax.contour(lon_rho, lat_rho, z[0, :, :], levels=[-25, -20, -15, -10, -5], colors='k', fontsize=6)
     bc = ax.contour(lon_rho, lat_rho, z[0, :, :],
-                    levels=[-3000, -2900, -2800, -2700, -2600, -2500, -2000, -1000], colors='b', linewidth=0.5)
-    ax.quiver(dac_lon, dac_lat, dg_dac_u, dg_dac_v, scale=.25, width=0.01)
+                    levels=[-3000, -2750, -2500, -2250, -2000, -1000], colors='b', linewidth=0.25)
+    ax.quiver(dac_lon, dac_lat, dg_dac_u, dg_dac_v, scale=.32, width=0.01)
+    ax.quiver(-127, 46.5, 0.1, 0, scale=.32, width=0.01)
+    ax.text(-127, 46.25, 'DAC [0.1 m/s]')
     ax.clabel(bc, inline_spacing=-3, fmt='%.4g', colors='b')
-    ax.scatter(D['lon_rho'][:], D['lat_rho'][:], 10, color='r')
+    ax.scatter(D['lon_rho'][:], D['lat_rho'][:], 6, color='r')
     w = 1 / np.cos(np.deg2rad(46))
     ax.set_aspect(w)
-    ax.axis([-128, -123, 42, 48])
+    ax.axis([-127.4, -123.5, 42.5, 47])
+    ax.set_xlabel(r'Longitude [-$^{\circ}$W]')
+    ax.set_ylabel(r'Latitude [$^{\circ}$N]')
+    ax.set_title('Model Domain and Glider Transect')
     plot_pro(ax)
+    # f.savefig("/Users/jake/Documents/baroclinic_modes/Meetings/meeting_19_04_18/model_trasnect_plan.png",
+    #           dpi=200)
+
 # ---------------------------------------------------------------------------------------------------------------------
 # --- M/W estimation
 mw_y = np.nan * np.zeros(num_profs - 1)
@@ -455,30 +465,33 @@ print('Completed M/W Vel Estimation')
 # ---------------------------------------------------------------------------------------------------------------------
 # --- PLOTTING
 h_max = np.nanmax(dg_y/1000 + 20)  # horizontal domain limit
-z_max = -3250
-u_levels = np.array([-.4, -.35, -.3, -.25, - .2, -.15, -.125, -.1, -.075, -.05, -0.025, 0,
-                     0.025, 0.05, 0.075, 0.1, 0.125, 0.15, 0.2, 0.25, 0.3, 0.35, .4])
+z_max = -3150
+u_levels = np.array([-.3, -.25, - .2, -.15, -.125, -.1, -.075, -.05, -0.025, 0,
+                     0.025, 0.05, 0.075, 0.1, 0.125, 0.15, 0.2, 0.25, 0.3])
 plot0 = 1
 if plot0 > 0:
     matplotlib.rcParams['figure.figsize'] = (12, 6)
     cmap = plt.cm.get_cmap("viridis")
     f, (ax1, ax2, ax3) = plt.subplots(1, 3, sharey=True)
-    ax1.contourf(np.tile(xy_grid/1000, (len(z_grid), 1)), np.tile(z_grid[:, None], (1, len(xy_grid))),
+    uvcf = ax1.contourf(np.tile(xy_grid/1000, (len(z_grid), 1)), np.tile(z_grid[:, None], (1, len(xy_grid))),
                  np.nanmean(u_out_s, axis=2), levels=u_levels, cmap=cmap)
     uvc = ax1.contour(np.tile(xy_grid/1000, (len(z_grid), 1)), np.tile(z_grid[:, None], (1, len(xy_grid))),
                       np.nanmean(u_out_s, axis=2), levels=u_levels, colors='k', linewidth=0.75)
     ax1.clabel(uvc, inline_spacing=-3, fmt='%.4g', colors='k')
     rhoc = ax1.contour(np.tile(xy_grid/1000, (len(z_grid), 1)), np.tile(z_grid[:, None], (1, len(xy_grid))),
                        np.nanmean(sig0_out_s, axis=2), levels=sigth_levels, colors='#A9A9A9', linewidth=0.35)
-    ax1.scatter(dg_y/1000, dg_z_g, 4, color='k')
+    ax1.scatter(dg_y/1000, dg_z_g, 4, color='#FFD700', label='glider path')
     for r in range(np.shape(isopycdep)[0]):
         ax1.plot(isopycx[r, :]/1000, isopycdep[r, :], color='r', linewidth=0.45)
     ax1.set_title(str(datetime.date.fromordinal(np.int(time_ord_s[0]))) +
                   ' - ' + str(datetime.date.fromordinal(np.int(time_ord_s[-2]))) + ', 72hr. Model Avg.')
+    handles, labels = ax1.get_legend_handles_labels()
+    ax1.legend(handles, labels, fontsize=11)
     ax1.set_ylim([z_max, 0])
     ax1.set_xlim([0, h_max])
-    ax1.set_xlabel('Km')
+    ax1.set_xlabel('E/W distance [km]')
     ax1.set_ylabel('z [m]')
+    plt.colorbar(uvcf, label='N/S Velocity [m/s]', ticks=u_levels)
     ax1.grid()
 
     ax2.contourf(np.tile(mw_y/1000, (len(z_grid), 1)), np.tile(dg_z[:, None], (1, len(mw_y))),
@@ -489,9 +502,12 @@ if plot0 > 0:
     ax2.scatter(dg_y/1000, dg_z_g, 4, color='k')
     for r in range(np.shape(isopycdep)[0]):
         ax2.plot(isopycx[r, :]/1000, isopycdep[r, :], color='r')
+    ax2.plot(isopycx[r, :] / 1000, isopycdep[r, :], color='r', linewidth=0.5,label='glider measured isopycnals')
+    handles, labels = ax2.get_legend_handles_labels()
+    ax2.legend(handles, labels, fontsize=11)
     ax2.set_xlim([0, h_max])
-    ax2.set_title('Glider Cross-Track Vel.')
-    ax2.set_xlabel('Km')
+    ax2.set_title(r'Cross-Track Glider Vel. u$_g$(x,z)')
+    ax2.set_xlabel('E/W distance [km]')
     ax2.grid()
 
     ax3.pcolor(np.tile(mw_y/1000, (len(z_grid), 1)), np.tile(dg_z[:, None], (1, len(mw_y))),
@@ -499,10 +515,12 @@ if plot0 > 0:
     uvc = ax3.contour(np.tile(mw_y/1000, (len(z_grid), 1)), np.tile(dg_z[:, None], (1, len(mw_y))),
                       u_mod_at_mw_avg - v_g, levels=u_levels, colors='k', linewidth=0.75)
     ax3.clabel(uvc, inline_spacing=-3, fmt='%.4g', colors='k')
-    ax3.set_title('Model, Glider Velocity Difference')
-    ax3.set_xlabel('Km')
-    ax3.set_xlim([0, h_max])
+    ax3.set_title(r'u$_{mod}$ - u$_g$')
+    ax3.set_xlabel('E/W distance [km]')
+    ax3.set_xlim([y_dg_s/1000 - 5, np.nanmax(dg_y/1000) + 5])
     plot_pro(ax3)
+    # f.savefig("/Users/jake/Documents/baroclinic_modes/Meetings/meeting_19_04_18/model_cross.png",
+    #           dpi=200)
 
 # ------------------------------
 # model - glider velocity error
@@ -904,7 +922,7 @@ for i in range(4):
 
 cmaps = [0.15, 0.22, 0.3, 0.37, 0.45, 0.52, 0.6, 0.67, 0.75, 0.82, .9, .98]
 lab_y = [26.66, 27.53, 27.74, 27.92]
-matplotlib.rcParams['figure.figsize'] = (10, 6)
+matplotlib.rcParams['figure.figsize'] = (10, 7)
 f, ax = plt.subplots(4, 1, sharex=True)
 for i in range(len(deps)):
     ax[i].set_facecolor('#DCDCDC')
@@ -944,6 +962,7 @@ ax[3].set_ylim([27.9, 28])
 ax[3].invert_yaxis()
 ax[3].set_xlabel('Transect Distance [km]')
 plot_pro(ax[3])
+# f.savefig("/Users/jake/Documents/baroclinic_modes/Meetings/meeting_19_04_18/model_glider_den_grad.png", dpi=200)
 # --------------------------------------------------------------------------------------------------------------------
 # --- Background density
 pkl_file = open('/Users/jake/Documents/baroclinic_modes/Model/background_density.pkl', 'rb')
@@ -952,17 +971,19 @@ pkl_file.close()
 overlap = np.where((xy_grid > dg_y[0, 0]) & (xy_grid < dg_y[0, -1]))[0]
 bck_sa = np.flipud(MOD['sa_back'][:][:, overlap])
 bck_ct = np.flipud(MOD['ct_back'][:][:, overlap])
+bck_gamma = np.flipud(MOD['gamma_back'][:][:, overlap])
 z_back = np.flipud(z_grid)
 z_bm = np.where(z_back <= dg_z)[0]
 
 # or if no big feature is present, avg current profiles for background
 N2_bck_out = gsw.Nsquared(np.nanmean(bck_sa[0:z_bm[-1]+1, :], axis=1), np.nanmean(bck_ct[0:z_bm[-1]+1, :], axis=1),
                           np.flipud(p_grid)[0:z_bm[-1]+1], lat=ref_lat)[0]
-sig0_bck_out = np.nanmean(avg_sig_pd, axis=1)  # avg of glider profiles over this time period
+# sig0_bck_out = np.nanmean(avg_sig_pd, axis=1)  # avg of glider profiles over this time period
+sig0_bck_out = np.nanmean(bck_gamma[0:z_bm[-1]+1, :], axis=1)
 
 sig0_bck_out = sig0_bck_out[~np.isnan(sig0_bck_out)]
 N2_bck_out = N2_bck_out[~np.isnan(sig0_bck_out)]
-for i in range(len(N2_bck_out)-7, len(N2_bck_out)):
+for i in range(len(N2_bck_out)-15, len(N2_bck_out)):
     N2_bck_out[i] = N2_bck_out[i - 1] - 1*10**(-8)
 z_back = z_back[~np.isnan(sig0_bck_out)]
 # ---------------------------------------------------------------------------------------------------------------------
@@ -1090,6 +1111,8 @@ PE_per_mass_model = np.nan * np.ones((nmodes, len(in_range)))
 eta_m_model = np.nan * np.ones((len(dg_z), len(in_range)))
 Neta_m_model = np.nan * np.ones((len(dg_z), len(in_range)))
 for i in range(len(in_range)):
+    # range over which m/w profile takes up,
+    # consider each model density profile, avg at each grid point in time, estimate eta
     this_model = np.flipud(np.nanmean(sig0_out_s[:, in_range[i], :], axis=1))
 
     good = np.where(~np.isnan(this_model))[0]
@@ -1247,7 +1270,7 @@ avg_KE = np.nanmean(HKE_per_mass_dg[:, good_vg], axis=1)
 avg_PE_model = np.nanmean(PE_per_mass_model[:, good_mod], axis=1)
 avg_KE_model = np.nanmean(HKE_per_mass_model[:, good_mod], axis=1)
 dk = ff / c[1]
-PE_SD, PE_GM, GMPE, GMKE = PE_Tide_GM(rho0, -1.0 * z_grid_f, nmodes, np.flipud(np.transpose(np.atleast_2d(avg_N2))), ff)
+# PE_SD, PE_GM, GMPE, GMKE = PE_Tide_GM(rho0, -1.0 * z_grid_f, nmodes, np.flipud(np.transpose(np.atleast_2d(avg_N2))), ff)
 
 # --- PLOT ENERGY SPECTRA
 mm = 10
@@ -1313,8 +1336,7 @@ plot_pro(ax2)
 
 # ---------------------------------------------------------------------------------------------------------------------
 # ---------------------------------------------------------------------------------------------------------------------
-
-save_anom = 0
+# save?
 if save_anom:
     my_dict = {'dg_z': dg_z, 'dg_v': v_g, 'model_u_at_mwv': u_mod_at_mw,
                'shear_error': shear_error, 'igw_var': den_var,
