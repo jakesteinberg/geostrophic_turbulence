@@ -21,10 +21,12 @@ from toolkit import plot_pro
 # x = Glider(39, np.arange(20, 86), '/Users/jake/Documents/baroclinic_modes/DG/ABACO_2018/sg039')  # 56-70
 # x = Glider(39, np.concatenate((np.arange(70, 83), np.arange(84, 86))),
 #            r'/Users/jake/Documents/baroclinic_modes/DG/ABACO_2018/sg039')
+# ---- DG BATS 2014
+x = Glider(35, np.concatenate((np.arange(123, 126), np.array([127]))), '/Users/jake/Documents/baroclinic_modes/DG/BATS_2014/sg035')
 # ---- DG BATS 2015
-x = Glider(35, np.arange(68, 71), '/Users/jake/Documents/baroclinic_modes/DG/BATS_2015/sg035')
+# x = Glider(35, np.arange(68, 71), '/Users/jake/Documents/baroclinic_modes/DG/BATS_2015/sg035')
 # ---- DG BATS 2018
-# x = Glider(41, np.arange(67, 71), '/Users/jake/Documents/baroclinic_modes/DG/BATS_2018/sg041')
+# x = Glider(41, np.arange(158, 162), '/Users/jake/Documents/baroclinic_modes/DG/BATS_2018/sg041')
 
 # -- match max dive depth to bin_depth
 # GD = Dataset('BATs_2015_gridded_apr04.nc', 'r')
@@ -92,7 +94,7 @@ ds, dist, v_g, vbt, isopycdep, isopycx, mwe_lon, mwe_lat, DACe_MW, DACn_MW, prof
 
 # -----------------------------------------------------------------------------------------------
 # PLOTTING cross section
-u_levels = np.arange(-0.4, 0.4, .04)
+u_levels = np.arange(-.6, .6, .025)
 # choose which transect
 # transect_no = 0
 # x.plot_cross_section(bin_depth, ds[transect_no], v_g[transect_no], dist[transect_no],
@@ -100,7 +102,7 @@ u_levels = np.arange(-0.4, 0.4, .04)
 #                      sigth_levels, d_time, u_levels)
 fig0 = x.plot_cross_section(bin_depth, ds, v_g, dist, profile_tags_per, isopycdep, isopycx, sigth_levels, d_time, u_levels)
 
-# fig0.savefig("/Users/jake/Documents/Conferences/USCLIVAR_19/eddy_cross.jpeg", dpi=450)
+fig0.savefig("/Users/jake/Documents/baroclinic_modes/Meetings/meeting_19_04_18/bats_eddy_2014_cross.jpeg", dpi=300)
 # -----------------------------------------------------------------------------------------------
 # plot plan view
 # load in bathymetry and lat/lon plotting bounds
@@ -125,12 +127,13 @@ plan_window = [-66, -63, 31, 33]
 #                  DACe_MW[transect_no], DACn_MW[transect_no],
 #                  ref_lat, profile_tags_per[transect_no], d_time, plan_window, bathy_path)
 # --- for single transect ---
-x.plot_plan_view(lon, lat, mwe_lon, mwe_lat, DACe_MW, DACn_MW,
+fig1 = x.plot_plan_view(lon, lat, mwe_lon, mwe_lat, DACe_MW, DACn_MW,
                  ref_lat, profile_tags_per, d_time, plan_window, bathy_path)
 
 # plot t/s
 # x.plot_t_s(ct, sa)
 
+fig1.savefig("/Users/jake/Documents/baroclinic_modes/Meetings/meeting_19_04_18/bats_eddy_2014_plan.jpeg", dpi=300)
 # -------------------
 # vertical modes
 # N2_avg = np.nanmean(N2, axis=1)

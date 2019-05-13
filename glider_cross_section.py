@@ -791,7 +791,7 @@ class Glider(object):
         cmap = plt.cm.get_cmap("Blues_r")
         cmap.set_over('#808000')  # ('#E6E6E6')
 
-        f, ax = plt.subplots()
+        fig, ax = plt.subplots()
         bc = ax.contourf(bath_lon, bath_lat, bath_z, levels, cmap='Blues_r', extend='both', zorder=0)
         matplotlib.rcParams['contour.negative_linestyle'] = 'solid'
         # ax.plot(mwe_lon, mwe_lat, color='k')
@@ -812,6 +812,7 @@ class Glider(object):
         ax.set_ylabel('Lat')
         ax.grid()
         plot_pro(ax)
+        return fig
 
     def transect_cross_section_0(self, bin_depth, sig0, lon, lat, dac_u, dac_v, profile_tags, sigth_levels):
         deep_shr_max = 0.1

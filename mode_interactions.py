@@ -17,13 +17,34 @@ mmax = 30
 nmodes = mmax + 1
 rho0 = 1025
 
+# DG041 36N (2018)
+pkl_file = open('/Users/jake/Documents/baroclinic_modes/DG/sg041_2018_initial_processing.pkl', 'rb')
+dg_36n = pickle.load(pkl_file)
+pkl_file.close()
+dg_36n_depth = dg_36n['depth']
+dg_36n_N2 = dg_36n['N2_by_season_quad'][:, 0]
+DG_36n_G, DG_36n_Gz, DG_36n_c, DG_36n_epsilon = vertical_modes(dg_36n_N2, dg_36n_depth, omega, mmax)
+# --------------------------------------------------------------------------------------------------------------------
 # BATS DG (2015)
-# pkl_file = open('/Users/jake/Documents/baroclinic_modes/DG/sg035_energy.pkl', 'rb')
-# bats_dg = pickle.load(pkl_file)
-# pkl_file.close()
-# dg_depth = bats_dg['depth']
-# dg_N2 = bats_dg['N2']
+pkl_file = open('/Users/jake/Documents/baroclinic_modes/DG/sg035_2015_initial_processing.pkl', 'rb')
+bats_dg = pickle.load(pkl_file)
+pkl_file.close()
+dg_depth = bats_dg['depth']
+dg_N2 = bats_dg['N2_by_season_quad']
+ref_lat = bats_dg['ref_lat']
+bats_f = np.pi * np.sin(np.deg2rad(ref_lat)) / (12 * 1800)
 # DG_G, DG_Gz, DG_c, DG_epsilon = vertical_modes(dg_N2, dg_depth, omega, mmax)
+
+# winter1
+dg_bats_n2_0 = np.nanmean(bats_dg['N2_by_season_quad'][:, 0:4], axis=1)
+G_B_0, Gz_B_0, c_B_0, epsilon_B_0 = vertical_modes(dg_bats_n2_0, bats_dg['depth'], omega, mmax)
+# summer
+dg_bats_n2_1 = np.nanmean(bats_dg['N2_by_season_quad'][:, 4:8], axis=1)
+G_B_1, Gz_B_1, c_B_1, epsilon_B_1 = vertical_modes(dg_bats_n2_1, bats_dg['depth'], omega, mmax)
+# winter2 (Fall)
+dg_bats_n2_2 = np.nanmean(bats_dg['N2_by_season_quad'][:, 8:], axis=1)
+G_B_2, Gz_B_2, c_B_2, epsilon_B_2 = vertical_modes(dg_bats_n2_2, bats_dg['depth'], omega, mmax)
+ratio = dg_bats_n2_2 / bats_f
 # --------------------------------------------------------------------------------------------------------------------
 # BATS SHIP
 pkl_file = open('/Users/jake/Desktop/bats/station_bats_pe_jan30.pkl', 'rb')  # jan 30 2018
@@ -35,16 +56,16 @@ sta_bats_c = SB['c']
 sta_bats_f = np.pi * np.sin(np.deg2rad(31.6)) / (12 * 1800)
 sta_bats_dk = sta_bats_f / sta_bats_c[1]
 
-# winter1
+# # winter1
 sta_bats_n2_0 = SB['N2_per_season'][:, 0]
-G_B_0, Gz_B_0, c_B_0, epsilon_B_0 = vertical_modes(sta_bats_n2_0, SB['depth'], omega, mmax)
-# summer
+sta_G_B_0, sta_Gz_B_0, sta_c_B_0, sta_epsilon_B_0 = vertical_modes(sta_bats_n2_0, SB['depth'], omega, mmax)
+# # summer
 sta_bats_n2_1 = SB['N2_per_season'][:, 1]
-G_B_1, Gz_B_1, c_B_1, epsilon_B_1 = vertical_modes(sta_bats_n2_1, SB['depth'], omega, mmax)
-# winter2 (Fall)
-sta_bats_n2_2 = SB['N2_per_season'][:, 2]
-G_B_2, Gz_B_2, c_B_2, epsilon_B_2 = vertical_modes(sta_bats_n2_2, SB['depth'], omega, mmax)
-ratio = sta_bats_n2_2 / sta_bats_f
+sta_G_B_1, sta_Gz_B_1, sta_c_B_1, sta_epsilon_B_1 = vertical_modes(sta_bats_n2_1, SB['depth'], omega, mmax)
+# # winter2 (Fall)
+# sta_bats_n2_2 = SB['N2_per_season'][:, 2]
+# G_B_2, Gz_B_2, c_B_2, epsilon_B_2 = vertical_modes(sta_bats_n2_2, SB['depth'], omega, mmax)
+# ratio = sta_bats_n2_2 / sta_bats_f
 
 # --- compute alternate vertical modes (allowing for a sloping bottom)
 bc_bot = 1  # 1 = flat, 2 = rough
@@ -62,10 +83,10 @@ for i in range(mmax + 1):
 plt.rcParams['figure.figsize'] = 11, 5.5
 f, (ax1, ax15, ax2, ax3) = plt.subplots(1, 4, sharey=True)
 ax1.plot(sta_bats_n2_0 * 40000000, sta_bats_depth, label=r'N$^2$ $\times$ $ \left( 4 \times 10^{7} \right) $',color='k')
-ax1.plot(G_B_0[:, 1], sta_bats_depth, label='m=1', color='#228B22', linewidth=1.5)
-ax1.plot(G_B_0[:, 2], sta_bats_depth, label='m=2', color='#1E90FF', linewidth=1.5)
-ax1.plot(G_B_0[:, 3], sta_bats_depth, label='m=3', color='#FF4500', linewidth=1.5)
-ax1.plot(G_B_0[:, 4], sta_bats_depth, label='m=4', color='#778899', linewidth=1.5)
+ax1.plot(sta_G_B_0[:, 1], sta_bats_depth, label='m=1', color='#228B22', linewidth=1.5)
+ax1.plot(sta_G_B_0[:, 2], sta_bats_depth, label='m=2', color='#1E90FF', linewidth=1.5)
+ax1.plot(sta_G_B_0[:, 3], sta_bats_depth, label='m=3', color='#FF4500', linewidth=1.5)
+ax1.plot(sta_G_B_0[:, 4], sta_bats_depth, label='m=4', color='#778899', linewidth=1.5)
 ax1.set_xlim([-3000, 3000])
 ax1.set_ylim([0, 4800])
 ax1.set_title(r'G$_{m}$(z) (Flat Bottom)')
@@ -79,10 +100,10 @@ ax15.set_title(r'G$_{m}$(z) (Slope = $5*10^{-3}$)')
 ax15.set_xlabel('Normalized Mode Amplitude')
 ax15.grid()
 
-ax2.plot(Gz_B_0[:, 0], sta_bats_depth, color='k')
-ax2.plot(Gz_B_0[:, 1], sta_bats_depth, color='#228B22', linewidth=1.5)
-ax2.plot(Gz_B_0[:, 2], sta_bats_depth, color='#1E90FF', linewidth=1.5)
-ax2.plot(Gz_B_0[:, 3], sta_bats_depth, color='#FF4500', linewidth=1.5)
+ax2.plot(sta_Gz_B_0[:, 0], sta_bats_depth, color='k')
+ax2.plot(sta_Gz_B_0[:, 1], sta_bats_depth, color='#228B22', linewidth=1.5)
+ax2.plot(sta_Gz_B_0[:, 2], sta_bats_depth, color='#1E90FF', linewidth=1.5)
+ax2.plot(sta_Gz_B_0[:, 3], sta_bats_depth, color='#FF4500', linewidth=1.5)
 ax3.plot(F[:, 0], sta_bats_depth, color='k')
 ax3.plot(F[:, 1], sta_bats_depth, color='#228B22', linewidth=1.5)
 ax3.plot(F[:, 2], sta_bats_depth, color='#1E90FF', linewidth=1.5)
@@ -100,13 +121,13 @@ ax3.set_xlabel('Normalized Mode Amplitude')
 plot_pro(ax3)
 f.savefig("/Users/jake/Documents/baroclinic_modes/Meetings/meeting_19_04_18/mode_shapes.jpg", dpi=300)
 
-test = sta_bats_n2_0 * (G_B_0[:, 1]**2) /(sta_bats_c[1]**2)
-test2 = sta_bats_n2_0 * (G_B_0[:, 2]**2) /(sta_bats_c[2]**2)
+test = sta_bats_n2_0 * (sta_G_B_0[:, 1]**2) /(sta_bats_c[1]**2)
+test2 = sta_bats_n2_0 * (sta_G_B_0[:, 2]**2) /(sta_bats_c[2]**2)
 h = np.nanmax(sta_bats_depth)
 normG = (1/h)*np.trapz(test, sta_bats_depth)
-normG_pr = (1/h)*np.trapz(Gz_B_0[:, 1]**2, sta_bats_depth)
+normG_pr = (1/h)*np.trapz(sta_Gz_B_0[:, 1]**2, sta_bats_depth)
 normG_2 = (1/h)*np.trapz(test2, sta_bats_depth)
-normG_pr_2 = (1/h)*np.trapz(Gz_B_0[:, 2]**2, sta_bats_depth)
+normG_pr_2 = (1/h)*np.trapz(sta_Gz_B_0[:, 2]**2, sta_bats_depth)
 # --------------------------------------------------------------------------------------------------------------------
 # ABACO SHIP
 # just one year!!
@@ -159,7 +180,7 @@ sta_papa_dk = sta_papa_f / sta_papa_c[1]
 sta_papa_n2 = np.nan * np.ones(np.shape(SP['Sigma0']))
 # f, ax = plt.subplots()
 for i in range(np.shape(SP['Sigma0'])[1]):
-    if sta_papa_time[i, 1] < 4:  # season selection because PAPA is strongly seasonal
+    if sta_papa_time[i, 1] > 7:  # season selection because PAPA is strongly seasonal
         sta_papa_n2[0:-1, i] = gsw.Nsquared(SP['SA'][:, i], SP['CT'][:, i], SP['bin_press'], lat=ref_lat)[0]
         # ax.plot(sta_papa_n2[:, i], sta_papa_depth, linewidth=0.75)
 # ax.set_ylim([0, 800])
@@ -197,15 +218,17 @@ const_G, const_Gz, const_c, epsilon_const = vertical_modes(0.00005 * np.ones(np.
 f, (ax0, ax1) = plt.subplots(1, 2, sharey=True)
 ax0.plot(sta_aloha_n2, sta_aloha_depth, label='ALOHA', color='#B22222')
 ax0.plot(this_ship_n2, ship_depth, label='ABACO', color='#FF8C00')
-ax0.plot(sta_bats_n2_2, sta_bats_depth, label='BATS Ship', color='#00FF7F')
+ax0.plot(sta_bats_n2_0, sta_bats_depth, label='BATS Ship Win.', color='#00FF7F')
+ax0.plot(dg_36n_N2, dg_36n_depth, label='36$^{\circ}$N DG Fall', color='k')
 ax0.plot(papa_mean_corrected, sta_papa_depth, label='PAPA', color='#4682B4')
 handles, labels = ax0.get_legend_handles_labels()
 ax0.legend(handles, labels, fontsize=10)
 
-ax1.plot(Gz_AL[:, 1], sta_aloha_depth, label='ALOHA (22$^{\circ}$N) (Mode$_1$ SI = ' + str(np.round(epsilon_AL[1, 1, 1], 2)) + ')', color='#B22222')
-ax1.plot(Gz_AB[:, 1], ship_depth, label='ABACO (26.5$^{\circ}$N) (Mode$_1$ SI = ' + str(np.round(epsilon_AB[1, 1, 1], 2)) + ')', color='#FF8C00')
-ax1.plot(Gz_B_1[:, 1], sta_bats_depth, label='BATS Ship (32$^{\circ}$N) (Mode$_1$ SI = ' + str(np.round(epsilon_B_1[1, 1, 1], 2)) + ')', color='#00FF7F')
-ax1.plot(Gz_P[:, 1], sta_papa_depth, label=r'PAPA (50$^{\circ}$N) (Mode$_1$ SI = ' + str(np.round(epsilon_P[1, 1, 1], 2)) + ')', color='#4682B4')
+ax1.plot(Gz_AL[:, 1], sta_aloha_depth, label='ALOHA (22$^{\circ}$N) (Mode$_{111}$ IC = ' + str(np.round(epsilon_AL[1, 1, 1], 2)) + ')', color='#B22222')
+ax1.plot(Gz_AB[:, 1], ship_depth, label='ABACO (26.5$^{\circ}$N) (Mode$_{111}$ IC = ' + str(np.round(epsilon_AB[1, 1, 1], 2)) + ')', color='#FF8C00')
+ax1.plot(sta_Gz_B_0[:, 1], sta_bats_depth, label='BATS Ship Win. (32$^{\circ}$N) (Mode$_{111}$ IC = ' + str(np.round(sta_epsilon_B_1[1, 1, 1], 2)) + ')', color='#00FF7F')
+ax1.plot(DG_36n_Gz[:, 1], dg_36n_depth, label='36$^{\circ}$N DG Fall (Mode$_{111}$ IC = ' + str(np.round(epsilon_B_1[1, 1, 1], 2)) + ')', color='k')
+ax1.plot(Gz_P[:, 1], sta_papa_depth, label=r'PAPA Sum. (50$^{\circ}$N) (Mode$_{111}$ IC = ' + str(np.round(epsilon_P[1, 1, 1], 2)) + ')', color='#4682B4')
 # ax1.plot(argo_Gz[:, 1], argo_depth, label='Argo Atl')
 # ax1.plot(argo2_Gz[:, 1], argo2_depth, label='Argo NZ')
 handles, labels = ax1.get_legend_handles_labels()
@@ -219,21 +242,21 @@ ax0.set_title('Variations in Buoyancy Frequency')
 ax0.invert_yaxis()
 ax0.grid()
 plot_pro(ax1)
-
+f.savefig("/Users/jake/Documents/baroclinic_modes/Meetings/meeting_19_04_18/mode_iteractions_shapes.jpg", dpi=300)
 # ---------------------------------------------------------------------------------------------------------------------
 # Block Diagram of Interaction Coefficients
 cmap = matplotlib.cm.get_cmap('hot_r')
 
-matplotlib.rcParams['figure.figsize'] = (14, 7)
+matplotlib.rcParams['figure.figsize'] = (18, 7)
 
-f, arm = plt.subplots(3, 5, sharex=True, sharey=True)
+f, arm = plt.subplots(3, 6, sharex=True, sharey=True)
 vmi = 0
 vma = 2.75
 fs = 10
 modes = [0, 1, 2, 3]
 mode_labs = '0', '1', '2', '3', '4'
-epsils = [epsilon_const, epsilon_AL, epsilon_P, epsilon_B_0, epsilon_B_1]
-epsils_labs = ['Constant N$^2$', 'ALOHA', 'PAPA', 'BATS Winter', 'BATS Summer']
+epsils = [epsilon_const, epsilon_AL, epsilon_P, DG_36n_epsilon, epsilon_B_0, epsilon_B_1]
+epsils_labs = ['Constant N$^2$', 'ALOHA', 'PAPA Sum.', '36$^{\circ}$N Fall','BATS Win.', 'BATS Sum.']
 for i in range(len(epsils)):
     # arm[0, i].pcolor(epsils[i][modes[0], :, :], cmap=cmap, vmin=vmi, vmax=vma)
     # arm[0, i].set_title(epsils_labs[i] + ', i=' + str(modes[0]), fontsize=fs)
@@ -270,7 +293,7 @@ cb1 = matplotlib.colorbar.ColorbarBase(c_map_ax, cmap=cmap, norm=norm, orientati
 cb1.set_label('Epsilon')
 arm[2, 4].grid()
 plot_pro(arm[2, 4])
-# f.savefig("/Users/jake/Documents/baroclinic_modes/Meetings/meeting_19_04_18/mode_interact.jpg", dpi=300)
+f.savefig("/Users/jake/Documents/baroclinic_modes/Meetings/meeting_19_04_18/mode_interactions.jpg", dpi=300)
 
 # arm[0, 1].pcolor(epsilon_AL[0, :, :], cmap=cmap, vmin=vmi, vmax=vma)
 # arm[0, 1].set_title('ALOHA mode 0', fontsize=fs)
