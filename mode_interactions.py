@@ -247,16 +247,18 @@ f.savefig("/Users/jake/Documents/baroclinic_modes/Meetings/meeting_19_04_18/mode
 # Block Diagram of Interaction Coefficients
 cmap = matplotlib.cm.get_cmap('hot_r')
 
-matplotlib.rcParams['figure.figsize'] = (18, 7)
+matplotlib.rcParams['figure.figsize'] = (11, 7)
 
-f, arm = plt.subplots(3, 6, sharex=True, sharey=True)
 vmi = 0
 vma = 2.75
 fs = 10
 modes = [0, 1, 2, 3]
 mode_labs = '0', '1', '2', '3', '4'
-epsils = [epsilon_const, epsilon_AL, epsilon_P, DG_36n_epsilon, epsilon_B_0, epsilon_B_1]
-epsils_labs = ['Constant N$^2$', 'ALOHA', 'PAPA Sum.', '36$^{\circ}$N Fall','BATS Win.', 'BATS Sum.']
+# epsils = [epsilon_const, epsilon_AL, epsilon_P, DG_36n_epsilon, epsilon_B_0, epsilon_B_1]
+# epsils_labs = ['Constant N$^2$', 'ALOHA', 'PAPA Sum.', '36$^{\circ}$N Fall','BATS Win.', 'BATS Sum.']
+epsils = [epsilon_const, epsilon_B_0, epsilon_B_1]
+epsils_labs = ['Constant N$^2$','BATS Winter', 'BATS Summer']
+f, arm = plt.subplots(3, len(epsils_labs), sharex=True, sharey=True)
 for i in range(len(epsils)):
     # arm[0, i].pcolor(epsils[i][modes[0], :, :], cmap=cmap, vmin=vmi, vmax=vma)
     # arm[0, i].set_title(epsils_labs[i] + ', i=' + str(modes[0]), fontsize=fs)
@@ -285,15 +287,15 @@ arm[2, 0].set_ylabel('j', fontsize=fs)
 arm[2, 0].set_xlabel('m', fontsize=fs)
 arm[2, 1].set_xlabel('m', fontsize=fs)
 arm[2, 2].set_xlabel('m', fontsize=fs)
-arm[2, 3].set_xlabel('m', fontsize=fs)
-arm[2, 4].set_xlabel('m', fontsize=fs)
+# arm[2, 3].set_xlabel('m', fontsize=fs)
+# arm[2, 4].set_xlabel('m', fontsize=fs)
 c_map_ax = f.add_axes([0.925, 0.1, 0.02, 0.8])
 norm = matplotlib.colors.Normalize(vmin=vmi, vmax=vma)
 cb1 = matplotlib.colorbar.ColorbarBase(c_map_ax, cmap=cmap, norm=norm, orientation='vertical')
 cb1.set_label('Epsilon')
-arm[2, 4].grid()
-plot_pro(arm[2, 4])
-f.savefig("/Users/jake/Documents/baroclinic_modes/Meetings/meeting_19_04_18/mode_interactions.jpg", dpi=300)
+arm[2, 2].grid()
+plot_pro(arm[2, 2])
+f.savefig("/Users/jake/Documents/baroclinic_modes/Meetings/meeting_19_04_18/mode_interactions_bats.jpg", dpi=300)
 
 # arm[0, 1].pcolor(epsilon_AL[0, :, :], cmap=cmap, vmin=vmi, vmax=vma)
 # arm[0, 1].set_title('ALOHA mode 0', fontsize=fs)
