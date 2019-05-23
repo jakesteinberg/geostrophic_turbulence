@@ -14,8 +14,9 @@ from toolkit import plot_pro, nanseg_interp
 from zrfun import get_basic_info, get_z
 
 
-file_list = glob.glob('/Users/jake/Documents/baroclinic_modes/Model/vel_anom_slow2*.pkl')
-savee = 0
+file_list = glob.glob('/Users/jake/Documents/baroclinic_modes/Model/vel_anom_y*.pkl')
+tagg = 'yall_v08_slp3'
+savee = 1
 
 direct_anom = []
 # igw_var = np.nan * np.ones(len(file_list))
@@ -26,6 +27,7 @@ for i in range(len(file_list)):
 
     glider_v = MOD['dg_v'][:]
     model_v = MOD['model_u_at_mwv']
+    model_v_avg = MOD['model_u_at_mw_avg']
     z_grid = MOD['dg_z'][:]
     slope_error = MOD['shear_error'][:]
     igw = MOD['igw_var']
@@ -51,6 +53,7 @@ for i in range(len(file_list)):
     if i < 1:
         v = glider_v.copy()
         mod_v = model_mean_per_mw.copy()
+        mod_v_avg = model_v_avg.copy()
         mod_space_out = mod_space
         mod_time_out = mod_time
         anoms = glider_v - model_mean_per_mw
@@ -66,6 +69,7 @@ for i in range(len(file_list)):
     else:
         v = np.concatenate((v, glider_v.copy()), axis=1)
         mod_v = np.concatenate((mod_v, model_mean_per_mw), axis=1)
+        mod_v_avg = np.concatenate((mod_v_avg, model_v_avg), axis=1)
         mod_space_out = np.concatenate((mod_space_out, mod_space), axis=1)
         mod_time_out = np.concatenate((mod_time_out, mod_time), axis=1)
         anoms = np.concatenate((anoms, glider_v - model_mean_per_mw), axis=1)
@@ -84,7 +88,7 @@ matplotlib.rcParams['figure.figsize'] = (6.5, 8)
 f, ax = plt.subplots()
 low_er_mean = np.nan * np.ones(len(z_grid))
 for i in range(len(z_grid)):
-    low = np.where(igw_var[i, :] < .2)[0]
+    low = np.where(igw_var[i, :] < .25)[0]
     ax.scatter(slope_er[i, :], z_grid[i] * np.ones(len(slope_er[i, :])), s=2, color='b')
     ax.scatter(slope_er[i, low], z_grid[i] * np.ones(len(slope_er[i, low])), s=4, color='r')
     ax.scatter(np.nanmean(slope_er[i, low]), z_grid[i], s=20, color='r')
@@ -103,7 +107,7 @@ ax.set_xlim([1, 10**4])
 ax.set_ylim([-3000, 0])
 plot_pro(ax)
 if savee > 0:
-    f.savefig("/Users/jake/Documents/baroclinic_modes/Meetings/meeting_19_04_18/model_dg_per_shear_err_steep.png", dpi=200)
+    f.savefig('/Users/jake/Documents/baroclinic_modes/Meetings/meeting_19_05_17/model_dg_per_shear_err_' + str(tagg) + '.png', dpi=200)
 
 
 # all velocity anomalies colored by max abs vel attained
@@ -136,26 +140,33 @@ ax.plot(np.nanmean(this_anom, axis=1), z_grid, linewidth=2.2, color='k')
 plot_pro(ax)
 
 # RMS at different depths
-matplotlib.rcParams['figure.figsize'] = (6.5, 8)
-f, ax = plt.subplots()
-# ax.plot(np.nanmean(anoms, axis=1), z_grid, linewidth=2.2, color='k')
-mm = np.nanmean(anoms**2, axis=1)
+matplotlib.rcParams['figure.figsize'] = (9.5, 8)
+f, (ax1, ax2) = plt.subplots(1, 2, sharey=True)
+anomy = v - mod_v_avg
+for i in range(np.shape(anomy)[1]):
+    ax1.plot(anomy[:, i], z_grid, color='k', linewidth=0.6)
+ax1.plot(np.nanmean(anomy, axis=1), z_grid, color='r')
+ax1.set_xlim([-.12, .12])
+ax1.set_xlabel('m/s')
+ax1.set_ylabel('Depth [m]')
+ax1.set_title(r'M/W Vel. Error ($u_{g}$ - $\overline{u_{model}}$) ('
+             + str(MOD['glide_slope']) + ':1, w=' + str(MOD['dg_w']) + ' m/s)')
+mm = np.nanmean(anomy**2, axis=1)
 mm_std = np.nan * np.ones(len(z_grid))
 for i in range(len(z_grid)):
-    mm_std[i] = np.nanstd(anoms[i, :]**2)
-# ax.errorbar(mm, z_grid, xerr=mm_std)
-ax.plot(mm, z_grid, linewidth=2.2, color='k')
-ax.plot(mm_std, z_grid, linewidth=1.5, color='k', linestyle='--')
+    mm_std[i] = np.nanstd(anomy[i, :]**2)
+ax1.text(0.04, -2600, str(np.shape(anomy)[1]) + ' profiles')
+ax2.plot(mm, z_grid, linewidth=2.2, color='k')
+ax2.plot(mm_std, z_grid, linewidth=1.5, color='k', linestyle='--')
 # ax.text(0.005, -2400, 'Mean Error = ' + str(np.round(np.nanmean(anoms), 3)) + ' m/s')
-ax.set_xlim([0, .01])
-ax.set_ylim([-3000, 0])
-ax.set_xlabel(r'm$^2$/s$^2$')
-ax.set_ylabel('Depth [m]')
-ax.set_title(r'Glider M/W Velocity Profile Error ($u_{g}$ - $\overline{u_{model}}$)$^2$ ('
-             + str(MOD['glide_slope']) + ':1, w=' + str(MOD['dg_w']) + ' m/s)')
-plot_pro(ax)
+ax2.set_xlim([0, .005])
+ax2.set_ylim([-3000, 0])
+ax2.set_xlabel(r'm$^2$/s$^2$')
+ax2.set_title(r'M/W Vel. RMS Error ($u_{g}$ - $\overline{u_{model}}$)$^2$')
+ax1.grid()
+plot_pro(ax2)
 if savee > 0:
-    f.savefig("/Users/jake/Documents/baroclinic_modes/Meetings/meeting_19_04_18/model_dg_vel2_error_steep.png", dpi=200)
+    f.savefig('/Users/jake/Documents/baroclinic_modes/Meetings/meeting_19_05_17/model_dg_vel_error_' + str(tagg) + '.png', dpi=200)
 
 # binss = np.arange(0, 0.002, 0.0001)
 # subax = f.add_axes([0.2, 0.75, .225, .08])
@@ -198,18 +209,18 @@ if savee > 0:
 # for spine in plt.gca().spines.values():
 #     spine.set_visible(False)
 
-f, ax = plt.subplots()
-for i in range(np.shape(anoms)[1]):
-    ax.plot(anoms[:, i], z_grid, color='#D3D3D3')
-ax.plot(np.nanmean(anoms, axis=1), z_grid, color='r', linewidth=2)
-ax.text(0.06, -2400, 'Mean Error = ' + str(np.round(np.nanmean(anoms), 3)) + ' m/s')
-ax.set_title(r'Glider M/W Velocity Profile Error ($u_{g}$ - $\overline{u_{model}}$)')
-ax.set_ylabel('z [m]')
-ax.set_xlabel('Velocity Error [m/s]')
-ax.set_xlim([-.15, .15])
-plot_pro(ax)
-if savee > 0:
-    f.savefig("/Users/jake/Documents/baroclinic_modes/Meetings/meeting_19_04_18/model_dg_vel_error_steep.png", dpi=200)
+# f, ax = plt.subplots()
+# for i in range(np.shape(anoms)[1]):
+#     ax.plot(anoms[:, i], z_grid, color='#D3D3D3')
+# ax.plot(np.nanmean(anoms, axis=1), z_grid, color='r', linewidth=2)
+# ax.text(0.06, -2400, 'Mean Error = ' + str(np.round(np.nanmean(anoms), 3)) + ' m/s')
+# ax.set_title(r'Glider M/W Velocity Profile Error ($u_{g}$ - $\overline{u_{model}}$)')
+# ax.set_ylabel('z [m]')
+# ax.set_xlabel('Velocity Error [m/s]')
+# ax.set_xlim([-.15, .15])
+# plot_pro(ax)
+# if savee > 0:
+#     f.savefig("/Users/jake/Documents/baroclinic_modes/Meetings/meeting_19_04_18/model_dg_vel_error_steep.png", dpi=200)
 
 # ---------------------------------------------------------------------------------------------------------------------
 # --- PLOT ENERGY SPECTRA
@@ -264,7 +275,10 @@ ax2.scatter(sc_x, avg_KE_model[1:mm] / dk, color='k', s=20)
 ax2.plot([l_lim, sc_x[0]], avg_KE_model[0:2] / dk, color='k', linewidth=2)
 ax2.scatter(l_lim, avg_KE_model[0] / dk, color='k', s=25, facecolors='none')
 
-# test
+modeno = '1', '2', '3', '4', '5', '6', '7', '8'
+for j in range(len(modeno)):
+    ax2.text(sc_x[j], (avg_KE[j + 1] + (avg_KE[j + 1] / 2)) / dk, modeno[j], color='k', fontsize=10)
+
 limm = 5
 ax1.set_xlim([l_lim, 0.5 * 10 ** 2])
 ax2.set_xlim([l_lim, 0.5 * 10 ** 2])
@@ -288,4 +302,5 @@ handles, labels = ax1.get_legend_handles_labels()
 ax1.legend(handles, labels, fontsize=12)
 ax1.grid()
 plot_pro(ax2)
-# f.savefig("/Users/jake/Documents/baroclinic_modes/Meetings/meeting_19_04_18/model_dg_vel_energy_slow2.png", dpi=200)
+if savee > 0:
+    f.savefig('/Users/jake/Documents/baroclinic_modes/Meetings/meeting_19_05_17/model_dg_vel_energy_' + str(tagg) + '.png', dpi=200)

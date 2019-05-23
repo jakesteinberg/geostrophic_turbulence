@@ -1,35 +1,36 @@
 # read ABACO shipboard ctd 
 
 import numpy as np
-from scipy.io import netcdf
+from netCDF4 import Dataset
 import matplotlib.pyplot as plt
 import glob
 import datetime 
 import gsw
 import pickle
+import time as TT
 from toolkit import unq_searchsorted, plot_pro
 # import scipy.io as si
 
 # --- ctd
-# file_list = glob.glob('/Users/jake/Desktop/abaco/abaco_ship_may_2017/ctd/ab*.cal')
+file_list = glob.glob('/Users/jake/Desktop/abaco/abaco_ship_may_2017/ctd/ab*.cal')
 # file_list = glob.glob('/Users/jake/Desktop/abaco/abaco_ship_feb_2016/ctd/*.cal')
 # file_list = glob.glob('/Users/jake/Desktop/abaco/abaco_ship_feb_2015/ctd/*.cal')
 # file_list = glob.glob('/Users/jake/Desktop/abaco/abaco_ship_oct_2015/ctd/*.cnv')
 # file_list = glob.glob('/Users/jake/Desktop/abaco/abaco_ship_mar_2014/ctd/*.cal')
 # file_list = glob.glob('/Users/jake/Desktop/abaco/abaco_ship_feb_2013/ctd/*.cal')
 # file_list = glob.glob('/Users/jake/Desktop/abaco/abaco_ship_feb_2012/ctd/*.cal')
-file_list = glob.glob('/Users/jake/Desktop/abaco/abaco_ship_apr_2011/ctd/*.cal')
+# file_list = glob.glob('/Users/jake/Desktop/abaco/abaco_ship_apr_2011/ctd/*.cal')
 # file_list = glob.glob('/Users/jake/Desktop/abaco/abaco_ship_mar_2010/ctd/*.cal')
 # --- ladcp
 # adcp_list = glob.glob('/Users/jake/Desktop/abaco/abaco_ship_feb_2018/ladcp/AB*.vel')
-# adcp_list = glob.glob('/Users/jake/Desktop/abaco/abaco_ship_may_2017/ladcp/AB*.vel')
+adcp_list = glob.glob('/Users/jake/Desktop/abaco/abaco_ship_may_2017/ladcp/AB*.vel')
 # adcp_list = glob.glob('/Users/jake/Desktop/abaco/abaco_ship_feb_2016/ladcp/AB*d.vel')
 # adcp_list = glob.glob('/Users/jake/Desktop/abaco/abaco_ship_feb_2015/ladcp/AB*d.vel')
 # adcp_list = glob.glob('/Users/jake/Desktop/abaco/abaco_ship_oct_2015/ladcp/AB*d.vel')
 # adcp_list = glob.glob('/Users/jake/Desktop/abaco/abaco_ship_mar_2014/ladcp/AB*d.vel')
 # adcp_list = glob.glob('/Users/jake/Desktop/abaco/abaco_ship_feb_2013/ladcp/AB*d.vel')
 # adcp_list = glob.glob('/Users/jake/Desktop/abaco/abaco_ship_feb_2012/ladcp/AB*d.vel')
-adcp_list = glob.glob('/Users/jake/Desktop/abaco/abaco_ship_apr_2011/ladcp/AB*d.vel')
+# adcp_list = glob.glob('/Users/jake/Desktop/abaco/abaco_ship_apr_2011/ladcp/AB*d.vel')
 # adcp_list = glob.glob('/Users/jake/Desktop/abaco/abaco_ship_mar_2010/ladcp/AB*d.vel')  # not lowered deep at all
 
 # ---- seemingly all except 2017
@@ -62,7 +63,7 @@ Lat = np.nan * np.ones(len(file_list))
 for m in range(len(file_list)):
     this_file = file_list[m]
     count_r = 0
-    f = open(this_file, encoding="ISO-8859-1")
+    f = open(this_file)  # , encoding="ISO-8859-1")
     initial = f.readlines()
     # extract cast lat/lon
     line_2 = initial[1].strip().split("\t")
@@ -104,6 +105,8 @@ O1 = np.nan*np.ones((np.size(bin_press), np.size(file_list)))
 O2 = np.nan*np.ones((np.size(bin_press), np.size(file_list)))
 SA = np.nan*np.ones((np.size(bin_press), np.size(file_list)))
 CT = np.nan*np.ones((np.size(bin_press), np.size(file_list)))
+T = np.nan*np.ones((np.size(bin_press), np.size(file_list)))
+S = np.nan*np.ones((np.size(bin_press), np.size(file_list)))
 sig0 = np.nan*np.ones((np.size(bin_press), np.size(file_list)))
 # lat = np.nan*np.ones((np.size(bin_press), np.size(file_list)))
 # lon = np.nan*np.ones((np.size(bin_press), np.size(file_list)))
@@ -113,6 +116,7 @@ for i in range(np.size(file_list)):
     #                                    usecols=(np.arange(0, 16)), unpack='True'))
     load_dat = Data[i]
     dep = -1 * gsw.z_from_p(load_dat[:, 0], Lat[i] * np.ones(len(load_dat[:, 0])))
+    print(np.nanmax(dep))
     # dep = -1 * gsw.z_from_p(load_dat[:, 3], load_dat[:, 10])  # all others?
     # dep = -1 * gsw.z_from_p(load_dat[:, 2], load_dat[:, 9])     # oct 2015
     for j in range(1, np.size(bin_depth)-1):
@@ -135,9 +139,9 @@ for i in range(np.size(file_list)):
             this_T[T_bad[0]] = np.nan
             # this_T[T_bad[0], T_bad[1]] = np.nan
 
-        this_O = load_dat[p_in, 6]
+        # this_O = load_dat[p_in, 6]
         # this_O = load_dat[p_in, 23:25]  # --- all others?
-        # this_O = load_dat[p_in, 14:16]    # --- may 2017 (in units of ml/l)
+        this_O = load_dat[p_in, 14:16]    # --- may 2017 (in units of ml/l)
         # this_O = load_dat[p_in, 3:5]    # --- oct 2015
         O_bad = np.where(this_O < 0)
         if np.size(O_bad) > 0:
@@ -168,6 +172,8 @@ for i in range(np.size(file_list)):
 
     SA[:, i] = gsw.SA_from_SP(S1[:, i], bin_press, Lon[i] * np.ones(len(S1[:, i])), Lat[i] * np.ones(len(S1[:, i])))
     CT[:, i] = gsw.CT_from_t(S1[:, i], T1[:, i], bin_press)
+    T[:, i] = T1[:, i]
+    S[:, i] = S1[:, i]
     sig0[:, i] = gsw.sigma0(SA[:, i], CT[:, i])
 
 # -------------------------------------------------------------------------------------------------------
@@ -213,16 +219,20 @@ Lat_1 = Lat[dist_dive > 5]
 Lon_1 = Lon[dist_dive > 5]
 SA = SA[:, dist_dive > 5]
 CT = CT[:, dist_dive > 5]
+T = T[:, dist_dive > 5]
+S = S[:, dist_dive > 5]
 O2 = O1[:, dist_dive > 5]
 dist_dive_2 = dist_dive[dist_dive > 5]
 number_profiles = len(dist_dive_2)
 
 ordered = np.argsort(dist_dive_2)
 sig0 = sig0[:, ordered]
-Lat_2 = Lat[ordered]
-Lon_2 = Lon[ordered]
+Lat_2 = Lat_1[ordered]
+Lon_2 = Lon_1[ordered]
 SA = SA[:, ordered]
 CT = CT[:, ordered]
+T = T[:, ordered]
+S = S[:, ordered]
 O2 = O1[:, ordered]
 dist_dive_3 = dist_dive_2[ordered]
 
@@ -243,8 +253,8 @@ lat_uv = np.nan*np.ones(np.size(adcp_list))
 lon_uv = np.nan*np.ones(np.size(adcp_list))
 time_uv = np.nan*np.ones(np.size(adcp_list))
 for i in range(np.size(adcp_list)):
-    # test3 = open(adcp_list[i], 'r')  # for 2017
-    test3 = open(adcp_list[i], 'r', encoding="ISO-8859-1")  # for all others
+    test3 = open(adcp_list[i], 'r')  # for 2017
+    # test3 = open(adcp_list[i], 'r', encoding="ISO-8859-1")  # for all others
     line1 = test3.readline()
     line2 = test3.readline()
     line3 = test3.readline()
@@ -256,10 +266,15 @@ for i in range(np.size(adcp_list)):
     a, b = unq_searchsorted(load_dat[:, 0], dac_bin_dep)
     u[np.where(b)[0], i] = load_dat[:, 1]
     v[np.where(b)[0], i] = load_dat[:, 2]
-    lat_uv[i] = int(line2[4:6]) + np.float64(line2[7:14])/60  # 7:14, except 2017 = 8:14
-    lon_uv[i] = -1*(int(line3[4:6]) + np.float64(line3[7:14])/60)  # 7:14, except 2017 = 8:14
+    # lat_uv[i] = int(line2[4:6]) + np.float64(line2[7:14])/60  # 7:14, except 2017 = 8:14
+    # lon_uv[i] = -1*(int(line3[4:6]) + np.float64(line3[7:14])/60)  # 7:14, except 2017 = 8:14
+    # # 24:33 for 2013,  11:19 for 2014,  7:16 for 2011 and 2012 and 2017, 42:51 for 2018, 16:25 for 2010, 8:16 for others
+    # time_uv[i] = np.float64(line4[5:16])
+    # special for running older python (to run matlab)
+    lat_uv[i] = int(line2[4:6]) + np.float64(line2[8:14])/60  # 7:14, except 2017 = 8:14
+    lon_uv[i] = -1*(int(line3[4:6]) + np.float64(line3[8:14])/60)  # 7:14, except 2017 = 8:14
     # 24:33 for 2013,  11:19 for 2014,  7:16 for 2011 and 2012 and 2017, 42:51 for 2018, 16:25 for 2010, 8:16 for others
-    time_uv[i] = np.float64(line4[7:16])
+    time_uv[i] = np.float64(line4[35:46])
       
 # compute cross-shore distance and plot (non)-geostrophic velocity
 
@@ -295,6 +310,24 @@ matlab_datenum = 731965.04835648148
 t_s = datetime.date.fromordinal(int(np.min(time_uv))) + datetime.timedelta(days=matlab_datenum%1) - datetime.timedelta(days=366)
 t_e = datetime.date.fromordinal(int(np.max(time_uv))) + datetime.timedelta(days=matlab_datenum%1) - datetime.timedelta(days=366)
 
+# # --- convert in matlab
+import matlab.engine
+eng = matlab.engine.start_matlab()
+eng.addpath(r'/Users/jake/Documents/MATLAB/eos80_legacy_gamma_n/')
+eng.addpath(r'/Users/jake/Documents/MATLAB/eos80_legacy_gamma_n/library/')
+gamma = np.nan * np.ones(np.shape(CT))
+print('Opened Matlab')
+
+tic = TT.clock()
+for i in range(len(dist_dive_3)):
+    good_ind = np.where(~np.isnan(S[:, i]))[0]
+    gamma[good_ind, i] = np.squeeze(np.array(eng.eos80_legacy_gamma_n(
+        matlab.double(S[good_ind, i].tolist()), matlab.double(T[good_ind, i].tolist()),
+        matlab.double(bin_press[good_ind].tolist()), matlab.double([Lon_2[i]]), matlab.double([Lat_2[0]]))))
+toc = TT.clock()
+# print('Time step = ' + str(j) + ' = '+ str(toc - tic) + 's')
+eng.quit()
+print('Closed Matlab')
 
 fig, (ax1, ax2) = plt.subplots(1, 2)
 ax1.scatter(Lon, Lat, s=2, color='r')
@@ -302,12 +335,12 @@ ax1.scatter(lon_uv, lat_uv, s=2, color='k')
 ax1.grid()
 lv = np.arange(-60, 60, 5)
 lv2 = np.arange(-60, 60, 10)
-dn_lv = np.concatenate((np.arange(25, 27.8, 0.2), np.arange(27.8, 28, 0.025)))
+dn_lv = np.concatenate((np.arange(25, 27.8, 0.2), np.arange(27.8, 28.5, 0.025)))
 order = np.argsort(adcp_dist)
 ad = ax2.contourf(adcp_dist[order], dac_bin_dep, V[:, order], levels=lv)
 ax2.contour(adcp_dist[order], dac_bin_dep, V[:, order], levels=lv2, colors='k')
-den_c = ax2.contour(np.tile(dist_dive_3[None, :], (len(bin_depth), 1)), np.tile(bin_depth[:, None], (1, number_profiles)), sig0,
-                    levels=dn_lv, colors='r', linewidth=.75)
+den_c = ax2.contour(np.tile(dist_dive_3[None, :], (len(bin_depth), 1)), np.tile(bin_depth[:, None], (1, number_profiles)), gamma,
+                    levels=dn_lv, colors='r', linewidths=.5)
 ax2.clabel(den_c, fontsize=6, inline=1, fmt='%.4g', spacing=10)
 ax2.set_title('ABACO SHIP: ' + np.str(t_s.month) + '/' +
               np.str(t_s.day) + '/' + np.str(t_s.year) + ' - ' + np.str(t_e.month) +
@@ -326,19 +359,57 @@ plot_pro(ax2)
 # write python dict to a file
 sa = 1
 if sa > 0:
+
+    dataset = Dataset('/Users/jake/Documents/baroclinic_modes/Shipboard/ABACO/ship_ladcp_2017.nc', 'w', format='NETCDF4_CLASSIC')
+    dep_dim = dataset.createDimension('dep_dim', len(bin_depth))
+    dist_dim = dataset.createDimension('dist_dim', len(dist_dive_3))
+    adcp_dim = dataset.createDimension('adcp_dim', len(time_uv))
+    adcp_dep_dim = dataset.createDimension('adcp_dep_dim', len(dac_bin_dep))
+    bin_dep_out = dataset.createVariable('depth', np.float64, ('dep_dim'))
+    bin_dep_out[:] = bin_depth
+    dist_out = dataset.createVariable('dist', np.float64, ('dist_dim'))
+    dist_out[:] = dist_dive_3
+    gamma_out = dataset.createVariable('gamma', np.float64, ('dep_dim', 'dist_dim'))
+    gamma_out[:] = gamma
+    CT_out = dataset.createVariable('CT', np.float64, ('dep_dim', 'dist_dim'))
+    CT_out[:] = CT
+    SA_out = dataset.createVariable('SA', np.float64, ('dep_dim', 'dist_dim'))
+    SA_out[:] = SA
+    Lon_out = dataset.createVariable('Cast_Lon', np.float64, ('dist_dim'))
+    Lon_out[:] = Lon_2
+    Lat_out = dataset.createVariable('Cast_Lat', np.float64, ('dist_dim'))
+    Lat_out[:] = Lat_2
+
+    time_uv_out = dataset.createVariable('time_uv', np.float64, ('adcp_dim'))
+    time_uv_out[:] = time_uv
+    lon_uv_out = dataset.createVariable('Lon_uv', np.float64, ('adcp_dim'))
+    lon_uv_out[:] = lon_uv
+    lat_uv_out = dataset.createVariable('Lat_uv', np.float64, ('adcp_dim'))
+    lat_uv_out[:] = lat_uv
+    dep_uv_out = dataset.createVariable('dep_uv', np.float64, ('adcp_dep_dim'))
+    dep_uv_out[:] = dac_bin_dep
+    dist_uv_out = dataset.createVariable('dist_uv', np.float64, ('adcp_dim'))
+    dist_uv_out[:] = adcp_dist
+    u_out = dataset.createVariable('adcp_u', np.float64, ('adcp_dep_dim', 'adcp_dim'))
+    u_out[:] = U
+    v_out = dataset.createVariable('adcp_v', np.float64, ('adcp_dep_dim', 'adcp_dim'))
+    v_out[:] = V
+    dataset.close()
+
     # mydict = {'adcp_depth': dac_bin_dep, 'adcp_u': U, 'adcp_v': V,
     #           'adcp_lon': lon_uv[adcp_in], 'adcp_lat': lat_uv[adcp_in], 'adcp_dist': adcp_dist,
     #           'time_uv': time_uv[adcp_in]}
     # output = open('/Users/jake/Documents/baroclinic_modes/Shipboard/ABACO/ship_ladcp_' + str(t_s) + '.pkl', 'wb')
     # pickle.dump(mydict, output)
     # output.close()
-    mydict = {'bin_depth': bin_depth, 'adcp_depth': dac_bin_dep, 'adcp_u': U, 'adcp_v': V,
-              'adcp_lon': lon_uv, 'adcp_lat': lat_uv, 'adcp_dist': adcp_dist,
-              'den_grid': sig0, 'den_dist': dist_dive_3, 'SA': SA, 'CT': CT, 'cast_lon': Lon_2, 'cast_lat': Lat_2,
-              'time_uv': time_uv, 'oxygen': O2}
-    output = open('/Users/jake/Documents/baroclinic_modes/Shipboard/ABACO/ship_ladcp_' + str(t_s) + '.pkl', 'wb')
-    pickle.dump(mydict, output)
-    output.close()
+
+    # mydict = {'bin_depth': bin_depth, 'adcp_depth': dac_bin_dep, 'adcp_u': U, 'adcp_v': V,
+    #           'adcp_lon': lon_uv, 'adcp_lat': lat_uv, 'adcp_dist': adcp_dist,
+    #           'den_grid': sig0, 'den_dist': dist_dive_3, 'SA': SA, 'CT': CT, 'cast_lon': Lon_2, 'cast_lat': Lat_2,
+    #           'time_uv': time_uv, 'oxygen': O2}
+    # output = open('/Users/jake/Documents/baroclinic_modes/Shipboard/ABACO/ship_ladcp_' + str(t_s) + '.pkl', 'wb')
+    # pickle.dump(mydict, output)
+    # output.close()
 
 
 # to change

@@ -328,7 +328,6 @@ if plot_map > 0:
 
     # fig0.savefig("/Users/jake/Documents/Conferences/USClivar_19/bats_plan.jpeg", dpi=450)
 # ----------------------------------------------------------------------------------------------------------------------
-
 # ----- Eta compute from M/W method, which produces an average density per set of profiles
 eta_alt = np.nan * np.ones(np.shape(avg_sig0_per_dep))
 eta_alt_2 = np.nan * np.ones(np.shape(avg_sig0_per_dep))

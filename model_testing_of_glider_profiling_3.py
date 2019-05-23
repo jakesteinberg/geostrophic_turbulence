@@ -17,7 +17,7 @@ from zrfun import get_basic_info, get_z
 
 # because we load pickle protocol 2 (needed for matlab engine) we need 'glider' environment (not 'geo_env')
 
-this_path = 'e_w_extraction_nov28_nov30_offshore'  # 'n_s_extraction_eddy_nov1_nov3'  #
+this_path = 'e_w_extraction_nov22_nov24_offshore'  # 'n_s_extraction_eddy_nov1_nov3'  #
 
 # -- LOAD extracted and PROCESSED MODEL TIME STEPS WITH COMPUTED GAMMA
 # this file has combined all model output and computed gamma (using model_testing_of_glider_profiling_2.py)
@@ -76,19 +76,21 @@ rho0 = 1025.0
 # time between each model time step is 1hr.
 
 # main set of parameters to adjust
-dg_vertical_speed = 0.075  # m/s
+dg_vertical_speed = 0.08  # m/s
 dg_glide_slope = 3
 num_dives = 3
 dac_error = 0.01  # m/s
-y_dg_s = 70000     # horizontal position, start of glider dives (75km)
+y_dg_s = 25000     # horizontal position, start of glider dives (75km)
 z_dg_s = 0        # depth, start of glider dives
 partial_mw = 0    # include exclude partial m/w estimates
 
 t_s = datetime.date.fromordinal(np.int(time_ord_s[0]))
 t_e = datetime.date.fromordinal(np.int(time_ord_s[-1]))
 tag = str(t_s.month) + '_' + str(t_s.day) + '_' + str(t_e.month) + '_' + str(t_e.day)
-output_filename = '/Users/jake/Documents/baroclinic_modes/Model/vel_anom_slow2_calm_' + tag + '.pkl'
-save_anom = 1
+output_filename = '/Users/jake/Documents/baroclinic_modes/Model/vel_anom_y70_v08_slp3_' + tag + '.pkl'
+save_anom = 0
+save_p = 0
+save_p_g = 0
 
 # need to specify D_TGT or have glider 'fly' until it hits bottom
 data_loc = np.nanmean(sig0_out_s, axis=2)  # (depth X xy_grid)
@@ -246,38 +248,42 @@ else:
 # model velocity profiles at locations within domain spanned by one m/w pattern and in the same time
 u_model = np.flipud(u_out_s)
 u_mod_at_mw = []
+gamma_mod_at_mw = []
 u_mod_at_mw_avg = np.nan * np.ones((len(dg_z), len(dg_dac_mid)))
+gamma_mod_at_mw_avg = np.nan * np.ones((len(dg_z), len(dg_dac_mid)))
 for i in range(len(dg_dac_mid)):
-    # time bounds of m/w profiles
-    if i <= 1:
+    # time/space bounds of m/w profiles
+    # incomplete M
+    if i < 1:
         min_t = dg_t[0, 0]
-        max_t = mw_time[i + 2]
-        min_y = 0
-        max_y = dg_dac_mid[i + 2]
-    elif (i > 1) & (i < len(dg_dac_mid) - 2):
-        min_t = mw_time[i - 2]
-        max_t = mw_time[i + 2]
-        min_y = dg_dac_mid[i - 2]
-        max_y = dg_dac_mid[i + 2]
-    elif i > len(dg_dac_mid) - 2:
-        min_t = mw_time[i - 2]
-        max_t = dg_t[0, -1]
-        min_y = dg_dac_mid[i - 2]
-        max_y = np.nanmax(dg_y)
+        max_t = np.nanmax(dg_t[:, 2])
+        min_y = np.nanmin(dg_y[:, 0])
+        max_y = np.nanmean(dg_y[:, 2])
+    elif (i > 0) & (i < len(dg_dac_mid) - 2):
+        min_t = np.nanmin(dg_t[:, i - 1])
+        max_t = np.nanmax(dg_t[:, i + 2])
+        min_y = np.nanmin(dg_y[:, i - 1])
+        max_y = np.nanmax(dg_y[:, i + 2])
+    elif i >= len(dg_dac_mid) - 2:
+        min_t = np.nanmin(dg_t[:, i - 1])
+        max_t = np.nanmax(dg_t[:, -1])
+        min_y = np.nanmin(dg_y[:, i - 1])
+        max_y = np.nanmax(dg_y[:, -1])
+
     mtun = np.where(time_ord_s <= min_t)[0][-1]
     mtov = np.where(time_ord_s > max_t)[0][0]
     this_ygs = np.where(xy_grid <= min_y)[0][-1]
     this_yge = np.where(xy_grid >= max_y)[0][0]
 
-    u_mod_at_mw.append(u_model[:, this_ygs+1:this_yge, mtun:mtov])
-    u_mod_at_mw_avg[:, i] = np.nanmean(np.nanmean(u_model[:, this_ygs+1:this_yge, mtun:mtov], axis=2), axis=1)
+    print(str(min_t) + '-' + str(max_t))
+    print(str(time_ord_s[mtun]) + '-' + str(time_ord_s[mtov]))
+    print(str(min_y) + '-' + str(max_y))
+    print(str(xy_grid[this_ygs]) + '-' + str(xy_grid[this_yge]))
 
-    # mean_t = np.nanmean(dg_t[:, i:i + 2])  # mean time of one dive_climb cycle
-    # nearest_t = np.where(time_ord_s < mean_t)[0][-1]
-    # mw_time[i] = np.nanmean(time_ord_s[nearest_t:nearest_t + 2])
-    # avg_u_at = np.nanmean(u_out_s[:, :, nearest_t:nearest_t + 2], axis=2)
-    # for j in range(len(z_grid)):
-    #     u_mod_at_mw_y[j, i] = np.interp(mw_y[i], xy_grid, avg_u_at[j, :])
+    u_mod_at_mw.append(u_model[:, this_ygs+1:this_yge, mtun:mtov])
+    gamma_mod_at_mw.append(data_interp[:, this_ygs+1:this_yge, mtun:mtov])
+    u_mod_at_mw_avg[:, i] = np.nanmean(np.nanmean(u_model[:, this_ygs+1:this_yge, mtun:mtov], axis=2), axis=1)
+    gamma_mod_at_mw_avg[:, i] = np.nanmean(np.nanmean(data_interp[:, this_ygs+1:this_yge, mtun:mtov], axis=2), axis=1)
 
 # ----------------------------------------------------------------------------------------------------------------------
 # transect plan view with DAC
@@ -466,8 +472,8 @@ print('Completed M/W Vel Estimation')
 # --- PLOTTING
 h_max = np.nanmax(dg_y/1000 + 20)  # horizontal domain limit
 z_max = -3150
-u_levels = np.array([-.3, -.25, - .2, -.15, -.125, -.1, -.075, -.05, -0.025, 0,
-                     0.025, 0.05, 0.075, 0.1, 0.125, 0.15, 0.2, 0.25, 0.3])
+u_levels = np.array([-0.4, -0.3, -.25, - .2, -.15, -.125, -.1, -.075, -.05, -0.025, 0,
+                     0.025, 0.05, 0.075, 0.1, 0.125, 0.15, 0.2, 0.25, 0.3, 0.4])
 plot0 = 1
 if plot0 > 0:
     matplotlib.rcParams['figure.figsize'] = (12, 6)
@@ -519,8 +525,8 @@ if plot0 > 0:
     ax3.set_xlabel('E/W distance [km]')
     ax3.set_xlim([y_dg_s/1000 - 5, np.nanmax(dg_y/1000) + 5])
     plot_pro(ax3)
-    # f.savefig("/Users/jake/Documents/baroclinic_modes/Meetings/meeting_19_04_18/model_cross.png",
-    #           dpi=200)
+    if save_p > 0:
+        f.savefig("/Users/jake/Documents/baroclinic_modes/Meetings/meeting_19_05_17/model_ind_cross_2.png", dpi=200)
 
 # ------------------------------
 # model - glider velocity error
@@ -962,7 +968,8 @@ ax[3].set_ylim([27.9, 28])
 ax[3].invert_yaxis()
 ax[3].set_xlabel('Transect Distance [km]')
 plot_pro(ax[3])
-# f.savefig("/Users/jake/Documents/baroclinic_modes/Meetings/meeting_19_04_18/model_glider_den_grad.png", dpi=200)
+if save_p_g > 0:
+    f.savefig("/Users/jake/Documents/baroclinic_modes/Meetings/meeting_19_05_17/model_ind_den_grad_3.png", dpi=200)
 # --------------------------------------------------------------------------------------------------------------------
 # --- Background density
 pkl_file = open('/Users/jake/Documents/baroclinic_modes/Model/background_density.pkl', 'rb')
@@ -1000,7 +1007,7 @@ deep_shr_max = 0.1
 deep_shr_max_dep = 2000.0
 # fit limits
 eta_fit_dep_min = 200.0
-eta_fit_dep_max = 2500.0
+eta_fit_dep_max = 2600.0
 
 # adjust z_grid and N2 profile such that N2=0 at surface and that z_grid min = -2500
 # match background z_grid and N2 to current data
@@ -1021,9 +1028,8 @@ G, Gz, c, epsilon = vertical_modes(avg_N2, -1.0 * z_grid_n2, omega, mmax)  # N2
 #
 print('Computed Vertical Modes from Background Profiles')
 
-
-# DG ETA
-# -- eta from individual profiles
+# ---------------------------------------------------------------------------------------------------------------------
+# -- DG eta from individual profiles
 eta = np.nan * np.ones(np.shape(dg_sig0))
 AG_dg = np.zeros((nmodes, num_profs))
 PE_per_mass_dg = np.nan * np.ones((nmodes, num_profs))
@@ -1061,11 +1067,9 @@ for i in range(num_profs):
     #                                                              np.transpose(np.atleast_2d(eta[good, i])),
     #                                                              eta_fit_dep_min, eta_fit_dep_max)
 
-
 G, Gz, c, epsilon = vertical_modes(avg_N2, -1.0 * z_grid_n2, omega, mmax)  # N2
 # ---------------------------------------------------------------------------------------------------------------------
-
-# -- eta avg across four profiles
+# -- DG eta avg across four profiles
 eta_sm = np.nan * np.ones(np.shape(avg_sig_pd))
 AG_dg_sm = np.zeros((nmodes, num_profs_eta))
 PE_per_mass_dg_sm = np.nan * np.ones((nmodes, num_profs_eta))
@@ -1103,17 +1107,21 @@ for i in range(np.shape(avg_sig_pd)[1]):
         #                                                                  nmodes, avg_N2, G, c, eta_sm[0:126, :],
         #                                                                  eta_fit_dep_min, eta_fit_dep_max)
 
+# ---------------------------------------------------------------------------------------------------------------------
 # -- eta Model
 in_range = np.where((xy_grid > np.nanmin(dg_y)) & (xy_grid < np.nanmax(dg_y)))[0]
 eta_model = np.nan * np.ones(np.shape(sig0_out_s[:, in_range, 0]))
-AG_model = np.zeros((nmodes, len(in_range)))
-PE_per_mass_model = np.nan * np.ones((nmodes, len(in_range)))
-eta_m_model = np.nan * np.ones((len(dg_z), len(in_range)))
-Neta_m_model = np.nan * np.ones((len(dg_z), len(in_range)))
-for i in range(len(in_range)):
+
+eta_model = np.nan * np.ones(np.shape(gamma_mod_at_mw_avg))
+AG_model = np.zeros((nmodes, np.shape(eta_model)[1]))
+PE_per_mass_model = np.nan * np.ones((nmodes, np.shape(eta_model)[1]))
+eta_m_model = np.nan * np.ones((len(dg_z), np.shape(eta_model)[1]))
+Neta_m_model = np.nan * np.ones((len(dg_z), np.shape(eta_model)[1]))
+for i in range(np.shape(eta_model)[1]):
     # range over which m/w profile takes up,
     # consider each model density profile, avg at each grid point in time, estimate eta
-    this_model = np.flipud(np.nanmean(sig0_out_s[:, in_range[i], :], axis=1))
+    # this_model = np.flipud(np.nanmean(sig0_out_s[:, in_range[i], :], axis=1))
+    this_model = gamma_mod_at_mw_avg[:, i]
 
     good = np.where(~np.isnan(this_model))[0]
     avg_sig0_match = np.interp(np.abs(dg_z[good]), np.abs(z_grid_n2), avg_sig0)
@@ -1146,9 +1154,9 @@ for i in range(len(in_range)):
     #                                                              nmodes, avg_N2, G, c, eta_model[0:126, :],
     #                                                              eta_fit_dep_min, eta_fit_dep_max)
 
-
-# --- fit velocities ---
-# DG
+# ---------------------------------------------------------------------------------------------------------------------
+# ---------------------------------------------------------------------------------------------------------------------
+# --- DG velocities ---
 HKE_per_mass_dg = np.nan * np.zeros([nmodes, num_profs_eta])
 modest = np.arange(11, nmodes)
 good_ke_prof = np.ones(num_profs_eta)
@@ -1177,16 +1185,17 @@ for i in range(num_profs_eta):
                 good_ke_prof[i] = 0  # flag profile as noisy
         else:
             good_ke_prof[i] = 0  # flag empty profile as noisy as well
-
+# ---------------------------------------------------------------------------------------------------------------------
 # Model
-HKE_per_mass_model = np.nan * np.zeros([nmodes, np.shape(eta_model)[1]])
-modest = np.arange(11, nmodes)
-good_ke_prof = np.ones(len(in_range))
-AGz_model = np.zeros([nmodes, len(in_range)])
+# select avg model profiles that coincide with dg velocity profiles in space and time
+avg_mod_u = u_mod_at_mw_avg[:, 1:-1]
+HKE_per_mass_model = np.nan * np.zeros([nmodes, np.shape(avg_mod_u)[1]])
+good_ke_prof = np.ones(np.shape(avg_mod_u)[1])
+AGz_model = np.zeros([nmodes, np.shape(avg_mod_u)[1]])
 HKE_noise_threshold = 1e-5  # 1e-5
-V_m_model = np.nan * np.zeros((len(dg_z), len(in_range)))
-avg_mod_u = np.flipud(np.nanmean(u_out_s[:, in_range, :], axis=2))
-for i in range(len(in_range)):
+V_m_model = np.nan * np.zeros((len(dg_z), np.shape(avg_mod_u)[1]))
+# avg_mod_u = np.flipud(np.nanmean(u_out_s[:, in_range, :], axis=2))
+for i in range(np.shape(avg_mod_u)[1]):
     good = np.where(~np.isnan(avg_mod_u[:, i]))[0]
     avg_N2_match = np.interp(np.abs(dg_z[good]), np.abs(z_grid_n2), avg_N2)
 
@@ -1222,28 +1231,32 @@ ax1.set_ylim([z_max, 0])
 ax1.set_ylabel('Z [m]')
 ax1.set_xlabel('Density Anomaly')
 ax1.set_title('Density Anomaly')
-for i in range(np.shape(eta)[1]):
-    ax2.plot(eta[:, i], dg_z, color='#4682B4', linewidth=1.25)
-    ax2.plot(eta_m_dg[:, i], dg_z, color='k', linestyle='--', linewidth=.75)
+for i in range(np.shape(eta_sm)[1]):
+    ax2.plot(eta_sm[:, i], dg_z, color='#4682B4', linewidth=1.25, label='DG')
+    ax2.plot(eta_m_dg_sm[:, i], dg_z, color='k', linestyle='--', linewidth=.75)
+    ax2.plot(eta_model[0:-20, i + 1], dg_z[0:-20], linewidth=0.5, color='r', label='Model')
 ax2.grid()
+handles, labels = ax2.get_legend_handles_labels()
+ax2.legend([handles[-2], handles[-1]], [labels[-2], labels[-1]], fontsize=10)
 ax2.set_xlabel('Isopycnal Displacement [m]')
 ax2.set_title('Vertical Displacement')
 
-avg_mod_u = np.flipud(np.nanmean(u_out_s[:, in_range, :], axis=2))
-for i in range(np.shape(avg_mod_u)[1]):
-    ax3.plot(avg_mod_u[:, i], dg_z, linewidth=0.75, color='#DCDCDC')
-    ax3.plot(V_m_model[:, i], dg_z, color='k', linestyle='--', linewidth=.4)
 for i in range(np.shape(v_g)[1]):
-    ax3.plot(v_g[:, i], dg_z)
+    ax3.plot(v_g[:, i], dg_z, color='#4682B4', linewidth=1.25, label='DG')
     ax3.plot(V_m[:, i], dg_z, color='k', linestyle='--', linewidth=.75)
+    ax3.plot(avg_mod_u[0:-20, i], dg_z[0:-20], color='r', linewidth=0.5, label='Model')
+handles, labels = ax2.get_legend_handles_labels()
+ax2.legend([handles[-2], handles[-1]], [labels[-2], labels[-1]], fontsize=10)
 ax2.set_xlim([-200, 200])
 ax3.set_xlim([-.4, .4])
 ax3.set_title('Model and DG Velocity (u)')
 ax3.set_xlabel('Velocity [m/s]')
 plot_pro(ax3)
+if save_p > 0:
+    f.savefig("/Users/jake/Documents/baroclinic_modes/Meetings/meeting_19_05_17/model_ind_vel_eta_2.png", dpi=200)
 
 # ---------------------------------------------------------------------------------------------------------------------
-# select only dg profiles with dephts greater than 2000m
+# select only dg profiles with depths greater than 2000m
 max_eta_dep = np.nan * np.ones(np.shape(eta)[1])
 for i in range(np.shape(eta)[1]):
     max_eta_dep[i] = dg_z[np.where(~np.isnan(eta[:, i]))[0][-1]]
@@ -1254,8 +1267,8 @@ for i in range(np.shape(eta_sm)[1]):
     max_eta_sm_dep[i] = dg_z[np.where(~np.isnan(eta_sm[:, i]))[0][-1]]
     max_v_dep[i] = dg_z[np.where(~np.isnan(v_g[:, i]))[0][-1]]
 
-max_model_dep = np.nan * np.ones(np.shape(PE_per_mass_model)[1])
-for i in range(np.shape(PE_per_mass_model)[1]):
+max_model_dep = np.nan * np.ones(np.shape(avg_mod_u)[1])
+for i in range(np.shape(avg_mod_u)[1]):
     max_model_dep[i] = dg_z[np.where(~np.isnan(avg_mod_u[:, i]))[0][-1]]
 
 good_eta = np.where(max_eta_dep < -2000)[0]
@@ -1331,14 +1344,16 @@ handles, labels = ax1.get_legend_handles_labels()
 ax1.legend(handles, labels, fontsize=12)
 handles, labels = ax2.get_legend_handles_labels()
 ax2.legend(handles, labels, fontsize=12)
-
 plot_pro(ax2)
+if save_p > 0:
+    f.savefig("/Users/jake/Documents/baroclinic_modes/Meetings/meeting_19_05_17/model_ind_energy_2.png", dpi=200)
 
 # ---------------------------------------------------------------------------------------------------------------------
 # ---------------------------------------------------------------------------------------------------------------------
 # save?
 if save_anom:
     my_dict = {'dg_z': dg_z, 'dg_v': v_g, 'model_u_at_mwv': u_mod_at_mw,
+               'model_u_at_mw_avg': avg_mod_u,
                'shear_error': shear_error, 'igw_var': den_var,
                'KE_dg': HKE_per_mass_dg, 'KE_mod': HKE_per_mass_model,
                'eta_m_dg': eta_m_dg, 'PE_dg': PE_per_mass_dg,
