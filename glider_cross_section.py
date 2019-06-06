@@ -291,6 +291,7 @@ class Glider(object):
         v_g_north_out = []
         vbt_out = []
         shear_out = []
+        v_g_dir_out = []
         isopycdep_out = []
         isopycx_out = []
         mwe_lon_out = []
@@ -326,6 +327,7 @@ class Glider(object):
                 shear = np.nan * np.zeros((np.size(bin_depth), len(profile_tags) - 1))
                 shear_east = np.nan * np.zeros((np.size(bin_depth), len(profile_tags) - 1))
                 shear_north = np.nan * np.zeros((np.size(bin_depth), len(profile_tags) - 1))
+                shear_dir = np.nan * np.zeros((np.size(bin_depth), len(profile_tags) - 1))
                 # eta = np.nan * np.zeros((np.size(bin_depth), len(profile_tags) - 1))
                 # eta_theta = np.nan * np.zeros((np.size(grid), np.size(this_set) - 1))
                 avg_sig_pd = np.nan * np.zeros((np.size(bin_depth), len(profile_tags) - 1))
@@ -417,9 +419,11 @@ class Glider(object):
                     shearM = np.nan * np.zeros(np.size(bin_depth))
                     shear_x_M = np.nan * np.zeros(np.size(bin_depth))
                     shear_y_M = np.nan * np.zeros(np.size(bin_depth))
+                    shearM_dir = 2.0 * np.ones(np.size(bin_depth))
                     shearW = np.nan * np.zeros(np.size(bin_depth))
                     shear_x_W = np.nan * np.zeros(np.size(bin_depth))
                     shear_y_W = np.nan * np.zeros(np.size(bin_depth))
+                    shearW_dir = 2.0 * np.ones(np.size(bin_depth))
                     # etaM = np.nan * np.zeros(np.size(bin_depth))
                     # etaW = np.nan * np.zeros(np.size(bin_depth))
                     p_avg_sig_M = np.nan * np.zeros(np.size(bin_depth))
@@ -487,6 +491,15 @@ class Glider(object):
                                 # - ang_sfc_m = angle of either the middle M dive or tail ends of the W dives
                                 angle_of_shear = ang_sfc_m + np.pi/2  # angle in transect direction + 90deg
                                 shear_x_M[j], shear_y_M[j] = pol2cart(shearM[j], angle_of_shear)  # project onto E/N
+
+                                # flow along slope contours (transect heading in radians pi/2 - pi or 3pi/2 - 2pi)
+                                if ((ang_sfc_m >= 5.0 * np.pi / 8.0) & (ang_sfc_m <= 7.0 * np.pi / 8.0)) | (
+                                        (ang_sfc_m >= 13.0 * np.pi / 8.0) & (ang_sfc_m <= 15.0 * np.pi / 8.0)):
+                                    shearM_dir[j] = 0
+                                # flow across slope contours (transect heading in radians 0 - pi/2 or pi - 3pi/2)
+                                if ((ang_sfc_m >= np.pi / 8.0) & (ang_sfc_m <= 3.0 * np.pi / 8.0)) | (
+                                        (ang_sfc_m >= 9.0 * np.pi / 8.0) & (ang_sfc_m <= 11.0 * np.pi / 8.0)):
+                                    shearM_dir[j] = 1
 
                                 # --- Computation of Eta
                                 # -- isopycnal position is average position of a few dives
@@ -584,6 +597,15 @@ class Glider(object):
                                 angle_of_shear = ang_sfc_w + np.pi/2
                                 shear_x_W[j], shear_y_W[j] = pol2cart(shearW[j], angle_of_shear)
 
+                                # flow along slope contours (transect heading in radians pi/2 - pi or 3pi/2 - 2pi)
+                                if ((ang_sfc_w >= 5.0 * np.pi / 8.0) & (ang_sfc_w <= 7.0 * np.pi / 8.0)) | (
+                                        (ang_sfc_w >= 13.0 * np.pi / 8.0) & (ang_sfc_w <= 15.0 * np.pi / 8.0)):
+                                    shearW_dir[j] = 0
+                                # flow across slope contours (transect heading in radians 0 - pi/2 or pi - 3pi/2)
+                                if ((ang_sfc_w >= np.pi / 8.0) & (ang_sfc_w < 3.0 * np.pi / 8.0)) | (
+                                        (ang_sfc_w >= 9.0 * np.pi / 8.0) & (ang_sfc_w < 11.0 * np.pi / 8.0)):
+                                    shearW_dir[j] = 1
+
                                 # --- Computation of Eta
                                 # -- isopycnal position is average position of a few dives
                                 # etaW[j] = (sigma_theta_avg[j] - np.nanmean(sigmathetaW[iwv])) / ddz_avg_sigma[j]
@@ -591,6 +613,7 @@ class Glider(object):
                                 # -- isopycnal position is position on this single profile
                                 # etaW[j] = (sigma_theta_avg[j] - df_den_set.iloc[j, i + 1]) / ddz_avg_sigma[j]
                                 # eta_thetaW[j] = (ct_avg[j] - df_ct_set.iloc[j, i + 1]) / ddz_avg_ct[j]
+
 
                                 # average isopycnal value at each depth level j, to be used to compute eta but
                                 # using a background profile of the users desire. this average spans the same number
@@ -607,6 +630,7 @@ class Glider(object):
                     shear[:, i] = shearM
                     shear_east[:, i] = shear_x_M
                     shear_north[:, i] = shear_y_M
+                    shear_dir[:, i] = shearM_dir
                     avg_sig_pd[:, i] = p_avg_sig_M
                     avg_ct_pd[:, i] = p_avg_ct_M
                     avg_sa_pd[:, i] = p_avg_sa_M
@@ -620,6 +644,7 @@ class Glider(object):
                         shear[:, i + 1] = shearW
                         shear_east[:, i + 1] = shear_x_W
                         shear_north[:, i + 1] = shear_y_W
+                        shear_dir[:, i + 1] = shearW_dir
                         avg_sig_pd[:, i + 1] = p_avg_sig_W
                         avg_ct_pd[:, i + 1] = p_avg_ct_W
                         avg_sa_pd[:, i + 1] = p_avg_sa_W
@@ -649,6 +674,7 @@ class Glider(object):
                 vbc_g_e = np.nan * np.zeros(np.shape(shear))
                 vbc_g_n = np.nan * np.zeros(np.shape(shear))
                 v_g = np.nan * np.zeros((np.size(bin_depth), len(profile_tags)))
+                v_g_dir = np.nan * np.zeros((np.size(bin_depth), len(profile_tags)))
                 v_g_east = np.nan * np.zeros((np.size(bin_depth), len(profile_tags)))
                 v_g_north = np.nan * np.zeros((np.size(bin_depth), len(profile_tags)))
                 for m in range(len(profile_tags) - 1):
@@ -660,6 +686,7 @@ class Glider(object):
                         vbc = vrel - vrel_av
                         vbc_g[iq, m] = vbc
                         v_g[iq, m] = vbt[m] + vbc
+                        v_g_dir[:, m] = shear_dir[:, m]
 
                         vrel_e = cumtrapz(0.001 * shear_east[iq, m], x=z2, initial=0)
                         vrel_av_e = np.trapz(vrel_e / (z2[-1] - z2[0]), x=z2)
@@ -698,6 +725,7 @@ class Glider(object):
                 v_g_north_out.append(v_g_north)     # north velocity profile at distance ds
                 vbt_out.append(vbt)                 #
                 shear_out.append(shear)
+                v_g_dir_out.append(v_g_dir)
                 isopycdep_out.append(isopycdep)     # isopycnal depth (along each profile)
                 isopycx_out.append(isopycx)         # isopycnal distance (along-transect distance) of isopycnal depth
                 mwe_lon_out.append(mwe_lon)         # lon of m/w profile
@@ -713,7 +741,8 @@ class Glider(object):
             # everywhere there is a len(profile_tags) there was a self.num_profs
 
         return ds_out, dist_out, avg_ct_out, avg_sa_out, avg_sig_out, v_g_out, vbt_out, isopycdep_out, isopycx_out, \
-            mwe_lon_out, mwe_lat_out, DACe_MW_out, DACn_MW_out, profile_tags_out, shear_out, v_g_east_out, v_g_north_out
+            mwe_lon_out, mwe_lat_out, DACe_MW_out, DACn_MW_out, profile_tags_out, shear_out, v_g_dir_out, \
+               v_g_east_out, v_g_north_out,
 
     def plot_cross_section(self, bin_depth, ds, v_g, dist, profile_tags, isopycdep, isopycx, sigth_levels, time, levels):
             sns.set(context="notebook", style="whitegrid", rc={"axes.axisbelow": False})

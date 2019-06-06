@@ -17,7 +17,7 @@ from toolkit import plot_pro, nanseg_interp, find_nearest
 # ------ physical parameters
 g = 9.81
 rho0 = 1027  # - 1027
-# GD = Dataset('BATs_2015_gridded_apr04.nc', 'r')
+GD = Dataset('BATs_2015_gridded_apr04.nc', 'r')
 bin_depth = np.concatenate([np.arange(0, 150, 5), np.arange(150, 300, 5), np.arange(300, 4550, 10)])
 ref_lat = 31.7
 ref_lon = -64.2
@@ -478,7 +478,7 @@ omega = 0
 # highest baroclinic mode to be calculated
 mmax = 45
 nmodes = mmax + 1
-eta_fit_dep_min = 200
+eta_fit_dep_min = 250
 eta_fit_dep_max = 3750
 
 # -- computer vertical mode shapes
@@ -492,7 +492,7 @@ Gz_i = [Gz_0, Gz_1, Gz_2]
 c_i = [c_0, c_1, c_2]
 
 # -- choose eta to use
-this_eta_used = this_eta_0  # this_eta_0  # local sig_theta calc
+this_eta_used = eta_alt_3  # this_eta_0  # local sig_theta calc
 
 # -- cycle through seasons
 AG = []
@@ -638,7 +638,7 @@ for i in range(num_profs):
     # ax25.plot(eta2[:, i], grid, linewidth=.75, color='#808000')
     ax2.plot(eta_alt_3[:, i], grid, linewidth=.75, color='#808000')
     ax25.plot(eta_alt[:, i], grid, linewidth=.75, color='#808000')
-    ax3.plot(this_eta_0[:, i], grid, linewidth=.75, color='#808000')
+    ax3.plot(eta_alt_3[:, i], grid, linewidth=.75, color='#808000')
     ax3.plot(Eta_m[:, i], grid, linewidth=.5, color='k', linestyle='--')
 n2p = ax4.plot((np.sqrt(N2_all) * (1800 / np.pi)) / 4, grid, color='k', label='N(z) [cph]')
 for j in range(4):
@@ -713,6 +713,7 @@ for i in range(1, mmax+1):
 PE_SD, PE_GM, GMPE, GMKE = PE_Tide_GM(1025, grid, nmodes, np.transpose(np.atleast_2d(np.nanmean(N2, axis=1))), f_ref)
 
 # --- PLOT PE PER SEASON
+# attempt to filter for anomalous profiles
 f, ax = plt.subplots()
 for i in range(slen):
     dk = f_ref / c_i[i][1]
@@ -720,8 +721,10 @@ for i in range(slen):
     # ax.fill_between(1000 * f_ref / c_i[i][1:mmax + 1],
     #                 (np.nanmean(PE_per_mass[i][1:], axis=1) / dk) - (sta_min[i, :] / dk),
     #                 (np.nanmean(PE_per_mass[i][1:], axis=1) / dk) + (sta_max[i, :] / dk), color=cols[i], alpha=0.5)
-    ax.plot(sc_x, np.nanmean(PE_per_mass[i][1:], axis=1) / dk, color=cols[i], linewidth=3, label=season_labs[i])
-    ax.scatter(sc_x, np.nanmean(PE_per_mass[i][1:], axis=1) / dk, s=15, color=cols[i])
+    PE_per_good = (PE_per_mass[i][1, :] / dk) < (1 * 10 ** 3)
+    print(PE_per_good)
+    ax.plot(sc_x, np.nanmean(PE_per_mass[i][1:, PE_per_good], axis=1) / dk, color=cols[i], linewidth=3, label=season_labs[i])
+    ax.scatter(sc_x, np.nanmean(PE_per_mass[i][1:, PE_per_good], axis=1) / dk, s=15, color=cols[i])
 dk = f_ref / c_i[1][1]
 ax.plot(sc_x, PE_GM / dk, color='k', linewidth=0.75, linestyle='--')
 
@@ -832,13 +835,13 @@ plot_pro(ax4)
 
 # --- SAVE
 # write python dict to a file
-sa = 0
+sa = 1
 if sa > 0:
     my_dict = {'depth': grid, 'Sigma0': sigma0, 'Sigma2': sigma2, 'lon': c_lon, 'lat': c_lat, 'time': c_date,
                'N2_per_season': N2, 'background indices': bckgrds, 'background order': ['spr', 'sum', 'fall', 'wint'],
                'AG': AG_all, 'AG_per_season': AG, 'Eta': eta, 'Eta_m': eta_m_all, 'NEta_m': Neta_m_all,
                'Eta2': eta2, 'Eta_m_2': eta_m_all_2, 'PE': PE_per_mass_all, 'PE_by_season': PE_per_mass, 'c': c}
-    output = open('/Users/jake/Desktop/bats/station_bats_pe_jan30.pkl', 'wb')
+    output = open('/Users/jake/Desktop/bats/station_bats_pe_jun04_19.pkl', 'wb')
     pickle.dump(my_dict, output)
     output.close()
 

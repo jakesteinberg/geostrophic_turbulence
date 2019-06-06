@@ -100,7 +100,7 @@ G, Gz, c, epsilon = vertical_modes(N2, grid, omega, mmax)
 bc_bot = 1  # 1 = flat, 2 = rough
 grid2 = np.concatenate([np.arange(0, 150, 10), np.arange(150, 300, 10), np.arange(300, 4500, 10)])
 n2_interp = np.interp(grid2, grid, N2)
-F_int_g2, F_g2, c_ff, norm_constant, epsilon2 = vertical_modes_f(n2_interp, grid2, omega, mmax, bc_bot)
+F_int_g2, F_g2, c_ff, norm_constant, epsilon2 = vertical_modes_f(n2_interp, grid2, omega, mmax, bc_bot, 22, 10**-4)
 F = np.nan * np.ones((np.size(grid), mmax + 1))
 F_int = np.nan * np.ones((np.size(grid), mmax + 1))
 for i in range(mmax + 1):
@@ -228,24 +228,25 @@ ax3.invert_yaxis()
 plot_pro(ax3)
 
 # ----- energy spectra
+matplotlib.rcParams['figure.figsize'] = (16/3 + .75, 6)
 f, ax = plt.subplots()
 mode_num = np.arange(1, 61, 1)
-# HOTS
-PE_p = ax.plot(mode_num, avg_PE[1:] / dk, color='#B22222', label='APE$_{ALOHA}$', linewidth=2)  # sc_x
 # BATS
-PE_sta_p = ax.plot(mode_num, np.nanmean(sta_bats_pe[1:], axis=1) / sta_bats_dk,
-                   color='#00FF7F', label='APE$_{BATS}$', linewidth=2)  # 1000 * sta_bats_f / sta_bats_c[1:]
+PE_sta_p = ax.plot(mode_num, np.nanmean(sta_bats_pe[1:], axis=1),
+                   color='g', label='APE$_{BATS}$', linewidth=2)  # 1000 * sta_bats_f / sta_bats_c[1:]
+# HOTS
+PE_p = ax.plot(mode_num, avg_PE[1:], color='#B22222', label='APE$_{ALOHA}$', linewidth=2)  # sc_x
 # PAPA
-PE_sta_papa_p = ax.plot(mode_num, np.nanmean(sta_papa_pe[1:], axis=1) / sta_papa_dk,
+PE_sta_papa_p = ax.plot(mode_num, np.nanmean(sta_papa_pe[1:], axis=1),
                    color='#4682B4', label='APE$_{PAPA}$', linewidth=2)
 # NZ
 # PE_sta_nz_p = ax.plot(mode_num, sta_nz_pe[1:] / sta_nz_dk,
 #                    color='c', label='APE$_{NZ}$', linewidth=2)
 
 # GM
-ax.plot(mode_num, PE_GM / dk, linestyle='--', color='#B22222', linewidth=1)
-ax.plot(mode_num, PE_GM_bats / sta_bats_dk, linestyle='--', color='#00FF7F', linewidth=1)
-ax.plot(mode_num, PE_GM_papa / sta_papa_dk, linestyle='--', color='#4682B4', linewidth=1)
+ax.plot(mode_num, PE_GM, linestyle='--', color='#B22222', linewidth=1)
+ax.plot(mode_num, PE_GM_bats, linestyle='--', color='g', linewidth=1)  # #00FF7F
+ax.plot(mode_num, PE_GM_papa, linestyle='--', color='#4682B4', linewidth=1)
 # ax.plot(mode_num, PE_GM_nz / sta_nz_dk, linestyle='--', color='c', linewidth=0.75)
 # ax.plot(1000 * sta_bats_f / sta_bats_c[1:], PE_GM_bats / sta_bats_dk, linestyle='--', color='#FF8C00', linewidth=0.75)
 # ax.text(sc_x[0] - .005, PE_GM[1] / dk, r'$PE_{GM}$', fontsize=13)
@@ -254,23 +255,32 @@ ax.plot(mode_num, PE_GM_papa / sta_papa_dk, linestyle='--', color='#4682B4', lin
 # ax.plot([4*10**-2, 4*10**-1], [1.5*10**0, 1.5*10**-2], color='k', linewidth=0.75)
 # ax.text(3.4*10**-1, 1.3*10**1, '-3', fontsize=11)
 # ax.text(4.4*10**-2, 1.3*10**0, '-2', fontsize=11)
-ax.plot([10**1, 10**2], [10**1, 10**-2], color='k', linewidth=0.75)
+# ax.plot([10**1, 10**2], [10**1, 10**-2], color='k', linewidth=0.75)
 # ax.plot([10**0, 10**2], [10**2, 10**-2], color='k', linewidth=0.75)
-ax.plot([10**0, 10**2], [3.333 * 10**1, 10**-2], color='k', linewidth=0.75)
-ax.text(1.1*10**1, 10**1, '-3', fontsize=11)
+# ax.plot([10**0, 10**2], [3.333 * 10**1, 10**-2], color='k', linewidth=0.75)
+# ax.text(1.1*10**1, 10**1, '-3', fontsize=11)
 # ax.text(1.2*10**0, 1.3*10**2, '-2', fontsize=11)
-ax.text(0.78*10**0, 3.33*10**1, '-5/3', fontsize=11)
+# ax.text(0.78*10**0, 3.33*10**1, '-5/3', fontsize=11)
+# ax.plot([10**-1, 10**2], [10**5, 10**-4], color='k', linewidth=0.5)
+# ax.plot([10**-1, 10**2], [10**4, 10**-2], color='k', linewidth=0.5)
+ax.plot([10**-1, 10**2], [9 * 10**0, 9 * 10**-9], color='k', linewidth=0.5)
+ax.text(6*10**1, 4*10**-8, '-3', fontsize=12)
+ax.plot([10**-1, 10**2], [9 * 10**-1, 9 * 10**-7], color='k', linewidth=0.5)
+ax.text(7*10**1, 8*10**-7, '-2', fontsize=12)
 
 ax.set_yscale('log')
 ax.set_xscale('log')
 handles, labels = ax.get_legend_handles_labels()
 ax.legend(handles, labels, fontsize=14)
 # ax.axis([10 ** -2, 10 ** 1, 10 ** (-4), 10 ** 3])
-ax.axis([7 * 10 ** -1, 10 ** 2, 3 * 10 ** (-4), 10 ** 3])
-ax.set_xlabel('Mode Number', fontsize=14)
-ax.set_ylabel('Spectral Density', fontsize=18)  # ' (and Hor. Wavenumber)')
-ax.set_title('PE: ALOHA, BATS, PAPA', fontsize=20)
+# ax.axis([7 * 10 ** -1, 10 ** 2, 3 * 10 ** (-4), 10 ** 3])
+ax.set_xlim([0.6 * 10 ** 0, 1 * 10 ** 2])
+ax.set_ylim([10 ** -9, 1 * 10 ** -1])
+ax.set_xlabel('Mode Number', fontsize=16)
+ax.set_ylabel('Variance', fontsize=16)  # ' (and Hor. Wavenumber)')
+ax.set_title('PE: ALOHA, BATS, PAPA', fontsize=18)
 plot_pro(ax)
+f.savefig("/Users/jake/Documents/baroclinic_modes/Meetings/meeting_19_05_17/ship_pe_energy_comp.jpg", dpi=300)
 
 cmap = matplotlib.cm.get_cmap('Blues')
 f, arm = plt.subplots(3, 3, sharex=True, sharey=True)
