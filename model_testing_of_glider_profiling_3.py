@@ -17,7 +17,7 @@ from zrfun import get_basic_info, get_z
 
 # because we load pickle protocol 2 (needed for matlab engine) we need 'glider' environment (not 'geo_env')
 
-this_path = 'e_w_extraction_nov22_nov24_offshore'  # 'n_s_extraction_eddy_nov1_nov3'  #
+this_path = 'e_w_extraction_nov28_nov30_offshore'  # 'n_s_extraction_eddy_nov1_nov3'  #
 
 # -- LOAD extracted and PROCESSED MODEL TIME STEPS WITH COMPUTED GAMMA
 # this file has combined all model output and computed gamma (using model_testing_of_glider_profiling_2.py)
@@ -76,11 +76,11 @@ rho0 = 1025.0
 # time between each model time step is 1hr.
 
 # main set of parameters to adjust
-dg_vertical_speed = 0.08  # m/s
+dg_vertical_speed = 0.1  # m/s
 dg_glide_slope = 3
-num_dives = 3
+num_dives = 4
 dac_error = 0.01  # m/s
-y_dg_s = 25000     # horizontal position, start of glider dives (75km)
+y_dg_s = 10000     # horizontal position, start of glider dives (75km)
 z_dg_s = 0        # depth, start of glider dives
 partial_mw = 0    # include exclude partial m/w estimates
 
@@ -89,8 +89,8 @@ t_e = datetime.date.fromordinal(np.int(time_ord_s[-1]))
 tag = str(t_s.month) + '_' + str(t_s.day) + '_' + str(t_e.month) + '_' + str(t_e.day)
 output_filename = '/Users/jake/Documents/baroclinic_modes/Model/vel_anom_y70_v08_slp3_' + tag + '.pkl'
 save_anom = 0
-save_p = 0
-save_p_g = 0
+save_p = 1
+save_p_g = 1
 
 # need to specify D_TGT or have glider 'fly' until it hits bottom
 data_loc = np.nanmean(sig0_out_s, axis=2)  # (depth X xy_grid)
@@ -476,9 +476,10 @@ u_levels = np.array([-0.4, -0.3, -.25, - .2, -.15, -.125, -.1, -.075, -.05, -0.0
                      0.025, 0.05, 0.075, 0.1, 0.125, 0.15, 0.2, 0.25, 0.3, 0.4])
 plot0 = 1
 if plot0 > 0:
-    matplotlib.rcParams['figure.figsize'] = (12, 6)
+    matplotlib.rcParams['figure.figsize'] = (13, 6)
     cmap = plt.cm.get_cmap("viridis")
-    f, (ax1, ax2, ax3) = plt.subplots(1, 3, sharey=True)
+
+    f, (ax1, ax2) = plt.subplots(1, 2, sharey=True)
     uvcf = ax1.contourf(np.tile(xy_grid/1000, (len(z_grid), 1)), np.tile(z_grid[:, None], (1, len(xy_grid))),
                  np.nanmean(u_out_s, axis=2), levels=u_levels, cmap=cmap)
     uvc = ax1.contour(np.tile(xy_grid/1000, (len(z_grid), 1)), np.tile(z_grid[:, None], (1, len(xy_grid))),
@@ -487,8 +488,8 @@ if plot0 > 0:
     rhoc = ax1.contour(np.tile(xy_grid/1000, (len(z_grid), 1)), np.tile(z_grid[:, None], (1, len(xy_grid))),
                        np.nanmean(sig0_out_s, axis=2), levels=sigth_levels, colors='#A9A9A9', linewidth=0.35)
     ax1.scatter(dg_y/1000, dg_z_g, 4, color='#FFD700', label='glider path')
-    for r in range(np.shape(isopycdep)[0]):
-        ax1.plot(isopycx[r, :]/1000, isopycdep[r, :], color='r', linewidth=0.45)
+    # for r in range(np.shape(isopycdep)[0]):
+    #     ax1.plot(isopycx[r, :]/1000, isopycdep[r, :], color='r', linewidth=0.45)
     ax1.set_title(str(datetime.date.fromordinal(np.int(time_ord_s[0]))) +
                   ' - ' + str(datetime.date.fromordinal(np.int(time_ord_s[-2]))) + ', 72hr. Model Avg.')
     handles, labels = ax1.get_legend_handles_labels()
@@ -504,29 +505,30 @@ if plot0 > 0:
                  v_g, levels=u_levels, cmap=cmap)
     uvc = ax2.contour(np.tile(mw_y/1000, (len(z_grid), 1)), np.tile(dg_z[:, None], (1, len(mw_y))), v_g,
                       levels=u_levels, colors='k', linewidth=0.75)
-    ax2.clabel(uvc, inline_spacing=-3, fmt='%.4g', colors='k')
+    # ax2.clabel(uvc, inline_spacing=-3, fmt='%.4g', colors='k')
     ax2.scatter(dg_y/1000, dg_z_g, 4, color='k')
+    ax2.contour(np.tile(xy_grid/1000, (len(z_grid), 1)), np.tile(z_grid[:, None], (1, len(xy_grid))),
+                np.nanmean(sig0_out_s, axis=2), levels=sigth_levels, colors='#A9A9A9', linewidth=0.35)
     for r in range(np.shape(isopycdep)[0]):
-        ax2.plot(isopycx[r, :]/1000, isopycdep[r, :], color='r')
-    ax2.plot(isopycx[r, :] / 1000, isopycdep[r, :], color='r', linewidth=0.5,label='glider measured isopycnals')
+        ax2.plot(isopycx[r, :]/1000, isopycdep[r, :], color='r', linewidth=0.75)
+    ax2.plot(isopycx[r, :] / 1000, isopycdep[r, :], color='r', linewidth=0.5, label='glider measured isopycnals')
     handles, labels = ax2.get_legend_handles_labels()
     ax2.legend(handles, labels, fontsize=11)
     ax2.set_xlim([0, h_max])
     ax2.set_title(r'Cross-Track Glider Vel. u$_g$(x,z)')
     ax2.set_xlabel('E/W distance [km]')
-    ax2.grid()
 
-    ax3.pcolor(np.tile(mw_y/1000, (len(z_grid), 1)), np.tile(dg_z[:, None], (1, len(mw_y))),
-               u_mod_at_mw_avg - v_g, vmin=np.nanmin(u_levels), vmax=np.nanmax(u_levels), cmap=cmap)
-    uvc = ax3.contour(np.tile(mw_y/1000, (len(z_grid), 1)), np.tile(dg_z[:, None], (1, len(mw_y))),
-                      u_mod_at_mw_avg - v_g, levels=u_levels, colors='k', linewidth=0.75)
-    ax3.clabel(uvc, inline_spacing=-3, fmt='%.4g', colors='k')
-    ax3.set_title(r'u$_{mod}$ - u$_g$')
-    ax3.set_xlabel('E/W distance [km]')
-    ax3.set_xlim([y_dg_s/1000 - 5, np.nanmax(dg_y/1000) + 5])
-    plot_pro(ax3)
+    # ax3.pcolor(np.tile(mw_y/1000, (len(z_grid), 1)), np.tile(dg_z[:, None], (1, len(mw_y))),
+    #            u_mod_at_mw_avg - v_g, vmin=np.nanmin(u_levels), vmax=np.nanmax(u_levels), cmap=cmap)
+    # uvc = ax3.contour(np.tile(mw_y/1000, (len(z_grid), 1)), np.tile(dg_z[:, None], (1, len(mw_y))),
+    #                   u_mod_at_mw_avg - v_g, levels=u_levels, colors='k', linewidth=0.75)
+    # ax3.clabel(uvc, inline_spacing=-3, fmt='%.4g', colors='k')
+    # ax3.set_title(r'u$_{mod}$ - u$_g$')
+    # ax3.set_xlabel('E/W distance [km]')
+    # ax3.set_xlim([y_dg_s/1000 - 5, np.nanmax(dg_y/1000) + 5])
+    plot_pro(ax2)
     if save_p > 0:
-        f.savefig("/Users/jake/Documents/baroclinic_modes/Meetings/meeting_19_05_17/model_ind_cross_2.png", dpi=200)
+        f.savefig("/Users/jake/Documents/baroclinic_modes/Meetings/meeting_19_06_13/model_ind_cross.png", dpi=200)
 
 # ------------------------------
 # model - glider velocity error
@@ -817,6 +819,8 @@ ax[3].set_ylim([1825, 1975])
 ax[3].invert_yaxis()
 ax[3].set_xlabel('Transect Distance [km]')
 plot_pro(ax[3])
+if save_p_g > 0:
+    f.savefig("/Users/jake/Documents/baroclinic_modes/Meetings/meeting_19_06_13/model_ind_den_grad_dep.png", dpi=200)
 
 # - colormap key
 # f, ax = plt.subplots()
@@ -969,7 +973,7 @@ ax[3].invert_yaxis()
 ax[3].set_xlabel('Transect Distance [km]')
 plot_pro(ax[3])
 if save_p_g > 0:
-    f.savefig("/Users/jake/Documents/baroclinic_modes/Meetings/meeting_19_05_17/model_ind_den_grad_3.png", dpi=200)
+    f.savefig("/Users/jake/Documents/baroclinic_modes/Meetings/meeting_19_06_13/model_ind_den_grad.png", dpi=200)
 # --------------------------------------------------------------------------------------------------------------------
 # --- Background density
 pkl_file = open('/Users/jake/Documents/baroclinic_modes/Model/background_density.pkl', 'rb')
@@ -1253,7 +1257,7 @@ ax3.set_title('Model and DG Velocity (u)')
 ax3.set_xlabel('Velocity [m/s]')
 plot_pro(ax3)
 if save_p > 0:
-    f.savefig("/Users/jake/Documents/baroclinic_modes/Meetings/meeting_19_05_17/model_ind_vel_eta_2.png", dpi=200)
+    f.savefig("/Users/jake/Documents/baroclinic_modes/Meetings/meeting_19_06_13/model_ind_vel_eta.png", dpi=200)
 
 # ---------------------------------------------------------------------------------------------------------------------
 # select only dg profiles with depths greater than 2000m
