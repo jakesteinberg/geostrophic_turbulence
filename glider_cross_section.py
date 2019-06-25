@@ -829,7 +829,7 @@ class Glider(object):
         for i in range(0, len(mwe_lat)-1, 2):
             ax.text(mwe_lon[i] - 0.1, mwe_lat[i] + 0.02, str(np.int(profile_tags[i])), color='#00FA9A',
                     fontsize=10, fontweight='bold')
-        ax.quiver(mwe_lon, mwe_lat, dac_u, dac_v, color='r', scale=1.5, headwidth=2, headlength=2, width=.0025)
+        ax.quiver(mwe_lon, mwe_lat, dac_u, dac_v, color='r', scale=1.1, headwidth=2, headlength=2, width=.0025)
         w = 1 / np.cos(np.deg2rad(ref_lat))
         ax.axis(limits)
         ax.set_aspect(w)
@@ -946,15 +946,15 @@ class Glider(object):
             for j in range(np.size(bin_depth)):
                 # find array of indices for M / W sampling
                 if i < 2:
-                    c_i_m = np.arange(i, i + 3)
-                    # c_i_m = []  # omit partial "M" estimate
+                    # c_i_m = np.arange(i, i + 3)
+                    c_i_m = []  # omit partial "M" estimate
                     c_i_w = np.arange(i, i + 4)
                 elif (i >= 2) and (i < len(profile_tags) - 2):
                     c_i_m = np.arange(i - 1, i + 3)
                     c_i_w = np.arange(i, i + 4)
                 elif i >= len(profile_tags) - 2:
-                    c_i_m = np.arange(i - 1, len(profile_tags))
-                    # c_i_m = []  # omit partial "M" estimated
+                    # c_i_m = np.arange(i - 1, len(profile_tags))
+                    c_i_m = []  # omit partial "M" estimated
                     c_i_w = []
                 nm = np.size(c_i_m)
                 nw = np.size(c_i_w)
@@ -999,61 +999,72 @@ class Glider(object):
                         # eta_thetaM[j] = (ct_avg[j] - df_ct_set.iloc[j, i]) / ddz_avg_ct[j]
 
                         # testing of across-track angle computations
-                        # if j == 180:
-                        #     print('dive cycles in this m estimation = ' +
-                        #           str(profile_tags[c_i_m[0]]) + ' - ' + str(profile_tags[c_i_m[-1]]))
-                        #     print('x_grad=' + str(drhodxM))
-                        #     print('y_grad=' + str(drhodyM))
-                        #     print('along_grad=' + str(drhodatM))
-                        #     f, ax = plt.subplots()
-                        #     # position from start of contributing m/w profiles
-                        #     x_ds = 1.852 * 60 * np.cos(np.deg2rad(lat_ref)) * (
-                        #             lon[:, c_i_m_in] - lon[0, c_i_m_in[0]])
-                        #     print(np.shape(x_ds))
-                        #     y_ds = 1.852 * 60 * (lat[:, c_i_m_in] - lat[0, c_i_m_in[0]])  # N
-                        #     xMj = 1.852 * 60 * np.cos(np.deg2rad(lat_ref)) * (
-                        #             lon[j, c_i_m_in] - lon[0, c_i_m_in[0]])  # E
-                        #     yMj = 1.852 * 60 * (lat[j, c_i_m_in] - lat[0, c_i_m_in[0]])  # N
-                        #     ax.scatter(x_ds, y_ds, 4, color='k', label='glider path')
-                        #     ax.scatter(x_ds[15, :], y_ds[15, :], color='k', s=50)
-                        #     ax.scatter(xMj, yMj, color='r', s=120, label='loc. of density obs. at 2000m')
-                        #     ax.plot(xMj, yMj, color='r')
-                        #     # location of this velocity profile
-                        #     if i < order_set[-1]:
-                        #         me_lon = lon[np.where(np.isfinite(lon[:, i]))[0], i][-1]
-                        #         me_lat = lat[np.where(np.isfinite(lon[:, i]))[0], i][-1]
-                        #         # mwe_lon[m + 1] = lon[0, m + 1]
-                        #         # mwe_lat[m + 1] = lat[0, m + 1]
-                        #     else:
-                        #         me_lon = lon[np.where(np.isfinite(lon[:, i]))[0], i][-1]
-                        #         me_lat = lat[np.where(np.isfinite(lat[:, i]))[0], i][-1]
-                        #     # plot dive number associated with location of v profile
-                        #     x_pr = 1.852 * 60 * np.cos(np.deg2rad(lat_ref)) * (me_lon - lon[0, c_i_m_in[0]])
-                        #     y_pr = 1.852 * 60 * (me_lat - lat[0, c_i_m_in[0]])
-                        #     ax.text(x_pr, y_pr + 1, profile_tags[i])
-                        #     # vectors
-                        #     testx, testy = pol2cart(1, ang_sfc_m)
-                        #     ax.quiver(x_pr, y_pr, testx, testy, color='m', scale=4,
-                        #               label='along-track dir.')  # dives dir
-                        #     ax.quiver(x_pr, y_pr, drhodxM, drhodyM, color='g', scale=.01,
-                        #               label='den. grad. dir.')  # den gradient dir
-                        #     # shear to port
-                        #     testshx, testshy = pol2cart(shearM[j], ang_sfc_m + np.pi / 2)
-                        #     ax.quiver(x_pr, y_pr, testshx, testshy, color='y', scale=.1,
-                        #               label='shear to port')  # shear to port dir
-                        #     # cross-track shear projected into E
-                        #     ax.quiver(x_pr, y_pr, shear_x_M[j], 0, color='b', scale=.1, label='shear E')
-                        #     # cross-track shear projected into N
-                        #     ax.quiver(x_pr, y_pr, 0, shear_y_M[j], color='b', scale=.1, label='shear N')
-                        #     ax.set_title('M/W Schematic at 2000m, Transect Component = ' + str(i))
-                        #     ax.axis(
-                        #         [np.nanmin(x_ds) - 3, np.nanmax(x_ds) + 3, np.nanmin(y_ds) - 3, np.nanmax(y_ds) + 3])
-                        #     ax.set_aspect('equal')
-                        #     ax.set_xlabel('km East')
-                        #     ax.set_ylabel('km North')
-                        #     handles, labels = ax.get_legend_handles_labels()
-                        #     ax.legend(handles, labels, fontsize=10)
-                        #     plot_pro(ax)
+                        if j == 180:
+                            print('dive cycles in this m estimation = ' +
+                                  str(profile_tags[c_i_m[0]]) + ' - ' + str(profile_tags[c_i_m[-1]]))
+                            print('x_grad=' + str(drhodxM))
+                            print('y_grad=' + str(drhodyM))
+                            print('along_grad=' + str(drhodatM))
+
+                            matplotlib.rcParams['figure.figsize'] = (7, 5)
+                            f, ax = plt.subplots()
+                            # position from start of contributing m/w profiles
+                            x_ds = 1.852 * 60 * np.cos(np.deg2rad(lat_ref)) * (
+                                    lon[:, c_i_m_in] - lon[0, c_i_m_in[0]])
+                            print(np.shape(x_ds))
+                            y_ds = 1.852 * 60 * (lat[:, c_i_m_in] - lat[0, c_i_m_in[0]])  # N
+                            xMj = 1.852 * 60 * np.cos(np.deg2rad(lat_ref)) * (
+                                    lon[j, c_i_m_in] - lon[0, c_i_m_in[0]])  # E
+                            yMj = 1.852 * 60 * (lat[j, c_i_m_in] - lat[0, c_i_m_in[0]])  # N
+                            ax.scatter(x_ds, y_ds, 4, color='k', label='glider path through water', zorder=0)
+                            ax.scatter(x_ds[15, :], y_ds[15, :], color='k', s=50)
+                            ax.scatter(xMj, yMj, color='r', s=120, label='density obs. at 2000m', zorder=1)
+                            ax.plot(xMj, yMj, color='r', zorder=0)
+                            # location of this velocity profile
+                            if i < order_set[-1]:
+                                me_lon = lon[np.where(np.isfinite(lon[:, i]))[0], i][-1]
+                                me_lat = lat[np.where(np.isfinite(lon[:, i]))[0], i][-1]
+                                # mwe_lon[m + 1] = lon[0, m + 1]
+                                # mwe_lat[m + 1] = lat[0, m + 1]
+                            else:
+                                me_lon = lon[np.where(np.isfinite(lon[:, i]))[0], i][-1]
+                                me_lat = lat[np.where(np.isfinite(lat[:, i]))[0], i][-1]
+                            # plot dive number associated with location of v profile
+                            x_pr = 1.852 * 60 * np.cos(np.deg2rad(lat_ref)) * (me_lon - lon[0, c_i_m_in[0]])
+                            y_pr = 1.852 * 60 * (me_lat - lat[0, c_i_m_in[0]])
+                            # ax.text(x_pr, y_pr + 1, profile_tags[i])
+                            # vectors
+                            testx, testy = pol2cart(1, ang_sfc_m)
+                            ax.quiver(x_pr, y_pr, testx, testy, color='g', scale=4)  # dives dir
+                            ax.quiver(-30, 0, testx*.3, 0, color='g', scale=4, zorder=2)
+                            ax.text(-28, 0, 'avg. along-track dir.')
+                            # ax.quiver(x_pr, y_pr, drhodxM, drhodyM, color='g', scale=.01,
+                            #           label='den. grad. dir.')  # den gradient dir
+
+                            # shear to port
+                            testshx, testshy = pol2cart(shearM[j], ang_sfc_m + np.pi / 2)
+                            ax.quiver(x_pr, y_pr, testshx, testshy, color='y', scale=.125)  # shear to port dir
+                            ax.quiver(-30, -2.5, testx*.3, 0, color='y', scale=4)
+                            ax.text(-28, -2.5, 'shear to port')
+
+                            # cross-track shear projected into E
+                            ax.quiver(x_pr, y_pr, shear_x_M[j], 0, color='b', scale=.125)
+
+                            # cross-track shear projected into N
+                            ax.quiver(x_pr, y_pr, 0, shear_y_M[j], color='b', scale=.125)
+                            ax.set_title('M/W schematic at 2000m, ' + 'profiles in estimation = ' +
+                                         str(profile_tags[c_i_m[0]]) + ' - ' + str(profile_tags[c_i_m[-1]]))
+                            ax.axis(
+                                [np.nanmin(x_ds) - 3, np.nanmax(x_ds) + 3, np.nanmin(y_ds) - 3, np.nanmax(y_ds) + 3])
+                            ax.set_aspect('equal')
+                            ax.set_xlabel('km East')
+                            ax.set_ylabel('km North')
+                            handles, labels = ax.get_legend_handles_labels()
+                            ax.legend(handles, labels, fontsize=9, loc='lower right')
+                            # plot_pro(ax)
+                            fna = 'grad_schem_' + str(i)
+                            ax.grid()
+                            f.savefig("/Users/jake/Documents/glider_flight_sim_paper/" + fna + ".jpeg", dpi=450)
 
                 # for W profile compute shear and eta
                 if nw > 2 and np.size(sig0[j, c_i_w]) > 2:

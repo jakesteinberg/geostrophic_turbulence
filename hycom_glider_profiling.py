@@ -17,7 +17,7 @@ from toolkit import plot_pro, nanseg_interp
 from zrfun import get_basic_info, get_z
 
 # load mat file
-filename = 'HYCOM_hrly_222_00_228_00'
+filename = 'HYCOM_hrly_214_01_228_00'
 import_hy = si.loadmat('/Users/jake/Documents/baroclinic_modes/Model/' + filename + '.mat')
 MOD = import_hy['out']
 ref_lat = 31
@@ -60,11 +60,11 @@ ff = np.pi * np.sin(np.deg2rad(ref_lat)) / (12 * 1800)  # Coriolis parameter [s^
 dg_vertical_speed = 0.08  # m/s
 dg_glide_slope = 3
 num_dives = 3
-dac_error = 0.00001  # m/s
+dac_error = 0.01  # m/s
 g_error = 0.00001
-t_error = 0.0001
-s_error = 0.0001
-y_dg_s = 20000     # horizontal position, start of glider dives (75km)
+t_error = 0.001
+s_error = 0.01
+y_dg_s = 10000     # horizontal position, start of glider dives (75km)
 z_dg_s = 0        # depth, start of glider dives
 partial_mw = 0    # include exclude partial m/w estimates
 
@@ -323,7 +323,12 @@ for i in order_set:
             if np.size(c_i_m_in) > 1:
                 d_anom0M = sigmathetaM[imv] - np.nanmean(sigmathetaM[imv])
                 # drhodatM = np.nanmean(np.gradient(sigmathetaM[imv], dg_y[j, c_i_m]))
-                drhodatM = np.polyfit(dg_y[j, c_i_m], dg_sig0[j, c_i_m], 1)[0]
+
+                # local density referenced to the current pressure
+                local_sig = gsw.rho(dg_sa[j, c_i_m], dg_ct[j, c_i_m], p_grid[j]) - 1000
+
+                drhodatM = np.polyfit(dg_y[j, c_i_m], local_sig, 1)[0]
+                # drhodatM = np.polyfit(dg_y[j, c_i_m], dg_sig0[j, c_i_m], 1)[0]
                 shearM[j] = -g * drhodatM / (rho0 * ff)  # shear to port of track [m/s/km]
 
                 p_avg_sig_M[j] = np.nanmean(dg_sig0[j, c_i_m])
@@ -341,7 +346,12 @@ for i in order_set:
             if np.size(c_i_w_in) > 1:
                 d_anom0W = sigmathetaW[iwv] - np.nanmean(sigmathetaW[iwv])
                 # drhodatW = np.nanmean(np.gradient(sigmathetaW[iwv], dg_y[j, c_i_w]))
-                drhodatW = np.polyfit(dg_y[j, c_i_w], dg_sig0[j, c_i_w], 1)[0]
+
+                # local density referenced to the current pressure
+                local_sig = gsw.rho(dg_sa[j, c_i_w], dg_ct[j, c_i_w], p_grid[j]) - 1000
+
+                drhodatW = np.polyfit(dg_y[j, c_i_w], local_sig, 1)[0]
+                # drhodatW = np.polyfit(dg_y[j, c_i_w], dg_sig0[j, c_i_w], 1)[0]
                 shearW[j] = -g * drhodatW / (rho0 * ff)  # shear to port of track [m/s/km]
 
                 p_avg_sig_W[j] = np.nanmean(dg_sig0[j, c_i_w])
@@ -371,13 +381,13 @@ for i in order_set:
     sigthmin = np.nanmin(np.array(dg_sig0[:, i]))
     sigthmax = np.nanmax(np.array(dg_sig0[:, i]))
     isigth = (sigth_levels > sigthmin) & (sigth_levels < sigthmax)
-    isopycdep[isigth, i] = np.interp(sigth_levels[isigth], dg_sig0[:, i], np.flipud(z_grid))
+    isopycdep[isigth, i] = np.interp(sigth_levels[isigth], dg_sig0[:, i], z_grid)
     isopycx[isigth, i] = np.interp(sigth_levels[isigth], dg_sig0[:, i], dg_y[:, i])
 
     sigthmin = np.nanmin(np.array(dg_sig0[:, i + 1]))
     sigthmax = np.nanmax(np.array(dg_sig0[:, i + 1]))
     isigth = (sigth_levels > sigthmin) & (sigth_levels < sigthmax)
-    isopycdep[isigth, i + 1] = np.interp(sigth_levels[isigth], dg_sig0[:, i + 1], np.flipud(z_grid))
+    isopycdep[isigth, i + 1] = np.interp(sigth_levels[isigth], dg_sig0[:, i + 1], z_grid)
     isopycx[isigth, i + 1] = np.interp(sigth_levels[isigth], dg_sig0[:, i + 1], dg_y[:, i + 1])
 
 # interpolate dac to be centered on m/w locations
@@ -447,9 +457,256 @@ for j in range(len(deps)):
         dg_isop_dep[j, k] = np.interp(deps[j], -1. * dg_z, dg_sig0[:, k])
         dg_isop_xy[j, k] = np.interp(deps[j], -1. * dg_z, dg_y[:, k])
 # ---------------------------------------------------------------------------------------------------------------------
+# --------------------------------------------------------------------------------------------------------------------
+# --- Background density
+overlap = np.where((xy_grid > dg_y[0, 0]) & (xy_grid < dg_y[0, -1]))[0]
+bck_gamma_xy = np.nanmean(sig0_out_s, axis=0)[:, overlap]
+bck_gamma = np.nanmean(np.nanmean(sig0_out_s, axis=0)[:, overlap], axis=1)
+bck_sa = np.nanmean(np.nanmean(sa_out_s, axis=0)[:, overlap], axis=1)
+bck_ct = np.nanmean(np.nanmean(ct_out_s, axis=0)[:, overlap], axis=1)
+sig0_bck_out = bck_gamma
+sig0_bck_out = sig0_bck_out[~np.isnan(sig0_bck_out)]
+N2_bck_out = gsw.Nsquared(bck_sa, bck_ct, p_grid, lat=ref_lat)[0]
+for i in range(len(N2_bck_out)-15, len(N2_bck_out)):
+    N2_bck_out[i] = N2_bck_out[i - 1] - 1*10**(-8)
+max_ind = np.where(np.isnan(bck_gamma))[0][0]
+z_back = dg_z[0:max_ind]
+N2_bck_out = N2_bck_out[0:max_ind]
 
+if np.nansum(N2_bck_out < 0) > 0:
+    bad = np.where(N2_bck_out < 0)[0]
+    N2_bck_out[bad] = np.nanmean([N2_bck_out[bad-1], N2_bck_out[bad+1]])
 
 # ---------------------------------------------------------------------------------------------------------------------
+# -- MODES ------------------------------------------------------------------------------------------------------------
+# # --- MODE PARAMETERS
+# frequency zeroed for geostrophic modes
+omega = 0
+# highest baroclinic mode to be calculated
+mmax = 25
+nmodes = mmax + 1
+# maximum allowed deep shear [m/s/km]
+deep_shr_max = 0.1
+# minimum depth for which shear is limited [m]
+deep_shr_max_dep = 2000.0
+# fit limits
+eta_fit_dep_min = 200.0
+eta_fit_dep_max = 3750.0
+
+# adjust z_grid and N2 profile such that N2=0 at surface and that z_grid min = -2500
+# match background z_grid and N2 to current data
+z_grid_inter = z_back[0:-1] + (z_back[1:] - z_back[0:-1])/2
+z_grid_n2 = np.concatenate((np.array([0]), z_back))
+avg_N2 = np.concatenate((np.array([0]), N2_bck_out))
+avg_sig0 = np.concatenate((np.array([sig0_bck_out[0] - 0.01]), sig0_bck_out))
+# avg_sig0 = sig0_bck_out
+
+# need ddz profile to compute eta
+ddz_avg_sig0 = np.nan * np.ones(np.shape(avg_sig0))
+ddz_avg_sig0[0] = (avg_sig0[1] - avg_sig0[0])/(z_grid_n2[1] - z_grid_n2[0])
+ddz_avg_sig0[-1] = (avg_sig0[-1] - avg_sig0[-2])/(z_grid_n2[-1] - z_grid_n2[-2])
+ddz_avg_sig0[1:-1] = (avg_sig0[2:] - avg_sig0[0:-2]) / (z_grid_n2[2:] - z_grid_n2[0:-2])
+
+# # --- compute vertical mode shapes
+G, Gz, c, epsilon = vertical_modes(avg_N2, -1.0 * z_grid_n2, omega, mmax)  # N2
+#
+print('Computed Vertical Modes from Background Profiles')
+
+# ---------------------------------------------------------------------------------------------------------------------
+# ---------------------------------------------------------------------------------------------------------------------
+# -- DG eta from individual profiles
+eta = np.nan * np.ones(np.shape(dg_sig0))
+AG_dg = np.zeros((nmodes, num_profs))
+PE_per_mass_dg = np.nan * np.ones((nmodes, num_profs))
+eta_m_dg = np.nan * np.ones((len(dg_z), num_profs))
+Neta_m_dg = np.nan * np.ones((len(dg_z), num_profs))
+for i in range(num_profs):
+    good = np.where(~np.isnan(dg_sig0[:, i]))[0]
+    avg_sig0_match = np.interp(np.abs(dg_z[good]), np.abs(z_grid_n2), avg_sig0)
+    ddz_avg_sig0_match = np.interp(np.abs(dg_z[good]), np.abs(z_grid_n2), ddz_avg_sig0)
+    avg_N2_match = np.interp(np.abs(dg_z[good]), np.abs(z_grid_n2), avg_N2)
+
+    eta[good, i] = (dg_sig0[good, i] - avg_sig0_match) / ddz_avg_sig0_match
+
+    grid = -1. * dg_z[good]
+    bvf = np.sqrt(avg_N2_match)
+    this_eta = eta[good, i].copy()
+    eta_fs = eta[good, i].copy()
+    iw = np.where((grid >= eta_fit_dep_min) & (grid <= eta_fit_dep_max))
+    if iw[0].size > 1:
+        G, Gz, c, epsilon = vertical_modes(avg_N2_match, -1.0 * dg_z[good], omega, mmax)  # N2
+
+        i_sh = np.where((grid < eta_fit_dep_min))
+        eta_fs[i_sh[0]] = grid[i_sh] * this_eta[iw[0][0]] / grid[iw[0][0]]
+
+        i_dp = np.where((grid > eta_fit_dep_max))
+        eta_fs[i_dp[0]] = (grid[i_dp] - grid[-1]) * this_eta[iw[0][-1]] / (grid[iw[0][-1]] - grid[-1])
+
+        AG_dg[1:, i] = np.squeeze(np.linalg.lstsq(G[:, 1:], eta_fs)[0])
+        # AG[1:, i] = np.squeeze(np.linalg.lstsq(G[:, 1:], np.transpose(np.atleast_2d(eta_fs)))[0])
+        eta_m_dg[good, i] = np.squeeze(np.matrix(G) * np.transpose(np.matrix(AG_dg[:, i])))
+        Neta_m_dg[good, i] = bvf * np.array(np.squeeze(np.matrix(G) * np.transpose(np.matrix(AG_dg[:, i]))))
+        PE_per_mass_dg[:, i] = (0.5) * AG_dg[:, i] * AG_dg[:, i] * c * c
+
+    # AG_dg_0, eta_m_dg_0, Neta_m_dg_0, PE_per_mass_dg_0 = eta_fit(1, -1.0 * dg_z[good], nmodes, avg_N2_match, G, c,
+    #                                                              np.transpose(np.atleast_2d(eta[good, i])),
+    #                                                              eta_fit_dep_min, eta_fit_dep_max)
+
+G, Gz, c, epsilon = vertical_modes(avg_N2, -1.0 * z_grid_n2, omega, mmax)  # N2
+# ---------------------------------------------------------------------------------------------------------------------
+# -- DG eta avg across four profiles
+eta_sm = np.nan * np.ones(np.shape(avg_sig_pd))
+AG_dg_sm = np.zeros((nmodes, num_profs_eta))
+PE_per_mass_dg_sm = np.nan * np.ones((nmodes, num_profs_eta))
+eta_m_dg_sm = np.nan * np.ones((len(dg_z), num_profs_eta))
+Neta_m_dg_sm = np.nan * np.ones((len(dg_z), num_profs_eta))
+for i in range(np.shape(avg_sig_pd)[1]):
+    good = np.where(~np.isnan(avg_sig_pd[:, i]))[0]
+    avg_sig0_match = np.interp(np.abs(dg_z[good]), np.abs(z_grid_n2), avg_sig0)
+    ddz_avg_sig0_match = np.interp(np.abs(dg_z[good]), np.abs(z_grid_n2), ddz_avg_sig0)
+    avg_N2_match = np.interp(np.abs(dg_z[good]), np.abs(z_grid_n2), avg_N2)
+
+    eta_sm[good, i] = (avg_sig_pd[good, i] - avg_sig0_match) / ddz_avg_sig0_match
+
+    grid = -1. * dg_z[good]
+    bvf = np.sqrt(avg_N2_match)
+    this_eta = eta_sm[good, i].copy()
+    eta_fs = eta_sm[good, i].copy()
+    iw = np.where((grid >= eta_fit_dep_min) & (grid <= eta_fit_dep_max))
+    if iw[0].size > 1:
+        G, Gz, c, epsilon = vertical_modes(avg_N2_match, -1.0 * dg_z[good], omega, mmax)  # N2
+
+        i_sh = np.where((grid < eta_fit_dep_min))
+        eta_fs[i_sh[0]] = grid[i_sh] * this_eta[iw[0][0]] / grid[iw[0][0]]
+
+        i_dp = np.where((grid > eta_fit_dep_max))
+        eta_fs[i_dp[0]] = (grid[i_dp] - grid[-1]) * this_eta[iw[0][-1]] / (grid[iw[0][-1]] - grid[-1])
+
+        AG_dg_sm[1:, i] = np.squeeze(np.linalg.lstsq(G[:, 1:], eta_fs)[0])
+        # AG[1:, i] = np.squeeze(np.linalg.lstsq(G[:, 1:], np.transpose(np.atleast_2d(eta_fs)))[0])
+        eta_m_dg_sm[good, i] = np.squeeze(np.matrix(G) * np.transpose(np.matrix(AG_dg_sm[:, i])))
+        Neta_m_dg_sm[good, i] = bvf * np.array(np.squeeze(np.matrix(G) * np.transpose(np.matrix(AG_dg_sm[:, i]))))
+        PE_per_mass_dg_sm[:, i] = (0.5) * AG_dg_sm[:, i] * AG_dg_sm[:, i] * c * c
+
+        # AG_dg_sm, eta_m_dg_sm, Neta_m_dg_sm, PE_per_mass_dg_sm = eta_fit(np.shape(avg_sig_pd)[1], -1.0 * z_grid_n2,
+        #                                                                  nmodes, avg_N2, G, c, eta_sm[0:126, :],
+        #                                                                  eta_fit_dep_min, eta_fit_dep_max)
+
+# ---------------------------------------------------------------------------------------------------------------------
+# -- eta Model
+in_range = np.where((xy_grid > np.nanmin(dg_y)) & (xy_grid < np.nanmax(dg_y)))[0]
+eta_model = np.nan * np.ones(np.shape(sig0_out_s[:, in_range, 0]))
+
+eta_model = np.nan * np.ones(np.shape(gamma_mod_at_mw_avg))
+AG_model = np.zeros((nmodes, np.shape(eta_model)[1]))
+PE_per_mass_model = np.nan * np.ones((nmodes, np.shape(eta_model)[1]))
+eta_m_model = np.nan * np.ones((len(dg_z), np.shape(eta_model)[1]))
+Neta_m_model = np.nan * np.ones((len(dg_z), np.shape(eta_model)[1]))
+for i in range(np.shape(eta_model)[1]):
+    # range over which m/w profile takes up,
+    # consider each model density profile, avg at each grid point in time, estimate eta
+    # this_model = np.flipud(np.nanmean(sig0_out_s[:, in_range[i], :], axis=1))
+    this_model = gamma_mod_at_mw_avg[:, i]
+
+    good = np.where(~np.isnan(this_model))[0]
+    avg_sig0_match = np.interp(np.abs(dg_z[good]), np.abs(z_grid_n2), avg_sig0)
+    ddz_avg_sig0_match = np.interp(np.abs(dg_z[good]), np.abs(z_grid_n2), ddz_avg_sig0)
+    avg_N2_match = np.interp(np.abs(dg_z[good]), np.abs(z_grid_n2), avg_N2)
+
+    eta_model[good, i] = (this_model[good] - avg_sig0_match) / ddz_avg_sig0_match
+
+    grid = -1. * dg_z[good]
+    bvf = np.sqrt(avg_N2_match)
+    this_eta = eta_model[good, i].copy()
+    eta_fs = eta_model[good, i].copy()
+    iw = np.where((grid >= eta_fit_dep_min) & (grid <= eta_fit_dep_max))
+    if iw[0].size > 1:
+        G, Gz, c, epsilon = vertical_modes(avg_N2_match, -1.0 * dg_z[good], omega, mmax)  # N2
+
+        i_sh = np.where((grid < eta_fit_dep_min))
+        eta_fs[i_sh[0]] = grid[i_sh] * this_eta[iw[0][0]] / grid[iw[0][0]]
+
+        i_dp = np.where((grid > eta_fit_dep_max))
+        eta_fs[i_dp[0]] = (grid[i_dp] - grid[-1]) * this_eta[iw[0][-1]] / (grid[iw[0][-1]] - grid[-1])
+
+        AG_model[1:, i] = np.squeeze(np.linalg.lstsq(G[:, 1:], eta_fs)[0])
+        # AG[1:, i] = np.squeeze(np.linalg.lstsq(G[:, 1:], np.transpose(np.atleast_2d(eta_fs)))[0])
+        eta_m_model[good, i] = np.squeeze(np.matrix(G) * np.transpose(np.matrix(AG_model[:, i])))
+        Neta_m_model[good, i] = bvf * np.array(np.squeeze(np.matrix(G) * np.transpose(np.matrix(AG_model[:, i]))))
+        PE_per_mass_model[:, i] = (0.5) * AG_model[:, i] * AG_model[:, i] * c * c
+
+    # AG_model, eta_m_model, Neta_m_model, PE_per_mass_model = eta_fit(np.shape(eta_model)[1], -1.0 * z_grid_n2,
+    #                                                              nmodes, avg_N2, G, c, eta_model[0:126, :],
+    #                                                              eta_fit_dep_min, eta_fit_dep_max)
+
+# ---------------------------------------------------------------------------------------------------------------------
+# ---------------------------------------------------------------------------------------------------------------------
+# --- DG velocities ---
+HKE_per_mass_dg = np.nan * np.zeros([nmodes, num_profs_eta])
+modest = np.arange(11, nmodes)
+good_ke_prof = np.ones(num_profs_eta)
+AGz = np.zeros([nmodes, num_profs_eta])
+HKE_noise_threshold = 1e-5  # 1e-5
+V_m = np.nan * np.zeros((len(dg_z), num_profs_eta))
+for i in range(num_profs_eta):
+
+    good = np.where(~np.isnan(v_g[:, i]))[0]
+
+    if len(good) > 20:
+        avg_N2_match = np.interp(np.abs(dg_z[good]), np.abs(z_grid_n2), avg_N2)
+        G, Gz, c, epsilon = vertical_modes(avg_N2_match, -1.0 * dg_z[good], omega, mmax)  # N2
+
+        # fit to velocity profiles
+        this_V = v_g[good, i].copy()
+        iv = np.where(~np.isnan(this_V))
+        if iv[0].size > 1:
+            AGz[:, i] = np.squeeze(np.linalg.lstsq(np.squeeze(Gz[iv, :]), np.transpose(np.atleast_2d(this_V[iv])))[0])
+            # Gz(iv,:)\V_g(iv,ip)
+            V_m[good, i] = np.squeeze(np.matrix(Gz) * np.transpose(np.matrix(AGz[:, i])))
+            # Gz*AGz[:,i];
+            HKE_per_mass_dg[:, i] = 0.5 * (AGz[:, i] * AGz[:, i])
+            ival = np.where(HKE_per_mass_dg[modest, i] >= HKE_noise_threshold)
+            if np.size(ival) > 0:
+                good_ke_prof[i] = 0  # flag profile as noisy
+        else:
+            good_ke_prof[i] = 0  # flag empty profile as noisy as well
+# ---------------------------------------------------------------------------------------------------------------------
+# Model
+# select avg model profiles that coincide with dg velocity profiles in space and time
+avg_mod_u = u_mod_at_mw_avg[:, 1:-1]
+HKE_per_mass_model = np.nan * np.zeros([nmodes, np.shape(avg_mod_u)[1]])
+good_ke_prof = np.ones(np.shape(avg_mod_u)[1])
+AGz_model = np.zeros([nmodes, np.shape(avg_mod_u)[1]])
+HKE_noise_threshold = 1e-5  # 1e-5
+V_m_model = np.nan * np.zeros((len(dg_z), np.shape(avg_mod_u)[1]))
+# avg_mod_u = np.flipud(np.nanmean(u_out_s[:, in_range, :], axis=2))
+for i in range(np.shape(avg_mod_u)[1]):
+    good = np.where(~np.isnan(avg_mod_u[:, i]))[0]
+    avg_N2_match = np.interp(np.abs(dg_z[good]), np.abs(z_grid_n2), avg_N2)
+
+    G, Gz, c, epsilon = vertical_modes(avg_N2_match, -1.0 * dg_z[good], omega, mmax)  # N2
+
+    # fit to velocity profiles
+    this_V = avg_mod_u[good, i]
+    iv = np.where(~np.isnan(this_V))
+    if iv[0].size > 1:
+        AGz_model[:, i] = np.squeeze(np.linalg.lstsq(np.squeeze(Gz[iv, :]), np.transpose(np.atleast_2d(this_V[iv])))[0])
+        # Gz(iv,:)\V_g(iv,ip)
+        V_m_model[good, i] = np.squeeze(np.matrix(Gz) * np.transpose(np.matrix(AGz_model[:, i])))
+        # Gz*AGz[:,i];
+        HKE_per_mass_model[:, i] = 0.5 * (AGz_model[:, i] * AGz_model[:, i])
+        ival = np.where(HKE_per_mass_model[modest, i] >= HKE_noise_threshold)
+        if np.size(ival) > 0:
+            good_ke_prof[i] = 0  # flag profile as noisy
+    else:
+        good_ke_prof[i] = 0  # flag empty profile as noisy as well
+
+# ----------------------------------------------------------------------------------------------------------------------
+# Save
+# velocity profiles
+# T/S (effect of non-vertical profiling)
+# ----------------------------------------------------------------------------------------------------------------------
+
 # PLOTTING
 h_max = np.nanmax(dg_y/1000 + 20)  # horizontal domain limit
 z_max = -4800
@@ -458,24 +715,31 @@ u_levels = np.array([-.5, -.4, -0.3, -.25, - .2, -.15, -.125, -.1, -.075, -.05, 
 
 cmap = plt.cm.get_cmap("Spectral")
 
-if dg_t[0, 0] < 1:
-    taggt = str(np.int(filename[11])) + '/' + str(np.int(filename[12:14])) + ' ' + str(np.int(dg_t[0, 0]*24)) + 'hr' + \
-            ' - ' + str(np.int(filename[11])) + '/' + str(np.int(filename[12:14]) + 2) + ' ' + str(np.int((dg_t[0, -1] - 2)*24)) + 'hr'
-elif (dg_t[0, 0] > 1) & (dg_t[0, 0] < 2):
-    taggt = str(np.int(filename[11])) + '/' + str(np.int(filename[12:14]) + 1) + ' ' + str(np.int((dg_t[0, 0] - 1)*24)) + 'hr' + \
-            ' - ' + str(np.int(filename[11])) + '/' + str(np.int(filename[12:14]) + 3) + ' ' + str(np.int((dg_t[0, -1] - 3)*24)) + 'hr'
-elif (dg_t[0, 0] > 2) & (dg_t[0, 0] < 3):
-    taggt = str(np.int(filename[11])) + '/' + str(np.int(filename[12:14]) + 2) + ' ' + str(np.int((dg_t[0, 0] - 2)*24)) + 'hr' + \
-            ' - ' + str(np.int(filename[11])) + '/' + str(np.int(filename[12:14]) + 4) + ' ' + str(np.int((dg_t[0, -1] - 4)*24)) + 'hr'
-elif (dg_t[0, 0] > 3) & (dg_t[0, 0] < 4):
-    taggt = str(np.int(filename[11])) + '/' + str(np.int(filename[12:14]) + 3) + ' ' + str(np.int((dg_t[0, 0] - 3)*24)) + 'hr' + \
-            ' - ' + str(np.int(filename[11])) + '/' + str(np.int(filename[12:14]) + 5) + ' ' + str(np.int((dg_t[0, -1] - 5)*24)) + 'hr'
-elif (dg_t[0, 0] > 4) & (dg_t[0, 0] < 5):
-    taggt = str(np.int(filename[11])) + '/' + str(np.int(filename[12:14]) + 4) + ' ' + str(np.int((dg_t[0, 0] - 4)*24)) + 'hr' + \
-            ' - ' + str(np.int(filename[11])) + '/' + str(np.int(filename[12:14]) + 6) + ' ' + str(np.int((dg_t[0, -1] - 6)*24)) + 'hr'
-elif (dg_t[0, 0] > 5) & (dg_t[0, 0] < 6):
-    taggt = str(np.int(filename[11])) + '/' + str(np.int(filename[12:14]) + 5) + ' ' + str(np.int((dg_t[0, 0] - 5)*24)) + 'hr' + \
-            ' - ' + str(np.int(filename[11])) + '/' + str(np.int(filename[12:14]) + 7) + ' ' + str(np.int((dg_t[0, -1] - 7)*24)) + 'hr'
+dg_t_s = dg_t[0, 0]
+dg_t_e = dg_t[0, -1]
+taggt = str(np.int(filename[11])) + '/' + str(np.int(filename[12:14]) + np.floor(dg_t_s)) + ' ' + \
+        str(np.int((dg_t[0, 0] - np.floor(dg_t_s)) * 24)) + 'hr' + \
+        ' - ' + str(np.int(filename[11])) + '/' + str(np.int(filename[12:14]) + np.floor(dg_t_e)) + ' ' + \
+        str(np.int((dg_t[0, -1] - np.floor(dg_t_e)) * 24)) + 'hr'
+
+# if dg_t[0, 0] < 1:
+#     taggt = str(np.int(filename[11])) + '/' + str(np.int(filename[12:14])) + ' ' + str(np.int(dg_t[0, 0]*24)) + 'hr' + \
+#             ' - ' + str(np.int(filename[11])) + '/' + str(np.int(filename[12:14]) + 2) + ' ' + str(np.int((dg_t[0, -1] - 2)*24)) + 'hr'
+# elif (dg_t[0, 0] > 1) & (dg_t[0, 0] < 2):
+#     taggt = str(np.int(filename[11])) + '/' + str(np.int(filename[12:14]) + 1) + ' ' + str(np.int((dg_t[0, 0] - 1)*24)) + 'hr' + \
+#             ' - ' + str(np.int(filename[11])) + '/' + str(np.int(filename[12:14]) + 3) + ' ' + str(np.int((dg_t[0, -1] - 3)*24)) + 'hr'
+# elif (dg_t[0, 0] > 2) & (dg_t[0, 0] < 3):
+#     taggt = str(np.int(filename[11])) + '/' + str(np.int(filename[12:14]) + 2) + ' ' + str(np.int((dg_t[0, 0] - 2)*24)) + 'hr' + \
+#             ' - ' + str(np.int(filename[11])) + '/' + str(np.int(filename[12:14]) + 4) + ' ' + str(np.int((dg_t[0, -1] - 4)*24)) + 'hr'
+# elif (dg_t[0, 0] > 3) & (dg_t[0, 0] < 4):
+#     taggt = str(np.int(filename[11])) + '/' + str(np.int(filename[12:14]) + 3) + ' ' + str(np.int((dg_t[0, 0] - 3)*24)) + 'hr' + \
+#             ' - ' + str(np.int(filename[11])) + '/' + str(np.int(filename[12:14]) + 5) + ' ' + str(np.int((dg_t[0, -1] - 5)*24)) + 'hr'
+# elif (dg_t[0, 0] > 4) & (dg_t[0, 0] < 5):
+#     taggt = str(np.int(filename[11])) + '/' + str(np.int(filename[12:14]) + 4) + ' ' + str(np.int((dg_t[0, 0] - 4)*24)) + 'hr' + \
+#             ' - ' + str(np.int(filename[11])) + '/' + str(np.int(filename[12:14]) + 6) + ' ' + str(np.int((dg_t[0, -1] - 6)*24)) + 'hr'
+# elif (dg_t[0, 0] > 5) & (dg_t[0, 0] < 6):
+#     taggt = str(np.int(filename[11])) + '/' + str(np.int(filename[12:14]) + 5) + ' ' + str(np.int((dg_t[0, 0] - 5)*24)) + 'hr' + \
+#             ' - ' + str(np.int(filename[11])) + '/' + str(np.int(filename[12:14]) + 7) + ' ' + str(np.int((dg_t[0, -1] - 7)*24)) + 'hr'
 
 plot0 = 1
 if plot0 > 0:
@@ -501,25 +765,45 @@ if plot0 > 0:
     ax1.set_xlim([0, h_max])
     ax1.set_xlabel('E/W distance [km]')
     ax1.set_ylabel('z [m]')
-    ax1.set_title(taggt)
+    ax1.set_title('Model Avg. ' + taggt)
     plt.colorbar(uvcf, label='N/S Velocity [m/s]', ticks=u_levels)
     ax1.grid()
     plot_pro(ax1)
 
-    # matplotlib.rcParams['figure.figsize'] = (6, 6)
-    # f, ax1 = plt.subplots()
-    # for i in range(np.shape(dg_sa)[1]):
-    #     ax1.scatter(dg_sa[:, i], dg_ct[:, i], s=1)
-    # plot_pro(ax1)
+    f, ax1 = plt.subplots()
+    ax1.contourf(np.tile(mw_y[1:-1]/1000, (len(z_grid), 1)), np.tile(dg_z[:, None], (1, len(mw_y[1:-1]))),
+                 v_g, levels=u_levels, cmap=cmap)
+    uvc = ax1.contour(np.tile(mw_y[1:-1]/1000, (len(z_grid), 1)), np.tile(dg_z[:, None], (1, len(mw_y[1:-1]))), v_g,
+                      levels=u_levels, colors='#2F4F4F', linewidths=0.5)
+    ax1.clabel(uvc, inline_spacing=-3, fmt='%.4g', colors='k')
+
+    rhoc = ax1.contour(np.tile(xy_grid/1000, (len(z_grid), 1)), np.tile(z_grid[:, None], (1, len(xy_grid))),
+                       np.nanmean(sig0_out_s[t_in_low:t_in_high, :, :], axis=0),
+                       levels=sigth_levels, colors='#A9A9A9', linewidths=0.5)
+    for r in range(np.shape(isopycdep)[0]):
+        ax1.plot(isopycx[r, :]/1000, isopycdep[r, :], color='r', linewidth=0.75)
+    ax1.plot(isopycx[r, :] / 1000, isopycdep[r, :], color='r', linewidth=0.5, label='glider measured isopycnals')
+    ax1.scatter(dg_y/1000, dg_z_g, 4, color='k', label='glider path')
+    handles, labels = ax1.get_legend_handles_labels()
+    ax1.legend(handles, labels, fontsize=11)
+    ax1.set_ylim([z_max, 0])
+    ax1.set_xlim([0, h_max])
+    ax1.set_xlabel('E/W distance [km]')
+    ax1.set_ylabel('z [m]')
+    ax1.set_title('Glider Velocity Field')
+    plt.colorbar(uvcf, label='N/S Velocity [m/s]', ticks=u_levels)
+    ax1.grid()
+    plot_pro(ax1)
+
 
 plot_v = 1
 if plot_v > 0:
     avg_mod_u = u_mod_at_mw_avg[:, 1:-1]
     matplotlib.rcParams['figure.figsize'] = (7, 7)
-    f, ax1 = plt.subplots()
+    f, (ax1, ax2) = plt.subplots(1, 2, sharey=True)
     for i in range(np.shape(v_g)[1]):
         ax1.plot(v_g[:, i], dg_z, color='#4682B4', linewidth=1.25, label='DG')
-        # ax1.plot(V_m[:, i], dg_z, color='k', linestyle='--', linewidth=.75)
+        ax1.plot(V_m[:, i], dg_z, color='k', linestyle='--', linewidth=.75)
         ax1.plot(avg_mod_u[0:-20, i], dg_z[0:-20], color='r', linewidth=0.5, label='Model')
     handles, labels = ax1.get_legend_handles_labels()
     ax1.legend([handles[-2], handles[-1]], [labels[-2], labels[-1]], fontsize=10)
@@ -527,9 +811,19 @@ if plot_v > 0:
     ax1.set_title('Avg. Model and DG Velocity (u_g)')
     ax1.set_xlabel('Velocity [m/s]')
     ax1.set_ylabel('z [m]')
-    plot_pro(ax1)
+    ax1.grid()
 
-plot_rho = 1
+    for i in range(np.shape(eta_sm)[1]):
+        ax2.plot(eta_sm[:, i], dg_z, color='#4682B4', linewidth=1.25, label='DG')
+        ax2.plot(eta_m_dg_sm[:, i], dg_z, color='k', linestyle='--', linewidth=.75)
+        ax2.plot(eta_model[0:-20, i + 1], dg_z[0:-20], linewidth=0.5, color='r', label='Model')
+    handles, labels = ax2.get_legend_handles_labels()
+    ax2.legend([handles[-2], handles[-1]], [labels[-2], labels[-1]], fontsize=10)
+    ax2.set_xlabel('Isopycnal Displacement [m]')
+    ax2.set_title('Vertical Displacement')
+    plot_pro(ax2)
+
+plot_rho = 0
 if plot_rho > 0:
     # density gradient computation for 4 depths for plot
     inn = np.where((xy_grid >= dg_y[0, 0]) & (xy_grid <= dg_y[0, 3]))[0]
@@ -600,7 +894,7 @@ if plot_sp > 0:
 
     fig = plt.figure(figsize=(11,8))
 
-    with writer.saving(fig, "/Users/jake/Documents/baroclinic_modes/Model/HYCOM/glider_ts_movie/glider_diver.mp4", 150):
+    with writer.saving(fig, "/Users/jake/Documents/baroclinic_modes/Model/HYCOM/glider_ts_movie/glider_diver_2.mp4", 150):
         for i in range(0, 6):  # range(np.shape(dg_sig0)[1]):
             max_ind = np.where(np.isnan(dg_y[:, i]))[0][0] - 1
             for j0 in range(0, max_ind, 8):  # range(1, np.shape(dg_sig0)[0]):
@@ -646,21 +940,26 @@ if plot_sp > 0:
                     plt.scatter(dg_y[:, 0:i] / 1000, dg_z_g[:, 0:i], 4, color='k')  # up to
                     plt.scatter(dg_y[0:j+1, i] / 1000, dg_z_g[0:j+1, i], 4, color='k', label='glider path')
 
-                if this_t < 1:
-                    tagg = str(np.int(filename[11])) + '/' + str(np.int(filename[12:14])) + ' ' + str(
-                        nearest_model_t_over) + 'hr'
-                elif (this_t > 1) & (this_t < 2):
-                    tagg = str(np.int(filename[11])) + '/' + str(np.int(filename[12:14]) + 1) + ' ' + str(
-                        nearest_model_t_over - 24) + 'hr'
-                elif (this_t > 2) & (this_t < 3):
-                    tagg = str(np.int(filename[11])) + '/' + str(np.int(filename[12:14]) + 2) + ' ' + str(
-                        nearest_model_t_over - 48) + 'hr'
-                elif (this_t > 3) & (this_t < 4):
-                    tagg = str(np.int(filename[11])) + '/' + str(np.int(filename[12:14]) + 3) + ' ' + str(
-                        nearest_model_t_over - 72) + 'hr'
-                elif (this_t > 4) & (this_t < 5):
-                    tagg = str(np.int(filename[11])) + '/' + str(np.int(filename[12:14]) + 4) + ' ' + str(
-                        nearest_model_t_over - 96) + 'hr'
+                tagg = str(np.int(filename[11])) + '/' + \
+                       str(np.int(filename[12:14]) +
+                           np.floor(this_t)) + ' ' + \
+                       str(nearest_model_t_over - (np.floor(this_t) * 24)) + 'hr'
+
+                # if this_t < 1:
+                #     tagg = str(np.int(filename[11])) + '/' + str(np.int(filename[12:14])) + ' ' + str(
+                #         nearest_model_t_over) + 'hr'
+                # elif (this_t > 1) & (this_t < 2):
+                #     tagg = str(np.int(filename[11])) + '/' + str(np.int(filename[12:14]) + 1) + ' ' + str(
+                #         nearest_model_t_over - 24) + 'hr'
+                # elif (this_t > 2) & (this_t < 3):
+                #     tagg = str(np.int(filename[11])) + '/' + str(np.int(filename[12:14]) + 2) + ' ' + str(
+                #         nearest_model_t_over - 48) + 'hr'
+                # elif (this_t > 3) & (this_t < 4):
+                #     tagg = str(np.int(filename[11])) + '/' + str(np.int(filename[12:14]) + 3) + ' ' + str(
+                #         nearest_model_t_over - 72) + 'hr'
+                # elif (this_t > 4) & (this_t < 5):
+                #     tagg = str(np.int(filename[11])) + '/' + str(np.int(filename[12:14]) + 4) + ' ' + str(
+                #         nearest_model_t_over - 96) + 'hr'
 
                 ax1 = plt.gca()
                 ax1.set_title(tagg)

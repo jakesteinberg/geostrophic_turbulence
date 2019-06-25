@@ -22,9 +22,10 @@ from toolkit import plot_pro
 # x = Glider(39, np.concatenate((np.arange(70, 83), np.arange(84, 86))),
 #            r'/Users/jake/Documents/baroclinic_modes/DG/ABACO_2018/sg039')
 # ---- DG BATS 2014
-x = Glider(35, np.concatenate((np.arange(123, 126), np.array([127]))), '/Users/jake/Documents/baroclinic_modes/DG/BATS_2014/sg035')
+# x = Glider(35, np.concatenate((np.arange(123, 126), np.array([127]))), '/Users/jake/Documents/baroclinic_modes/DG/BATS_2014/sg035')
+# x = Glider(35, np.arange(123, 126), '/Users/jake/Documents/baroclinic_modes/DG/BATS_2014/sg035')
 # ---- DG BATS 2015
-# x = Glider(35, np.arange(68, 71), '/Users/jake/Documents/baroclinic_modes/DG/BATS_2015/sg035')
+x = Glider(35, np.arange(132, 136), '/Users/jake/Documents/baroclinic_modes/DG/BATS_2015/sg035')  # 114,117
 # ---- DG BATS 2018
 # x = Glider(41, np.arange(158, 162), '/Users/jake/Documents/baroclinic_modes/DG/BATS_2018/sg041')
 
@@ -94,7 +95,7 @@ ds, dist, v_g, vbt, isopycdep, isopycx, mwe_lon, mwe_lat, DACe_MW, DACn_MW, prof
 
 # -----------------------------------------------------------------------------------------------
 # PLOTTING cross section
-u_levels = np.arange(-.6, .6, .025)
+u_levels = np.arange(-.4, .44, .04)
 # choose which transect
 # transect_no = 0
 # x.plot_cross_section(bin_depth, ds[transect_no], v_g[transect_no], dist[transect_no],
@@ -102,7 +103,7 @@ u_levels = np.arange(-.6, .6, .025)
 #                      sigth_levels, d_time, u_levels)
 fig0 = x.plot_cross_section(bin_depth, ds, v_g, dist, profile_tags_per, isopycdep, isopycx, sigth_levels, d_time, u_levels)
 
-fig0.savefig("/Users/jake/Documents/baroclinic_modes/Meetings/meeting_19_04_18/bats_eddy_2014_cross.jpeg", dpi=300)
+fig0.savefig("/Users/jake/Documents/glider_flight_sim_paper/sample_cross.jpeg", dpi=300)
 # -----------------------------------------------------------------------------------------------
 # plot plan view
 # load in bathymetry and lat/lon plotting bounds
@@ -133,7 +134,7 @@ fig1 = x.plot_plan_view(lon, lat, mwe_lon, mwe_lat, DACe_MW, DACn_MW,
 # plot t/s
 # x.plot_t_s(ct, sa)
 
-fig1.savefig("/Users/jake/Documents/baroclinic_modes/Meetings/meeting_19_04_18/bats_eddy_2014_plan.jpeg", dpi=300)
+fig1.savefig("/Users/jake/Documents/glider_flight_sim_paper/sample_plan.jpeg", dpi=300)
 # -------------------
 # vertical modes
 # N2_avg = np.nanmean(N2, axis=1)
