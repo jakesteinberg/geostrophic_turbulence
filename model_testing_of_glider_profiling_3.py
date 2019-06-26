@@ -89,8 +89,8 @@ t_e = datetime.date.fromordinal(np.int(time_ord_s[-1]))
 tag = str(t_s.month) + '_' + str(t_s.day) + '_' + str(t_e.month) + '_' + str(t_e.day)
 output_filename = '/Users/jake/Documents/baroclinic_modes/Model/vel_anom_y70_v08_slp3_' + tag + '.pkl'
 save_anom = 0
-save_p = 1
-save_p_g = 1
+save_p = 0
+save_p_g = 0
 
 # need to specify D_TGT or have glider 'fly' until it hits bottom
 data_loc = np.nanmean(sig0_out_s, axis=2)  # (depth X xy_grid)

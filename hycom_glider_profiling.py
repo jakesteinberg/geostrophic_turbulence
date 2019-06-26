@@ -57,7 +57,7 @@ ff = np.pi * np.sin(np.deg2rad(ref_lat)) / (12 * 1800)  # Coriolis parameter [s^
 
 # main set of parameters
 # to adjust
-dg_vertical_speed = 0.2  # m/s
+dg_vertical_speed = 0.08  # m/s
 dg_glide_slope = 3
 num_dives = 3
 dac_error = 0.01  # m/s
@@ -69,16 +69,17 @@ z_dg_s = 0        # depth, start of glider dives
 partial_mw = 0    # include exclude partial m/w estimates
 
 # time start index
-t_st_ind = 240
+t_st_ind = 100
 
-save_anom = 1
-save_p = 0
-save_p_g = 0
-
-plot0 = 0  # plot model, glider cross section
-plot_v = 0  # plot velocity eta profiles
-plot_rho = 0  # plot density at 4 depths in space and time
+plot0 = 1  # plot model, glider cross section
+plot_v = 1  # plot velocity eta profiles
+plot_rho = 1  # plot density at 4 depths in space and time
 plot_sp = 0  # run and save gif
+
+save_anom = 0
+save_p = 1
+save_v = 1
+save_rho = 1
 
 # need to specify D_TGT or have glider 'fly' until it hits bottom
 data_loc = np.nanmean(sig0_out_s, axis=0)  # (depth X xy_grid)
@@ -463,6 +464,8 @@ t_steps = [t_near, t_near + 6, t_near + 12, t_near + 18, t_near + 24, t_near + 3
 t_steps = [t_near, t_near + 2, t_near + 4, t_near + 6, t_near + 8, t_near + 10, t_near + 12,
            t_near + 14, t_near + 16, t_near + 18, t_near + 20, t_near + 22, t_near + 24,
            t_near + 26, t_near + 28, t_near + 30]
+t_step_m = np.int(np.floor(24 * (dg_t[0, 3] - dg_t[0, 0])))
+t_steps = range(t_near, t_near + t_step_m, 2)
 isop_dep = np.nan * np.ones((len(deps), len(xy_grid), len(t_steps)))
 for i in range(len(xy_grid)):  # loop over each horizontal grid point
     for j in range(len(deps)):  # loop over each dep
@@ -839,8 +842,14 @@ if plot0 > 0:
     ax1.set_ylabel('z [m]')
     ax1.set_title('Model Avg. ' + taggt)
     plt.colorbar(uvcf, label='N/S Velocity [m/s]', ticks=u_levels)
-    ax1.grid()
-    plot_pro(ax1)
+
+    if save_p > 0:
+        f.savefig('/Users/jake/Documents/glider_flight_sim_paper/model_y' +
+                  str(np.int(y_dg_s/1000)) + '_v' + str(np.int(100*dg_vertical_speed)) +
+                  '_slp' + str(np.int(dg_glide_slope)) + '_' + tag + '.png', dpi=200)
+    else:
+        ax1.grid()
+        plot_pro(ax1)
 
     f, ax1 = plt.subplots()
     ax1.contourf(np.tile(mw_y[1:-1]/1000, (len(z_grid), 1)), np.tile(dg_z[:, None], (1, len(mw_y[1:-1]))),
@@ -864,8 +873,13 @@ if plot0 > 0:
     ax1.set_ylabel('z [m]')
     ax1.set_title('Glider Velocity Field')
     plt.colorbar(uvcf, label='N/S Velocity [m/s]', ticks=u_levels)
-    ax1.grid()
-    plot_pro(ax1)
+    if save_p > 0:
+        f.savefig('/Users/jake/Documents/glider_flight_sim_paper/glider_y' +
+                  str(np.int(y_dg_s/1000)) + '_v' + str(np.int(100*dg_vertical_speed)) +
+                  '_slp' + str(np.int(dg_glide_slope)) + '_' + tag + '.png', dpi=200)
+    else:
+        ax1.grid()
+        plot_pro(ax1)
 
 if plot_v > 0:
     avg_mod_u = u_mod_at_mw_avg[:, 1:-1]
@@ -878,7 +892,7 @@ if plot_v > 0:
     handles, labels = ax1.get_legend_handles_labels()
     ax1.legend([handles[-2], handles[-1]], [labels[-2], labels[-1]], fontsize=10)
     ax1.set_xlim([-.4, .4])
-    ax1.set_title('Avg. Model and DG Velocity (u_g)')
+    ax1.set_title('Avg. Model and DG Velocity (u_g), w = ' + str(dg_vertical_speed))
     ax1.set_xlabel('Velocity [m/s]')
     ax1.set_ylabel('z [m]')
     ax1.grid()
@@ -892,7 +906,14 @@ if plot_v > 0:
     ax2.set_xlabel('Isopycnal Displacement [m]')
     ax2.set_title('Vertical Displacement')
     ax2.set_xlim([-100, 100])
-    plot_pro(ax2)
+
+    if save_v > 0:
+        ax2.grid()
+        f.savefig('/Users/jake/Documents/glider_flight_sim_paper/vel_eta_y' +
+                  str(np.int(y_dg_s/1000)) + '_v' + str(np.int(100*dg_vertical_speed)) +
+                  '_slp' + str(np.int(dg_glide_slope)) + '_' + tag + '.png', dpi=200)
+    else:
+        plot_pro(ax2)
 
 if plot_rho > 0:
     # density gradient computation for 4 depths for plot
@@ -911,7 +932,7 @@ if plot_rho > 0:
     cmap = plt.cm.get_cmap("YlGnBu_r")
     # cmaps = [0.15, 0.22, 0.3, 0.37, 0.45, 0.52, 0.6, 0.67, 0.75, 0.82, .9, .98]
     cmaps = np.arange(0, 1, 1/len(t_steps))
-    lab_y = [25.775, 27.55, 27.9, 27.96]
+    lab_y = [25.775, 27.55, 27.9, 27.97]
     matplotlib.rcParams['figure.figsize'] = (10, 7)
     f, ax = plt.subplots(4, 1, sharex=True)
     for i in range(len(deps)):
@@ -933,9 +954,9 @@ if plot_rho > 0:
                          0)) + '%', fontweight='bold')
 
     ax[i].plot(xy_grid / 1000, np.nanmean(isop_dep[i, :, :], axis=1), color='r', linestyle='--', linewidth=1.3,
-               label='72hr. avg. density ')
+               label='avg. density over 2 dive-cycle period')
     handles, labels = ax[3].get_legend_handles_labels()
-    ax[3].legend(handles, labels, fontsize=12, loc='lower right')
+    ax[3].legend(handles, labels, fontsize=9, loc='lower right')
     ax[0].set_ylabel('Neutral Density')
     ax[0].set_title(r'Density along z=z$_i$')
     ax[0].set_ylim([25.7, 26])
@@ -954,7 +975,14 @@ if plot_rho > 0:
     ax[3].set_ylim([27.96, 28])
     ax[3].invert_yaxis()
     ax[3].set_xlabel('Transect Distance [km]')
-    plot_pro(ax[3])
+
+    if save_rho > 0:
+        ax[3].grid()
+        f.savefig('/Users/jake/Documents/glider_flight_sim_paper/g_m_rho_y' +
+                  str(np.int(y_dg_s/1000)) + '_v' + str(np.int(100*dg_vertical_speed)) +
+                  '_slp' + str(np.int(dg_glide_slope)) + '_' + tag + '.png', dpi=200)
+    else:
+        plot_pro(ax[3])
 
 if plot_sp > 0:
 

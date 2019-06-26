@@ -15,8 +15,8 @@ from zrfun import get_basic_info, get_z
 
 
 file_list = glob.glob('/Users/jake/Documents/baroclinic_modes/Model/HYCOM/BATS_hourly/sim_dg_v/ve_y70_v20*.pkl')
-tagg = 'yall_v08_slp3'
-savee = 0
+tagg = 'yall_v20_slp3'
+savee = 1
 
 direct_anom = []
 # igw_var = np.nan * np.ones(len(file_list))
@@ -89,7 +89,7 @@ matplotlib.rcParams['figure.figsize'] = (6.5, 8)
 f, ax = plt.subplots()
 low_er_mean = np.nan * np.ones(len(z_grid))
 for i in range(len(z_grid)):
-    low = np.where(igw_var[i, :] < .15)[0]
+    low = np.where(igw_var[i, :] < .2)[0]
     ax.scatter(slope_er[i, :], z_grid[i] * np.ones(len(slope_er[i, :])), s=2, color='b')
     ax.scatter(slope_er[i, low], z_grid[i] * np.ones(len(slope_er[i, low])), s=4, color='r')
     ax.scatter(np.nanmean(slope_er[i, low]), z_grid[i], s=20, color='r')
@@ -108,7 +108,7 @@ ax.set_xlim([1, 10**4])
 ax.set_ylim([-3000, 0])
 plot_pro(ax)
 if savee > 0:
-    f.savefig('/Users/jake/Documents/baroclinic_modes/Meetings/meeting_19_05_17/model_dg_per_shear_err_' + str(tagg) + '.png', dpi=200)
+    f.savefig('/Users/jake/Documents/glider_flight_sim_paper/model_dg_per_shear_err_' + str(tagg) + '.png', dpi=200)
 
 
 # all velocity anomalies colored by max abs vel attained
@@ -167,7 +167,7 @@ ax2.set_title(r'M/W Vel. RMS Error ($u_{g}$ - $\overline{u_{model}}$)$^2$')
 ax1.grid()
 plot_pro(ax2)
 if savee > 0:
-    f.savefig('/Users/jake/Documents/baroclinic_modes/Meetings/meeting_19_05_17/model_dg_vel_error_' + str(tagg) + '.png', dpi=200)
+    f.savefig('/Users/jake/Documents/glider_flight_sim_paper/model_dg_vel_error_' + str(tagg) + '.png', dpi=200)
 
 # binss = np.arange(0, 0.002, 0.0001)
 # subax = f.add_axes([0.2, 0.75, .225, .08])
@@ -269,7 +269,7 @@ for j in range(len(modeno)):
 limm = 5
 ax1.set_xlim([l_lim, 0.5 * 10 ** 2])
 ax2.set_xlim([l_lim, 0.5 * 10 ** 2])
-ax2.set_ylim([10 ** (-4), 1 * 10 ** 2])
+ax2.set_ylim([10 ** (-4), 3 * 10 ** 2])
 ax1.set_yscale('log')
 ax1.set_xscale('log')
 ax2.set_xscale('log')
@@ -290,4 +290,4 @@ ax1.legend(handles, labels, fontsize=12)
 ax1.grid()
 plot_pro(ax2)
 if savee > 0:
-    f.savefig('/Users/jake/Documents/baroclinic_modes/Meetings/meeting_19_05_17/model_dg_vel_energy_' + str(tagg) + '.png', dpi=200)
+    f.savefig('/Users/jake/Documents/glider_flight_sim_paper/model_dg_vel_energy_' + str(tagg) + '.png', dpi=200)
