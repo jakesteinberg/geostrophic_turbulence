@@ -835,8 +835,9 @@ if save_p_g > 0:
 # plot_pro(ax)
 # ---------------------------------------------------------------------------------------------------------------------
 # remove nan profiles that are the result of deciding to use partial m/w profiles or not
-v_g = v_g[:, ~np.isnan(v_g[30, :])]
-goodie = np.where(~np.isnan(v_g[30, :]))[0]
+v_g_0 = v_g.copy()
+v_g = v_g[:, ~np.isnan(v_g_0[30, :])]
+goodie = np.where(~np.isnan(v_g_0[30, :]))[0]
 u_mod_at_mw = u_mod_at_mw[goodie[0]:goodie[-1]+1]
 avg_sig_pd = avg_sig_pd[:, ~np.isnan(avg_sig_pd[30, :])]
 num_profs_eta = np.shape(avg_sig_pd)[1]

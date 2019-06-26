@@ -1,6 +1,6 @@
 import numpy as np
 import matplotlib.animation as manimation
-import glob
+import pickle
 import datetime
 from netCDF4 import Dataset
 import gsw
@@ -57,24 +57,28 @@ ff = np.pi * np.sin(np.deg2rad(ref_lat)) / (12 * 1800)  # Coriolis parameter [s^
 
 # main set of parameters
 # to adjust
-dg_vertical_speed = 0.08  # m/s
+dg_vertical_speed = 0.2  # m/s
 dg_glide_slope = 3
 num_dives = 3
 dac_error = 0.01  # m/s
 g_error = 0.00001
 t_error = 0.001
 s_error = 0.01
-y_dg_s = 10000     # horizontal position, start of glider dives (75km)
+y_dg_s = 70000     # horizontal position, start of glider dives (75km)
 z_dg_s = 0        # depth, start of glider dives
 partial_mw = 0    # include exclude partial m/w estimates
 
-tag = filename[11:]
-t_st_ind = 10
-t_e = np.nanmax(time_ord_s)
-output_filename = '/Users/jake/Documents/baroclinic_modes/Model/HYCOM/vel_er_y10_v01_slp3_' + tag + '.pkl'
-save_anom = 0
+# time start index
+t_st_ind = 240
+
+save_anom = 1
 save_p = 0
 save_p_g = 0
+
+plot0 = 0  # plot model, glider cross section
+plot_v = 0  # plot velocity eta profiles
+plot_rho = 0  # plot density at 4 depths in space and time
+plot_sp = 0  # run and save gif
 
 # need to specify D_TGT or have glider 'fly' until it hits bottom
 data_loc = np.nanmean(sig0_out_s, axis=0)  # (depth X xy_grid)
@@ -152,6 +156,18 @@ for j in range(np.shape(dg_y)[1]):
         max_ind = np.where(np.isnan(dg_y[:, j]))[0][0]
         for i in range(1, len(dg_z[0:max_ind])):
             dg_t[i, j] = dg_t[i - 1, j] + (np.abs(dg_z_g[i, j] - dg_z_g[i - 1, j]) / dg_vertical_speed) / (60 * 60 * 24)
+
+# saving labels
+dg_t_s = dg_t[0, 0]
+dg_t_e = dg_t[0, -1]
+tag = str(np.int(filename[11])) + str(np.int(np.int(filename[12:14]) + np.floor(dg_t_s))) + \
+        str(np.int((dg_t[0, 0] - np.floor(dg_t_s)) * 24)) + \
+        '_' + str(np.int(filename[11])) + str(np.int(np.int(filename[12:14]) + np.floor(dg_t_e))) + \
+        str(np.int((dg_t[0, -1] - np.floor(dg_t_e)) * 24))
+# save filename
+output_filename = '/Users/jake/Documents/baroclinic_modes/Model/HYCOM/BATS_hourly/sim_dg_v/ve_y' + \
+    str(np.int(y_dg_s/1000)) + '_v' + str(np.int(100*dg_vertical_speed)) +'_slp' + str(np.int(dg_glide_slope)) + \
+                  '_' + tag + '.pkl'
 
 # --- Interpolation of Model to each glider measurements
 data_interp = sig0_out_s
@@ -417,8 +433,9 @@ else:
 print('Completed M/W Vel Estimation')
 # ---------------------------------------------------------------------------------------------------------------------
 # remove nan profiles that are the result of deciding to use partial m/w profiles or not
-v_g = v_g[:, ~np.isnan(v_g[30, :])]
-goodie = np.where(~np.isnan(v_g[30, :]))[0]
+v_g_0 = v_g.copy()
+v_g = v_g[:, ~np.isnan(v_g_0[30, :])]
+goodie = np.where(~np.isnan(v_g_0[30, :]))[0]
 u_mod_at_mw = u_mod_at_mw[goodie[0]:goodie[-1]+1]
 avg_sig_pd = avg_sig_pd[:, ~np.isnan(avg_sig_pd[30, :])]
 num_profs_eta = np.shape(avg_sig_pd)[1]
@@ -443,10 +460,13 @@ t_steps = [t_near, t_near + 6, t_near + 12, t_near + 18, t_near + 24, t_near + 3
 deps = [250, 1000, 1500, 2000]
 t_steps = [t_near, t_near + 6, t_near + 12, t_near + 18, t_near + 24, t_near + 30, t_near + 36,
            t_near + 42, t_near + 48, t_near + 54, t_near + 60, t_near + 66, t_near + 71]
-isop_dep = np.nan * np.ones((len(deps), len(xy_grid), 6))
+t_steps = [t_near, t_near + 2, t_near + 4, t_near + 6, t_near + 8, t_near + 10, t_near + 12,
+           t_near + 14, t_near + 16, t_near + 18, t_near + 20, t_near + 22, t_near + 24,
+           t_near + 26, t_near + 28, t_near + 30]
+isop_dep = np.nan * np.ones((len(deps), len(xy_grid), len(t_steps)))
 for i in range(len(xy_grid)):  # loop over each horizontal grid point
     for j in range(len(deps)):  # loop over each dep
-        for k in range(6):  # loop over each 6 hr increment
+        for k in range(len(t_steps)):  # loop over each 6 hr increment
             isop_dep[j, i, k] = np.interp(deps[j], -1. * dg_z, data_interp[t_steps[k], :, i])
 
 # -- glider measured isopycnal depth (over time span)
@@ -456,11 +476,64 @@ for j in range(len(deps)):
     for k in range(4):  # loop over dive, climb, dive, climb
         dg_isop_dep[j, k] = np.interp(deps[j], -1. * dg_z, dg_sig0[:, k])
         dg_isop_xy[j, k] = np.interp(deps[j], -1. * dg_z, dg_y[:, k])
+
+# ---------
+# xy within glider dives (model xy over which to estimate density gradients)
+inn_per_mw = []
+inn_per_mw_t = []
+mw_ind_s = np.arange(0, np.shape(shear)[1])
+mw_ind_e = np.arange(3, 3 + np.shape(shear)[1])
+dg_t_hrs = 24. * (dg_t - dg_t[0, 0])
+model_t_hrs = 24. * (time_ord_s - time_ord_s[0])
+for i in range(np.shape(shear)[1]):
+    if np.mod(i, 2):  # M
+        inn_per_mw.append(np.where((xy_grid >= np.nanmin(dg_y[:, mw_ind_s[i]])) &
+                                   (xy_grid <= np.nanmax(dg_y[:, mw_ind_e[i]])))[0])
+        inn_per_mw_t.append(np.where((model_t_hrs > np.nanmin(dg_t_hrs[:, mw_ind_s[i]])) &
+                                      (model_t_hrs <= np.nanmax(dg_t_hrs[:, mw_ind_e[i]])))[0])
+    else:  # W
+        inn_per_mw.append(np.where((xy_grid >= dg_y[0, mw_ind_s[i]]) & (xy_grid <= dg_y[0, mw_ind_e[i]]))[0])
+        inn_per_mw_t.append(np.where((model_t_hrs >= dg_t_hrs[0, mw_ind_s[i]]) & (model_t_hrs <= dg_t_hrs[0, mw_ind_e[i]]))[0])
+
+# density interpolated to each depth at 6hr increments should go through 48 hr period?
+# t_steps = [t_near, t_near + 6, t_near + 12, t_near + 18, t_near + 24, t_near + 30, t_near + 36, t_near + 42, t_near + 48]
+# dens_at_z = np.nan * np.ones((len(dg_z), np.shape(data_interp)[1], len(t_steps)))
+# for i in range(np.shape(data_interp)[1]):  # loop over each horizontal grid point
+#     for j in range(len(dg_z)):  # loop over each dep
+#         for k in range(6):  # loop over each 6 hr increment
+#             dens_at_z[j, i, k] = np.interp(deps[j], -1. * dg_z, data_interp[:, i, t_steps[k]])
+
+# vertical shear difference between model and glider at all depths
+model_isop_slope_all = np.nan * np.ones((len(dg_z), 2, np.shape(shear)[1]))
+den_var = np.nan * np.ones((len(dg_z), np.shape(shear)[1]))
+# model_mean_isop_all = np.nan * np.ones((len(dg_z), len(xy_grid[inn]), np.shape(shear)[1]))
+for i in range(np.shape(shear)[1]):  # loop over each horizontal profile location
+    for j in range(len(dg_z)):  # loop over each depth
+        if np.sum(np.isnan(np.nanmean(data_interp[:, j, inn_per_mw[i]], axis=1))) < 1:
+            # gradient of density at depth j over model grid cells that span m_w limits
+            model_isop_slope_all[j, :, i] = np.polyfit(xy_grid[inn_per_mw[i]],
+                                                       np.nanmean(data_interp[inn_per_mw_t[i][0]:inn_per_mw_t[i][-1]+1,
+                                                                  j, inn_per_mw[i][0]:inn_per_mw[i][-1]+1], axis=0), 1)
+            # create linear gradient
+            model_mean_isop_all = np.polyval(model_isop_slope_all[j, :, i], xy_grid[inn_per_mw[i]])
+            # density values at depth j used in above polyfit
+            den_in = data_interp[inn_per_mw_t[i][0]:inn_per_mw_t[i][-1]+1, j, inn_per_mw[i][0]:inn_per_mw[i][-1]+1]
+            # variance of the linear fit
+            # signal_var = np.nanvar(model_mean_isop_all)
+            signal_var = (1/len(model_mean_isop_all))*np.nansum((model_mean_isop_all - np.nanmean(model_mean_isop_all))**2)
+            #
+            vary = np.nan * np.ones(len(xy_grid))
+            for l in range(len(xy_grid[inn_per_mw[i]])):
+                # variance in time of iso about model mean
+                vary[l] = (1/len(den_in[:, l])) * np.nansum((den_in[:, l] - model_mean_isop_all[l])**2)
+            den_var[j, i] = np.nanmean(vary)/signal_var
+
+# difference in shear between glider and model
+shear_error = np.abs(100. * (shear - (-g * model_isop_slope_all[:, 0, :]/(rho0 * ff))) / (-g * model_isop_slope_all[:, 0, :]/(rho0 * ff)))
 # ---------------------------------------------------------------------------------------------------------------------
 # --------------------------------------------------------------------------------------------------------------------
 # --- Background density
 overlap = np.where((xy_grid > dg_y[0, 0]) & (xy_grid < dg_y[0, -1]))[0]
-bck_gamma_xy = np.nanmean(sig0_out_s, axis=0)[:, overlap]
 bck_gamma = np.nanmean(np.nanmean(sig0_out_s, axis=0)[:, overlap], axis=1)
 bck_sa = np.nanmean(np.nanmean(sa_out_s, axis=0)[:, overlap], axis=1)
 bck_ct = np.nanmean(np.nanmean(ct_out_s, axis=0)[:, overlap], axis=1)
@@ -522,7 +595,11 @@ eta_m_dg = np.nan * np.ones((len(dg_z), num_profs))
 Neta_m_dg = np.nan * np.ones((len(dg_z), num_profs))
 for i in range(num_profs):
     good = np.where(~np.isnan(dg_sig0[:, i]))[0]
-    avg_sig0_match = np.interp(np.abs(dg_z[good]), np.abs(z_grid_n2), avg_sig0)
+
+    overlap = np.where((xy_grid > np.nanmin(dg_y[:, i])) & (xy_grid < np.nanmax(dg_y[:, i])))[0]
+    bck_gamma_xy = np.nanmean(np.nanmean(sig0_out_s, axis=0)[:, overlap], axis=1)
+
+    avg_sig0_match = np.interp(np.abs(dg_z[good]), np.abs(z_grid), bck_gamma_xy)  # np.abs(z_grid_n2), avg_sig0
     ddz_avg_sig0_match = np.interp(np.abs(dg_z[good]), np.abs(z_grid_n2), ddz_avg_sig0)
     avg_N2_match = np.interp(np.abs(dg_z[good]), np.abs(z_grid_n2), avg_N2)
 
@@ -705,13 +782,28 @@ for i in range(np.shape(avg_mod_u)[1]):
 # Save
 # velocity profiles
 # T/S (effect of non-vertical profiling)
+
+# save?
+if save_anom:
+    my_dict = {'dg_z': dg_z, 'dg_v': v_g, 'model_u_at_mwv': u_mod_at_mw,
+               'model_u_at_mw_avg': avg_mod_u,
+               'shear_error': shear_error, 'igw_var': den_var,
+               'c': c,
+               'KE_dg': HKE_per_mass_dg, 'KE_mod': HKE_per_mass_model,
+               'eta_m_dg': eta_m_dg, 'PE_dg': PE_per_mass_dg,
+               'eta_m_dg_avg': eta_m_dg_sm, 'PE_dg_avg': PE_per_mass_dg_sm,
+               'eta_model': eta_m_model, 'PE_model': PE_per_mass_model,
+               'glide_slope': dg_glide_slope, 'dg_w': dg_vertical_speed}
+    output = open(output_filename, 'wb')
+    pickle.dump(my_dict, output)
+    output.close()
 # ----------------------------------------------------------------------------------------------------------------------
 
 # PLOTTING
 h_max = np.nanmax(dg_y/1000 + 20)  # horizontal domain limit
 z_max = -4800
-u_levels = np.array([-.5, -.4, -0.3, -.25, - .2, -.15, -.125, -.1, -.075, -.05, -0.025, 0,
-                     0.025, 0.05, 0.075, 0.1, 0.125, 0.15, 0.2, 0.25, 0.3, 0.4, 0.5])
+u_levels = np.array([-.6, -.5, -.4, -0.3, -.25, - .2, -.15, -.125, -.1, -.075, -.05, -0.025, 0,
+                     0.025, 0.05, 0.075, 0.1, 0.125, 0.15, 0.2, 0.25, 0.3, 0.4, 0.5, 0.6])
 
 cmap = plt.cm.get_cmap("Spectral")
 
@@ -722,26 +814,6 @@ taggt = str(np.int(filename[11])) + '/' + str(np.int(filename[12:14]) + np.floor
         ' - ' + str(np.int(filename[11])) + '/' + str(np.int(filename[12:14]) + np.floor(dg_t_e)) + ' ' + \
         str(np.int((dg_t[0, -1] - np.floor(dg_t_e)) * 24)) + 'hr'
 
-# if dg_t[0, 0] < 1:
-#     taggt = str(np.int(filename[11])) + '/' + str(np.int(filename[12:14])) + ' ' + str(np.int(dg_t[0, 0]*24)) + 'hr' + \
-#             ' - ' + str(np.int(filename[11])) + '/' + str(np.int(filename[12:14]) + 2) + ' ' + str(np.int((dg_t[0, -1] - 2)*24)) + 'hr'
-# elif (dg_t[0, 0] > 1) & (dg_t[0, 0] < 2):
-#     taggt = str(np.int(filename[11])) + '/' + str(np.int(filename[12:14]) + 1) + ' ' + str(np.int((dg_t[0, 0] - 1)*24)) + 'hr' + \
-#             ' - ' + str(np.int(filename[11])) + '/' + str(np.int(filename[12:14]) + 3) + ' ' + str(np.int((dg_t[0, -1] - 3)*24)) + 'hr'
-# elif (dg_t[0, 0] > 2) & (dg_t[0, 0] < 3):
-#     taggt = str(np.int(filename[11])) + '/' + str(np.int(filename[12:14]) + 2) + ' ' + str(np.int((dg_t[0, 0] - 2)*24)) + 'hr' + \
-#             ' - ' + str(np.int(filename[11])) + '/' + str(np.int(filename[12:14]) + 4) + ' ' + str(np.int((dg_t[0, -1] - 4)*24)) + 'hr'
-# elif (dg_t[0, 0] > 3) & (dg_t[0, 0] < 4):
-#     taggt = str(np.int(filename[11])) + '/' + str(np.int(filename[12:14]) + 3) + ' ' + str(np.int((dg_t[0, 0] - 3)*24)) + 'hr' + \
-#             ' - ' + str(np.int(filename[11])) + '/' + str(np.int(filename[12:14]) + 5) + ' ' + str(np.int((dg_t[0, -1] - 5)*24)) + 'hr'
-# elif (dg_t[0, 0] > 4) & (dg_t[0, 0] < 5):
-#     taggt = str(np.int(filename[11])) + '/' + str(np.int(filename[12:14]) + 4) + ' ' + str(np.int((dg_t[0, 0] - 4)*24)) + 'hr' + \
-#             ' - ' + str(np.int(filename[11])) + '/' + str(np.int(filename[12:14]) + 6) + ' ' + str(np.int((dg_t[0, -1] - 6)*24)) + 'hr'
-# elif (dg_t[0, 0] > 5) & (dg_t[0, 0] < 6):
-#     taggt = str(np.int(filename[11])) + '/' + str(np.int(filename[12:14]) + 5) + ' ' + str(np.int((dg_t[0, 0] - 5)*24)) + 'hr' + \
-#             ' - ' + str(np.int(filename[11])) + '/' + str(np.int(filename[12:14]) + 7) + ' ' + str(np.int((dg_t[0, -1] - 7)*24)) + 'hr'
-
-plot0 = 1
 if plot0 > 0:
     matplotlib.rcParams['figure.figsize'] = (12, 6)
 
@@ -795,8 +867,6 @@ if plot0 > 0:
     ax1.grid()
     plot_pro(ax1)
 
-
-plot_v = 1
 if plot_v > 0:
     avg_mod_u = u_mod_at_mw_avg[:, 1:-1]
     matplotlib.rcParams['figure.figsize'] = (7, 7)
@@ -821,9 +891,9 @@ if plot_v > 0:
     ax2.legend([handles[-2], handles[-1]], [labels[-2], labels[-1]], fontsize=10)
     ax2.set_xlabel('Isopycnal Displacement [m]')
     ax2.set_title('Vertical Displacement')
+    ax2.set_xlim([-100, 100])
     plot_pro(ax2)
 
-plot_rho = 0
 if plot_rho > 0:
     # density gradient computation for 4 depths for plot
     inn = np.where((xy_grid >= dg_y[0, 0]) & (xy_grid <= dg_y[0, 3]))[0]
@@ -839,13 +909,14 @@ if plot_rho > 0:
         model_mean_isop[i, :] = np.polyval(model_isop_slope[i, :], xy_grid[inn])
 
     cmap = plt.cm.get_cmap("YlGnBu_r")
-    cmaps = [0.15, 0.22, 0.3, 0.37, 0.45, 0.52, 0.6, 0.67, 0.75, 0.82, .9, .98]
-    lab_y = [25.875, 27.6, 27.91, 27.97]
+    # cmaps = [0.15, 0.22, 0.3, 0.37, 0.45, 0.52, 0.6, 0.67, 0.75, 0.82, .9, .98]
+    cmaps = np.arange(0, 1, 1/len(t_steps))
+    lab_y = [25.775, 27.55, 27.9, 27.96]
     matplotlib.rcParams['figure.figsize'] = (10, 7)
     f, ax = plt.subplots(4, 1, sharex=True)
     for i in range(len(deps)):
         ax[i].set_facecolor('#DCDCDC')
-        for j in range(6):
+        for j in range(len(t_steps)):
             ax[i].plot(xy_grid / 1000, isop_dep[i, :, j], color=cmap(cmaps[j]))
         ax[i].plot(xy_grid / 1000, np.nanmean(isop_dep[i, :, :], axis=1), color='r', linestyle='--')
         ax[i].scatter(dg_isop_xy[i, :] / 1000, dg_isop_dep[i, :], s=40, color='k', zorder=10)
@@ -864,7 +935,7 @@ if plot_rho > 0:
     ax[i].plot(xy_grid / 1000, np.nanmean(isop_dep[i, :, :], axis=1), color='r', linestyle='--', linewidth=1.3,
                label='72hr. avg. density ')
     handles, labels = ax[3].get_legend_handles_labels()
-    ax[3].legend(handles, labels, fontsize=12)
+    ax[3].legend(handles, labels, fontsize=12, loc='lower right')
     ax[0].set_ylabel('Neutral Density')
     ax[0].set_title(r'Density along z=z$_i$')
     ax[0].set_ylim([25.7, 26])
@@ -885,7 +956,6 @@ if plot_rho > 0:
     ax[3].set_xlabel('Transect Distance [km]')
     plot_pro(ax[3])
 
-plot_sp = 0
 if plot_sp > 0:
 
     FFMpegWriter = manimation.writers['ffmpeg']
@@ -894,7 +964,7 @@ if plot_sp > 0:
 
     fig = plt.figure(figsize=(11,8))
 
-    with writer.saving(fig, "/Users/jake/Documents/baroclinic_modes/Model/HYCOM/glider_ts_movie/glider_diver_2.mp4", 150):
+    with writer.saving(fig, "/Users/jake/Documents/baroclinic_modes/Model/HYCOM/glider_ts_movie/glider_diver_3.mp4", 150):
         for i in range(0, 6):  # range(np.shape(dg_sig0)[1]):
             max_ind = np.where(np.isnan(dg_y[:, i]))[0][0] - 1
             for j0 in range(0, max_ind, 8):  # range(1, np.shape(dg_sig0)[0]):

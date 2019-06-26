@@ -14,7 +14,7 @@ from toolkit import plot_pro, nanseg_interp
 from zrfun import get_basic_info, get_z
 
 
-file_list = glob.glob('/Users/jake/Documents/baroclinic_modes/Model/vel_anom_y*.pkl')
+file_list = glob.glob('/Users/jake/Documents/baroclinic_modes/Model/HYCOM/BATS_hourly/sim_dg_v/ve_y70_v20*.pkl')
 tagg = 'yall_v08_slp3'
 savee = 0
 
@@ -36,19 +36,20 @@ for i in range(len(file_list)):
     ke_dg_0 = MOD['KE_dg'][:]
     pe_dg_0 = MOD['PE_dg_avg'][:]
     pe_dg_ind_0 = MOD['PE_dg'][:]
+    c = MOD['c'][:]
 
     model_mean_per_mw = np.nan * np.ones(np.shape(glider_v))
     for j in range(len(model_v)):
         this_mod = model_v[j]
-        g_rep = np.repeat(np.tile(glider_v[:, j][:, None], np.shape(this_mod)[1])[:, :, None],
-                          np.shape(this_mod)[2], axis=2)
+        g_rep = np.repeat(np.tile(glider_v[:, j][:, None], np.shape(this_mod)[2])[None, :, :],
+                          np.shape(this_mod)[0], axis=0)
         direct_anom = g_rep - this_mod
-        mod_space = np.nanmean(this_mod, axis=2)  # average across time
-        mod_time = np.nanmean(this_mod, axis=1)  # average across space
-        spatial_anom = np.nanmean(direct_anom, axis=2)  # average across time
-        time_anom = np.nanmean(direct_anom, axis=1)  # average across space
+        mod_space = np.nanmean(this_mod, axis=0)  # average across time
+        mod_time = np.transpose(np.nanmean(this_mod, axis=2))  # average across space
+        spatial_anom = np.nanmean(direct_anom, axis=0)  # average across time
+        time_anom = np.transpose(np.nanmean(direct_anom, axis=2))  # average across space
 
-        model_mean_per_mw[:, j] = np.nanmean(np.nanmean(model_v[j], axis=2), axis=1)
+        model_mean_per_mw[:, j] = np.nanmean(np.nanmean(model_v[j], axis=2), axis=0)
 
     if i < 1:
         v = glider_v.copy()
@@ -88,7 +89,7 @@ matplotlib.rcParams['figure.figsize'] = (6.5, 8)
 f, ax = plt.subplots()
 low_er_mean = np.nan * np.ones(len(z_grid))
 for i in range(len(z_grid)):
-    low = np.where(igw_var[i, :] < .25)[0]
+    low = np.where(igw_var[i, :] < .15)[0]
     ax.scatter(slope_er[i, :], z_grid[i] * np.ones(len(slope_er[i, :])), s=2, color='b')
     ax.scatter(slope_er[i, low], z_grid[i] * np.ones(len(slope_er[i, low])), s=4, color='r')
     ax.scatter(np.nanmean(slope_er[i, low]), z_grid[i], s=20, color='r')
@@ -225,24 +226,10 @@ if savee > 0:
 # ---------------------------------------------------------------------------------------------------------------------
 # --- PLOT ENERGY SPECTRA
 ff = np.pi * np.sin(np.deg2rad(44)) / (12 * 1800)  # Coriolis parameter [s^-1]
-# --- Background density
-pkl_file = open('/Users/jake/Documents/baroclinic_modes/Model/background_density.pkl', 'rb')
-MODb = pickle.load(pkl_file)
-pkl_file.close()
-bck_sa = np.flipud(MODb['sa_back'][:][:, 40:120])
-bck_ct = np.flipud(MODb['ct_back'][:][:, 40:120])
-z_bm = [0, len(z_grid)-14]
-p_grid = gsw.p_from_z(z_grid, 44)
-
-# or if no big feature is present, avg current profiles for background
-N2_bck_out = gsw.Nsquared(np.nanmean(bck_sa[0:z_bm[-1]+1, :], axis=1), np.nanmean(bck_ct[0:z_bm[-1]+1, :], axis=1),
-                          p_grid[0:z_bm[-1]+1], lat=44)[0]
-N2_bck_out[N2_bck_out < 0] = 1*10**-7
 
 omega = 0
 mmax = 25
 mm = 20
-G, Gz, c, epsilon = vertical_modes(N2_bck_out, -1.0 * z_grid[0:146], omega, mmax)  # N2
 
 sc_x = 1000 * ff / c[1:mm]
 l_lim = 3 * 10 ** -2
