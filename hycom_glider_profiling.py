@@ -17,7 +17,7 @@ from toolkit import plot_pro, nanseg_interp
 from zrfun import get_basic_info, get_z
 
 # load mat file
-filename = 'HYCOM_hrly_214_01_228_00'
+filename = 'HYCOM_hrly_3086N_214_01_228_00'
 import_hy = si.loadmat('/Users/jake/Documents/baroclinic_modes/Model/' + filename + '.mat')
 MOD = import_hy['out']
 ref_lat = 31
@@ -57,19 +57,19 @@ ff = np.pi * np.sin(np.deg2rad(ref_lat)) / (12 * 1800)  # Coriolis parameter [s^
 
 # main set of parameters
 # to adjust
-dg_vertical_speed = 0.08  # m/s
+dg_vertical_speed = 0.2  # m/s
 dg_glide_slope = 3
-num_dives = 3
+num_dives = 5
 dac_error = 0.01  # m/s
 g_error = 0.00001
 t_error = 0.001
 s_error = 0.01
-y_dg_s = 70000     # horizontal position, start of glider dives (75km)
+y_dg_s = 10000     # horizontal position, start of glider dives (75km)
 z_dg_s = 0        # depth, start of glider dives
 partial_mw = 0    # include exclude partial m/w estimates
 
 # time start index
-t_st_ind = 100
+t_st_ind = 1
 
 plot0 = 1  # plot model, glider cross section
 plot_v = 1  # plot velocity eta profiles
@@ -77,9 +77,9 @@ plot_rho = 1  # plot density at 4 depths in space and time
 plot_sp = 0  # run and save gif
 
 save_anom = 0
-save_p = 1
-save_v = 1
-save_rho = 1
+save_p = 0
+save_v = 0
+save_rho = 0
 
 # need to specify D_TGT or have glider 'fly' until it hits bottom
 data_loc = np.nanmean(sig0_out_s, axis=0)  # (depth X xy_grid)
@@ -161,9 +161,9 @@ for j in range(np.shape(dg_y)[1]):
 # saving labels
 dg_t_s = dg_t[0, 0]
 dg_t_e = dg_t[0, -1]
-tag = str(np.int(filename[11])) + str(np.int(np.int(filename[12:14]) + np.floor(dg_t_s))) + \
+tag = str(np.int(filename[17])) + str(np.int(np.int(filename[18:20]) + np.floor(dg_t_s))) + \
         str(np.int((dg_t[0, 0] - np.floor(dg_t_s)) * 24)) + \
-        '_' + str(np.int(filename[11])) + str(np.int(np.int(filename[12:14]) + np.floor(dg_t_e))) + \
+        '_' + str(np.int(filename[17])) + str(np.int(np.int(filename[18:20]) + np.floor(dg_t_e))) + \
         str(np.int((dg_t[0, -1] - np.floor(dg_t_e)) * 24))
 # save filename
 output_filename = '/Users/jake/Documents/baroclinic_modes/Model/HYCOM/BATS_hourly/sim_dg_v/ve_y' + \
@@ -512,27 +512,93 @@ den_var = np.nan * np.ones((len(dg_z), np.shape(shear)[1]))
 # model_mean_isop_all = np.nan * np.ones((len(dg_z), len(xy_grid[inn]), np.shape(shear)[1]))
 for i in range(np.shape(shear)[1]):  # loop over each horizontal profile location
     for j in range(len(dg_z)):  # loop over each depth
-        if np.sum(np.isnan(np.nanmean(data_interp[:, j, inn_per_mw[i]], axis=1))) < 1:
+        if np.sum(np.isnan(np.nanmean(data_interp[:, j, inn_per_mw[i]], axis=0))) < 1:
             # gradient of density at depth j over model grid cells that span m_w limits
             model_isop_slope_all[j, :, i] = np.polyfit(xy_grid[inn_per_mw[i]],
                                                        np.nanmean(data_interp[inn_per_mw_t[i][0]:inn_per_mw_t[i][-1]+1,
                                                                   j, inn_per_mw[i][0]:inn_per_mw[i][-1]+1], axis=0), 1)
             # create linear gradient
+            # model_mean_isop_all = np.polyval(model_isop_slope_all[j, :, i], xy_grid[inn_per_mw[i]])
+
+            # consider density at depth j over model grid cells that span fixed xy limits and 24hrs and not m_w time
+            dive_mid_t_hr = 24. * np.nanmean(time_ord_s[inn_per_mw_t[i]])
+            dive_min_t_hr = 24. * time_ord_s[inn_per_mw_t[i][0]]
+            dive_max_t_hr = 24. * time_ord_s[inn_per_mw_t[i][-1]]
+            dive_mid_xy = np.nanmean(xy_grid[inn_per_mw[i][0]:inn_per_mw[i][-1]+1])
+            xy_low = np.where(xy_grid >= (dive_mid_xy - 20000))[0][0]
+            xy_up = np.where(xy_grid <= (dive_mid_xy + 20000))[0][-1] + 1
+            if dive_mid_t_hr <= 24:
+                t_to_add = 24 - (dive_mid_t_hr - dive_min_t_hr)
+                t_up_win = np.where((24. * time_ord_s) <= (dive_mid_t_hr + t_to_add))[0][-1]
+                model_isop_slope_all[j, :, i] = np.polyfit(xy_grid[xy_low:xy_up],
+                                                           np.nanmean(data_interp[0:t_up_win + 1,
+                                                                      j, xy_low:xy_up], axis=0), 1)
+                den_in = data_interp[0:t_up_win + 1, j, xy_low:xy_up]
+            elif dive_mid_t_hr >= (np.nanmax(24. * time_ord_s) - 24):
+                t_to_sub = 24 - (dive_max_t_hr - dive_mid_t_hr)
+                t_bot_win = np.where((24. * time_ord_s) >= (dive_mid_t_hr - t_to_sub))[0][0]
+                model_isop_slope_all[j, :, i] = np.polyfit(xy_grid[xy_low:xy_up],
+                                                           np.nanmean(data_interp[t_bot_win:,
+                                                               j, xy_low:xy_up], axis=0), 1)
+                den_in = data_interp[t_bot_win:, j, xy_low:xy_up]
+            else:
+                midd = np.int(np.round(np.nanmean(inn_per_mw_t[i])))
+                midd_mi = midd - 12
+                midd_pl = midd + 12
+                model_isop_slope_all[j, :, i] = np.polyfit(xy_grid[xy_low:xy_up],
+                                                           np.nanmean(data_interp[midd_mi:midd_pl,
+                                                               j, xy_low:xy_up], axis=0), 1)
+                den_in = data_interp[midd_mi:midd_pl, j, xy_low:xy_up]
+
+
+            # try 2 at linear gradient of model density
             model_mean_isop_all = np.polyval(model_isop_slope_all[j, :, i], xy_grid[inn_per_mw[i]])
+
+            # check if doing right
+            # if i > 0 & i < 3:
+            #     if j == 100:
+            #         print(str(i))
+            #         print(str(j))
+            #         f, ax = plt.subplots()
+            #         ax.plot(xy_grid[xy_low:xy_up], np.nanmean(den_in, axis=0), color='k')
+            #         for kk in range(np.shape(den_in)[0]):
+            #             ax.plot(xy_grid[xy_low:xy_up], den_in[kk, :], linewidth=0.5)
+            #         plot_pro(ax)
+
+
             # density values at depth j used in above polyfit
-            den_in = data_interp[inn_per_mw_t[i][0]:inn_per_mw_t[i][-1]+1, j, inn_per_mw[i][0]:inn_per_mw[i][-1]+1]
+            # den_in = data_interp[inn_per_mw_t[i][0]:inn_per_mw_t[i][-1]+1, j, inn_per_mw[i][0]:inn_per_mw[i][-1]+1]
+
             # variance of the linear fit
             # signal_var = np.nanvar(model_mean_isop_all)
             signal_var = (1/len(model_mean_isop_all))*np.nansum((model_mean_isop_all - np.nanmean(model_mean_isop_all))**2)
             #
-            vary = np.nan * np.ones(len(xy_grid))
-            for l in range(len(xy_grid[inn_per_mw[i]])):
+            # vary = np.nan * np.ones(len(xy_grid))
+            for l in range(len(xy_grid[xy_low:xy_up])):
                 # variance in time of iso about model mean
-                vary[l] = (1/len(den_in[:, l])) * np.nansum((den_in[:, l] - model_mean_isop_all[l])**2)
-            den_var[j, i] = np.nanmean(vary)/signal_var
+                # vary[l] = (1/len(den_in[:, l])) * np.nansum((den_in[:, l] - model_mean_isop_all[l])**2)
+                # square difference over all times at each grid point spanning each m/w pattern
+                vary = (den_in[:, l] - model_mean_isop_all[l])**2
+                if l < 1:
+                    vary_out = vary.copy()
+                else:
+                    vary_out = np.concatenate((vary_out, vary))
+            vary_tot = (1/len(vary_out)) * np.nansum(vary_out)
+            den_var[j, i] = vary_tot/signal_var  # np.nanmean(vary)/signal_var
+            # note: igw variance is a function of glider speed because I consider variance of isopycnals about mean over
+            # the time it takes for the glider to complete an m/w
+            # faster w's will yield a better ratio because isopycnal variance will be lower because less time has
+            # elapsed for heaving to occur
+
+# f, ax = plt.subplots()
+# for i in range(np.shape(shear)[1]):
+#     ax.plot(den_var[:, i], z_grid, linewidth=0.75)
+# ax.set_xlim([0, 5])
+# plot_pro(ax)
 
 # difference in shear between glider and model
-shear_error = np.abs(100. * (shear - (-g * model_isop_slope_all[:, 0, :]/(rho0 * ff))) / (-g * model_isop_slope_all[:, 0, :]/(rho0 * ff)))
+shear_error = np.abs(100. * (shear - (-g * model_isop_slope_all[:, 0, :]/(rho0 * ff))) /
+                     (-g * model_isop_slope_all[:, 0, :]/(rho0 * ff)))
 # ---------------------------------------------------------------------------------------------------------------------
 # --------------------------------------------------------------------------------------------------------------------
 # --- Background density
@@ -812,9 +878,9 @@ cmap = plt.cm.get_cmap("Spectral")
 
 dg_t_s = dg_t[0, 0]
 dg_t_e = dg_t[0, -1]
-taggt = str(np.int(filename[11])) + '/' + str(np.int(filename[12:14]) + np.floor(dg_t_s)) + ' ' + \
+taggt = str(np.int(filename[17])) + '/' + str(np.int(filename[18:20]) + np.floor(dg_t_s)) + ' ' + \
         str(np.int((dg_t[0, 0] - np.floor(dg_t_s)) * 24)) + 'hr' + \
-        ' - ' + str(np.int(filename[11])) + '/' + str(np.int(filename[12:14]) + np.floor(dg_t_e)) + ' ' + \
+        ' - ' + str(np.int(filename[17])) + '/' + str(np.int(filename[18:20]) + np.floor(dg_t_e)) + ' ' + \
         str(np.int((dg_t[0, -1] - np.floor(dg_t_e)) * 24)) + 'hr'
 
 if plot0 > 0:
@@ -1038,8 +1104,8 @@ if plot_sp > 0:
                     plt.scatter(dg_y[:, 0:i] / 1000, dg_z_g[:, 0:i], 4, color='k')  # up to
                     plt.scatter(dg_y[0:j+1, i] / 1000, dg_z_g[0:j+1, i], 4, color='k', label='glider path')
 
-                tagg = str(np.int(filename[11])) + '/' + \
-                       str(np.int(filename[12:14]) +
+                tagg = str(np.int(filename[17])) + '/' + \
+                       str(np.int(filename[18:20]) +
                            np.floor(this_t)) + ' ' + \
                        str(nearest_model_t_over - (np.floor(this_t) * 24)) + 'hr'
 

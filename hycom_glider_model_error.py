@@ -14,9 +14,9 @@ from toolkit import plot_pro, nanseg_interp
 from zrfun import get_basic_info, get_z
 
 
-file_list = glob.glob('/Users/jake/Documents/baroclinic_modes/Model/HYCOM/BATS_hourly/sim_dg_v/ve_y70_v20*.pkl')
+file_list = glob.glob('/Users/jake/Documents/baroclinic_modes/Model/HYCOM/BATS_hourly/sim_dg_v/ve_y*_v30*.pkl')
 tagg = 'yall_v20_slp3'
-savee = 1
+savee = 0
 
 direct_anom = []
 # igw_var = np.nan * np.ones(len(file_list))
@@ -89,13 +89,15 @@ matplotlib.rcParams['figure.figsize'] = (6.5, 8)
 f, ax = plt.subplots()
 low_er_mean = np.nan * np.ones(len(z_grid))
 for i in range(len(z_grid)):
-    low = np.where(igw_var[i, :] < .2)[0]
+    frac_lim = 0.2
+    low = np.where(igw_var[i, :] < frac_lim)[0]
     ax.scatter(slope_er[i, :], z_grid[i] * np.ones(len(slope_er[i, :])), s=2, color='b')
     ax.scatter(slope_er[i, low], z_grid[i] * np.ones(len(slope_er[i, low])), s=4, color='r')
-    ax.scatter(np.nanmean(slope_er[i, low]), z_grid[i], s=20, color='r')
+    ax.scatter(np.nanmean(slope_er[i, low]), z_grid[i], s=30, color='r')
     low_er_mean[i] = np.nanmean(slope_er[i, low])
 ax.plot(low_er_mean, z_grid, linewidth=2.5, color='r', label='Low Noise Error Mean')
-ax.scatter(np.nanmean(slope_er[i, low]), z_grid[i], s=15, color='r', label=r'var$_{igw}$/var$_{gstr}$ < 0.2')
+ax.scatter(np.nanmean(slope_er[i, low]), z_grid[i], s=15, color='r',
+           label=r'var$_{igw}$/var$_{gstr}$ < ' + str(frac_lim))
 ax.plot(np.nanmedian(slope_er, axis=1), z_grid, color='b', linewidth=2.5, label='Error Median')
 ax.plot([20, 20], [0, -3000], color='k', linewidth=2.5, linestyle='--')
 handles, labels = ax.get_legend_handles_labels()
@@ -161,7 +163,7 @@ ax2.plot(mm, z_grid, linewidth=2.2, color='k')
 ax2.plot(mm_std, z_grid, linewidth=1.5, color='k', linestyle='--')
 # ax.text(0.005, -2400, 'Mean Error = ' + str(np.round(np.nanmean(anoms), 3)) + ' m/s')
 ax2.set_xlim([0, .005])
-ax2.set_ylim([-3000, 0])
+ax2.set_ylim([-4500, 0])
 ax2.set_xlabel(r'm$^2$/s$^2$')
 ax2.set_title(r'M/W Vel. RMS Error ($u_{g}$ - $\overline{u_{model}}$)$^2$')
 ax1.grid()
