@@ -14,9 +14,10 @@ from toolkit import plot_pro, nanseg_interp
 from zrfun import get_basic_info, get_z
 
 
-file_list = glob.glob('/Users/jake/Documents/baroclinic_modes/Model/HYCOM/BATS_hourly/sim_dg_v/ve_y*_v30*.pkl')
+file_list = glob.glob('/Users/jake/Documents/baroclinic_modes/Model/HYCOM/BATS_hourly/sim_dg_v/ve_y*_v*.pkl')
 tagg = 'yall_v20_slp3'
 savee = 0
+plot_se = 0  # plot shear error scatter plot
 
 direct_anom = []
 # igw_var = np.nan * np.ones(len(file_list))
@@ -36,6 +37,7 @@ for i in range(len(file_list)):
     ke_dg_0 = MOD['KE_dg'][:]
     pe_dg_0 = MOD['PE_dg_avg'][:]
     pe_dg_ind_0 = MOD['PE_dg'][:]
+    w_tag_0 = MOD['dg_w'][:]
     c = MOD['c'][:]
 
     model_mean_per_mw = np.nan * np.ones(np.shape(glider_v))
@@ -67,6 +69,7 @@ for i in range(len(file_list)):
         ke_dg = ke_dg_0.copy()
         pe_dg = pe_dg_0.copy()
         pe_dg_ind = pe_dg_ind_0.copy()
+        w_tag = 100 * w_tag_0.copy()
     else:
         v = np.concatenate((v, glider_v.copy()), axis=1)
         mod_v = np.concatenate((mod_v, model_mean_per_mw), axis=1)
@@ -83,87 +86,104 @@ for i in range(len(file_list)):
         ke_dg = np.concatenate((ke_dg, ke_dg_0), axis=1)
         pe_dg = np.concatenate((pe_dg, pe_dg_0), axis=1)
         pe_dg_ind = np.concatenate((pe_dg_ind, pe_dg_ind_0), axis=1)
+        w_tag = np.concatenate((w_tag, 100 * w_tag_0), axis=0)
 
 # vertical shear error as a function depth and igwsignal
-matplotlib.rcParams['figure.figsize'] = (6.5, 8)
-f, ax = plt.subplots()
-low_er_mean = np.nan * np.ones(len(z_grid))
-for i in range(len(z_grid)):
-    frac_lim = 0.2
-    low = np.where(igw_var[i, :] < frac_lim)[0]
-    ax.scatter(slope_er[i, :], z_grid[i] * np.ones(len(slope_er[i, :])), s=2, color='b')
-    ax.scatter(slope_er[i, low], z_grid[i] * np.ones(len(slope_er[i, low])), s=4, color='r')
-    ax.scatter(np.nanmean(slope_er[i, low]), z_grid[i], s=30, color='r')
-    low_er_mean[i] = np.nanmean(slope_er[i, low])
-ax.plot(low_er_mean, z_grid, linewidth=2.5, color='r', label='Low Noise Error Mean')
-ax.scatter(np.nanmean(slope_er[i, low]), z_grid[i], s=15, color='r',
-           label=r'var$_{igw}$/var$_{gstr}$ < ' + str(frac_lim))
-ax.plot(np.nanmedian(slope_er, axis=1), z_grid, color='b', linewidth=2.5, label='Error Median')
-ax.plot([20, 20], [0, -3000], color='k', linewidth=2.5, linestyle='--')
-handles, labels = ax.get_legend_handles_labels()
-ax.legend(handles, labels, fontsize=12)
-ax.set_xscale('log')
-ax.set_xlabel('Percent Error')
-ax.set_ylabel('z [m]')
-ax.set_title('Percent Error between Model Shear and Glider Shear (' + str(MOD['glide_slope']) + ':1, w=' + str(MOD['dg_w']) + ' m/s)')
-ax.set_xlim([1, 10**4])
-ax.set_ylim([-3000, 0])
-plot_pro(ax)
-if savee > 0:
-    f.savefig('/Users/jake/Documents/glider_flight_sim_paper/model_dg_per_shear_err_' + str(tagg) + '.png', dpi=200)
+if plot_se > 0:
+    matplotlib.rcParams['figure.figsize'] = (6.5, 8)
+    f, ax = plt.subplots()
+    low_er_mean = np.nan * np.ones(len(z_grid))
+    for i in range(len(z_grid)):
+        frac_lim = 0.2
+        low = np.where(igw_var[i, :] < frac_lim)[0]
+        ax.scatter(slope_er[i, :], z_grid[i] * np.ones(len(slope_er[i, :])), s=2, color='b')
+        ax.scatter(slope_er[i, low], z_grid[i] * np.ones(len(slope_er[i, low])), s=4, color='r')
+        ax.scatter(np.nanmean(slope_er[i, low]), z_grid[i], s=30, color='r')
+        low_er_mean[i] = np.nanmean(slope_er[i, low])
+    ax.plot(low_er_mean, z_grid, linewidth=2.5, color='r', label='Low Noise Error Mean')
+    ax.scatter(np.nanmean(slope_er[i, low]), z_grid[i], s=15, color='r',
+            label=r'var$_{igw}$/var$_{gstr}$ < ' + str(frac_lim))
+    ax.plot(np.nanmedian(slope_er, axis=1), z_grid, color='b', linewidth=2.5, label='Error Median')
+    ax.plot([20, 20], [0, -3000], color='k', linewidth=2.5, linestyle='--')
+    handles, labels = ax.get_legend_handles_labels()
+    ax.legend(handles, labels, fontsize=12)
+    ax.set_xscale('log')
+    ax.set_xlabel('Percent Error')
+    ax.set_ylabel('z [m]')
+    ax.set_title('Percent Error between Model Shear and Glider Shear (' + str(MOD['glide_slope']) +
+                 ':1, w=' + str(MOD['dg_w']) + ' m/s)')
+    ax.set_xlim([1, 10**4])
+    ax.set_ylim([-3000, 0])
+    plot_pro(ax)
+    if savee > 0:
+        f.savefig('/Users/jake/Documents/glider_flight_sim_paper/model_dg_per_shear_err_' + str(tagg) + '.png', dpi=200)
 
 
-# all velocity anomalies colored by max abs vel attained
-cmap = plt.cm.get_cmap('Spectral_r')
-f, ax = plt.subplots()
-this_one = mod_time_out
-this_anom = anoms_time
-max_mod_v = np.nan * np.ones(np.shape(this_one)[1])
-avg_anom1 = np.nan * np.ones(np.shape(this_one)[1])
-avg_anom2 = np.nan * np.ones(np.shape(this_one)[1])
-avg_anom3 = np.nan * np.ones(np.shape(this_one)[1])
-for i in range(np.shape(this_one)[1]):
-    max_mod_v[i] = np.nanmax(this_one[:, i]**2)
-    avg_anom1[i] = np.nanmean(this_anom[0:50, i]**2)
-    avg_anom2[i] = np.nanmean(this_anom[5:100, i]**2)
-    avg_anom3[i] = np.nanmean(this_anom[100:, i]**2)
-    if np.nanmax(np.abs(this_one[:, i])) > 0.25:
-        ax.plot(this_anom[:, i], z_grid, color=cmap(1))
-    elif (np.nanmax(np.abs(this_one[:, i])) > 0.2) & (np.nanmax(np.abs(this_one[:, i])) < 0.25):
-        ax.plot(this_anom[:, i], z_grid, color=cmap(.8))
-    elif (np.nanmax(np.abs(this_one[:, i])) > 0.15) & (np.nanmax(np.abs(this_one[:, i])) < 0.2):
-        ax.plot(this_anom[:, i], z_grid, color=cmap(.6))
-    elif (np.nanmax(np.abs(this_one[:, i])) > 0.1) & (np.nanmax(np.abs(this_one[:, i])) < 0.15):
-        ax.plot(this_anom[:, i], z_grid, color=cmap(.4))
-    elif (np.nanmax(np.abs(this_one[:, i])) > 0.05) & (np.nanmax(np.abs(this_one[:, i])) < 0.1):
-        ax.plot(this_anom[:, i], z_grid, color=cmap(.2))
-    else:
-        ax.plot(this_anom[:, i], z_grid, color=cmap(.01))
-ax.plot(np.nanmean(this_anom, axis=1), z_grid, linewidth=2.2, color='k')
-plot_pro(ax)
+# -- all velocity anomalies colored by max abs vel attained
+# cmap = plt.cm.get_cmap('Spectral_r')
+# f, ax = plt.subplots()
+# this_one = mod_time_out
+# this_anom = anoms_time
+# max_mod_v = np.nan * np.ones(np.shape(this_one)[1])
+# avg_anom1 = np.nan * np.ones(np.shape(this_one)[1])
+# avg_anom2 = np.nan * np.ones(np.shape(this_one)[1])
+# avg_anom3 = np.nan * np.ones(np.shape(this_one)[1])
+# for i in range(np.shape(this_one)[1]):
+#     max_mod_v[i] = np.nanmax(this_one[:, i]**2)
+#     avg_anom1[i] = np.nanmean(this_anom[0:50, i]**2)
+#     avg_anom2[i] = np.nanmean(this_anom[5:100, i]**2)
+#     avg_anom3[i] = np.nanmean(this_anom[100:, i]**2)
+#     if np.nanmax(np.abs(this_one[:, i])) > 0.25:
+#         ax.plot(this_anom[:, i], z_grid, color=cmap(1))
+#     elif (np.nanmax(np.abs(this_one[:, i])) > 0.2) & (np.nanmax(np.abs(this_one[:, i])) < 0.25):
+#         ax.plot(this_anom[:, i], z_grid, color=cmap(.8))
+#     elif (np.nanmax(np.abs(this_one[:, i])) > 0.15) & (np.nanmax(np.abs(this_one[:, i])) < 0.2):
+#         ax.plot(this_anom[:, i], z_grid, color=cmap(.6))
+#     elif (np.nanmax(np.abs(this_one[:, i])) > 0.1) & (np.nanmax(np.abs(this_one[:, i])) < 0.15):
+#         ax.plot(this_anom[:, i], z_grid, color=cmap(.4))
+#     elif (np.nanmax(np.abs(this_one[:, i])) > 0.05) & (np.nanmax(np.abs(this_one[:, i])) < 0.1):
+#         ax.plot(this_anom[:, i], z_grid, color=cmap(.2))
+#     else:
+#         ax.plot(this_anom[:, i], z_grid, color=cmap(.01))
+# ax.plot(np.nanmean(this_anom, axis=1), z_grid, linewidth=2.2, color='k')
+# plot_pro(ax)
 
 # RMS at different depths
 matplotlib.rcParams['figure.figsize'] = (9.5, 8)
 f, (ax1, ax2) = plt.subplots(1, 2, sharey=True)
-anomy = v - mod_v_avg
+anomy = v - mod_v_avg  # velocity anomaly
+# estimate rms error by w
+w_s = np.unique(w_tag)
+w_cols = 'b', 'g', 'm', 'r'
+mm = np.nan * np.ones((len(z_grid), len(w_s)))
+avg_anom = np.nan * np.ones((len(z_grid), len(w_s)))
+for i in range(len(np.unique(w_tag))):
+    inn = np.where(w_tag == w_s[i])[0]
+    mm[:, i] = np.nanmean(anomy[:, inn]**2, axis=1)  # rms error
+    avg_anom[:, i] = np.nanmean(anomy[:, inn], axis=1)
 for i in range(np.shape(anomy)[1]):
-    ax1.plot(anomy[:, i], z_grid, color='k', linewidth=0.6)
-ax1.plot(np.nanmean(anomy, axis=1), z_grid, color='r')
+    # color by dg_w
+    if w_tag[i] < 7:
+        ax1.plot(anomy[:, i], z_grid, color=w_cols[0], linewidth=0.6)
+    elif (w_tag[i] > 7) & (w_tag[i] < 8):
+        ax1.plot(anomy[:, i], z_grid, color=w_cols[1], linewidth=0.6)
+    elif (w_tag[i] > 8) & (w_tag[i] < 12):
+        ax1.plot(anomy[:, i], z_grid, color=w_cols[2], linewidth=0.6)
+    else:
+        ax1.plot(anomy[:, i], z_grid, color=w_cols[3], linewidth=0.6)
+for i in range(np.shape(mm)[1]):
+    ax1.plot(avg_anom[:, i], z_grid, color=w_cols[i], linewidth=2)
 ax1.set_xlim([-.12, .12])
 ax1.set_xlabel('m/s')
 ax1.set_ylabel('Depth [m]')
 ax1.set_title(r'M/W Vel. Error ($u_{g}$ - $\overline{u_{model}}$) ('
-             + str(MOD['glide_slope']) + ':1, w=' + str(MOD['dg_w']) + ' m/s)')
-mm = np.nanmean(anomy**2, axis=1)
-mm_std = np.nan * np.ones(len(z_grid))
-for i in range(len(z_grid)):
-    mm_std[i] = np.nanstd(anomy[i, :]**2)
+             + str(MOD['glide_slope'][0]) + ':1)')
 ax1.text(0.04, -2600, str(np.shape(anomy)[1]) + ' profiles')
-ax2.plot(mm, z_grid, linewidth=2.2, color='k')
-ax2.plot(mm_std, z_grid, linewidth=1.5, color='k', linestyle='--')
-# ax.text(0.005, -2400, 'Mean Error = ' + str(np.round(np.nanmean(anoms), 3)) + ' m/s')
-ax2.set_xlim([0, .005])
-ax2.set_ylim([-4500, 0])
+
+for i in range(np.shape(mm)[1]):
+    ax2.plot(mm[:, i], z_grid, linewidth=2.2, color=w_cols[i])
+ax2.set_xlim([0, .0075])
+ax2.set_ylim([-4750, 0])
 ax2.set_xlabel(r'm$^2$/s$^2$')
 ax2.set_title(r'M/W Vel. RMS Error ($u_{g}$ - $\overline{u_{model}}$)$^2$')
 ax1.grid()

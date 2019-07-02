@@ -92,6 +92,10 @@ save_anom = 0
 save_p = 0
 save_p_g = 0
 
+plan_plot = 0
+plot0 = 1  # cross section
+plot1 = 1  # vel error
+
 # need to specify D_TGT or have glider 'fly' until it hits bottom
 data_loc = np.nanmean(sig0_out_s, axis=2)  # (depth X xy_grid)
 
@@ -295,7 +299,6 @@ else:
     dac_lon = ref_lon * np.ones(len(dac_lat))
 
 # --- PLAN VIEW plot
-plan_plot = 0
 if plan_plot:
     # -- LOAD processed output from model_testing_of glider.py (location of transect)
     file_list = glob.glob('/Users/jake/Documents/baroclinic_modes/Model/' + this_path + '/pickle_protocol_2/*.pkl')
@@ -474,7 +477,6 @@ h_max = np.nanmax(dg_y/1000 + 20)  # horizontal domain limit
 z_max = -3150
 u_levels = np.array([-0.4, -0.3, -.25, - .2, -.15, -.125, -.1, -.075, -.05, -0.025, 0,
                      0.025, 0.05, 0.075, 0.1, 0.125, 0.15, 0.2, 0.25, 0.3, 0.4])
-plot0 = 1
 if plot0 > 0:
     matplotlib.rcParams['figure.figsize'] = (13, 6)
     cmap = plt.cm.get_cmap("viridis")
@@ -906,6 +908,96 @@ for i in range(np.shape(shear)[1]):  # loop over each horizontal profile locatio
                 vary[l] = np.nanvar(den_in[l, :] - model_mean_isop_all[l])  # variance in time of iso about model mean
             den_var[j, i] = np.nanmean(vary)/signal_var
 
+# vertical shear difference between model and glider at all depths (using different definition of slope and variance)
+model_isop_slope_all = np.nan * np.ones((len(dg_z), 2, np.shape(shear)[1]))
+den_var = np.nan * np.ones((len(dg_z), np.shape(shear)[1]))
+igw_var = np.nan * np.ones((len(dg_z), np.shape(shear)[1]))
+ed_var = np.nan * np.ones((len(dg_z), np.shape(shear)[1]))
+# model_mean_isop_all = np.nan * np.ones((len(dg_z), len(xy_grid[inn]), np.shape(shear)[1]))
+for i in range(np.shape(shear)[1]):  # loop over each horizontal profile location
+    for j in range(len(dg_z)):  # loop over each depth
+        if np.sum(np.isnan(np.nanmean(data_interp[j, inn_per_mw[i], :], axis=0))) < 1:
+            # gradient of density at depth j over model grid cells that span m_w limits
+
+            # data_interp[j, inn_per_mw[i][0]:inn_per_mw[i][-1] + 1, inn_per_mw_t[i][0]:inn_per_mw_t[i][-1] + 1]
+            model_isop_slope_all[j, :, i] = np.polyfit(xy_grid[inn_per_mw[i]],
+                                                       np.nanmean(data_interp[j, inn_per_mw[i][0]:inn_per_mw[i][-1]+1,
+                                                                  inn_per_mw_t[i][0]:inn_per_mw_t[i][-1]+1], axis=1), 1)
+            # create linear gradient
+            # model_mean_isop_all = np.polyval(model_isop_slope_all[j, :, i], xy_grid[inn_per_mw[i]])
+
+            # consider density at depth j over model grid cells that span fixed xy limits and 24hrs and not m_w time
+            time_ord_s_hr = time_ord_s - time_ord_s[0]
+            dive_mid_t_hr = 24. * np.nanmean(time_ord_s_hr[inn_per_mw_t[i]])
+            dive_min_t_hr = 24. * time_ord_s_hr[inn_per_mw_t[i][0]]
+            dive_max_t_hr = 24. * time_ord_s_hr[inn_per_mw_t[i][-1]]
+            dive_mid_xy = np.nanmean(xy_grid[inn_per_mw[i][0]:inn_per_mw[i][-1]+1])
+            xy_low = np.where(xy_grid >= (dive_mid_xy - 10000))[0][0]
+            xy_up = np.where(xy_grid <= (dive_mid_xy + 10000))[0][-1] + 1
+            if dive_mid_t_hr <= 24:
+                t_to_add = 24 - (dive_mid_t_hr - dive_min_t_hr)
+                t_up_win = np.where((24. * time_ord_s_hr) <= (dive_mid_t_hr + t_to_add))[0][-1]
+                model_isop_slope_all[j, :, i] = np.polyfit(xy_grid[xy_low:xy_up],
+                                                           np.nanmean(data_interp[j, xy_low:xy_up, 0:t_up_win + 1],
+                                                                      axis=1), 1)
+                den_in = data_interp[j, xy_low:xy_up, 0:t_up_win + 1]
+            elif dive_mid_t_hr >= (np.nanmax(24. * time_ord_s_hr) - 24):
+                t_to_sub = 24 - (dive_max_t_hr - dive_mid_t_hr)
+                t_bot_win = np.where((24. * time_ord_s_hr) >= (dive_mid_t_hr - t_to_sub))[0][0]
+                model_isop_slope_all[j, :, i] = np.polyfit(xy_grid[xy_low:xy_up],
+                                                           np.nanmean(data_interp[j, xy_low:xy_up, t_bot_win:],
+                                                                      axis=1), 1)
+                den_in = data_interp[j, xy_low:xy_up, t_bot_win:]
+            else:
+                midd = np.int(np.round(np.nanmean(inn_per_mw_t[i])))
+                midd_mi = midd - 12
+                midd_pl = midd + 12
+                model_isop_slope_all[j, :, i] = np.polyfit(xy_grid[xy_low:xy_up],
+                                                           np.nanmean(data_interp[j, xy_low:xy_up, midd_mi:midd_pl],
+                                                                      axis=1), 1)
+                den_in = data_interp[j, xy_low:xy_up, midd_mi:midd_pl]
+
+            # try 2 at linear gradient of model density
+            model_mean_isop_all = np.polyval(model_isop_slope_all[j, :, i], xy_grid[inn_per_mw[i]])
+
+            # check if doing right
+            if i > 0 & i < 3:
+                if j == 100:
+                    print(str(i))
+                    print(str(j))
+                    f, ax = plt.subplots()
+                    ax.plot(xy_grid[xy_low:xy_up], np.nanmean(den_in, axis=1), color='k')
+                    for kk in range(np.shape(den_in)[1]):
+                        ax.plot(xy_grid[xy_low:xy_up], den_in[:, kk], linewidth=0.5)
+                    plot_pro(ax)
+
+
+            # density values at depth j used in above polyfit
+            # den_in = data_interp[inn_per_mw_t[i][0]:inn_per_mw_t[i][-1]+1, j, inn_per_mw[i][0]:inn_per_mw[i][-1]+1]
+
+            # variance of the linear fit
+            # signal_var = np.nanvar(model_mean_isop_all)
+            signal_var = (1.0/len(model_mean_isop_all))*np.nansum((model_mean_isop_all - np.nanmean(model_mean_isop_all))**2)
+            #
+            # vary = np.nan * np.ones(len(xy_grid))
+            for l in range(len(xy_grid[xy_low:xy_up])):
+                # variance in time of iso about model mean
+                # vary[l] = (1/len(den_in[:, l])) * np.nansum((den_in[:, l] - model_mean_isop_all[l])**2)
+                # square difference over all times at each grid point spanning each m/w pattern
+                vary = (den_in[l, :] - model_mean_isop_all[l])**2
+                if l < 1:
+                    vary_out = vary.copy()
+                else:
+                    vary_out = np.concatenate((vary_out, vary))
+            vary_tot = (1.0/len(vary_out)) * np.nansum(vary_out)
+            igw_var[j, i] = vary_tot.copy()
+            ed_var[j, i] = signal_var.copy()
+            den_var[j, i] = vary_tot/signal_var  # np.nanmean(vary)/signal_var
+            # note: igw variance is a function of glider speed because I consider variance of isopycnals about mean over
+            # the time it takes for the glider to complete an m/w
+            # faster w's will yield a better ratio because isopycnal variance will be lower because less time has
+            # elapsed for heaving to occur
+
 # difference in shear between glider and model
 shear_error = np.abs(100. * (shear - (-g * model_isop_slope_all[:, 0, :]/(rho0 * ff))) / (-g * model_isop_slope_all[:, 0, :]/(rho0 * ff)))
 # f, ax = plt.subplots()
@@ -916,6 +1008,20 @@ shear_error = np.abs(100. * (shear - (-g * model_isop_slope_all[:, 0, :]/(rho0 *
 # ax.set_xscale('log')
 # ax.set_xlim([1, 10**4])
 # plot_pro(ax)
+
+# testing of variance of igw to eddy signals
+f, (ax1, ax2, ax3) = plt.subplots(1, 3, sharey=True)
+for i in range(np.shape(shear)[1]):
+    ax1.plot(igw_var[:, i], z_grid, linewidth=0.75)
+    ax2.plot(ed_var[:, i], z_grid, linewidth=0.75)
+    ax3.plot((igw_var[0:230, i]/ed_var[0:230, i]), z_grid[0:230], linewidth=0.75)
+ax1.set_xlim([0, 0.004])
+ax1.invert_yaxis()
+ax2.set_xlim([0, 0.004])
+ax3.set_xlim([0, 5])
+ax1.grid()
+ax2.grid()
+plot_pro(ax3)
 # ------------
 
 # density gradient computation for 4 depths for plot
