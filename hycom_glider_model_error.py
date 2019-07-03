@@ -14,7 +14,7 @@ from toolkit import plot_pro, nanseg_interp
 from zrfun import get_basic_info, get_z
 
 
-file_list = glob.glob('/Users/jake/Documents/baroclinic_modes/Model/HYCOM/BATS_hourly/sim_dg_v/ve_y*_v*.pkl')
+file_list = glob.glob('/Users/jake/Documents/baroclinic_modes/Model/HYCOM/BATS_hourly/sim_dg_v/ve_bns*_v*_slp3*_y*.pkl')
 tagg = 'yall_v20_slp3'
 savee = 0
 plot_se = 0  # plot shear error scatter plot
@@ -39,6 +39,10 @@ for i in range(len(file_list)):
     pe_dg_ind_0 = MOD['PE_dg'][:]
     w_tag_0 = MOD['dg_w'][:]
     c = MOD['c'][:]
+    if 'KE_mod_ALL' in MOD.keys():
+        ke_mod_tot = MOD['KE_mod_ALL'][:]
+        avg_N2 = MOD['avg_N2'][:]
+        z_grid_n2 = MOD['z_grid_n2'][:]
 
     model_mean_per_mw = np.nan * np.ones(np.shape(glider_v))
     for j in range(len(model_v)):
@@ -154,42 +158,65 @@ f, (ax1, ax2) = plt.subplots(1, 2, sharey=True)
 anomy = v - mod_v_avg  # velocity anomaly
 # estimate rms error by w
 w_s = np.unique(w_tag)
-w_cols = 'b', 'g', 'm', 'r'
+w_cols = '#191970', 'g', '#FF8C00', '#B22222'
 mm = np.nan * np.ones((len(z_grid), len(w_s)))
 avg_anom = np.nan * np.ones((len(z_grid), len(w_s)))
 for i in range(len(np.unique(w_tag))):
     inn = np.where(w_tag == w_s[i])[0]
     mm[:, i] = np.nanmean(anomy[:, inn]**2, axis=1)  # rms error
     avg_anom[:, i] = np.nanmean(anomy[:, inn], axis=1)
-for i in range(np.shape(anomy)[1]):
-    # color by dg_w
-    if w_tag[i] < 7:
-        ax1.plot(anomy[:, i], z_grid, color=w_cols[0], linewidth=0.6)
-    elif (w_tag[i] > 7) & (w_tag[i] < 8):
-        ax1.plot(anomy[:, i], z_grid, color=w_cols[1], linewidth=0.6)
-    elif (w_tag[i] > 8) & (w_tag[i] < 12):
-        ax1.plot(anomy[:, i], z_grid, color=w_cols[2], linewidth=0.6)
-    else:
-        ax1.plot(anomy[:, i], z_grid, color=w_cols[3], linewidth=0.6)
+min_a = np.nan * np.ones((len(z_grid), 4))
+max_a = np.nan * np.ones((len(z_grid), 4))
+for i in range(np.shape(anomy)[0]):
+    inn = np.where(w_tag == w_s[0])[0]
+    min_a[i, 0] = np.nanmean(anomy[i, inn]) - np.nanstd(anomy[i, inn])
+    max_a[i, 0] = np.nanmean(anomy[i, inn]) + np.nanstd(anomy[i, inn])
+    inn = np.where(w_tag == w_s[1])[0]
+    min_a[i, 1] = np.nanmean(anomy[i, inn]) - np.nanstd(anomy[i, inn])
+    max_a[i, 1] = np.nanmean(anomy[i, inn]) + np.nanstd(anomy[i, inn])
+    inn = np.where(w_tag == w_s[2])[0]
+    min_a[i, 2] = np.nanmean(anomy[i, inn]) - np.nanstd(anomy[i, inn])
+    max_a[i, 2] = np.nanmean(anomy[i, inn]) + np.nanstd(anomy[i, inn])
+    inn = np.where(w_tag == w_s[3])[0]
+    min_a[i, 3] = np.nanmean(anomy[i, inn]) - np.nanstd(anomy[i, inn])
+    max_a[i, 3] = np.nanmean(anomy[i, inn]) + np.nanstd(anomy[i, inn])
+w_cols_2 = '#48D1CC', '#32CD32', '#FFA500', '#CD5C5C'
+for i in range(4):
+    ax1.fill_betweenx(z_grid, min_a[:, i], x2=max_a[:, i], color=w_cols_2[i], zorder=i, alpha=0.95)
+# for i in range(np.shape(anomy)[1]):
+#     # color by dg_w
+#     if w_tag[i] < 7:
+#         ax1.plot(anomy[:, i], z_grid, color=w_cols[0], linewidth=0.4)
+#     elif (w_tag[i] > 7) & (w_tag[i] < 8):
+#         ax1.plot(anomy[:, i], z_grid, color=w_cols[1], linewidth=0.4)
+#     elif (w_tag[i] > 8) & (w_tag[i] < 12):
+#         ax1.plot(anomy[:, i], z_grid, color=w_cols[2], linewidth=0.4)
+#     else:
+#         ax1.plot(anomy[:, i], z_grid, color=w_cols[3], linewidth=0.4)
+
+
 for i in range(np.shape(mm)[1]):
-    ax1.plot(avg_anom[:, i], z_grid, color=w_cols[i], linewidth=2)
-ax1.set_xlim([-.12, .12])
+    ax1.plot(avg_anom[:, i], z_grid, color=w_cols[i], linewidth=3, zorder=4, label='dg w = ' + str(w_s[i]) + ' cm/s')
+handles, labels = ax1.get_legend_handles_labels()
+ax1.legend(handles, labels, fontsize=9, loc='lower left')
+ax1.set_xlim([-.2, .2])
 ax1.set_xlabel('m/s')
-ax1.set_ylabel('Depth [m]')
-ax1.set_title(r'M/W Vel. Error ($u_{g}$ - $\overline{u_{model}}$) ('
-             + str(MOD['glide_slope'][0]) + ':1)')
+ax1.set_ylabel('z [m]')
+ax1.set_title(r'Glider/Model Velocity Error ($u_{g}$ - $\overline{u_{model}}$) (gs='
+             + str(np.int(MOD['glide_slope'][0])) + ':1)')
 ax1.text(0.04, -2600, str(np.shape(anomy)[1]) + ' profiles')
 
 for i in range(np.shape(mm)[1]):
     ax2.plot(mm[:, i], z_grid, linewidth=2.2, color=w_cols[i])
-ax2.set_xlim([0, .0075])
+ax2.set_xlim([0, .03])
 ax2.set_ylim([-4750, 0])
 ax2.set_xlabel(r'm$^2$/s$^2$')
-ax2.set_title(r'M/W Vel. RMS Error ($u_{g}$ - $\overline{u_{model}}$)$^2$')
+ax2.set_title(r'Glider/Model Velocity rms error ($u_{g}$ - $\overline{u_{model}}$)$^2$')
 ax1.grid()
 plot_pro(ax2)
-if savee > 0:
-    f.savefig('/Users/jake/Documents/glider_flight_sim_paper/model_dg_vel_error_' + str(tagg) + '.png', dpi=200)
+save_rms = 1
+if save_rms > 0:
+    f.savefig('/Users/jake/Documents/glider_flight_sim_paper/model_dg_vel_error_bats_ns.png', dpi=200)
 
 # binss = np.arange(0, 0.002, 0.0001)
 # subax = f.add_axes([0.2, 0.75, .225, .08])
@@ -250,8 +277,8 @@ if savee > 0:
 ff = np.pi * np.sin(np.deg2rad(44)) / (12 * 1800)  # Coriolis parameter [s^-1]
 
 omega = 0
-mmax = 25
-mm = 20
+mmax = 30
+mm = 30
 
 sc_x = 1000 * ff / c[1:mm]
 l_lim = 3 * 10 ** -2
@@ -259,23 +286,35 @@ sc_x = np.arange(1, mm)
 l_lim = 0.7
 dk = ff / c[1]
 
-avg_PE = np.nanmean(pe_dg, axis=1)
+avg_PE_0 = np.nanmean(pe_dg, axis=1)
 avg_PE_ind = np.nanmean(pe_dg_ind, axis=1)
-avg_KE = np.nanmean(ke_dg, axis=1)
-avg_PE_model = np.nanmean(pe_mod, axis=1)
-avg_KE_model = np.nanmean(ke_mod, axis=1)
+avg_KE_0 = np.nanmean(ke_dg, axis=1)
+good = np.where(ke_mod[1, :] < 1*10**0)[0]
+avg_PE_model = np.nanmean(pe_mod[:, good], axis=1)
+avg_KE_model = np.nanmean(ke_mod[:, good], axis=1)
 
 matplotlib.rcParams['figure.figsize'] = (10, 6)
 f, (ax1, ax2) = plt.subplots(1, 2, sharey=True)
 # DG
-ax1.plot(sc_x, avg_PE[1:mm] / dk, 'r', label='PE$_{DG}$', linewidth=2)
-ax1.scatter(sc_x, avg_PE[1:mm] / dk, color='r', s=20)
-ax1.plot(sc_x, avg_PE_ind[1:mm] / dk, 'c', label='PE$_{DG_{ind}}$', linewidth=2)
-ax1.scatter(sc_x, avg_PE_ind[1:mm] / dk, color='c', s=20)
-ax2.plot(sc_x, avg_KE[1:mm] / dk, 'r', label='KE$_{DG}$', linewidth=3)
-ax2.scatter(sc_x, avg_KE[1:mm] / dk, color='r', s=20)  # DG KE
-ax2.plot([l_lim, sc_x[0]], avg_KE[0:2] / dk, 'r', linewidth=3)  # DG KE_0
-ax2.scatter(l_lim, avg_KE[0] / dk, color='r', s=25, facecolors='none')  # DG KE_0
+for i in range(len(w_s)):
+    inn = np.where(w_tag == w_s[i])[0]
+    # PE
+    avg_PE = np.nanmean(pe_dg[:, inn], axis=1)
+    ax1.plot(sc_x, avg_PE[1:mm] / dk, color=w_cols[i], label=r'PE$_{w = ' + str(w_s[i]) + '}$', linewidth=1.5)
+    ax1.scatter(sc_x, avg_PE[1:mm] / dk, color=w_cols[i], s=15)
+    # ax1.plot(sc_x, avg_PE_ind[1:mm] / dk, 'c', label='PE$_{DG_{ind}}$', linewidth=2)
+    # ax1.scatter(sc_x, avg_PE_ind[1:mm] / dk, color='c', s=20)
+    # KE
+    avg_KE = np.nanmean(ke_dg[:, inn], axis=1)
+    ax2.plot(sc_x, avg_KE[1:mm] / dk, color=w_cols[i], label=r'KE$_{w = ' + str(w_s[i]) + '}$', linewidth=1.5)
+    ax2.scatter(sc_x, avg_KE[1:mm] / dk, color=w_cols[i], s=15)  # DG KE
+    ax2.plot([l_lim, sc_x[0]], avg_KE[0:2] / dk, color=w_cols[i], linewidth=1.5)  # DG KE_0
+    ax2.scatter(l_lim, avg_KE[0] / dk, color=w_cols[i], s=15, facecolors='none')  # DG KE_0
+    if i < 1:
+        modeno = '1', '2', '3', '4', '5', '6', '7', '8'
+        for j in range(len(modeno)):
+            ax2.text(sc_x[j], (avg_KE[j + 1] + (avg_KE[j + 1] / 2)) / dk, modeno[j], color='k', fontsize=10)
+
 # Model
 ax1.plot(sc_x, avg_PE_model[1:mm] / dk, color='k', label='PE$_{Model}$', linewidth=2)
 ax1.scatter(sc_x, avg_PE_model[1:mm] / dk, color='k', s=20)
@@ -284,9 +323,18 @@ ax2.scatter(sc_x, avg_KE_model[1:mm] / dk, color='k', s=20)
 ax2.plot([l_lim, sc_x[0]], avg_KE_model[0:2] / dk, color='k', linewidth=2)
 ax2.scatter(l_lim, avg_KE_model[0] / dk, color='k', s=25, facecolors='none')
 
-modeno = '1', '2', '3', '4', '5', '6', '7', '8'
-for j in range(len(modeno)):
-    ax2.text(sc_x[j], (avg_KE[j + 1] + (avg_KE[j + 1] / 2)) / dk, modeno[j], color='k', fontsize=10)
+
+avg_KE_model_ind_all = np.nanmean(ke_mod_tot, axis=1)
+# lg = np.where(avg_N2 < 1*10**-10)[0]
+# for i in range(len(avg_N2) - lg[1]):
+#     avg_N2[lg[1] + i] = avg_N2[lg[1] - 1] - 1*10**-10
+# PE_SD, PE_GM, GMPE, GMKE = PE_Tide_GM(1025, -1.0 * z_grid_n2, len(avg_KE_model), avg_N2[:, None], ff)
+ax2.plot(sc_x, avg_KE_model_ind_all[1:mm] / dk, color='k', label='KE$_{Model_{inst}}$', linewidth=1, linestyle='--')
+ax2.scatter(sc_x, avg_KE_model_ind_all[1:mm] / dk, color='k', s=5)
+ax2.plot([l_lim, sc_x[0]], avg_KE_model_ind_all[0:2] / dk, color='k', linewidth=1, linestyle='--')
+ax2.scatter(l_lim, avg_KE_model_ind_all[0] / dk, color='k', s=5, facecolors='none')
+# model GMKE
+# ax2.plot(sc_x, GMKE[1:mm] / dk, color='k', linewidth=0.75)
 
 limm = 5
 ax1.set_xlim([l_lim, 0.5 * 10 ** 2])
@@ -301,15 +349,16 @@ ax1.set_ylabel('Spectral Density', fontsize=12)  # ' (and Hor. Wavenumber)')
 # ax2.set_xlabel(r'Scaled Vertical Wavenumber = (L$_{d_{n}}$)$^{-1}$ = $\frac{f}{c_n}$ [$km^{-1}$]', fontsize=12)
 ax1.set_xlabel('Mode Number', fontsize=12)
 ax2.set_xlabel('Mode Number', fontsize=12)
-ax1.set_title('PE Spectrum ('
-             + str(MOD['glide_slope']) + ':1, w=' + str(MOD['dg_w']) + ' m/s)', fontsize=12)
+ax1.set_title('PE Spectrum (gs='
+             + str(np.int(MOD['glide_slope'][0])) + ':1)', fontsize=12)
 ax2.set_title('KE Spectrum ('
-             + str(MOD['glide_slope']) + ':1, w=' + str(MOD['dg_w']) + ' m/s)', fontsize=12)
+             + str(np.int(MOD['glide_slope'][0])) + ':1)', fontsize=12)
 handles, labels = ax2.get_legend_handles_labels()
 ax2.legend(handles, labels, fontsize=12)
 handles, labels = ax1.get_legend_handles_labels()
 ax1.legend(handles, labels, fontsize=12)
 ax1.grid()
 plot_pro(ax2)
-if savee > 0:
-    f.savefig('/Users/jake/Documents/glider_flight_sim_paper/model_dg_vel_energy_' + str(tagg) + '.png', dpi=200)
+save_e = 1
+if save_e > 0:
+    f.savefig('/Users/jake/Documents/glider_flight_sim_paper/model_dg_vel_energy_bats_ns.png', dpi=200)
