@@ -17,19 +17,30 @@ from toolkit import plot_pro, nanseg_interp
 from zrfun import get_basic_info, get_z
 
 # load mat file
+
+# -- BATS --
 pp = '1'
-# filename = 'HYCOM_hrly_b_3087N_214_01_228_00'  # E_W profile 1
-filename = 'HYCOM_hrly_b_6336W_214_01_228_00'  # N_S profile 1
+filename = 'HYCOM_hrly_b_3087N_214_01_228_00'  # E_W profile 1
+# filename = 'HYCOM_hrly_b_6336W_214_01_228_00'  # N_S profile 1
 # pp = '2'
 # filename = 'HYCOM_hrly_b_3128N_214_01_228_00'  # E_W profile 2
 # filename = 'HYCOM_hrly_b_6376W_214_01_228_00'  # N_S profile 2
+
+# -- 36N,65W --
+# pp = '1'
+# filename = 'HYCOM_hrly_n_3532N_214_01_228_00'  # E_W profile 1
+# filename = 'HYCOM_hrly_n_6424W_214_01_228_00'  # N_S profile 1
+# pp = '2'
+# filename = 'HYCOM_hrly_n_3597N_214_01_228_00'  # E_W profile 2
+# filename = 'HYCOM_hrly_n_6504W_214_01_228_00'  # N_S profile 2
+
 import_hy = si.loadmat('/Users/jake/Documents/baroclinic_modes/Model/HYCOM/' + filename + '.mat')
 MOD = import_hy['out']
-ref_lat = 31
+ref_lat = MOD['ref_lat'][0][0][0][0]
 sig0_out_s = MOD['gamma'][0][0][:]
 ct_out_s = MOD['temp'][0][0][:]  # temp
 sa_out_s = MOD['salin'][0][0][:]  # salin
-transect_dir = MOD['transect'][:]
+transect_dir = MOD['transect'][0][0][0][0]  # matlab keys are stupidly flipped (E_W = 0, while here E_W = 1)
 if transect_dir < 1:  # E/W transect
     u_out_s = MOD['v'][0][0][:] # vel across transect
     u_off_out_s = MOD['u'][0][0][:] # vel along transect
@@ -79,28 +90,28 @@ ff = np.pi * np.sin(np.deg2rad(ref_lat)) / (12 * 1800)  # Coriolis parameter [s^
 # main set of parameters
 # to adjust
 # time start index
-t_st_ind = 10
+t_st_ind = 192
 
 dg_vertical_speed = 0.1  # m/s
 dg_glide_slope = 3
-num_dives = 4
+num_dives = 5
 dac_error = 0.01  # m/s
 g_error = 0.00001
 t_error = 0.001
 s_error = 0.01
-y_dg_s = 40000     # horizontal position, start of glider dives (75km)
+y_dg_s = 30000     # horizontal position, start of glider dives (75km)
 z_dg_s = 0        # depth, start of glider dives
 partial_mw = 0    # include exclude partial m/w estimates
 
-plot0 = 0  # plot model, glider cross section
+plot0 = 1  # plot model, glider cross section
 plot_v = 0  # plot velocity eta profiles
-plot_rho = 0  # plot density at 4 depths in space and time
+plot_rho = 1  # plot density at 4 depths in space and time
 plot_sp = 0  # run and save gif
 
 save_anom = 0
-save_p = 0
+save_p = 1
 save_v = 0
-save_rho = 0
+save_rho = 1
 
 # need to specify D_TGT or have glider 'fly' until it hits bottom
 data_loc = np.nanmean(sig0_out_s, axis=0)  # (depth X xy_grid)
@@ -195,12 +206,12 @@ tag = str(np.int(filename[19])) + str(np.int(np.int(filename[20:22]) + np.floor(
         str(np.int((dg_t[0, -1] - np.floor(dg_t_e)) * 24))
 # save filename
 if E_W > 0:
-    output_filename = '/Users/jake/Documents/baroclinic_modes/Model/HYCOM/BATS_hourly/sim_dg_v/ve_bew' + pp + '_v' + \
-                      str(np.int(100*dg_vertical_speed)) + '_slp' + str(np.int(dg_glide_slope)) + \
+    output_filename = '/Users/jake/Documents/baroclinic_modes/Model/HYCOM/simulated_dg_velocities_bats_36n/ve_new' + \
+                      pp + '_v' + str(np.int(100*dg_vertical_speed)) + '_slp' + str(np.int(dg_glide_slope)) + \
                       '_y' + str(np.int(y_dg_s/1000)) + '_' + tag + '.pkl'
 else:
-    output_filename = '/Users/jake/Documents/baroclinic_modes/Model/HYCOM/BATS_hourly/sim_dg_v/ve_bns' + pp + '_v' + \
-                      str(np.int(100 * dg_vertical_speed)) + '_slp' + str(np.int(dg_glide_slope)) + \
+    output_filename = '/Users/jake/Documents/baroclinic_modes/Model/HYCOM/simulated_dg_velocities_bats_36n/ve_nns' + \
+                      pp + '_v' + str(np.int(100 * dg_vertical_speed)) + '_slp' + str(np.int(dg_glide_slope)) + \
                       '_y' + str(np.int(y_dg_s/1000)) + '_' + tag + '.pkl'
 
 # --- Interpolation of Model to each glider measurements
@@ -445,7 +456,7 @@ for i in order_set:
 if E_W:
     dg_dac_use = 1. * nanseg_interp(dg_dac_mid, dg_dac) + dac_error * np.random.rand(len(dg_dac))  # added noise to DAC
 else:
-    dg_dac_use = -1. * nanseg_interp(dg_dac_mid, dg_dac)
+    dg_dac_use = -1. * nanseg_interp(dg_dac_mid, dg_dac) + dac_error * np.random.rand(len(dg_dac))  # added noise to DAC
 # FOR EACH TRANSECT COMPUTE GEOSTROPHIC VELOCITY
 vbc_g = np.nan * np.zeros(np.shape(shear))
 v_g = np.nan * np.zeros((np.size(z_grid), num_profs))
@@ -644,15 +655,15 @@ bck_ct = np.nanmean(np.nanmean(ct_out_s, axis=0)[:, overlap], axis=1)
 sig0_bck_out = bck_gamma
 sig0_bck_out = sig0_bck_out[~np.isnan(sig0_bck_out)]
 N2_bck_out = gsw.Nsquared(bck_sa, bck_ct, p_grid, lat=ref_lat)[0]
-for i in range(len(N2_bck_out)-15, len(N2_bck_out)):
+for i in range(len(N2_bck_out)-20, len(N2_bck_out)):
     N2_bck_out[i] = N2_bck_out[i - 1] - 1*10**(-8)
 max_ind = np.where(np.isnan(bck_gamma))[0][0]
 z_back = dg_z[0:max_ind]
 N2_bck_out = N2_bck_out[0:max_ind]
 
-if np.nansum(N2_bck_out < 0) > 0:
-    bad = np.where(N2_bck_out < 0)[0]
-    N2_bck_out[bad] = np.nanmean([N2_bck_out[bad-1], N2_bck_out[bad+1]])
+# if np.nansum(N2_bck_out < 0) > 0:
+#     bad = np.where(N2_bck_out < 0)[0]
+#     N2_bck_out[bad] = np.nanmean([N2_bck_out[bad-1], N2_bck_out[bad+1]])
 # ---------------------------------------------------------------------------------------------------------------------
 # testing of variance of igw to eddy signals
 # f, (ax1, ax2, ax3) = plt.subplots(1, 3, sharey=True)
@@ -932,7 +943,7 @@ avg_PE_model = np.nanmean(PE_per_mass_model, axis=1)
 # ----------------------------------------------------------------------------------------------------------------------
 # Model (instant)
 # if on, compute model ke spectrum over many many instantaneous model vel profiles
-u_mod_all = 1
+u_mod_all = 0
 if u_mod_all > 0:
     for m in range(len(u_mod_at_mw)):
         this_mod_u = u_mod_at_mw[m]
@@ -1024,9 +1035,9 @@ if save_anom:
                'eta_m_dg_avg': eta_m_dg_sm, 'PE_dg_avg': PE_per_mass_dg_sm,
                'eta_model': eta_m_model, 'PE_model': PE_per_mass_model,
                'glide_slope': np.ones(np.shape(v_g)[1]) * dg_glide_slope,
-               'dg_w': np.ones(np.shape(v_g)[1]) * dg_vertical_speed,
-               'avg_N2': avg_N2, 'z_grid_n2': z_grid_n2,
-               'KE_mod_ALL': HKE_mod_TOT, 'PE_mod_ALL': PE_mod_TOT}
+               'dg_w': np.ones(np.shape(v_g)[1]) * dg_vertical_speed}
+               # 'avg_N2': avg_N2, 'z_grid_n2': z_grid_n2,
+               # 'KE_mod_ALL': HKE_mod_TOT, 'PE_mod_ALL': PE_mod_TOT}
     output = open(output_filename, 'wb')
     pickle.dump(my_dict, output)
     output.close()
@@ -1034,9 +1045,11 @@ if save_anom:
 
 # PLOTTING
 h_max = np.nanmax(dg_y/1000 + 20)  # horizontal domain limit
-z_max = -5000
-u_levels = np.array([-.6, -.5, -.4, -0.3, -.25, - .2, -.15, -.125, -.1, -.075, -.05, -0.025, 0,
-                     0.025, 0.05, 0.075, 0.1, 0.125, 0.15, 0.2, 0.25, 0.3, 0.4, 0.5, 0.6])
+z_max = -5200
+# u_levels = np.array([-.8, -.7, -.6, -.5, -.4, -0.3, -.25, - .2, -.15, -.125, -.1, -.075, -.05, -0.025, 0,
+#                      0.025, 0.05, 0.075, 0.1, 0.125, 0.15, 0.2, 0.25, 0.3, 0.4, 0.5, 0.6, .7, .8])
+u_levels = np.array([-.5, -.4, -0.3, -.25, - .2, -.15, -.125, -.1, -.075, -.05, -0.025, 0,
+                     0.025, 0.05, 0.075, 0.1, 0.125, 0.15, 0.2, 0.25, 0.3, 0.4, 0.5])
 
 cmap = plt.cm.get_cmap("Spectral")
 
@@ -1047,13 +1060,72 @@ taggt = str(np.int(filename[19])) + '/' + str(np.int(filename[20:22]) + np.floor
         ' - ' + str(np.int(filename[19])) + '/' + str(np.int(filename[20:22]) + np.floor(dg_t_e)) + ' ' + \
         str(np.int((dg_t[0, -1] - np.floor(dg_t_e)) * 24)) + 'hr'
 
+# -- plot cross section --
 if plot0 > 0:
-    matplotlib.rcParams['figure.figsize'] = (12, 6)
-
     t_in_low = np.where(time_ord_s >= np.nanmin(dg_t))[0][0]
     t_in_high = np.where(time_ord_s <= np.nanmax(dg_t))[0][-1]
+    # matplotlib.rcParams['figure.figsize'] = (12, 6)
+    # f, ax1 = plt.subplots()
+    # uvcf = ax1.contourf(np.tile(xy_grid/1000, (len(z_grid), 1)), np.tile(z_grid[:, None], (1, len(xy_grid))),
+    #              np.nanmean(u_out_s[t_in_low:t_in_high, :, :], axis=0), levels=u_levels, cmap=cmap)
+    # uvc = ax1.contour(np.tile(xy_grid/1000, (len(z_grid), 1)), np.tile(z_grid[:, None], (1, len(xy_grid))),
+    #                   np.nanmean(u_out_s[t_in_low:t_in_high, :, :], axis=0), levels=u_levels, colors='#2F4F4F', linewidths=0.5)
+    # ax1.clabel(uvc, inline_spacing=-3, fmt='%.4g', colors='k')
+    # rhoc = ax1.contour(np.tile(xy_grid/1000, (len(z_grid), 1)), np.tile(z_grid[:, None], (1, len(xy_grid))),
+    #                    np.nanmean(sig0_out_s, axis=0), levels=sigth_levels, colors='#A9A9A9', linewidths=0.5)
+    # ax1.scatter(dg_y/1000, dg_z_g, 4, color='k', label='glider path')
+    # # ax1.set_title(str(datetime.date.fromordinal(np.int(time_ord_s[0]))) +
+    # #               ' - ' + str(datetime.date.fromordinal(np.int(time_ord_s[-2]))) + ', 72hr. Model Avg.')
+    # handles, labels = ax1.get_legend_handles_labels()
+    # ax1.legend(handles, labels, fontsize=11)
+    # ax1.set_ylim([z_max, 0])
+    # ax1.set_xlim([0, h_max])
+    # ax1.set_xlabel('E/W distance [km]')
+    # ax1.set_ylabel('z [m]')
+    # ax1.set_title('Model Avg. ' + taggt)
+    # plt.colorbar(uvcf, label='N/S Velocity [m/s]', ticks=u_levels)
+    # if save_p > 0:
+    #     f.savefig('/Users/jake/Documents/glider_flight_sim_paper/model_y' +
+    #               str(np.int(y_dg_s/1000)) + '_v' + str(np.int(100*dg_vertical_speed)) +
+    #               '_slp' + str(np.int(dg_glide_slope)) + '_' + tag + '.png', dpi=200)
+    # else:
+    #     ax1.grid()
+    #     plot_pro(ax1)
+    #
+    # f, ax1 = plt.subplots()
+    # ax1.contourf(np.tile(mw_y[1:-1]/1000, (len(z_grid), 1)), np.tile(dg_z[:, None], (1, len(mw_y[1:-1]))),
+    #              v_g, levels=u_levels, cmap=cmap)
+    # uvc = ax1.contour(np.tile(mw_y[1:-1]/1000, (len(z_grid), 1)), np.tile(dg_z[:, None], (1, len(mw_y[1:-1]))), v_g,
+    #                   levels=u_levels, colors='#2F4F4F', linewidths=0.5)
+    # ax1.clabel(uvc, inline_spacing=-3, fmt='%.4g', colors='k')
+    #
+    # rhoc = ax1.contour(np.tile(xy_grid/1000, (len(z_grid), 1)), np.tile(z_grid[:, None], (1, len(xy_grid))),
+    #                    np.nanmean(sig0_out_s[t_in_low:t_in_high, :, :], axis=0),
+    #                    levels=sigth_levels, colors='#A9A9A9', linewidths=0.5)
+    # for r in range(np.shape(isopycdep)[0]):
+    #     ax1.plot(isopycx[r, :]/1000, isopycdep[r, :], color='r', linewidth=0.75)
+    # ax1.plot(isopycx[r, :] / 1000, isopycdep[r, :], color='r', linewidth=0.5, label='glider measured isopycnals')
+    # ax1.scatter(dg_y/1000, dg_z_g, 4, color='k', label='glider path')
+    # handles, labels = ax1.get_legend_handles_labels()
+    # ax1.legend(handles, labels, fontsize=11)
+    # ax1.set_ylim([z_max, 0])
+    # ax1.set_xlim([0, h_max])
+    # ax1.set_xlabel('E/W distance [km]')
+    # ax1.set_ylabel('z [m]')
+    # ax1.set_title('Glider Velocity Field')
+    # plt.colorbar(uvcf, label='N/S Velocity [m/s]', ticks=u_levels)
+    # if save_p > 0:
+    #     f.savefig('/Users/jake/Documents/glider_flight_sim_paper/glider_y' +
+    #               str(np.int(y_dg_s/1000)) + '_v' + str(np.int(100*dg_vertical_speed)) +
+    #               '_slp' + str(np.int(dg_glide_slope)) + '_' + tag + '.png', dpi=200)
+    # else:
+    #     ax1.grid()
+    #     plot_pro(ax1)
+    # -------------------------------
 
-    f, ax1 = plt.subplots()
+    matplotlib.rcParams['figure.figsize'] = (13, 6)
+    cmap = plt.cm.get_cmap("Spectral")
+    fig, (ax1, ax2) = plt.subplots(1, 2, sharey=True)
     uvcf = ax1.contourf(np.tile(xy_grid/1000, (len(z_grid), 1)), np.tile(z_grid[:, None], (1, len(xy_grid))),
                  np.nanmean(u_out_s[t_in_low:t_in_high, :, :], axis=0), levels=u_levels, cmap=cmap)
     uvc = ax1.contour(np.tile(xy_grid/1000, (len(z_grid), 1)), np.tile(z_grid[:, None], (1, len(xy_grid))),
@@ -1062,55 +1134,47 @@ if plot0 > 0:
     rhoc = ax1.contour(np.tile(xy_grid/1000, (len(z_grid), 1)), np.tile(z_grid[:, None], (1, len(xy_grid))),
                        np.nanmean(sig0_out_s, axis=0), levels=sigth_levels, colors='#A9A9A9', linewidths=0.5)
     ax1.scatter(dg_y/1000, dg_z_g, 4, color='k', label='glider path')
-    # ax1.set_title(str(datetime.date.fromordinal(np.int(time_ord_s[0]))) +
-    #               ' - ' + str(datetime.date.fromordinal(np.int(time_ord_s[-2]))) + ', 72hr. Model Avg.')
+
+    t_tot = np.int(np.round(24.0*(dg_t[0,-1] - dg_t[0,0])))
+    ax1.set_title('Model Avg. ' + taggt)
     handles, labels = ax1.get_legend_handles_labels()
     ax1.legend(handles, labels, fontsize=11)
     ax1.set_ylim([z_max, 0])
     ax1.set_xlim([0, h_max])
     ax1.set_xlabel('E/W distance [km]')
     ax1.set_ylabel('z [m]')
-    ax1.set_title('Model Avg. ' + taggt)
-    plt.colorbar(uvcf, label='N/S Velocity [m/s]', ticks=u_levels)
+    # plt.colorbar(uvcf, label='N/S Velocity [m/s]', ticks=u_levels)
+    # ax1.grid()
 
-    if save_p > 0:
-        f.savefig('/Users/jake/Documents/glider_flight_sim_paper/model_y' +
-                  str(np.int(y_dg_s/1000)) + '_v' + str(np.int(100*dg_vertical_speed)) +
-                  '_slp' + str(np.int(dg_glide_slope)) + '_' + tag + '.png', dpi=200)
-    else:
-        ax1.grid()
-        plot_pro(ax1)
-
-    f, ax1 = plt.subplots()
-    ax1.contourf(np.tile(mw_y[1:-1]/1000, (len(z_grid), 1)), np.tile(dg_z[:, None], (1, len(mw_y[1:-1]))),
+    u_levels_i = np.array([-0.4, -.25, -.15, -.1, -.05, 0, 0.05, 0.1, 0.15, 0.25, 0.4])
+    vh = ax2.contourf(np.tile(mw_y[1:-1]/1000, (len(z_grid), 1)), np.tile(dg_z[:, None], (1, len(mw_y[1:-1]))),
                  v_g, levels=u_levels, cmap=cmap)
-    uvc = ax1.contour(np.tile(mw_y[1:-1]/1000, (len(z_grid), 1)), np.tile(dg_z[:, None], (1, len(mw_y[1:-1]))), v_g,
+    # divider = make_axes_locatable(ax2)
+    # cax = divider.append_axes("right", size="5%", pad=0.05)
+    # fig.colorbar(vh, cax=cax, ticks=u_levels, label='N/S Velocity [m/s]', location='left')
+    uvc = ax2.contour(np.tile(mw_y[1:-1]/1000, (len(z_grid), 1)), np.tile(dg_z[:, None], (1, len(mw_y[1:-1]))), v_g,
                       levels=u_levels, colors='#2F4F4F', linewidths=0.5)
-    ax1.clabel(uvc, inline_spacing=-3, fmt='%.4g', colors='k')
+    ax2.clabel(uvc, inline_spacing=-3, fmt='%.4g', colors='k')
 
-    rhoc = ax1.contour(np.tile(xy_grid/1000, (len(z_grid), 1)), np.tile(z_grid[:, None], (1, len(xy_grid))),
+    rhoc = ax2.contour(np.tile(xy_grid/1000, (len(z_grid), 1)), np.tile(z_grid[:, None], (1, len(xy_grid))),
                        np.nanmean(sig0_out_s[t_in_low:t_in_high, :, :], axis=0),
                        levels=sigth_levels, colors='#A9A9A9', linewidths=0.5)
     for r in range(np.shape(isopycdep)[0]):
-        ax1.plot(isopycx[r, :]/1000, isopycdep[r, :], color='r', linewidth=0.75)
-    ax1.plot(isopycx[r, :] / 1000, isopycdep[r, :], color='r', linewidth=0.5, label='glider measured isopycnals')
-    ax1.scatter(dg_y/1000, dg_z_g, 4, color='k', label='glider path')
-    handles, labels = ax1.get_legend_handles_labels()
-    ax1.legend(handles, labels, fontsize=11)
-    ax1.set_ylim([z_max, 0])
-    ax1.set_xlim([0, h_max])
-    ax1.set_xlabel('E/W distance [km]')
-    ax1.set_ylabel('z [m]')
-    ax1.set_title('Glider Velocity Field')
-    plt.colorbar(uvcf, label='N/S Velocity [m/s]', ticks=u_levels)
+        ax2.plot(isopycx[r, :]/1000, isopycdep[r, :], color='r', linewidth=0.75)
+    ax2.plot(isopycx[r, :] / 1000, isopycdep[r, :], color='r', linewidth=0.5, label='glider measured isopycnals')
+    ax2.scatter(dg_y/1000, dg_z_g, 4, color='k')
+    handles, labels = ax2.get_legend_handles_labels()
+    ax2.legend(handles, labels, fontsize=11)
+    ax2.set_xlim([0, h_max])
+    ax2.set_title(r'Cross-Track Glider Vel. u$_g$(x,z)')
+    ax2.set_xlabel('E/W distance [km]')
     if save_p > 0:
-        f.savefig('/Users/jake/Documents/glider_flight_sim_paper/glider_y' +
-                  str(np.int(y_dg_s/1000)) + '_v' + str(np.int(100*dg_vertical_speed)) +
-                  '_slp' + str(np.int(dg_glide_slope)) + '_' + tag + '.png', dpi=200)
+        fig.savefig('/Users/jake/Documents/glider_flight_sim_paper/hycom_ind_cross.png', dpi=200)
     else:
-        ax1.grid()
-        plot_pro(ax1)
+        ax2.grid()
+        plot_pro(ax2)
 
+# -- plot velocity --
 if plot_v > 0:
     avg_mod_u = u_mod_at_mw_avg[:, 1:-1]
     matplotlib.rcParams['figure.figsize'] = (7, 7)
@@ -1162,7 +1226,8 @@ if plot_rho > 0:
     cmap = plt.cm.get_cmap("YlGnBu_r")
     # cmaps = [0.15, 0.22, 0.3, 0.37, 0.45, 0.52, 0.6, 0.67, 0.75, 0.82, .9, .98]
     cmaps = np.arange(0, 1, 1/len(t_steps))
-    lab_y = [25.775, 27.55, 27.9, 27.97]
+    lab_y = [np.round(np.nanmin(isop_dep[0, :, 0]), 2), np.round(np.nanmin(isop_dep[1, :, 0]), 2),
+             np.round(np.nanmin(isop_dep[2, :, 0]), 2), np.round(np.nanmin(isop_dep[3, :, 0]), 2)]
     matplotlib.rcParams['figure.figsize'] = (10, 7)
     f, ax = plt.subplots(4, 1, sharex=True)
     for i in range(len(deps)):
@@ -1189,28 +1254,29 @@ if plot_rho > 0:
     ax[3].legend(handles, labels, fontsize=9, loc='lower right')
     ax[0].set_ylabel('Neutral Density')
     ax[0].set_title(r'Density along z=z$_i$')
-    ax[0].set_ylim([25.7, 26])
+    ax[0].set_ylim([np.round(np.nanmin(isop_dep[0, :, 0]), 2) - 0.1, np.round(np.nanmax(isop_dep[0, :, 0]), 2) + 0.1])
     ax[0].invert_yaxis()
     ax[0].grid()
     ax[0].set_xlim([0, h_max])
     ax[1].set_ylabel('Neutral Density')
-    ax[1].set_ylim([27.5, 27.75])
+    ax[1].set_ylim([np.round(np.nanmin(isop_dep[1, :, 0]), 2) - 0.02, np.round(np.nanmax(isop_dep[1, :, 0]), 2) + 0.02])
     ax[1].invert_yaxis()
     ax[1].grid()
     ax[2].set_ylabel('Neutral Density')
-    ax[2].set_ylim([27.89, 27.94])
+    ax[2].set_ylim([np.round(np.nanmin(isop_dep[2, :, 0]), 2) - 0.01, np.round(np.nanmax(isop_dep[2, :, 0]), 2) + 0.01])
     ax[2].invert_yaxis()
     ax[2].grid()
     ax[3].set_ylabel('Neutral Density')
-    ax[3].set_ylim([27.96, 28])
+    ax[3].set_ylim([np.round(np.nanmin(isop_dep[3, :, 0]), 2) - 0.01, np.round(np.nanmax(isop_dep[3, :, 0]), 2) + 0.01])
     ax[3].invert_yaxis()
     ax[3].set_xlabel('Transect Distance [km]')
 
     if save_rho > 0:
         ax[3].grid()
-        f.savefig('/Users/jake/Documents/glider_flight_sim_paper/g_m_rho_y' +
-                  str(np.int(y_dg_s/1000)) + '_v' + str(np.int(100*dg_vertical_speed)) +
-                  '_slp' + str(np.int(dg_glide_slope)) + '_' + tag + '.png', dpi=200)
+        # f.savefig('/Users/jake/Documents/glider_flight_sim_paper/g_m_rho_y' +
+        #           str(np.int(y_dg_s/1000)) + '_v' + str(np.int(100*dg_vertical_speed)) +
+        #           '_slp' + str(np.int(dg_glide_slope)) + '_' + tag + '.png', dpi=200)
+        f.savefig('/Users/jake/Documents/glider_flight_sim_paper/hycom_ind_den_grad.png', dpi=200)
     else:
         plot_pro(ax[3])
 

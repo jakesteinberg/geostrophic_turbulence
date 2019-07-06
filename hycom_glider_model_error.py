@@ -14,13 +14,14 @@ from toolkit import plot_pro, nanseg_interp
 from zrfun import get_basic_info, get_z
 
 
-file_list = glob.glob('/Users/jake/Documents/baroclinic_modes/Model/HYCOM/BATS_hourly/sim_dg_v/ve_bns*_v*_slp3*_y*.pkl')
+file_list = glob.glob('/Users/jake/Documents/baroclinic_modes/Model/HYCOM/simulated_dg_velocities_bats_36n/ve_b*_v*_slp3*_y*.pkl')
 tagg = 'yall_v20_slp3'
 savee = 0
+save_rms = 0  # vel error plot
+save_e = 0  # energy spectra plot
 plot_se = 0  # plot shear error scatter plot
 
 direct_anom = []
-# igw_var = np.nan * np.ones(len(file_list))
 for i in range(len(file_list)):
     pkl_file = open(file_list[i], 'rb')
     MOD = pickle.load(pkl_file)
@@ -122,39 +123,7 @@ if plot_se > 0:
     if savee > 0:
         f.savefig('/Users/jake/Documents/glider_flight_sim_paper/model_dg_per_shear_err_' + str(tagg) + '.png', dpi=200)
 
-
-# -- all velocity anomalies colored by max abs vel attained
-# cmap = plt.cm.get_cmap('Spectral_r')
-# f, ax = plt.subplots()
-# this_one = mod_time_out
-# this_anom = anoms_time
-# max_mod_v = np.nan * np.ones(np.shape(this_one)[1])
-# avg_anom1 = np.nan * np.ones(np.shape(this_one)[1])
-# avg_anom2 = np.nan * np.ones(np.shape(this_one)[1])
-# avg_anom3 = np.nan * np.ones(np.shape(this_one)[1])
-# for i in range(np.shape(this_one)[1]):
-#     max_mod_v[i] = np.nanmax(this_one[:, i]**2)
-#     avg_anom1[i] = np.nanmean(this_anom[0:50, i]**2)
-#     avg_anom2[i] = np.nanmean(this_anom[5:100, i]**2)
-#     avg_anom3[i] = np.nanmean(this_anom[100:, i]**2)
-#     if np.nanmax(np.abs(this_one[:, i])) > 0.25:
-#         ax.plot(this_anom[:, i], z_grid, color=cmap(1))
-#     elif (np.nanmax(np.abs(this_one[:, i])) > 0.2) & (np.nanmax(np.abs(this_one[:, i])) < 0.25):
-#         ax.plot(this_anom[:, i], z_grid, color=cmap(.8))
-#     elif (np.nanmax(np.abs(this_one[:, i])) > 0.15) & (np.nanmax(np.abs(this_one[:, i])) < 0.2):
-#         ax.plot(this_anom[:, i], z_grid, color=cmap(.6))
-#     elif (np.nanmax(np.abs(this_one[:, i])) > 0.1) & (np.nanmax(np.abs(this_one[:, i])) < 0.15):
-#         ax.plot(this_anom[:, i], z_grid, color=cmap(.4))
-#     elif (np.nanmax(np.abs(this_one[:, i])) > 0.05) & (np.nanmax(np.abs(this_one[:, i])) < 0.1):
-#         ax.plot(this_anom[:, i], z_grid, color=cmap(.2))
-#     else:
-#         ax.plot(this_anom[:, i], z_grid, color=cmap(.01))
-# ax.plot(np.nanmean(this_anom, axis=1), z_grid, linewidth=2.2, color='k')
-# plot_pro(ax)
-
 # RMS at different depths
-matplotlib.rcParams['figure.figsize'] = (9.5, 8)
-f, (ax1, ax2) = plt.subplots(1, 2, sharey=True)
 anomy = v - mod_v_avg  # velocity anomaly
 # estimate rms error by w
 w_s = np.unique(w_tag)
@@ -180,41 +149,34 @@ for i in range(np.shape(anomy)[0]):
     inn = np.where(w_tag == w_s[3])[0]
     min_a[i, 3] = np.nanmean(anomy[i, inn]) - np.nanstd(anomy[i, inn])
     max_a[i, 3] = np.nanmean(anomy[i, inn]) + np.nanstd(anomy[i, inn])
+
+matplotlib.rcParams['figure.figsize'] = (12, 6.5)
+f, ax = plt.subplots(1, 4, sharey=True)
 w_cols_2 = '#48D1CC', '#32CD32', '#FFA500', '#CD5C5C'
 for i in range(4):
-    ax1.fill_betweenx(z_grid, min_a[:, i], x2=max_a[:, i], color=w_cols_2[i], zorder=i, alpha=0.95)
-# for i in range(np.shape(anomy)[1]):
-#     # color by dg_w
-#     if w_tag[i] < 7:
-#         ax1.plot(anomy[:, i], z_grid, color=w_cols[0], linewidth=0.4)
-#     elif (w_tag[i] > 7) & (w_tag[i] < 8):
-#         ax1.plot(anomy[:, i], z_grid, color=w_cols[1], linewidth=0.4)
-#     elif (w_tag[i] > 8) & (w_tag[i] < 12):
-#         ax1.plot(anomy[:, i], z_grid, color=w_cols[2], linewidth=0.4)
-#     else:
-#         ax1.plot(anomy[:, i], z_grid, color=w_cols[3], linewidth=0.4)
+    ax[i].fill_betweenx(z_grid, min_a[:, i], x2=max_a[:, i], color=w_cols_2[i], zorder=i, alpha=0.95)
+    ax[i].plot(avg_anom[:, i], z_grid, color=w_cols[i], linewidth=3, zorder=4, label='dg w = ' + str(w_s[i]) + ' cm/s')
+    ax[i].set_xlim([-.2, .2])
+    ax[i].set_xlabel('m/s')
+    ax[i].set_title(r'($u_{g}$ - $\overline{u_{model}}$) (' + str(w_s[i]) + ' cm/s) (gs='
+                    + str(np.int(MOD['glide_slope'][0])) + ':1)', fontsize=10)
+ax[0].set_ylabel('z [m]')
+ax[0].text(0.04, -4200, str(np.shape(anomy)[1]) + ' profiles')
+ax[0].grid()
+ax[1].grid()
+ax[2].grid()
+plot_pro(ax[3])
 
-
-for i in range(np.shape(mm)[1]):
-    ax1.plot(avg_anom[:, i], z_grid, color=w_cols[i], linewidth=3, zorder=4, label='dg w = ' + str(w_s[i]) + ' cm/s')
-handles, labels = ax1.get_legend_handles_labels()
-ax1.legend(handles, labels, fontsize=9, loc='lower left')
-ax1.set_xlim([-.2, .2])
-ax1.set_xlabel('m/s')
-ax1.set_ylabel('z [m]')
-ax1.set_title(r'Glider/Model Velocity Error ($u_{g}$ - $\overline{u_{model}}$) (gs='
-             + str(np.int(MOD['glide_slope'][0])) + ':1)')
-ax1.text(0.04, -2600, str(np.shape(anomy)[1]) + ' profiles')
-
+matplotlib.rcParams['figure.figsize'] = (6, 6)
+f, ax2 = plt.subplots()
 for i in range(np.shape(mm)[1]):
     ax2.plot(mm[:, i], z_grid, linewidth=2.2, color=w_cols[i])
 ax2.set_xlim([0, .03])
 ax2.set_ylim([-4750, 0])
 ax2.set_xlabel(r'm$^2$/s$^2$')
 ax2.set_title(r'Glider/Model Velocity rms error ($u_{g}$ - $\overline{u_{model}}$)$^2$')
-ax1.grid()
+ax2.set_ylabel('z [m]')
 plot_pro(ax2)
-save_rms = 1
 if save_rms > 0:
     f.savefig('/Users/jake/Documents/glider_flight_sim_paper/model_dg_vel_error_bats_ns.png', dpi=200)
 
@@ -359,6 +321,5 @@ handles, labels = ax1.get_legend_handles_labels()
 ax1.legend(handles, labels, fontsize=12)
 ax1.grid()
 plot_pro(ax2)
-save_e = 1
 if save_e > 0:
     f.savefig('/Users/jake/Documents/glider_flight_sim_paper/model_dg_vel_energy_bats_ns.png', dpi=200)

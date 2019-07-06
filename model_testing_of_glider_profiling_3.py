@@ -89,10 +89,10 @@ t_e = datetime.date.fromordinal(np.int(time_ord_s[-1]))
 tag = str(t_s.month) + '_' + str(t_s.day) + '_' + str(t_e.month) + '_' + str(t_e.day)
 output_filename = '/Users/jake/Documents/baroclinic_modes/Model/vel_anom_y70_v08_slp3_' + tag + '.pkl'
 save_anom = 0
-save_p = 0
-save_p_g = 0
+save_p = 1
+save_p_g = 1
 
-plan_plot = 0
+plan_plot = 1
 plot0 = 1  # cross section
 plot1 = 1  # vel error
 
@@ -306,7 +306,7 @@ if plan_plot:
     D = pickle.load(file_name)
     file_name.close()
     # for bathymetry
-    file_name = '/Users/jake/Documents/baroclinic_modes/Model/LiveOcean_11_01_18/ocean_his_0001.nc'
+    file_name = '/Users/jake/Documents/baroclinic_modes/Model/misc/LiveOcean_11_01_18/ocean_his_0001.nc'
     Db = Dataset(file_name, 'r')
     lon_rho = Db['lon_rho'][:]
     lat_rho = Db['lat_rho'][:]
@@ -315,25 +315,39 @@ if plan_plot:
     G, S, T = get_basic_info(file_name, only_G=False, only_S=False, only_T=False)
     z = get_z(h, zeta, S)[0]
 
+    cmap = plt.cm.get_cmap("Spectral")
     f, ax = plt.subplots()
-    ax.contour(lon_rho, lat_rho, z[0, :, :], levels=[-25, -20, -15, -10, -5], colors='k', fontsize=6)
-    bc = ax.contour(lon_rho, lat_rho, z[0, :, :],
-                    levels=[-3000, -2750, -2500, -2250, -2000, -1000], colors='b', linewidth=0.25)
-    ax.quiver(dac_lon, dac_lat, dg_dac_u, dg_dac_v, scale=.32, width=0.01)
-    ax.quiver(-127, 46.5, 0.1, 0, scale=.32, width=0.01)
-    ax.text(-127, 46.25, 'DAC [0.1 m/s]')
-    ax.clabel(bc, inline_spacing=-3, fmt='%.4g', colors='b')
-    ax.scatter(D['lon_rho'][:], D['lat_rho'][:], 6, color='r')
+    # ax.contour(lon_rho, lat_rho, z[0, :, :], levels=[-25, -20, -15, -10, -5], colors='k', fontsize=6)
+    bpc = ax.pcolor(lon_rho, lat_rho, -1.0 * z[0, :, :], vmin=0, vmax=3000, cmap=cmap, zorder=0)
+    bc = ax.contour(lon_rho, lat_rho, -1.0 * z[0, :, :], levels=[1000, 2000, 2200, 2400, 2600, 2800, 3000],
+                    colors='k', linewidths=0.65)
+    # levels=[-3000, -2750, -2500, -2250, -2000, -1000], cmap=cmap, linewidths=0.25)
+    # ax.quiver(dac_lon, dac_lat, dg_dac_u, dg_dac_v, scale=.32, width=0.01)
+    # ax.quiver(-127, 46.5, 0.1, 0, scale=.5, width=0.01)
+    # ax.text(-127, 46.25, 'DAC [0.1 m/s]')
+
+    from mpl_toolkits.axes_grid1.inset_locator import inset_axes
+    axins = inset_axes(ax,
+                       width="5%",  # width = 5% of parent_bbox width
+                       height="50%",  # height : 50%
+                       loc='lower left',
+                       bbox_to_anchor=(1.05, 0., 1, 1),
+                       bbox_transform=ax.transAxes,
+                       borderpad=0,
+                       )
+    b_levels = np.arange(0, 3000, 500)
+    f.colorbar(bpc, cax=axins, ticks=b_levels, label='Depth [m]')
+
+    ax.clabel(bc, inline_spacing=-3, fmt='%.4g', colors='k', fontsize=6)
+    ax.scatter(D['lon_rho'][:], D['lat_rho'][:], 6, color='r', zorder=4)
     w = 1 / np.cos(np.deg2rad(46))
     ax.set_aspect(w)
     ax.axis([-127.4, -123.5, 42.5, 47])
-    ax.set_xlabel(r'Longitude [-$^{\circ}$W]')
-    ax.set_ylabel(r'Latitude [$^{\circ}$N]')
-    ax.set_title('Model Domain and Glider Transect')
+    ax.set_xlabel(r'Longitude [$^{\circ}$]')
+    ax.set_ylabel(r'Latitude [$^{\circ}$]')
+    ax.set_title('LiveOcean Domain and Glider Transect')
     plot_pro(ax)
-    # f.savefig("/Users/jake/Documents/baroclinic_modes/Meetings/meeting_19_04_18/model_trasnect_plan.png",
-    #           dpi=200)
-
+    # f.savefig("/Users/jake/Documents/glider_flight_sim_paper/roms_bathymetry_transect.png", dpi=300)
 # ---------------------------------------------------------------------------------------------------------------------
 # --- M/W estimation
 mw_y = np.nan * np.zeros(num_profs - 1)
@@ -477,40 +491,50 @@ h_max = np.nanmax(dg_y/1000 + 20)  # horizontal domain limit
 z_max = -3150
 u_levels = np.array([-0.4, -0.3, -.25, - .2, -.15, -.125, -.1, -.075, -.05, -0.025, 0,
                      0.025, 0.05, 0.075, 0.1, 0.125, 0.15, 0.2, 0.25, 0.3, 0.4])
+u_levels_i = np.array([-0.4, -.25, -.15, -.1, -.05, 0, 0.05, 0.1, 0.15, 0.25, 0.4])
 if plot0 > 0:
     matplotlib.rcParams['figure.figsize'] = (13, 6)
-    cmap = plt.cm.get_cmap("viridis")
+    cmap = plt.cm.get_cmap("Spectral")
 
     f, (ax1, ax2) = plt.subplots(1, 2, sharey=True)
     uvcf = ax1.contourf(np.tile(xy_grid/1000, (len(z_grid), 1)), np.tile(z_grid[:, None], (1, len(xy_grid))),
                  np.nanmean(u_out_s, axis=2), levels=u_levels, cmap=cmap)
     uvc = ax1.contour(np.tile(xy_grid/1000, (len(z_grid), 1)), np.tile(z_grid[:, None], (1, len(xy_grid))),
-                      np.nanmean(u_out_s, axis=2), levels=u_levels, colors='k', linewidth=0.75)
+                      np.nanmean(u_out_s, axis=2), levels=u_levels, colors='k', linewidths=0.75)
     ax1.clabel(uvc, inline_spacing=-3, fmt='%.4g', colors='k')
     rhoc = ax1.contour(np.tile(xy_grid/1000, (len(z_grid), 1)), np.tile(z_grid[:, None], (1, len(xy_grid))),
-                       np.nanmean(sig0_out_s, axis=2), levels=sigth_levels, colors='#A9A9A9', linewidth=0.35)
-    ax1.scatter(dg_y/1000, dg_z_g, 4, color='#FFD700', label='glider path')
-    # for r in range(np.shape(isopycdep)[0]):
-    #     ax1.plot(isopycx[r, :]/1000, isopycdep[r, :], color='r', linewidth=0.45)
+                       np.nanmean(sig0_out_s, axis=2), levels=sigth_levels, colors='#A9A9A9', linewidths=0.5)
+    ax1.scatter(dg_y/1000, dg_z_g, 4, color='k', label='glider path')  # #FFD700
+    t_tot = np.int(np.round(24.0*(dg_t[0,-1] - dg_t[0,0])))
     ax1.set_title(str(datetime.date.fromordinal(np.int(time_ord_s[0]))) +
-                  ' - ' + str(datetime.date.fromordinal(np.int(time_ord_s[-2]))) + ', 72hr. Model Avg.')
+                  ' - ' + str(datetime.date.fromordinal(np.int(time_ord_s[-2]))) + ', ' + str(t_tot) + 'hr. Model Avg.')
     handles, labels = ax1.get_legend_handles_labels()
     ax1.legend(handles, labels, fontsize=11)
     ax1.set_ylim([z_max, 0])
     ax1.set_xlim([0, h_max])
     ax1.set_xlabel('E/W distance [km]')
     ax1.set_ylabel('z [m]')
-    plt.colorbar(uvcf, label='N/S Velocity [m/s]', ticks=u_levels)
+    # plt.colorbar(uvcf, label='N/S Velocity [m/s]', ticks=u_levels)
     ax1.grid()
 
-    ax2.contourf(np.tile(mw_y/1000, (len(z_grid), 1)), np.tile(dg_z[:, None], (1, len(mw_y))),
+    from mpl_toolkits.axes_grid1.inset_locator import inset_axes
+    axins = inset_axes(ax2,
+                       width="5%",  # width = 5% of parent_bbox width
+                       height="50%",  # height : 50%
+                       loc='lower left',
+                       bbox_to_anchor=(1.05, 0., 1, 1),
+                       bbox_transform=ax2.transAxes,
+                       borderpad=0,
+                       )
+
+    vh = ax2.contourf(np.tile(mw_y/1000, (len(z_grid), 1)), np.tile(dg_z[:, None], (1, len(mw_y))),
                  v_g, levels=u_levels, cmap=cmap)
+    f.colorbar(vh, cax=axins, ticks=u_levels_i, label='N/S Velocity [m/s]')
     uvc = ax2.contour(np.tile(mw_y/1000, (len(z_grid), 1)), np.tile(dg_z[:, None], (1, len(mw_y))), v_g,
-                      levels=u_levels, colors='k', linewidth=0.75)
-    # ax2.clabel(uvc, inline_spacing=-3, fmt='%.4g', colors='k')
+                      levels=u_levels, colors='k', linewidths=0.75)
     ax2.scatter(dg_y/1000, dg_z_g, 4, color='k')
     ax2.contour(np.tile(xy_grid/1000, (len(z_grid), 1)), np.tile(z_grid[:, None], (1, len(xy_grid))),
-                np.nanmean(sig0_out_s, axis=2), levels=sigth_levels, colors='#A9A9A9', linewidth=0.35)
+                np.nanmean(sig0_out_s, axis=2), levels=sigth_levels, colors='#A9A9A9', linewidths=0.35)
     for r in range(np.shape(isopycdep)[0]):
         ax2.plot(isopycx[r, :]/1000, isopycdep[r, :], color='r', linewidth=0.75)
     ax2.plot(isopycx[r, :] / 1000, isopycdep[r, :], color='r', linewidth=0.5, label='glider measured isopycnals')
@@ -520,17 +544,9 @@ if plot0 > 0:
     ax2.set_title(r'Cross-Track Glider Vel. u$_g$(x,z)')
     ax2.set_xlabel('E/W distance [km]')
 
-    # ax3.pcolor(np.tile(mw_y/1000, (len(z_grid), 1)), np.tile(dg_z[:, None], (1, len(mw_y))),
-    #            u_mod_at_mw_avg - v_g, vmin=np.nanmin(u_levels), vmax=np.nanmax(u_levels), cmap=cmap)
-    # uvc = ax3.contour(np.tile(mw_y/1000, (len(z_grid), 1)), np.tile(dg_z[:, None], (1, len(mw_y))),
-    #                   u_mod_at_mw_avg - v_g, levels=u_levels, colors='k', linewidth=0.75)
-    # ax3.clabel(uvc, inline_spacing=-3, fmt='%.4g', colors='k')
-    # ax3.set_title(r'u$_{mod}$ - u$_g$')
-    # ax3.set_xlabel('E/W distance [km]')
-    # ax3.set_xlim([y_dg_s/1000 - 5, np.nanmax(dg_y/1000) + 5])
     plot_pro(ax2)
     if save_p > 0:
-        f.savefig("/Users/jake/Documents/baroclinic_modes/Meetings/meeting_19_06_13/model_ind_cross.png", dpi=200)
+        f.savefig("/Users/jake/Documents/glider_flight_sim_paper/roms_ind_cross.png", dpi=200)
 
 # ------------------------------
 # model - glider velocity error
@@ -653,6 +669,8 @@ t_near_end = np.where(time_ord_s >= dive_1_t_e)[0][0]
 
 isops = [26.8, 27.4, 27.8, 27.9]
 t_steps = [t_near, t_near + 6, t_near + 12, t_near + 18, t_near + 24, t_near + 30]
+t_step_m = np.int(np.floor(24 * (dg_t[0, 3] - dg_t[0, 0])))
+t_steps = range(t_near, t_near + t_step_m, 2)
 
 # -- model isopycnal depths
 # these_data = data_interp[:, xy_grid_near, :]
@@ -847,12 +865,12 @@ shear = shear[:, ~np.isnan(shear[30, :])]
 # --------------------------------------------------------------------------------------------------------------------
 # -- DENSITY AT FIXED DEPTHS (this is how we estimate density gradients (drho/dx)
 deps = [250, 1000, 1500, 2000]
-t_steps = [t_near, t_near + 6, t_near + 12, t_near + 18, t_near + 24, t_near + 30, t_near + 36,
-           t_near + 42, t_near + 48, t_near + 54, t_near + 60, t_near + 66, t_near + 71]
-isop_dep = np.nan * np.ones((len(deps), np.shape(these_data)[1], 6))
+# t_steps = [t_near, t_near + 6, t_near + 12, t_near + 18, t_near + 24, t_near + 30, t_near + 36,
+#            t_near + 42, t_near + 48, t_near + 54, t_near + 60, t_near + 66, t_near + 71]
+isop_dep = np.nan * np.ones((len(deps), np.shape(these_data)[1], len(t_steps)))
 for i in range(np.shape(these_data)[1]):  # loop over each horizontal grid point
     for j in range(len(deps)):  # loop over each dep
-        for k in range(6):  # loop over each 6 hr increment
+        for k in range(len(t_steps)):  # loop over each 6 hr increment
             isop_dep[j, i, k] = np.interp(deps[j], -1. * dg_z, data_interp[:, i, t_steps[k]])
 
 # -- glider measured isopycnal depth (over time span)
@@ -960,16 +978,16 @@ for i in range(np.shape(shear)[1]):  # loop over each horizontal profile locatio
             # try 2 at linear gradient of model density
             model_mean_isop_all = np.polyval(model_isop_slope_all[j, :, i], xy_grid[inn_per_mw[i]])
 
-            # check if doing right
-            if i > 0 & i < 3:
-                if j == 100:
-                    print(str(i))
-                    print(str(j))
-                    f, ax = plt.subplots()
-                    ax.plot(xy_grid[xy_low:xy_up], np.nanmean(den_in, axis=1), color='k')
-                    for kk in range(np.shape(den_in)[1]):
-                        ax.plot(xy_grid[xy_low:xy_up], den_in[:, kk], linewidth=0.5)
-                    plot_pro(ax)
+            # # check if doing right
+            # if i > 0 & i < 3:
+            #     if j == 100:
+            #         print(str(i))
+            #         print(str(j))
+            #         f, ax = plt.subplots()
+            #         ax.plot(xy_grid[xy_low:xy_up], np.nanmean(den_in, axis=1), color='k')
+            #         for kk in range(np.shape(den_in)[1]):
+            #             ax.plot(xy_grid[xy_low:xy_up], den_in[:, kk], linewidth=0.5)
+            #         plot_pro(ax)
 
 
             # density values at depth j used in above polyfit
@@ -1037,13 +1055,16 @@ for i in range(4):
     model_isop_slope[i, :] = np.polyfit(xy_grid[inn], np.nanmean(isop_dep[i, inn, :], axis=1), 1)
     model_mean_isop[i, :] = np.polyval(model_isop_slope[i, :], xy_grid[inn])
 
-cmaps = [0.15, 0.22, 0.3, 0.37, 0.45, 0.52, 0.6, 0.67, 0.75, 0.82, .9, .98]
-lab_y = [26.66, 27.53, 27.74, 27.92]
+# cmaps = [0.15, 0.22, 0.3, 0.37, 0.45, 0.52, 0.6, 0.67, 0.75, 0.82, .9, .98]
+cmaps = np.arange(0, 1, 1.0/np.array(len(t_steps)))
+# lab_y = [26.66, 27.53, 27.74, 27.92]
+lab_y = [np.round(np.nanmin(isop_dep[0, :, 0]), 2), np.round(np.nanmin(isop_dep[1, :, 0]), 2),
+         np.round(np.nanmin(isop_dep[2, :, 0]), 2), np.round(np.nanmin(isop_dep[3, :, 0]), 2)]
 matplotlib.rcParams['figure.figsize'] = (10, 7)
 f, ax = plt.subplots(4, 1, sharex=True)
 for i in range(len(deps)):
     ax[i].set_facecolor('#DCDCDC')
-    for j in range(6):
+    for j in range(len(t_steps)):
         ax[i].plot(xy_grid/1000, isop_dep[i, :, j], color=cmap(cmaps[j]))
     ax[i].plot(xy_grid/1000, np.nanmean(isop_dep[i, :, :], axis=1), color='r', linestyle='--')
     ax[i].scatter(dg_isop_xy[i, :]/1000, dg_isop_dep[i, :], s=40, color='k', zorder=10)
@@ -1051,36 +1072,37 @@ for i in range(len(deps)):
     ax[i].plot([dg_y[0, 0]/1000, dg_y[0, 0]/1000], [20, 30], linestyle='--', color='k')
     ax[i].plot([dg_y[0, 1]/1000, dg_y[0, 1]/1000], [20, 30], linestyle='--', color='k')
     ax[i].plot([dg_y[0, 3]/1000, dg_y[0, 3]/1000], [20, 30], linestyle='--', color='k')
-    ax[i].text(10, lab_y[i], str(deps[i]) + 'm', fontweight='bold')
+    ax[i].text(12, lab_y[i], str(deps[i]) + 'm', fontweight='bold')
     ax[i].plot(xy_grid[inn] / 1000, model_mean_isop[i, :], color='#FF8C00', linewidth=2)
     ax[i].plot(dg_isop_xy[i, :] / 1000, dg_mean_isop[i, :], color='m', linewidth=2)
     ax[i].text(h_max - 45,
                lab_y[i], r'du$_g$/dz error = ' + str(np.round(100.*np.abs((dg_isop_slope[i, 0] - model_isop_slope[i, 0])/model_isop_slope[i, 0]), 0)) + '%', fontweight='bold')
 
-ax[i].plot(xy_grid/1000, np.nanmean(isop_dep[i, :, :], axis=1), color='r', linestyle='--', linewidth=1.3, label='72hr. avg. density ')
+ax[i].plot(xy_grid/1000, np.nanmean(isop_dep[i, :, :], axis=1),
+           color='r', linestyle='--', linewidth=1.3, label='avg. density over 2 dive-cycle period')
 handles, labels = ax[3].get_legend_handles_labels()
 ax[3].legend(handles, labels, fontsize=12)
 ax[0].set_ylabel('Neutral Density')
 ax[0].set_title(r'Density along z=z$_i$')
-ax[0].set_ylim([26.6, 26.9])
+ax[0].set_ylim([np.round(np.nanmin(isop_dep[0, :, 0]), 2) - 0.1, np.round(np.nanmax(isop_dep[0, :, 0]), 2) + 0.1])
 ax[0].invert_yaxis()
 ax[0].grid()
 ax[0].set_xlim([0, h_max])
 ax[1].set_ylabel('Neutral Density')
-ax[1].set_ylim([27.5, 27.6])
+ax[1].set_ylim([np.round(np.nanmin(isop_dep[1, :, 0]), 2) - 0.02, np.round(np.nanmax(isop_dep[1, :, 0]), 2) + 0.02])
 ax[1].invert_yaxis()
 ax[1].grid()
 ax[2].set_ylabel('Neutral Density')
-ax[2].set_ylim([27.72, 27.82])
+ax[2].set_ylim([np.round(np.nanmin(isop_dep[2, :, 0]), 2) - 0.01, np.round(np.nanmax(isop_dep[2, :, 0]), 2) + 0.01])
 ax[2].invert_yaxis()
 ax[2].grid()
 ax[3].set_ylabel('Neutral Density')
-ax[3].set_ylim([27.9, 28])
+ax[3].set_ylim([np.round(np.nanmin(isop_dep[3, :, 0]), 2) - 0.01, np.round(np.nanmax(isop_dep[3, :, 0]), 2) + 0.01])
 ax[3].invert_yaxis()
 ax[3].set_xlabel('Transect Distance [km]')
 plot_pro(ax[3])
 if save_p_g > 0:
-    f.savefig("/Users/jake/Documents/baroclinic_modes/Meetings/meeting_19_06_13/model_ind_den_grad.png", dpi=200)
+    f.savefig("/Users/jake/Documents/glider_flight_sim_paper/roms_ind_den_grad.png", dpi=200)
 # --------------------------------------------------------------------------------------------------------------------
 # --- Background density
 pkl_file = open('/Users/jake/Documents/baroclinic_modes/Model/background_density.pkl', 'rb')
