@@ -19,8 +19,8 @@ from zrfun import get_basic_info, get_z
 # load mat file
 
 # -- BATS --
-pp = '1'
-filename = 'HYCOM_hrly_b_3087N_214_01_228_00'  # E_W profile 1
+# pp = '1'
+# filename = 'HYCOM_hrly_b_3087N_214_01_228_00'  # E_W profile 1
 # filename = 'HYCOM_hrly_b_6336W_214_01_228_00'  # N_S profile 1
 # pp = '2'
 # filename = 'HYCOM_hrly_b_3128N_214_01_228_00'  # E_W profile 2
@@ -30,9 +30,9 @@ filename = 'HYCOM_hrly_b_3087N_214_01_228_00'  # E_W profile 1
 # pp = '1'
 # filename = 'HYCOM_hrly_n_3532N_214_01_228_00'  # E_W profile 1
 # filename = 'HYCOM_hrly_n_6424W_214_01_228_00'  # N_S profile 1
-# pp = '2'
+pp = '2'
 # filename = 'HYCOM_hrly_n_3597N_214_01_228_00'  # E_W profile 2
-# filename = 'HYCOM_hrly_n_6504W_214_01_228_00'  # N_S profile 2
+filename = 'HYCOM_hrly_n_6504W_214_01_228_00'  # N_S profile 2
 
 import_hy = si.loadmat('/Users/jake/Documents/baroclinic_modes/Model/HYCOM/' + filename + '.mat')
 MOD = import_hy['out']
@@ -90,26 +90,25 @@ ff = np.pi * np.sin(np.deg2rad(ref_lat)) / (12 * 1800)  # Coriolis parameter [s^
 # main set of parameters
 # to adjust
 # time start index
-t_st_ind = 192
-
-dg_vertical_speed = 0.1  # m/s
-dg_glide_slope = 3
-num_dives = 5
+t_st_ind = 10
+dg_vertical_speed = 0.2  # m/s
+dg_glide_slope = 2
+num_dives = 4
 dac_error = 0.01  # m/s
 g_error = 0.00001
 t_error = 0.001
 s_error = 0.01
-y_dg_s = 30000     # horizontal position, start of glider dives (75km)
+y_dg_s = 20000     # horizontal position, start of glider dives (75km)
 z_dg_s = 0        # depth, start of glider dives
 partial_mw = 0    # include exclude partial m/w estimates
 
 plot0 = 1  # plot model, glider cross section
-plot_v = 0  # plot velocity eta profiles
+plot_v = 1  # plot velocity eta profiles
 plot_rho = 1  # plot density at 4 depths in space and time
 plot_sp = 0  # run and save gif
 
 save_anom = 0
-save_p = 1
+save_p = 0
 save_v = 0
 save_rho = 1
 
@@ -206,11 +205,11 @@ tag = str(np.int(filename[19])) + str(np.int(np.int(filename[20:22]) + np.floor(
         str(np.int((dg_t[0, -1] - np.floor(dg_t_e)) * 24))
 # save filename
 if E_W > 0:
-    output_filename = '/Users/jake/Documents/baroclinic_modes/Model/HYCOM/simulated_dg_velocities_bats_36n/ve_new' + \
+    output_filename = '/Users/jake/Documents/baroclinic_modes/Model/HYCOM/simulated_dg_velocities_bats_36n/ve_bew' + \
                       pp + '_v' + str(np.int(100*dg_vertical_speed)) + '_slp' + str(np.int(dg_glide_slope)) + \
                       '_y' + str(np.int(y_dg_s/1000)) + '_' + tag + '.pkl'
 else:
-    output_filename = '/Users/jake/Documents/baroclinic_modes/Model/HYCOM/simulated_dg_velocities_bats_36n/ve_nns' + \
+    output_filename = '/Users/jake/Documents/baroclinic_modes/Model/HYCOM/simulated_dg_velocities_bats_36n/ve_bns' + \
                       pp + '_v' + str(np.int(100 * dg_vertical_speed)) + '_slp' + str(np.int(dg_glide_slope)) + \
                       '_y' + str(np.int(y_dg_s/1000)) + '_' + tag + '.pkl'
 
@@ -1044,7 +1043,7 @@ if save_anom:
 # ----------------------------------------------------------------------------------------------------------------------
 
 # PLOTTING
-h_max = np.nanmax(dg_y/1000 + 20)  # horizontal domain limit
+h_max = np.round(np.nanmax(xy_grid), -3)/1000 - 10  # np.nanmax(dg_y/1000 + 20)  # horizontal domain limit
 z_max = -5200
 # u_levels = np.array([-.8, -.7, -.6, -.5, -.4, -0.3, -.25, - .2, -.15, -.125, -.1, -.075, -.05, -0.025, 0,
 #                      0.025, 0.05, 0.075, 0.1, 0.125, 0.15, 0.2, 0.25, 0.3, 0.4, 0.5, 0.6, .7, .8])
