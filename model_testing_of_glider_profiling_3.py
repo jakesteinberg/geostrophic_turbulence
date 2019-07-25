@@ -17,7 +17,7 @@ from zrfun import get_basic_info, get_z
 
 # because we load pickle protocol 2 (needed for matlab engine) we need 'glider' environment (not 'geo_env')
 
-this_path = 'e_w_extraction_nov25_nov27_offshore'  # 'n_s_extraction_eddy_nov1_nov3'  #
+this_path = 'e_w_extraction_nov28_nov30_offshore'  # 'n_s_extraction_eddy_nov1_nov3'  #
 these_paths = glob.glob('/Users/jake/Documents/baroclinic_modes/Model/LiveOcean/e_w*')
 
 # -- LOAD extracted and PROCESSED MODEL TIME STEPS WITH COMPUTED GAMMA
@@ -90,12 +90,12 @@ t_error = 0.003
 s_error = 0.01
 partial_mw = 0    # include exclude partial m/w estimates
 
-save_anom = 0  # save file
+save_anom = 1  # save file
 
 plan_plot = 0  # plot plan view of slice
 plot0 = 0  # cross section
-plot1 = 1  # vel error
-plot_anom = 1  # eta and v
+plot1 = 0  # vel error
+plot_anom = 0  # eta and v
 plot_grad = 0  # density grad at four depths
 plot_energy = 0  # energy spectra
 save_p = 0  # save figure cross section
@@ -107,15 +107,22 @@ tag = str(t_s.month) + '_' + str(t_s.day) + '_' + str(t_e.month) + '_' + str(t_e
 
 # suite of parameters to sweep through
 # vertical speed, glide slope, number of dives, starting xy pos, starting time
-# params = np.array([[0.06, 3, 2, 10000, np.nanmin(time_ord_s)]])
-u_mod_all = 0  # instantaneous model spectra
+params = np.array([[0.1, 3, 4, 10000, np.nanmin(time_ord_s)]])
+u_mod_all = 1  # instantaneous model spectra
 
-params = np.array([[0.06, 3, 2, 10000, 0], [0.06, 3, 2, 25000, 0], [0.06, 3, 2, 40000, 0], [0.06, 3, 2, 55000, 0],
-                   [0.06, 3, 2, 70000, 0], [0.06, 3, 2, 85000, 0], [0.06, 3, 2, 100000, 0], [0.06, 3, 2, 115000, 0],
-                   [0.075, 3, 2, 10000, 0], [0.075, 3, 2, 25000, 0], [0.075, 3, 2, 40000, 0], [0.075, 3, 2, 55000, 0],
-                   [0.075, 3, 2, 70000, 0], [0.075, 3, 2, 85000, 0], [0.075, 3, 2, 100000, 0], [0.075, 3, 2, 115000, 0],
-                   [0.1, 3, 4, 10000, 0], [0.1, 3, 4, 40000, 0], [0.1, 3, 4, 70000, 0], [0.1, 3, 4, 100000, 0],
-                   [0.2, 3, 4, 10000, 0], [0.2, 3, 4, 40000, 0], [0.2, 3, 4, 70000, 0], [0.2, 3, 4, 100000, 0]])
+time_s = np.nanmin(time_ord_s)
+# params = np.array([[0.06, 2, 2, 10000, time_s], [0.06, 2, 2, 25000, time_s], [0.06, 2, 2, 40000, time_s], [0.06, 2, 2, 55000, time_s],
+#                    [0.06, 2, 2, 70000, time_s], [0.06, 2, 2, 85000, time_s], [0.06, 2, 2, 100000, time_s], [0.06, 2, 2, 115000, time_s],
+#                    [0.075, 2, 2, 10000, time_s], [0.075, 2, 2, 25000, time_s], [0.075, 2, 2, 40000, time_s], [0.075, 2, 2, 55000, time_s],
+#                    [0.075, 2, 2, 70000, time_s], [0.075, 2, 2, 85000, time_s], [0.075, 2, 2, 100000, time_s], [0.075, 2, 2, 115000, time_s],
+#                    [0.1, 2, 4, 10000, time_s], [0.1, 2, 4, 40000, time_s], [0.1, 2, 4, 70000, time_s], [0.1, 2, 4, 100000, time_s],
+#                    [0.2, 2, 4, 10000, time_s], [0.2, 2, 4, 40000, time_s], [0.2, 2, 4, 70000, time_s], [0.2, 2, 4, 100000, time_s]])
+# params = np.array([[0.06, 3, 2, 10000, time_s], [0.06, 3, 2, 25000, time_s], [0.06, 3, 2, 40000, time_s], [0.06, 3, 2, 55000, time_s],
+#                    [0.06, 3, 2, 70000, time_s], [0.06, 3, 2, 85000, time_s], [0.06, 3, 2, 100000, time_s], [0.06, 3, 2, 115000, time_s],
+#                    [0.075, 3, 2, 10000, time_s], [0.075, 3, 2, 25000, time_s], [0.075, 3, 2, 40000, time_s], [0.075, 3, 2, 55000, time_s],
+#                    [0.075, 3, 2, 70000, time_s], [0.075, 3, 2, 85000, time_s], [0.075, 3, 2, 100000, time_s], [0.075, 3, 2, 115000, time_s],
+#                    [0.1, 3, 4, 10000, time_s], [0.1, 3, 4, 40000, time_s], [0.1, 3, 4, 70000, time_s], [0.1, 3, 4, 100000, time_s],
+#                    [0.2, 3, 4, 10000, time_s], [0.2, 3, 4, 40000, time_s], [0.2, 3, 4, 70000, time_s], [0.2, 3, 4, 100000, time_s]])
 
 # loop over varied flight parameters
 for master in range(np.shape(params)[0]):
@@ -1004,26 +1011,29 @@ for master in range(np.shape(params)[0]):
     # Model (instant)
     # if on, compute model ke spectrum over many many instantaneous model vel profiles
     if u_mod_all > 0:
-        for m in range(len(u_mod_at_mw)):
+        for m in range(len(u_mod_at_mw)):  # loop over each glider velocity
             this_mod_u = u_mod_at_mw[m]
-            this_mod_gamma = gamma_mod_at_mw[m]
-            for mt in range(np.shape(this_mod_u)[0]):  # loop in time
-                # PE
-                overlap = np.where((xy_grid > (dg_dac_mid[m + 1] - 10000)) & (xy_grid < (dg_dac_mid[m + 1] + 10000)))[0]
-                bck_gamma_xy = np.nanmean(np.nanmean(sig0_out_s, axis=0)[:, overlap], axis=1)
+            this_mod_gamma = gamma_mod_at_mw[m]  # set of density profiles spannning the single glider profile in space and time
+            for mt in range(np.shape(this_mod_u)[2]):  # loop in time
+                # # PE
+                # overlap = np.where((xy_grid > (dg_dac_mid[m + 1] - 10000)) & (xy_grid < (dg_dac_mid[m + 1] + 10000)))[0]
+                # bck_gamma_xy = np.nanmean(np.nanmean(sig0_out_s, axis=0)[:, overlap], axis=1)
+
+                # model density dimensions (depth, xy_grid, time)
+                bck_gamma_xy = sig0_bck_out
 
                 good = np.where(~np.isnan(bck_gamma_xy))[0]
-                avg_sig0_match = np.interp(np.abs(dg_z[good]), np.abs(z_grid), bck_gamma_xy)
+                avg_sig0_match = np.interp(np.abs(dg_z[good]), np.abs(z_back), bck_gamma_xy)
                 ddz_avg_sig0_match = np.interp(np.abs(dg_z[good]), np.abs(z_grid_n2), ddz_avg_sig0)
                 avg_N2_match = np.interp(np.abs(dg_z[good]), np.abs(z_grid_n2), avg_N2)
 
-                this_model = this_mod_gamma[mt, good, :]
+                this_model = this_mod_gamma[good, :, mt]
                 eta_model = (this_model - np.tile(bck_gamma_xy[good, None],
                                                   (1, np.shape(this_model)[1]))) / np.tile(ddz_avg_sig0_match[:, None],
                                                                                            (1, np.shape(this_model)[1]))
 
                 # KE
-                this_mod_u_sp = this_mod_u[mt, good, :]
+                this_mod_u_sp = this_mod_u[good, :, mt]
                 HKE_per_mass_model_tot = np.nan * np.zeros([nmodes, np.shape(this_mod_u_sp)[1]])
                 good_ke_prof = np.ones(np.shape(this_mod_u_sp)[1])
                 AGz_model = np.zeros([nmodes, np.shape(this_mod_u_sp)[1]])
