@@ -17,7 +17,8 @@ from zrfun import get_basic_info, get_z
 
 # because we load pickle protocol 2 (needed for matlab engine) we need 'glider' environment (not 'geo_env')
 
-this_path = 'e_w_extraction_nov22_nov24_offshore'  # 'n_s_extraction_eddy_nov1_nov3'  #
+this_path = 'e_w_extraction_nov25_nov27_offshore'  # 'n_s_extraction_eddy_nov1_nov3'  #
+these_paths = glob.glob('/Users/jake/Documents/baroclinic_modes/Model/LiveOcean/e_w*')
 
 # -- LOAD extracted and PROCESSED MODEL TIME STEPS WITH COMPUTED GAMMA
 # this file has combined all model output and computed gamma (using model_testing_of_glider_profiling_2.py)
@@ -65,7 +66,8 @@ if lon_check > 0.05:
 else:
     N_S = 1
 
-sigth_levels = np.array([25, 26, 26.2, 26.4, 26.6, 26.8, 27, 27.2, 27.4, 27.6, 27.7, 27.8, 27.9])
+# sigth_levels = np.array([25, 26, 26.2, 26.4, 26.6, 26.8, 27, 27.2, 27.4, 27.6, 27.7, 27.8, 27.9])
+sigth_levels = np.array([25, 26, 26.4, 26.8, 27, 27.2, 27.4, 27.6, 27.7, 27.8, 27.9])
 g = 9.81
 rho0 = 1025.0
 # ---------------------------------------------------------------------------------------------------------------------
@@ -76,236 +78,1068 @@ rho0 = 1025.0
 # time between each model time step is 1hr.
 
 # main set of parameters to adjust
-dg_vertical_speed = 0.06  # m/s
-dg_glide_slope = 3
-num_dives = 2
-dac_error = 0.01  # m/s
-y_dg_s = 10000     # horizontal position, start of glider dives (75km) (10, 70, 110)
+# dg_vertical_speed = 0.1  # m/s
+# dg_glide_slope = 3
+# num_dives = 4
+# y_dg_s = 10000     # horizontal position, start of glider dives (75km) (10, 70, 110)
 z_dg_s = 0        # depth, start of glider dives
+
+dac_error = 0.01  # m/s
+g_error = 0.00001
+t_error = 0.003
+s_error = 0.01
 partial_mw = 0    # include exclude partial m/w estimates
 
-u_mod_all = 0  # instantaneous model spectra
+save_anom = 0  # save file
+
+plan_plot = 0  # plot plan view of slice
+plot0 = 0  # cross section
+plot1 = 1  # vel error
+plot_anom = 1  # eta and v
+plot_grad = 0  # density grad at four depths
+plot_energy = 0  # energy spectra
+save_p = 0  # save figure cross section
+save_p_g = 0 # save figure density gradient
 
 t_s = datetime.date.fromordinal(np.int(time_ord_s[0]))
 t_e = datetime.date.fromordinal(np.int(time_ord_s[-1]))
 tag = str(t_s.month) + '_' + str(t_s.day) + '_' + str(t_e.month) + '_' + str(t_e.day)
-# output_filename = '/Users/jake/Documents/baroclinic_modes/Model/LiveOcean/simulated_dg_velocities/va_y70_v08_slp3_' + tag + '.pkl'
-output_filename = '/Users/jake/Documents/baroclinic_modes/Model/LiveOcean/simulated_dg_velocities/ve_ew' + \
-                  '_v' + str(np.int(100 * dg_vertical_speed)) + '_slp' + str(np.int(dg_glide_slope)) + \
-                  '_y' + str(np.int(y_dg_s / 1000)) + '_' + tag + '.pkl'
-save_anom = 1
-save_p = 0
-save_p_g = 0
 
-plan_plot = 0  # plot plan view of slice
-plot0 = 0  # cross section
-plot1 = 0  # vel error
-plot_anom = 0  # eta and v
-plot_grad = 0  # density grad at four depths
-plot_energy = 0  # energy spectra
+# suite of parameters to sweep through
+# vertical speed, glide slope, number of dives, starting xy pos, starting time
+# params = np.array([[0.06, 3, 2, 10000, np.nanmin(time_ord_s)]])
+u_mod_all = 0  # instantaneous model spectra
 
-# need to specify D_TGT or have glider 'fly' until it hits bottom
-data_loc = np.nanmean(sig0_out_s, axis=2)  # (depth X xy_grid)
+params = np.array([[0.06, 3, 2, 10000, 0], [0.06, 3, 2, 25000, 0], [0.06, 3, 2, 40000, 0], [0.06, 3, 2, 55000, 0],
+                   [0.06, 3, 2, 70000, 0], [0.06, 3, 2, 85000, 0], [0.06, 3, 2, 100000, 0], [0.06, 3, 2, 115000, 0],
+                   [0.075, 3, 2, 10000, 0], [0.075, 3, 2, 25000, 0], [0.075, 3, 2, 40000, 0], [0.075, 3, 2, 55000, 0],
+                   [0.075, 3, 2, 70000, 0], [0.075, 3, 2, 85000, 0], [0.075, 3, 2, 100000, 0], [0.075, 3, 2, 115000, 0],
+                   [0.1, 3, 4, 10000, 0], [0.1, 3, 4, 40000, 0], [0.1, 3, 4, 70000, 0], [0.1, 3, 4, 100000, 0],
+                   [0.2, 3, 4, 10000, 0], [0.2, 3, 4, 40000, 0], [0.2, 3, 4, 70000, 0], [0.2, 3, 4, 100000, 0]])
 
-# glider dives are simulated by considered the depth grid as fixed and march down and up while stepping horizontally
-# following the desired glide slope and vertical velocity
-# --- DG Z
-dg_z = np.flipud(z_grid.copy())  # vertical grid points
-dg_z_g = np.tile(np.concatenate((np.flipud(z_grid.copy())[:, None], np.flipud(z_grid.copy())[:, None]), axis=1),
-                 (1, num_dives))  # grid of vertical grid points across all dives
-# --- DG X,Y
-dg_y = np.nan * np.ones((len(dg_z), num_dives*2))
-dg_y[0, 0] = y_dg_s
+# loop over varied flight parameters
+for master in range(np.shape(params)[0]):
+    dg_vertical_speed = params[master, 0]
+    dg_glide_slope = params[master, 1]
+    num_dives = np.int(params[master, 2])
+    y_dg_s = params[master, 3]
+    t_st_ind = np.int(params[master, 4])  # because files are only three days long always start at t=0
 
-# --- DIVE
-# first dive
-# hor start loc
-xyg_start = np.where(xy_grid > y_dg_s)[0][0]  # hor start loc
-# projected hor position at dive end
-xyg_proj_end = np.where(xy_grid >
-                        (y_dg_s + 3*2*np.nanmean(np.abs(max_depth_per_xy[xyg_start:xyg_start+6]))))[0][0]
-data_depth_max = z_grid[np.where(np.isnan(np.mean(data_loc[:, xyg_start:xyg_proj_end+1], 1)))[0][-1]] \
-                 + np.abs(z_grid[-2] - z_grid[-1])  # depth of water (depth glider will dive to) estimate
-dg_z_ind = np.where(dg_z >= data_depth_max)[0]
-for i in range(1, len(dg_z_ind)):
-    dg_y[i, 0] = dg_glide_slope * (dg_z[i - 1] - dg_z[i]) + dg_y[i - 1, 0]
-# first climb
-dg_y[dg_z_ind[-1], 1] = dg_y[dg_z_ind[-1], 0]
-for i in range(len(dg_z_ind) - 2, 0, -1):
-    dg_y[dg_z_ind[i], 1] = dg_glide_slope * (dg_z[dg_z_ind[i]] - dg_z[dg_z_ind[i + 1]]) + dg_y[i + 1, 1]
-dg_y[0, 1] = dg_glide_slope * (dg_z[0] - dg_z[1]) + dg_y[1, 1]
+    output_filename = '/Users/jake/Documents/baroclinic_modes/Model/LiveOcean/simulated_dg_velocities/ve_ew' + \
+                      '_v' + str(np.int(100 * dg_vertical_speed)) + '_slp' + str(np.int(dg_glide_slope)) + \
+                      '_y' + str(np.int(y_dg_s / 1000)) + '_' + tag + '.pkl'
 
-# all subsequent dive-climb cycles
-for i in range(2, num_dives*2, 2):
-    # hor start loc of dive i
-    xyg_start = np.where(xy_grid > (dg_y[0, i - 1] + 10))[0][0]
+    # need to specify D_TGT or have glider 'fly' until it hits bottom
+    data_loc = np.nanmean(sig0_out_s, axis=2)  # (depth X xy_grid)
+
+    # glider dives are simulated by considered the depth grid as fixed and march down and up while stepping horizontally
+    # following the desired glide slope and vertical velocity
+    # --- DG Z
+    dg_z = np.flipud(z_grid.copy())  # vertical grid points
+    dg_z_g = np.tile(np.concatenate((np.flipud(z_grid.copy())[:, None], np.flipud(z_grid.copy())[:, None]), axis=1),
+                     (1, num_dives))  # grid of vertical grid points across all dives
+    # --- DG X,Y
+    dg_y = np.nan * np.ones((len(dg_z), num_dives*2))
+    dg_y[0, 0] = y_dg_s
+
+    # --- DIVE
+    # first dive, hor start loc
+    xyg_start = np.where(xy_grid > y_dg_s)[0][0]  # hor start loc
     # projected hor position at dive end
-    # xyg_proj_end = np.where(xy_grid > ((dg_y[0, i - 1] + 10) + np.abs(2500) * 3 * 2))[0][0]
     xyg_proj_end = np.where(xy_grid >
-                            ((dg_y[0, i - 1] + 10) + 3 * 2 *
-                             np.nanmean(np.abs(max_depth_per_xy[xyg_start:xyg_start + 6]))))[0][0]
-    data_depth_max = z_grid[np.where(np.isnan(np.mean(data_loc[:, xyg_start:xyg_proj_end + 1], 1)))[0][-1]] \
+                            (y_dg_s + 3*2*np.nanmean(np.abs(max_depth_per_xy[xyg_start:xyg_start+6]))))[0][0]
+    data_depth_max = z_grid[np.where(np.isnan(np.mean(data_loc[:, xyg_start:xyg_proj_end+1], 1)))[0][-1]] \
                      + np.abs(z_grid[-2] - z_grid[-1])  # depth of water (depth glider will dive to) estimate
     dg_z_ind = np.where(dg_z >= data_depth_max)[0]
-    # dive
-    dg_y[0, i] = (dg_y[0, i - 1] + 10)
-    for j in range(1, len(dg_z_ind)):
-        dg_y[j, i] = dg_glide_slope * (dg_z[j - 1] - dg_z[j]) + dg_y[j - 1, i]
-    # climb
-    dg_y[dg_z_ind[-1], i + 1] = dg_y[dg_z_ind[-1], i]
-    for j in range(len(dg_z_ind) - 2, 0, -1):
-        dg_y[dg_z_ind[j], i + 1] = dg_glide_slope * (dg_z[dg_z_ind[j]] - dg_z[dg_z_ind[j + 1]]) + dg_y[j + 1, i + 1]
-    dg_y[0, i + 1] = dg_glide_slope * (dg_z[0] - dg_z[1]) + dg_y[1, i + 1]
+    for i in range(1, len(dg_z_ind)):
+        dg_y[i, 0] = dg_glide_slope * (dg_z[i - 1] - dg_z[i]) + dg_y[i - 1, 0]
+    # first climb
+    dg_y[dg_z_ind[-1], 1] = dg_y[dg_z_ind[-1], 0]
+    for i in range(len(dg_z_ind) - 2, 0, -1):
+        dg_y[dg_z_ind[i], 1] = dg_glide_slope * (dg_z[dg_z_ind[i]] - dg_z[dg_z_ind[i + 1]]) + dg_y[i + 1, 1]
+    dg_y[0, 1] = dg_glide_slope * (dg_z[0] - dg_z[1]) + dg_y[1, 1]
 
-# --- DG time
-dg_t = np.nan * np.ones(dg_y.shape)
-dg_t[0, 0] = np.nanmin(time_ord_s)
-for j in range(np.shape(dg_y)[1]):
-    # climb portion
-    if np.mod(j, 2):
-        # loop over z's as the glider climbs
-        max_ind = np.where(np.isnan(dg_y[:, j]))[0][0]
-        dg_t[max_ind - 1, j] = dg_t[max_ind - 1, j - 1] + 50. * (1/(60.*60.*24.)) # first value in climb
+    # all subsequent dive-climb cycles
+    for i in range(2, num_dives*2, 2):
+        # hor start loc of dive i
+        xyg_start = np.where(xy_grid > (dg_y[0, i - 1] + 10))[0][0]
+        # projected hor position at dive end
+        # xyg_proj_end = np.where(xy_grid > ((dg_y[0, i - 1] + 10) + np.abs(2500) * 3 * 2))[0][0]
+        xyg_proj_end = np.where(xy_grid >
+                                ((dg_y[0, i - 1] + 10) + 3 * 2 *
+                                 np.nanmean(np.abs(max_depth_per_xy[xyg_start:xyg_start + 6]))))[0][0]
+        data_depth_max = z_grid[np.where(np.isnan(np.mean(data_loc[:, xyg_start:xyg_proj_end + 1], 1)))[0][-1]] \
+                         + np.abs(z_grid[-2] - z_grid[-1])  # depth of water (depth glider will dive to) estimate
+        dg_z_ind = np.where(dg_z >= data_depth_max)[0]
+        # dive
+        dg_y[0, i] = (dg_y[0, i - 1] + 10)
+        for j in range(1, len(dg_z_ind)):
+            dg_y[j, i] = dg_glide_slope * (dg_z[j - 1] - dg_z[j]) + dg_y[j - 1, i]
+        # climb
+        dg_y[dg_z_ind[-1], i + 1] = dg_y[dg_z_ind[-1], i]
+        for j in range(len(dg_z_ind) - 2, 0, -1):
+            dg_y[dg_z_ind[j], i + 1] = dg_glide_slope * (dg_z[dg_z_ind[j]] - dg_z[dg_z_ind[j + 1]]) + dg_y[j + 1, i + 1]
+        dg_y[0, i + 1] = dg_glide_slope * (dg_z[0] - dg_z[1]) + dg_y[1, i + 1]
+
+    # --- DG time
+    dg_t = np.nan * np.ones(dg_y.shape)
+    dg_t[0, 0] = t_st_ind
+    for j in range(np.shape(dg_y)[1]):
+        # climb portion
+        if np.mod(j, 2):
+            # loop over z's as the glider climbs
+            max_ind = np.where(np.isnan(dg_y[:, j]))[0][0]
+            dg_t[max_ind - 1, j] = dg_t[max_ind - 1, j - 1] + 50. * (1/(60.*60.*24.)) # first value in climb
+            this_dg_z = dg_z[0:max_ind]
+            for i in range(len(dg_z[0:max_ind]) - 2, 0, -1):
+                dg_t[i, j] = dg_t[i + 1, j] + (np.abs(this_dg_z[i] - this_dg_z[i - 1]) / dg_vertical_speed) / (60 * 60 * 24)
+            dg_t[0, j] = dg_t[1, j] + (np.abs(this_dg_z[0] - this_dg_z[1]) / dg_vertical_speed) / (60 * 60 * 24)
+        # dive portion
+        else:
+            if j < 1:
+                dg_t[0, j] = dg_t[0, 0]
+            else:
+                dg_t[0, j] = dg_t[0, j - 1] + 50. * (1/(60.*60.*24.))
+            # loop over z's as the glider dives
+            max_ind = np.where(np.isnan(dg_y[:, j]))[0][0]
+            for i in range(1, len(dg_z[0:max_ind])):
+                dg_t[i, j] = dg_t[i - 1, j] + (np.abs(dg_z_g[i, j] - dg_z_g[i - 1, j]) / dg_vertical_speed) / (60 * 60 * 24)
+
+    # --- Interpolation of Model to each glider measurements
+    data_interp = np.flipud(sig0_out_s)
+    sa_interp = np.flipud(sa_out_s)
+    ct_interp = np.flipud(ct_out_s)
+    dg_sig0 = np.nan * np.ones(np.shape(dg_t))
+    dg_sa = np.nan * np.ones(np.shape(dg_t))
+    dg_ct = np.nan * np.ones(np.shape(dg_t))
+    for i in range(np.shape(dg_y)[1]):  # xy_grid
+        max_ind = np.where(np.isnan(dg_y[:, i]))[0][0]
         this_dg_z = dg_z[0:max_ind]
-        for i in range(len(dg_z[0:max_ind]) - 2, 0, -1):
-            dg_t[i, j] = dg_t[i + 1, j] + (np.abs(this_dg_z[i] - this_dg_z[i - 1]) / dg_vertical_speed) / (60 * 60 * 24)
-        dg_t[0, j] = dg_t[1, j] + (np.abs(this_dg_z[0] - this_dg_z[1]) / dg_vertical_speed) / (60 * 60 * 24)
-    # dive portion
+        for j in range(len(this_dg_z)):  # depth
+            if (i < 1) & (j < 1):
+                dg_sig0[j, i] = np.interp(dg_y[j, i], xy_grid, data_interp[j, :, 0] + (g_error * np.random.rand(1)))
+                dg_sa[j, i] = np.interp(dg_y[j, i], xy_grid, sa_interp[j, :, 0] + (s_error * np.random.rand(1)))
+                dg_ct[j, i] = np.interp(dg_y[j, i], xy_grid, ct_interp[j, :, 0] + (t_error * np.random.rand(1)))
+            else:
+                this_t = dg_t[j, i]
+                # find time bounding model runs
+                nearest_model_t_over = np.where(time_ord_s > this_t)[0][0]
+                # interpolate to hor position of glider dive for time before and after
+                sig_t_before = np.interp(dg_y[j, i], xy_grid, data_interp[j, :, nearest_model_t_over - 1] + (g_error * np.random.rand(1)))
+                sig_t_after = np.interp(dg_y[j, i], xy_grid, data_interp[j, :, nearest_model_t_over] + (g_error * np.random.rand(1)))
+                sa_t_before = np.interp(dg_y[j, i], xy_grid, sa_interp[j, :, nearest_model_t_over - 1] + (t_error * np.random.rand(1)))
+                sa_t_after = np.interp(dg_y[j, i], xy_grid, sa_interp[j, :, nearest_model_t_over] + (t_error * np.random.rand(1)))
+                ct_t_before = np.interp(dg_y[j, i], xy_grid, ct_interp[j, :, nearest_model_t_over - 1] + (s_error * np.random.rand(1)))
+                ct_t_after = np.interp(dg_y[j, i], xy_grid, ct_interp[j, :, nearest_model_t_over] + (s_error * np.random.rand(1)))
+                # interpolate across time
+                dg_sig0[j, i] = np.interp(this_t, [time_ord_s[nearest_model_t_over - 1],
+                                                   time_ord_s[nearest_model_t_over]], [sig_t_before, sig_t_after])
+                dg_sa[j, i] = np.interp(this_t, [time_ord_s[nearest_model_t_over - 1],
+                                                 time_ord_s[nearest_model_t_over]], [sa_t_before, sa_t_after])
+                dg_ct[j, i] = np.interp(this_t, [time_ord_s[nearest_model_t_over - 1],
+                                                 time_ord_s[nearest_model_t_over]], [ct_t_before, ct_t_after])
+    print('Simulated Glider Flight')
+    # ---------------------------------------------------------------------------------------------------------------------
+    ff = np.pi * np.sin(np.deg2rad(ref_lat)) / (12 * 1800)  # Coriolis parameter [s^-1]
+    num_profs = np.shape(dg_sig0)[1]
+    order_set = np.arange(0, np.shape(dg_sig0)[1], 2)
+
+    # --- Estimate of DAC
+    dg_dac = np.nan * np.ones(np.shape(dg_sig0)[1] - 1)
+    dg_dac_off = np.nan * np.ones(np.shape(dg_sig0)[1] - 1)
+    dg_dac_mid = np.nan * np.ones(np.shape(dg_sig0)[1] - 1)
+    mw_time = np.nan * np.ones(np.shape(dg_sig0)[1] - 1)
+    for i in range(0, num_profs-1, 2):
+        min_t = np.nanmin(dg_t[:, i:i + 2])
+        max_t = np.nanmax(dg_t[:, i:i + 2])
+        # mto = np.where((time_ord_s >= min_t) & (time_ord_s <= max_t))[0]
+        mtun = np.where(time_ord_s <= min_t)[0][-1]
+        mtov = np.where(time_ord_s > max_t)[0][0]
+
+        this_ys = np.nanmin(dg_y[:, i:i + 2])
+        this_ye = np.nanmax(dg_y[:, i:i + 2])
+        this_ygs = np.where(xy_grid <= this_ys)[0][-1]
+        this_yge = np.where(xy_grid >= this_ye)[0][0]
+        dg_dac[i] = np.nanmean(np.nanmean(np.nanmean(u_out_s[:, this_ygs+1:this_yge, mtun+1:mtov], axis=2), axis=0))
+        dg_dac_off[i] = np.nanmean(np.nanmean(np.nanmean(u_off_out_s[:, this_ygs+1:this_yge, mtun+1:mtov], axis=2), axis=0))
+        dg_dac_mid[i] = np.nanmean([this_ys, this_ye])
+        mw_time[i] = np.nanmean([min_t, max_t])
+        if i < num_profs-2:  # exclude timing of last climb (for now)
+            mw_time[i + 1] = max_t
+
+    ws = np.where(np.isnan(dg_dac_mid))[0]
+    for i in range(len(ws)):
+        dg_dac_mid[ws[i]] = np.nanmean([dg_dac_mid[ws[i] - 1], dg_dac_mid[ws[i] + 1]])
+    # now dg_dac_mid is the same as mw_y computed later (the horizontal position of each m/w profile)
+
+    if E_W:
+        dg_dac_v = nanseg_interp(dg_dac_mid, dg_dac)
+        dg_dac_u = nanseg_interp(dg_dac_mid, dg_dac_off)
     else:
-        if j < 1:
-            dg_t[0, j] = dg_t[0, 0]
-        else:
-            dg_t[0, j] = dg_t[0, j - 1] + 50. * (1/(60.*60.*24.))
-        # loop over z's as the glider dives
-        max_ind = np.where(np.isnan(dg_y[:, j]))[0][0]
-        for i in range(1, len(dg_z[0:max_ind])):
-            dg_t[i, j] = dg_t[i - 1, j] + (np.abs(dg_z_g[i, j] - dg_z_g[i - 1, j]) / dg_vertical_speed) / (60 * 60 * 24)
+        dg_dac_u = nanseg_interp(dg_dac_mid, dg_dac)
+        dg_dac_v = nanseg_interp(dg_dac_mid, dg_dac_off)
 
-# --- Interpolation of Model to each glider measurements
-data_interp = np.flipud(sig0_out_s)
-sa_interp = np.flipud(sa_out_s)
-ct_interp = np.flipud(ct_out_s)
-dg_sig0 = np.nan * np.ones(np.shape(dg_t))
-dg_sa = np.nan * np.ones(np.shape(dg_t))
-dg_ct = np.nan * np.ones(np.shape(dg_t))
-for i in range(np.shape(dg_y)[1]):  # xy_grid
-    max_ind = np.where(np.isnan(dg_y[:, i]))[0][0]
-    this_dg_z = dg_z[0:max_ind]
-    for j in range(len(this_dg_z)):  # depth
-        if (i < 1) & (j < 1):
-            dg_sig0[j, i] = np.interp(dg_y[j, i], xy_grid, data_interp[j, :, 0])
-            dg_sa[j, i] = np.interp(dg_y[j, i], xy_grid, sa_interp[j, :, 0])
-            dg_ct[j, i] = np.interp(dg_y[j, i], xy_grid, ct_interp[j, :, 0])
-        else:
-            this_t = dg_t[j, i]
-            # find time bounding model runs
-            nearest_model_t_over = np.where(time_ord_s > this_t)[0][0]
-            # print(this_t - time_ord_s[nearest_model_t_over])
-            # interpolate to hor position of glider dive for time before and after
-            sig_t_before = np.interp(dg_y[j, i], xy_grid, data_interp[j, :, nearest_model_t_over - 1])
-            sig_t_after = np.interp(dg_y[j, i], xy_grid, data_interp[j, :, nearest_model_t_over])
-            sa_t_before = np.interp(dg_y[j, i], xy_grid, sa_interp[j, :, nearest_model_t_over - 1])
-            sa_t_after = np.interp(dg_y[j, i], xy_grid, sa_interp[j, :, nearest_model_t_over])
-            ct_t_before = np.interp(dg_y[j, i], xy_grid, ct_interp[j, :, nearest_model_t_over - 1])
-            ct_t_after = np.interp(dg_y[j, i], xy_grid, ct_interp[j, :, nearest_model_t_over])
-            # interpolate across time
-            dg_sig0[j, i] = np.interp(this_t, [time_ord_s[nearest_model_t_over - 1], time_ord_s[nearest_model_t_over]],
-                                   [sig_t_before, sig_t_after])
-            dg_sa[j, i] = np.interp(this_t, [time_ord_s[nearest_model_t_over - 1], time_ord_s[nearest_model_t_over]],
-                                   [sa_t_before, sa_t_after])
-            dg_ct[j, i] = np.interp(this_t, [time_ord_s[nearest_model_t_over - 1], time_ord_s[nearest_model_t_over]],
-                                   [ct_t_before, ct_t_after])
+    # model velocity profiles at locations within domain spanned by one m/w pattern and in the same time
+    u_model = np.flipud(u_out_s)
+    u_mod_at_mw = []
+    gamma_mod_at_mw = []
+    u_mod_at_mw_avg = np.nan * np.ones((len(dg_z), len(dg_dac_mid)))
+    gamma_mod_at_mw_avg = np.nan * np.ones((len(dg_z), len(dg_dac_mid)))
+    for i in range(len(dg_dac_mid)):
+        # time/space bounds of m/w profiles
+        # incomplete M
+        if i < 1:
+            min_t = dg_t[0, 0]
+            max_t = np.nanmax(dg_t[:, 2])
+            min_y = np.nanmin(dg_y[:, 0])
+            max_y = np.nanmean(dg_y[:, 2])
+        elif (i > 0) & (i < len(dg_dac_mid) - 2):
+            min_t = np.nanmin(dg_t[:, i - 1])
+            max_t = np.nanmax(dg_t[:, i + 2])
+            min_y = np.nanmin(dg_y[:, i - 1])
+            max_y = np.nanmax(dg_y[:, i + 2])
+        elif i >= len(dg_dac_mid) - 2:
+            min_t = np.nanmin(dg_t[:, i - 1])
+            max_t = np.nanmax(dg_t[:, -1])
+            min_y = np.nanmin(dg_y[:, i - 1])
+            max_y = np.nanmax(dg_y[:, -1])
 
-print('Simulated Glider Flight')
+        mtun = np.where(time_ord_s <= min_t)[0][-1]
+        mtov = np.where(time_ord_s > max_t)[0][0]
+        this_ygs = np.where(xy_grid <= min_y)[0][-1]
+        this_yge = np.where(xy_grid >= max_y)[0][0]
+
+        print(str(min_t) + '-' + str(max_t))
+        print(str(time_ord_s[mtun]) + '-' + str(time_ord_s[mtov]))
+        print(str(min_y) + '-' + str(max_y))
+        print(str(xy_grid[this_ygs]) + '-' + str(xy_grid[this_yge]))
+
+        u_mod_at_mw.append(u_model[:, this_ygs+1:this_yge, mtun:mtov])
+        gamma_mod_at_mw.append(data_interp[:, this_ygs+1:this_yge, mtun:mtov])
+        u_mod_at_mw_avg[:, i] = np.nanmean(np.nanmean(u_model[:, this_ygs+1:this_yge, mtun:mtov], axis=2), axis=1)
+        gamma_mod_at_mw_avg[:, i] = np.nanmean(np.nanmean(data_interp[:, this_ygs+1:this_yge, mtun:mtov], axis=2), axis=1)
+
+    # ------------------------------------------------------------------------------------------------------------------
+    # transect plan view with DAC
+    if E_W:
+        dac_lon = dg_dac_mid / (1852. * 60. * np.cos(np.deg2rad(ref_lat))) + ref_lon
+        dac_lat = ref_lat * np.ones(len(dac_lon))
+    else:
+        dac_lat = dg_dac_mid / (1852. * 60) + ref_lat
+        dac_lon = ref_lon * np.ones(len(dac_lat))
+
+    # --- M/W estimation
+    mw_y = np.nan * np.zeros(num_profs - 1)
+    sigma_theta_out = np.nan * np.zeros((np.size(z_grid), num_profs - 1))
+    shear = np.nan * np.zeros((np.size(z_grid), num_profs - 1))
+    avg_sig_pd = np.nan * np.zeros((np.size(z_grid), num_profs - 1))
+    avg_ct_pd = np.nan * np.zeros((np.size(z_grid), num_profs - 1))
+    avg_sa_pd = np.nan * np.zeros((np.size(z_grid), num_profs - 1))
+    isopycdep = np.nan * np.zeros((np.size(sigth_levels), num_profs))
+    isopycx = np.nan * np.zeros((np.size(sigth_levels), num_profs))
+    for i in order_set:
+        sigma_theta_pa_M = np.nan * np.zeros(np.size(z_grid))
+        sigma_theta_pa_W = np.nan * np.zeros(np.size(z_grid))
+        shearM = np.nan * np.zeros(np.size(z_grid))
+        shearW = np.nan * np.zeros(np.size(z_grid))
+        p_avg_sig_M = np.nan * np.zeros(np.size(z_grid))
+        p_avg_sig_W = np.nan * np.zeros(np.size(z_grid))
+        p_avg_ct_M = np.nan * np.zeros(np.size(z_grid))
+        p_avg_ct_W = np.nan * np.zeros(np.size(z_grid))
+        p_avg_sa_M = np.nan * np.zeros(np.size(z_grid))
+        p_avg_sa_W = np.nan * np.zeros(np.size(z_grid))
+        yy_M = np.nan * np.zeros(np.size(z_grid))
+        yy_W = np.nan * np.zeros(np.size(z_grid))
+        # LOOP OVER EACH BIN_DEPTH
+        for j in range(np.size(z_grid)):
+            # find array of indices for M / W sampling
+            if i < 2:
+                if partial_mw:
+                    c_i_m = np.arange(i, i + 3)
+                else:
+                    c_i_m = []  # omit partial "M" estimate
+                c_i_w = np.arange(i, i + 4)
+            elif (i >= 2) and (i < num_profs - 2):
+                c_i_m = np.arange(i - 1, i + 3)
+                c_i_w = np.arange(i, i + 4)
+            elif i >= num_profs - 2:
+                if partial_mw:
+                    c_i_m = np.arange(i - 1, num_profs)
+                else:
+                    c_i_m = []  # omit partial "M" estimated
+                c_i_w = []
+            nm = np.size(c_i_m)
+            nw = np.size(c_i_w)
+
+            # for M profile compute shear and eta
+            if nm > 2 and np.size(dg_sig0[j, c_i_m]) > 2:
+                sigmathetaM = dg_sig0[j, c_i_m]
+                sigma_theta_pa_M[j] = np.nanmean(sigmathetaM)  # average density across 4 profiles
+                yy_M[j] = np.nanmean(dg_y[j, c_i_m])
+                imv = ~np.isnan(np.array(dg_sig0[j, c_i_m]))
+                c_i_m_in = c_i_m[imv]
+
+                if np.size(c_i_m_in) > 1:
+                    d_anom0M = sigmathetaM[imv] - np.nanmean(sigmathetaM[imv])
+                    # drhodatM = np.nanmean(np.gradient(sigmathetaM[imv], dg_y[j, c_i_m]))
+                    drhodatM = np.polyfit(dg_y[j, c_i_m], dg_sig0[j, c_i_m], 1)[0]
+                    shearM[j] = -g * drhodatM / (rho0 * ff)  # shear to port of track [m/s/km]
+
+                    p_avg_sig_M[j] = np.nanmean(dg_sig0[j, c_i_m])
+                    p_avg_sa_M[j] = np.nanmean(dg_sa[j, c_i_m])
+                    p_avg_ct_M[j] = np.nanmean(dg_ct[j, c_i_m])
+
+            # for W profile compute shear and eta
+            if nw > 2 and np.size(dg_sig0[j, c_i_w]) > 2:
+                sigmathetaW = dg_sig0[j, c_i_w]
+                sigma_theta_pa_W[j] = np.nanmean(sigmathetaW)  # average density across 4 profiles
+                yy_W[j] = np.nanmean(dg_y[j, c_i_w])
+                iwv = ~np.isnan(np.array(dg_sig0[j, c_i_w]))
+                c_i_w_in = c_i_w[iwv]
+
+                if np.size(c_i_w_in) > 1:
+                    d_anom0W = sigmathetaW[iwv] - np.nanmean(sigmathetaW[iwv])
+                    # drhodatW = np.nanmean(np.gradient(sigmathetaW[iwv], dg_y[j, c_i_w]))
+                    drhodatW = np.polyfit(dg_y[j, c_i_w], dg_sig0[j, c_i_w], 1)[0]
+                    shearW[j] = -g * drhodatW / (rho0 * ff)  # shear to port of track [m/s/km]
+
+                    p_avg_sig_W[j] = np.nanmean(dg_sig0[j, c_i_w])
+                    p_avg_sa_W[j] = np.nanmean(dg_sa[j, c_i_w])
+                    p_avg_ct_W[j] = np.nanmean(dg_ct[j, c_i_w])
+
+        # OUTPUT FOR EACH TRANSECT (at least 2 DIVES)
+        # because this is M/W profiling, for a 3 dive transect, only 5 profiles of shear and eta are compiled
+        sigma_theta_out[:, i] = sigma_theta_pa_M
+        shear[:, i] = shearM
+        avg_sig_pd[:, i] = p_avg_sig_M
+        avg_sa_pd[:, i] = p_avg_sa_M
+        avg_ct_pd[:, i] = p_avg_ct_M
+        iq = np.where(~np.isnan(shearM))[0]
+        if len(iq) > 0:
+            mw_y[i] = dg_y[iq[-1], i]
+
+        if i < num_profs - 2:
+            sigma_theta_out[:, i + 1] = sigma_theta_pa_W
+            shear[:, i + 1] = shearW
+            avg_sig_pd[:, i + 1] = p_avg_sig_W
+            avg_sa_pd[:, i + 1] = p_avg_sa_W
+            avg_ct_pd[:, i + 1] = p_avg_ct_W
+            mw_y[i + 1] = dg_y[0, i + 1]
+
+        # ISOPYCNAL DEPTHS ON PROFILES ALONG EACH TRANSECT
+        sigthmin = np.nanmin(np.array(dg_sig0[:, i]))
+        sigthmax = np.nanmax(np.array(dg_sig0[:, i]))
+        isigth = (sigth_levels > sigthmin) & (sigth_levels < sigthmax)
+        isopycdep[isigth, i] = np.interp(sigth_levels[isigth], dg_sig0[:, i], np.flipud(z_grid))
+        isopycx[isigth, i] = np.interp(sigth_levels[isigth], dg_sig0[:, i], dg_y[:, i])
+
+        sigthmin = np.nanmin(np.array(dg_sig0[:, i + 1]))
+        sigthmax = np.nanmax(np.array(dg_sig0[:, i + 1]))
+        isigth = (sigth_levels > sigthmin) & (sigth_levels < sigthmax)
+        isopycdep[isigth, i + 1] = np.interp(sigth_levels[isigth], dg_sig0[:, i + 1], np.flipud(z_grid))
+        isopycx[isigth, i + 1] = np.interp(sigth_levels[isigth], dg_sig0[:, i + 1], dg_y[:, i + 1])
+
+    # interpolate dac to be centered on m/w locations
+    if E_W:
+        dg_dac_use = 1. * nanseg_interp(dg_dac_mid, dg_dac) + dac_error * np.random.rand(len(dg_dac))  # added noise to DAC
+    else:
+        dg_dac_use = -1. * nanseg_interp(dg_dac_mid, dg_dac)
+    # FOR EACH TRANSECT COMPUTE GEOSTROPHIC VELOCITY
+    vbc_g = np.nan * np.zeros(np.shape(shear))
+    v_g = np.nan * np.zeros((np.size(z_grid), num_profs))
+    for m in range(num_profs - 1):
+        iq = np.where(~np.isnan(shear[:, m]))
+        if np.size(iq) > 10:
+            z2 = dg_z[iq]
+            vrel = cumtrapz(shear[iq, m], x=z2, initial=0)
+            vrel_av = np.trapz(vrel / (z2[-1] - 0), x=z2)
+            vbc = vrel - vrel_av
+            vbc_g[iq, m] = vbc
+            v_g[iq, m] = dg_dac_use[m] + vbc
+        else:
+            vbc_g[iq, m] = np.nan
+            v_g[iq, m] = np.nan
+    if E_W:
+        v_g = 1. * v_g[:, 0:-1]
+    else:
+        v_g = -1. * v_g[:, 0:-1]
+    print('Completed M/W Vel Estimation')
+
+    # ------------------------------
+    # model - glider velocity error
+    ua_mean = np.nan * np.ones((len(dg_z), len(dg_dac_mid)))
+    ua_std = np.nan * np.ones((len(dg_z), len(dg_dac_mid)))
+    ua_avg_mean = np.nan * np.ones((len(dg_z), len(dg_dac_mid)))
+    ua_avg_std = np.nan * np.ones((len(dg_z), len(dg_dac_mid)))
+    for i in range(len(dg_dac_mid)):
+        these_u = u_mod_at_mw[i]  # each u_mod_at_mw[i] contains all model profiles spanning the distance covered by
+        # one m/w set of profiles and including the amount of time it took to collect m/w profiles
+        for j in range(np.shape(these_u)[2]):
+            each_anoms = these_u[:, :, j] - np.tile(v_g[:, i][:, None], (1, np.shape(these_u)[1]))
+            if j < 1:
+                u_anoms = each_anoms.copy()
+            else:
+                u_anoms = np.concatenate((u_anoms, each_anoms), axis=1)
+
+        these_u_space_avg = np.nanmean(these_u, axis=1)  # avg spatially then get statistic on time variability
+        # difference between this v_g profile and the avg profile of all model profiles spanning this dive-climb cycle
+        # at each time step
+        u_avg_anoms = these_u_space_avg - np.tile(v_g[:, i][:, None], (1, np.shape(these_u_space_avg)[1]))
+        for j in range(len(dg_z)):
+            ua_mean[j, i] = np.nanmean(u_anoms[j, :])
+            ua_std[j, i] = np.nanstd(u_anoms[j, :])
+            ua_avg_mean[j, i] = np.nanmean(u_avg_anoms[j, :])
+            ua_avg_std[j, i] = np.nanstd(u_avg_anoms[j, :])
+    # ------------------------------------------------------------------------------------------------------------------
+    # --- depth of isopycnals in time and  glider aliasing
+    dive_1_s = dg_y[0, 0]
+    dive_1_e = dg_y[0, 1]
+    dive_1_t_s = dg_t[0, 0]
+    dive_1_t_e = dg_t[0, 1]
+    dive_1_span = dive_1_e - dive_1_s
+    dive_1_t_span = dive_1_t_e - dive_1_t_s
+    xy_grid_near = np.where(xy_grid <= dive_1_s)[0][-1]
+    xy_grid_near_end = np.where(xy_grid >= dive_1_e)[0][0]
+    t_near = np.where(time_ord_s <= dive_1_t_s)[0][-1]
+    t_near_end = np.where(time_ord_s >= dive_1_t_e)[0][0]
+
+    isops = [26.8, 27.4, 27.8, 27.9]
+    t_steps = [t_near, t_near + 6, t_near + 12, t_near + 18, t_near + 24, t_near + 30]
+    t_step_m = np.int(np.floor(24 * (dg_t[0, 3] - dg_t[0, 0])))
+    t_steps = range(t_near, t_near + t_step_m, 2)
+
+    # -- model isopycnal depths
+    these_data = data_interp[:, :, t_steps[0]]
+    these_data2 = data_interp[:, :, t_steps[1]]
+    these_data3 = data_interp[:, :, t_steps[2]]
+    these_data4 = data_interp[:, :, t_steps[3]]
+    these_data5 = data_interp[:, :, t_steps[4]]
+    these_data6 = data_interp[:, :, t_steps[5]]
+    isop_dep = np.nan * np.ones((len(isops), np.shape(these_data)[1]))
+    isop_dep2 = np.nan * np.ones((len(isops), np.shape(these_data)[1]))
+    isop_dep3 = np.nan * np.ones((len(isops), np.shape(these_data)[1]))
+    isop_dep4 = np.nan * np.ones((len(isops), np.shape(these_data)[1]))
+    isop_dep5 = np.nan * np.ones((len(isops), np.shape(these_data)[1]))
+    isop_dep6 = np.nan * np.ones((len(isops), np.shape(these_data)[1]))
+    for i in range(np.shape(these_data)[1]):
+        for j in range(len(isops)):
+            # each of these is at a different time in the ~ 30 hr window
+            isop_dep[j, i] = np.interp(isops[j], these_data[:, i], -1. * dg_z)
+            isop_dep2[j, i] = np.interp(isops[j], these_data2[:, i], -1. * dg_z)
+            isop_dep3[j, i] = np.interp(isops[j], these_data3[:, i], -1. * dg_z)
+            isop_dep4[j, i] = np.interp(isops[j], these_data4[:, i], -1. * dg_z)
+            isop_dep5[j, i] = np.interp(isops[j], these_data5[:, i], -1. * dg_z)
+            isop_dep6[j, i] = np.interp(isops[j], these_data6[:, i], -1. * dg_z)
+
+    # -- glider measured isopycnal depth (over time span)
+    dg_isop_dep = np.nan * np.ones((len(isops), 4))
+    dg_isop_xy = np.nan * np.ones((len(isops), 4))
+    # first dive
+    for j in range(len(isops)):
+        dg_isop_dep[j, 0] = np.interp(isops[j], dg_sig0[:, 0], -1. * dg_z)
+        dg_isop_xy[j, 0] = np.interp(isops[j], dg_sig0[:, 0], dg_y[:, 0])
+    # first climb
+    for j in range(len(isops)):
+        dg_isop_dep[j, 1] = np.interp(isops[j], dg_sig0[:, 1], -1. * dg_z)
+        dg_isop_xy[j, 1] = np.interp(isops[j], dg_sig0[:, 1], dg_y[:, 1])
+    # second dive
+    for j in range(len(isops)):
+        dg_isop_dep[j, 2] = np.interp(isops[j], dg_sig0[:, 2], -1. * dg_z)
+        dg_isop_xy[j, 2] = np.interp(isops[j], dg_sig0[:, 2], dg_y[:, 2])
+    # second climb
+    for j in range(len(isops)):
+        dg_isop_dep[j, 3] = np.interp(isops[j], dg_sig0[:, 3], -1. * dg_z)
+        dg_isop_xy[j, 3] = np.interp(isops[j], dg_sig0[:, 3], dg_y[:, 3])
+    # --------------------------------------------------------------------------------------------------------------------
+    # -- Variances
+    # fraction of variance contained in igw/tide fluctuations (compared to total variance of isopynal depth
+    l=0
+    # 30 hr avg model isopycnal depth as a function of xy_grid
+    avg_isop_pos = np.nanmean(np.squeeze(np.array([[isop_dep[l, :]], [isop_dep2[l, :]], [isop_dep3[l, :]],
+                                                   [isop_dep4[l, :]], [isop_dep5[l, :]], [isop_dep6[l, :]]])), axis=0)
+
+    # xy within glider dives
+    inn = np.where((xy_grid >= dg_y[0,0]) & (xy_grid <= dg_y[0, -1]))[0]
+
+    # at each xy_grid point square difference between 30 hr avg and hourly output
+    isop_anom = (isop_dep[l, inn] - avg_isop_pos[inn])**2
+    isop_anom2 = (isop_dep2[l, inn] - avg_isop_pos[inn])**2
+    isop_anom3 = (isop_dep3[l, inn] - avg_isop_pos[inn])**2
+    isop_anom4 = (isop_dep4[l, inn] - avg_isop_pos[inn])**2
+    isop_anom5 = (isop_dep5[l, inn] - avg_isop_pos[inn])**2
+    isop_anom6 = (isop_dep6[l, inn] - avg_isop_pos[inn])**2
+    # list of square differences
+    combo_0 = np.concatenate((isop_anom, isop_anom2, isop_anom3, isop_anom4, isop_anom5, isop_anom6))
+    # mean square differences
+    igw_var = (1./len(combo_0)) * np.nansum(combo_0)  # model noise signal
+    # at each xy_grid point square difference between avg of 30 hr avg (horizontal line) and hourly output
+    isop_anom_t = (isop_dep[l, inn] - np.nanmean(avg_isop_pos[inn]))**2
+    isop_anom2_t = (isop_dep2[l, inn] - np.nanmean(avg_isop_pos[inn]))**2
+    isop_anom3_t = (isop_dep3[l, inn] - np.nanmean(avg_isop_pos[inn]))**2
+    isop_anom4_t = (isop_dep4[l, inn] - np.nanmean(avg_isop_pos[inn]))**2
+    isop_anom5_t = (isop_dep5[l, inn] - np.nanmean(avg_isop_pos[inn]))**2
+    isop_anom6_t = (isop_dep6[l, inn] - np.nanmean(avg_isop_pos[inn]))**2
+    combo_1 = np.concatenate((isop_anom_t, isop_anom2_t, isop_anom3_t, isop_anom4_t, isop_anom5_t, isop_anom6_t))
+    # mean square differences
+    tot_var = (1./len(combo_1)) * np.nansum(combo_1)
+    frac_igw_var = igw_var / tot_var
+
+    # mean square of difference from avg of 30 hr avg and 30 hr avg
+    model_eddy_rms = np.nanmean((avg_isop_pos[inn] - np.nanmean(avg_isop_pos[inn]))**2)  # model eddy signal
+
+    inn = np.where((xy_grid >= dg_y[0,0]) & (xy_grid <= dg_y[0, 3]))[0]
+    # fit model slope as glider does (for
+    model_isop_slope = np.polyfit(xy_grid[inn], isop_dep[l, inn], 1)
+    model_mean_isop = np.polyval(model_isop_slope, xy_grid[inn])
+
+    # glider slope of 4 points
+    dg_isop_slope = np.polyfit(dg_isop_xy[l, :], dg_isop_dep[l, :], 1)
+    dg_mean_isop = np.polyval(dg_isop_slope, dg_isop_xy[l, :])
+    dg_igw_var = np.nanmean((dg_isop_dep[l, :] - dg_mean_isop)**2)  # noise signal
+    dg_tot_var = np.nanmean((dg_isop_dep[l, :] - np.nanmean(dg_mean_isop))**2)  # total signal
+
+    # mean square of difference from avg of dg_isop_slope and dg_isop_slope
+    dg_eddy_rms = np.nanmean((dg_mean_isop - np.nanmean(dg_mean_isop))**2)  # eddy signal
+
+    dg_isop_slope = np.nan * np.ones((len(isops), 2))
+    dg_mean_isop = np.nan * np.ones((len(isops), len(dg_isop_xy[0, :])))
+    model_isop_slope = np.nan * np.ones((len(isops), 2))
+    model_mean_isop = np.nan * np.ones((len(isops), len(xy_grid[inn])))
+    for i in range(4):
+        dg_isop_slope[i, :] = np.polyfit(dg_isop_xy[i, :], dg_isop_dep[i, :], 1)
+        dg_mean_isop[i, :] = np.polyval(dg_isop_slope[i, :], dg_isop_xy[i, :])
+
+        model_isop_slope[i, :] = np.polyfit(xy_grid[inn], isop_dep[i, inn], 1)
+        model_mean_isop[i, :] = np.polyval(model_isop_slope[i, :], xy_grid[inn])
+
+    # remove nan profiles that are the result of deciding to use partial m/w profiles or not
+    v_g_0 = v_g.copy()
+    v_g = v_g[:, ~np.isnan(v_g_0[30, :])]
+    goodie = np.where(~np.isnan(v_g_0[30, :]))[0]
+    u_mod_at_mw = u_mod_at_mw[goodie[0]:goodie[-1]+1]
+    gamma_mod_at_mw = gamma_mod_at_mw[goodie[0]:goodie[-1]+1]
+    avg_sig_pd = avg_sig_pd[:, ~np.isnan(avg_sig_pd[30, :])]
+    num_profs_eta = np.shape(avg_sig_pd)[1]
+    shear = shear[:, ~np.isnan(shear[30, :])]
+    # --------------------------------------------------------------------------------------------------------------------
+    # -- DENSITY AT FIXED DEPTHS (this is how we estimate density gradients (drho/dx)
+    deps = [250, 1000, 1500, 2000]
+    isop_dep = np.nan * np.ones((len(deps), np.shape(these_data)[1], len(t_steps)))
+    for i in range(np.shape(these_data)[1]):  # loop over each horizontal grid point
+        for j in range(len(deps)):  # loop over each dep
+            for k in range(len(t_steps)):  # loop over each 6 hr increment
+                isop_dep[j, i, k] = np.interp(deps[j], -1. * dg_z, data_interp[:, i, t_steps[k]])
+
+    # -- glider measured isopycnal depth (over time span)
+    dg_isop_dep = np.nan * np.ones((len(deps), 4))
+    dg_isop_xy = np.nan * np.ones((len(deps), 4))
+    for j in range(len(deps)):
+        for k in range(4):  # loop over dive, climb, dive, climb
+            dg_isop_dep[j, k] = np.interp(deps[j], -1. * dg_z, dg_sig0[:, k])
+            dg_isop_xy[j, k] = np.interp(deps[j], -1. * dg_z, dg_y[:, k])
+
+    # xy within glider dives (model xy over which to estimate density gradients)
+    inn_per_mw = []
+    inn_per_mw_t = []
+    mw_ind_s = np.arange(0, np.shape(shear)[1])
+    mw_ind_e = np.arange(3, 3 + np.shape(shear)[1])
+    dg_t_hrs = 24. * (dg_t - dg_t[0, 0])
+    model_t_hrs = (time_out_s - time_out_s[0]) / 3600.
+    for i in range(np.shape(shear)[1]):
+        if np.mod(i, 2):  # M
+            inn_per_mw.append(np.where((xy_grid >= np.nanmin(dg_y[:, mw_ind_s[i]])) &
+                                       (xy_grid <= np.nanmax(dg_y[:, mw_ind_e[i]])))[0])
+            inn_per_mw_t.append(np.where((model_t_hrs > np.nanmin(dg_t_hrs[:, mw_ind_s[i]])) &
+                                         (model_t_hrs <= np.nanmax(dg_t_hrs[:, mw_ind_e[i]])))[0])
+        else:  # W
+            inn_per_mw.append(np.where((xy_grid >= dg_y[0, mw_ind_s[i]]) & (xy_grid <= dg_y[0, mw_ind_e[i]]))[0])
+            inn_per_mw_t.append(np.where((model_t_hrs >= dg_t_hrs[0, mw_ind_s[i]]) &
+                                         (model_t_hrs <= dg_t_hrs[0, mw_ind_e[i]]))[0])
+
+    # vertical shear difference between model and glider at all depths
+    model_isop_slope_all = np.nan * np.ones((len(dg_z), 2, np.shape(shear)[1]))
+    den_var = np.nan * np.ones((len(dg_z), np.shape(shear)[1]))
+    # model_mean_isop_all = np.nan * np.ones((len(dg_z), len(xy_grid[inn]), np.shape(shear)[1]))
+    for i in range(np.shape(shear)[1]):  # loop over each horizontal profile location
+        for j in range(len(dg_z)):  # loop over each depth
+            if np.sum(np.isnan(np.nanmean(data_interp[j, inn_per_mw[i], :], axis=1))) < 1:
+                model_isop_slope_all[j, :, i] = np.polyfit(xy_grid[inn_per_mw[i]],
+                                                           np.nanmean(data_interp[j, inn_per_mw[i][0]:inn_per_mw[i][-1]+1,
+                                                                      inn_per_mw_t[i][0]:inn_per_mw_t[i][-1]+1], axis=1), 1)
+                model_mean_isop_all = np.polyval(model_isop_slope_all[j, :, i], xy_grid[inn_per_mw[i]])
+                den_in = data_interp[j, inn_per_mw[i][0]:inn_per_mw[i][-1]+1,
+                         inn_per_mw_t[i][0]:inn_per_mw_t[i][-1]+1]
+                signal_var = np.nanvar(model_mean_isop_all)
+                vary = np.nan * np.ones(len(xy_grid))
+                for l in range(len(xy_grid[inn_per_mw[i]])):
+                    vary[l] = np.nanvar(den_in[l, :] - model_mean_isop_all[l])  # variance in time of iso about model mean
+                den_var[j, i] = np.nanmean(vary)/signal_var
+
+    # vertical shear difference between model and glider at all depths (using different definition of slope and variance)
+    model_isop_slope_all = np.nan * np.ones((len(dg_z), 2, np.shape(shear)[1]))
+    den_var = np.nan * np.ones((len(dg_z), np.shape(shear)[1]))
+    igw_var = np.nan * np.ones((len(dg_z), np.shape(shear)[1]))
+    ed_var = np.nan * np.ones((len(dg_z), np.shape(shear)[1]))
+    # model_mean_isop_all = np.nan * np.ones((len(dg_z), len(xy_grid[inn]), np.shape(shear)[1]))
+    for i in range(np.shape(shear)[1]):  # loop over each horizontal profile location
+        for j in range(len(dg_z)):  # loop over each depth
+            if np.sum(np.isnan(np.nanmean(data_interp[j, inn_per_mw[i], :], axis=0))) < 1:
+                # gradient of density at depth j over model grid cells that span m_w limits
+
+                # data_interp[j, inn_per_mw[i][0]:inn_per_mw[i][-1] + 1, inn_per_mw_t[i][0]:inn_per_mw_t[i][-1] + 1]
+                model_isop_slope_all[j, :, i] = np.polyfit(xy_grid[inn_per_mw[i]],
+                                                           np.nanmean(data_interp[j, inn_per_mw[i][0]:inn_per_mw[i][-1]+1,
+                                                                      inn_per_mw_t[i][0]:inn_per_mw_t[i][-1]+1], axis=1), 1)
+
+                # consider density at depth j over model grid cells that span fixed xy limits and 24hrs and not m_w time
+                time_ord_s_hr = time_ord_s - time_ord_s[0]
+                dive_mid_t_hr = 24. * np.nanmean(time_ord_s_hr[inn_per_mw_t[i]])
+                dive_min_t_hr = 24. * time_ord_s_hr[inn_per_mw_t[i][0]]
+                dive_max_t_hr = 24. * time_ord_s_hr[inn_per_mw_t[i][-1]]
+                dive_mid_xy = np.nanmean(xy_grid[inn_per_mw[i][0]:inn_per_mw[i][-1]+1])
+                xy_low = np.where(xy_grid >= (dive_mid_xy - 10000))[0][0]
+                xy_up = np.where(xy_grid <= (dive_mid_xy + 10000))[0][-1] + 1
+                if dive_mid_t_hr <= 24:
+                    t_to_add = 24 - (dive_mid_t_hr - dive_min_t_hr)
+                    t_up_win = np.where((24. * time_ord_s_hr) <= (dive_mid_t_hr + t_to_add))[0][-1]
+                    model_isop_slope_all[j, :, i] = np.polyfit(xy_grid[xy_low:xy_up],
+                                                               np.nanmean(data_interp[j, xy_low:xy_up, 0:t_up_win + 1],
+                                                                          axis=1), 1)
+                    den_in = data_interp[j, xy_low:xy_up, 0:t_up_win + 1]
+                elif dive_mid_t_hr >= (np.nanmax(24. * time_ord_s_hr) - 24):
+                    t_to_sub = 24 - (dive_max_t_hr - dive_mid_t_hr)
+                    t_bot_win = np.where((24. * time_ord_s_hr) >= (dive_mid_t_hr - t_to_sub))[0][0]
+                    model_isop_slope_all[j, :, i] = np.polyfit(xy_grid[xy_low:xy_up],
+                                                               np.nanmean(data_interp[j, xy_low:xy_up, t_bot_win:],
+                                                                          axis=1), 1)
+                    den_in = data_interp[j, xy_low:xy_up, t_bot_win:]
+                else:
+                    midd = np.int(np.round(np.nanmean(inn_per_mw_t[i])))
+                    midd_mi = midd - 12
+                    midd_pl = midd + 12
+                    model_isop_slope_all[j, :, i] = np.polyfit(xy_grid[xy_low:xy_up],
+                                                               np.nanmean(data_interp[j, xy_low:xy_up, midd_mi:midd_pl],
+                                                                          axis=1), 1)
+                    den_in = data_interp[j, xy_low:xy_up, midd_mi:midd_pl]
+
+                # try 2 at linear gradient of model density
+                model_mean_isop_all = np.polyval(model_isop_slope_all[j, :, i], xy_grid[inn_per_mw[i]])
+
+                # # check if doing right
+                # if i > 0 & i < 3:
+                #     if j == 100:
+                #         print(str(i))
+                #         print(str(j))
+                #         f, ax = plt.subplots()
+                #         ax.plot(xy_grid[xy_low:xy_up], np.nanmean(den_in, axis=1), color='k')
+                #         for kk in range(np.shape(den_in)[1]):
+                #             ax.plot(xy_grid[xy_low:xy_up], den_in[:, kk], linewidth=0.5)
+                #         plot_pro(ax)
+
+                # density values at depth j used in above polyfit
+                # den_in = data_interp[inn_per_mw_t[i][0]:inn_per_mw_t[i][-1]+1, j, inn_per_mw[i][0]:inn_per_mw[i][-1]+1]
+
+                # variance of the linear fit
+                # signal_var = np.nanvar(model_mean_isop_all)
+                signal_var = (1.0/len(model_mean_isop_all))*np.nansum((model_mean_isop_all - np.nanmean(model_mean_isop_all))**2)
+                #
+                # vary = np.nan * np.ones(len(xy_grid))
+                for l in range(len(xy_grid[xy_low:xy_up])):
+                    # variance in time of iso about model mean
+                    # vary[l] = (1/len(den_in[:, l])) * np.nansum((den_in[:, l] - model_mean_isop_all[l])**2)
+                    # square difference over all times at each grid point spanning each m/w pattern
+                    vary = (den_in[l, :] - model_mean_isop_all[l])**2
+                    if l < 1:
+                        vary_out = vary.copy()
+                    else:
+                        vary_out = np.concatenate((vary_out, vary))
+                vary_tot = (1.0/len(vary_out)) * np.nansum(vary_out)
+                igw_var[j, i] = vary_tot.copy()
+                ed_var[j, i] = signal_var.copy()
+                den_var[j, i] = vary_tot/signal_var  # np.nanmean(vary)/signal_var
+                # note: igw variance is a function of glider speed because I consider variance of isopycnals about mean over
+                # the time it takes for the glider to complete an m/w
+                # faster w's will yield a better ratio because isopycnal variance will be lower because less time has
+                # elapsed for heaving to occur
+
+    # difference in shear between glider and model
+    shear_error = np.abs(100. * (shear - (-g * model_isop_slope_all[:, 0, :]/(rho0 * ff))) / (-g * model_isop_slope_all[:, 0, :]/(rho0 * ff)))
+
+    # density gradient computation for 4 depths for plot
+    inn = np.where((xy_grid >= dg_y[0,0]) & (xy_grid <= dg_y[0, 3]))[0]
+    dg_isop_slope = np.nan * np.ones((len(deps), 2))
+    dg_mean_isop = np.nan * np.ones((len(deps), len(dg_isop_xy[0, :])))
+    model_isop_slope = np.nan * np.ones((len(deps), 2))
+    model_mean_isop = np.nan * np.ones((len(deps), len(xy_grid[inn])))
+    for i in range(4):
+        dg_isop_slope[i, :] = np.polyfit(dg_isop_xy[i, :], dg_isop_dep[i, :], 1)
+        dg_mean_isop[i, :] = np.polyval(dg_isop_slope[i, :], dg_isop_xy[i, :])
+        model_isop_slope[i, :] = np.polyfit(xy_grid[inn], np.nanmean(isop_dep[i, inn, :], axis=1), 1)
+        model_mean_isop[i, :] = np.polyval(model_isop_slope[i, :], xy_grid[inn])
+
+    # --- Background density
+    pkl_file = open('/Users/jake/Documents/baroclinic_modes/Model/LiveOcean/background_density.pkl', 'rb')
+    MOD = pickle.load(pkl_file)
+    pkl_file.close()
+    overlap = np.where((xy_grid > dg_y[0, 0]) & (xy_grid < dg_y[0, -1]))[0]
+    bck_sa = np.flipud(MOD['sa_back'][:][:, overlap])
+    bck_ct = np.flipud(MOD['ct_back'][:][:, overlap])
+    bck_gamma = np.flipud(MOD['gamma_back'][:][:, overlap])
+    z_back = np.flipud(z_grid)
+    z_bm = np.where(z_back <= dg_z)[0]
+
+    # or if no big feature is present, avg current profiles for background
+    N2_bck_out = gsw.Nsquared(np.nanmean(bck_sa[0:z_bm[-1]+1, :], axis=1), np.nanmean(bck_ct[0:z_bm[-1]+1, :], axis=1),
+                              np.flipud(p_grid)[0:z_bm[-1]+1], lat=ref_lat)[0]
+    # sig0_bck_out = np.nanmean(avg_sig_pd, axis=1)  # avg of glider profiles over this time period
+    sig0_bck_out = np.nanmean(bck_gamma[0:z_bm[-1]+1, :], axis=1)
+
+    sig0_bck_out = sig0_bck_out[~np.isnan(sig0_bck_out)]
+    N2_bck_out = N2_bck_out[~np.isnan(sig0_bck_out)]
+    for i in range(len(N2_bck_out)-15, len(N2_bck_out)):
+        N2_bck_out[i] = N2_bck_out[i - 1] - 1*10**(-8)
+    z_back = z_back[~np.isnan(sig0_bck_out)]
+    # ---------------------------------------------------------------------------------------------------------------------
+    # -- MODES ------------------------------------------------------------------------------------------------------------
+    # frequency zeroed for geostrophic modes
+    omega = 0
+    # highest baroclinic mode to be calculated
+    mmax = 35
+    nmodes = mmax + 1
+    # maximum allowed deep shear [m/s/km]
+    deep_shr_max = 0.1
+    # minimum depth for which shear is limited [m]
+    deep_shr_max_dep = 2000.0
+    # fit limits
+    eta_fit_dep_min = 200.0
+    eta_fit_dep_max = 2600.0
+
+    # adjust z_grid and N2 profile such that N2=0 at surface and that z_grid min = -2500
+    # match background z_grid and N2 to current data
+    z_grid_inter = z_back[0:-1] + (z_back[1:] - z_back[0:-1])/2
+    z_grid_n2 = np.concatenate((np.array([0]), z_back))
+    avg_N2 = np.concatenate((np.array([0]), N2_bck_out))
+    avg_sig0 = np.concatenate((np.array([sig0_bck_out[0] - 0.01]), sig0_bck_out))
+    # need ddz profile to compute eta
+    ddz_avg_sig0 = np.nan * np.ones(np.shape(avg_sig0))
+    ddz_avg_sig0[0] = (avg_sig0[1] - avg_sig0[0])/(z_grid_n2[1] - z_grid_n2[0])
+    ddz_avg_sig0[-1] = (avg_sig0[-1] - avg_sig0[-2])/(z_grid_n2[-1] - z_grid_n2[-2])
+    ddz_avg_sig0[1:-1] = (avg_sig0[2:] - avg_sig0[0:-2]) / (z_grid_n2[2:] - z_grid_n2[0:-2])
+
+    # # --- compute vertical mode shapes
+    G, Gz, c, epsilon = vertical_modes(avg_N2, -1.0 * z_grid_n2, omega, mmax)  # N2
+    print('Computed Vertical Modes from Background Profiles')
+    # ---------------------------------------------------------------------------------------------------------------------
+    # -- DG eta from individual profiles
+    eta = np.nan * np.ones(np.shape(dg_sig0))
+    AG_dg = np.zeros((nmodes, num_profs))
+    PE_per_mass_dg = np.nan * np.ones((nmodes, num_profs))
+    eta_m_dg = np.nan * np.ones((len(dg_z), num_profs))
+    Neta_m_dg = np.nan * np.ones((len(dg_z), num_profs))
+    for i in range(num_profs):
+        good = np.where(~np.isnan(dg_sig0[:, i]))[0]
+        avg_sig0_match = np.interp(np.abs(dg_z[good]), np.abs(z_grid_n2), avg_sig0)
+        ddz_avg_sig0_match = np.interp(np.abs(dg_z[good]), np.abs(z_grid_n2), ddz_avg_sig0)
+        avg_N2_match = np.interp(np.abs(dg_z[good]), np.abs(z_grid_n2), avg_N2)
+
+        eta[good, i] = (dg_sig0[good, i] - avg_sig0_match) / ddz_avg_sig0_match
+
+        grid = -1. * dg_z[good]
+        bvf = np.sqrt(avg_N2_match)
+        this_eta = eta[good, i].copy()
+        eta_fs = eta[good, i].copy()
+        iw = np.where((grid >= eta_fit_dep_min) & (grid <= eta_fit_dep_max))
+        if iw[0].size > 1:
+            G, Gz, c, epsilon = vertical_modes(avg_N2_match, -1.0 * dg_z[good], omega, mmax)  # N2
+
+            i_sh = np.where((grid < eta_fit_dep_min))
+            eta_fs[i_sh[0]] = grid[i_sh] * this_eta[iw[0][0]] / grid[iw[0][0]]
+
+            i_dp = np.where((grid > eta_fit_dep_max))
+            eta_fs[i_dp[0]] = (grid[i_dp] - grid[-1]) * this_eta[iw[0][-1]] / (grid[iw[0][-1]] - grid[-1])
+
+            AG_dg[1:, i] = np.squeeze(np.linalg.lstsq(G[:, 1:], eta_fs)[0])
+            # AG[1:, i] = np.squeeze(np.linalg.lstsq(G[:, 1:], np.transpose(np.atleast_2d(eta_fs)))[0])
+            eta_m_dg[good, i] = np.squeeze(np.matrix(G) * np.transpose(np.matrix(AG_dg[:, i])))
+            Neta_m_dg[good, i] = bvf * np.array(np.squeeze(np.matrix(G) * np.transpose(np.matrix(AG_dg[:, i]))))
+            PE_per_mass_dg[:, i] = (0.5) * AG_dg[:, i] * AG_dg[:, i] * c * c
+
+    G, Gz, c, epsilon = vertical_modes(avg_N2, -1.0 * z_grid_n2, omega, mmax)  # N2
+    # ---------------------------------------------------------------------------------------------------------------------
+    # -- DG eta avg across four profiles
+    eta_sm = np.nan * np.ones(np.shape(avg_sig_pd))
+    AG_dg_sm = np.zeros((nmodes, num_profs_eta))
+    PE_per_mass_dg_sm = np.nan * np.ones((nmodes, num_profs_eta))
+    eta_m_dg_sm = np.nan * np.ones((len(dg_z), num_profs_eta))
+    Neta_m_dg_sm = np.nan * np.ones((len(dg_z), num_profs_eta))
+    for i in range(np.shape(avg_sig_pd)[1]):
+        good = np.where(~np.isnan(avg_sig_pd[:, i]))[0]
+        avg_sig0_match = np.interp(np.abs(dg_z[good]), np.abs(z_grid_n2), avg_sig0)
+        ddz_avg_sig0_match = np.interp(np.abs(dg_z[good]), np.abs(z_grid_n2), ddz_avg_sig0)
+        avg_N2_match = np.interp(np.abs(dg_z[good]), np.abs(z_grid_n2), avg_N2)
+
+        eta_sm[good, i] = (avg_sig_pd[good, i] - avg_sig0_match) / ddz_avg_sig0_match
+
+        grid = -1. * dg_z[good]
+        bvf = np.sqrt(avg_N2_match)
+        this_eta = eta_sm[good, i].copy()
+        eta_fs = eta_sm[good, i].copy()
+        iw = np.where((grid >= eta_fit_dep_min) & (grid <= eta_fit_dep_max))
+        if iw[0].size > 1:
+            G, Gz, c, epsilon = vertical_modes(avg_N2_match, -1.0 * dg_z[good], omega, mmax)  # N2
+
+            i_sh = np.where((grid < eta_fit_dep_min))
+            eta_fs[i_sh[0]] = grid[i_sh] * this_eta[iw[0][0]] / grid[iw[0][0]]
+
+            i_dp = np.where((grid > eta_fit_dep_max))
+            eta_fs[i_dp[0]] = (grid[i_dp] - grid[-1]) * this_eta[iw[0][-1]] / (grid[iw[0][-1]] - grid[-1])
+
+            AG_dg_sm[1:, i] = np.squeeze(np.linalg.lstsq(G[:, 1:], eta_fs)[0])
+            # AG[1:, i] = np.squeeze(np.linalg.lstsq(G[:, 1:], np.transpose(np.atleast_2d(eta_fs)))[0])
+            eta_m_dg_sm[good, i] = np.squeeze(np.matrix(G) * np.transpose(np.matrix(AG_dg_sm[:, i])))
+            Neta_m_dg_sm[good, i] = bvf * np.array(np.squeeze(np.matrix(G) * np.transpose(np.matrix(AG_dg_sm[:, i]))))
+            PE_per_mass_dg_sm[:, i] = (0.5) * AG_dg_sm[:, i] * AG_dg_sm[:, i] * c * c
+    # ---------------------------------------------------------------------------------------------------------------------
+    # -- eta Model
+    in_range = np.where((xy_grid > np.nanmin(dg_y)) & (xy_grid < np.nanmax(dg_y)))[0]
+    eta_model = np.nan * np.ones(np.shape(sig0_out_s[:, in_range, 0]))
+
+    eta_model = np.nan * np.ones(np.shape(gamma_mod_at_mw_avg))
+    AG_model = np.zeros((nmodes, np.shape(eta_model)[1]))
+    PE_per_mass_model = np.nan * np.ones((nmodes, np.shape(eta_model)[1]))
+    eta_m_model = np.nan * np.ones((len(dg_z), np.shape(eta_model)[1]))
+    Neta_m_model = np.nan * np.ones((len(dg_z), np.shape(eta_model)[1]))
+    for i in range(np.shape(eta_model)[1]):
+        # range over which m/w profile takes up,
+        # consider each model density profile, avg at each grid point in time, estimate eta
+        # this_model = np.flipud(np.nanmean(sig0_out_s[:, in_range[i], :], axis=1))
+        this_model = gamma_mod_at_mw_avg[:, i]
+
+        good = np.where(~np.isnan(this_model))[0]
+        avg_sig0_match = np.interp(np.abs(dg_z[good]), np.abs(z_grid_n2), avg_sig0)
+        ddz_avg_sig0_match = np.interp(np.abs(dg_z[good]), np.abs(z_grid_n2), ddz_avg_sig0)
+        avg_N2_match = np.interp(np.abs(dg_z[good]), np.abs(z_grid_n2), avg_N2)
+
+        eta_model[good, i] = (this_model[good] - avg_sig0_match) / ddz_avg_sig0_match
+
+        grid = -1. * dg_z[good]
+        bvf = np.sqrt(avg_N2_match)
+        this_eta = eta_model[good, i].copy()
+        eta_fs = eta_model[good, i].copy()
+        iw = np.where((grid >= eta_fit_dep_min) & (grid <= eta_fit_dep_max))
+        if iw[0].size > 1:
+            G, Gz, c, epsilon = vertical_modes(avg_N2_match, -1.0 * dg_z[good], omega, mmax)  # N2
+
+            i_sh = np.where((grid < eta_fit_dep_min))
+            eta_fs[i_sh[0]] = grid[i_sh] * this_eta[iw[0][0]] / grid[iw[0][0]]
+
+            i_dp = np.where((grid > eta_fit_dep_max))
+            eta_fs[i_dp[0]] = (grid[i_dp] - grid[-1]) * this_eta[iw[0][-1]] / (grid[iw[0][-1]] - grid[-1])
+
+            AG_model[1:, i] = np.squeeze(np.linalg.lstsq(G[:, 1:], eta_fs)[0])
+            # AG[1:, i] = np.squeeze(np.linalg.lstsq(G[:, 1:], np.transpose(np.atleast_2d(eta_fs)))[0])
+            eta_m_model[good, i] = np.squeeze(np.matrix(G) * np.transpose(np.matrix(AG_model[:, i])))
+            Neta_m_model[good, i] = bvf * np.array(np.squeeze(np.matrix(G) * np.transpose(np.matrix(AG_model[:, i]))))
+            PE_per_mass_model[:, i] = (0.5) * AG_model[:, i] * AG_model[:, i] * c * c
+    # --------------------------------------------------------------------------------------------------------------------
+    # --- DG velocities ---
+    HKE_per_mass_dg = np.nan * np.zeros([nmodes, num_profs_eta])
+    modest = np.arange(11, nmodes)
+    good_ke_prof = np.ones(num_profs_eta)
+    AGz = np.zeros([nmodes, num_profs_eta])
+    HKE_noise_threshold = 1e-5  # 1e-5
+    V_m = np.nan * np.zeros((len(dg_z), num_profs_eta))
+    for i in range(num_profs_eta):
+        good = np.where(~np.isnan(v_g[:, i]))[0]
+
+        if len(good) > 20:
+            avg_N2_match = np.interp(np.abs(dg_z[good]), np.abs(z_grid_n2), avg_N2)
+            G, Gz, c, epsilon = vertical_modes(avg_N2_match, -1.0 * dg_z[good], omega, mmax)  # N2
+
+            # fit to velocity profiles
+            this_V = v_g[good, i].copy()
+            iv = np.where(~np.isnan(this_V))
+            if iv[0].size > 1:
+                AGz[:, i] = np.squeeze(np.linalg.lstsq(np.squeeze(Gz[iv, :]), np.transpose(np.atleast_2d(this_V[iv])))[0])
+                # Gz(iv,:)\V_g(iv,ip)
+                V_m[good, i] = np.squeeze(np.matrix(Gz) * np.transpose(np.matrix(AGz[:, i])))
+                # Gz*AGz[:,i];
+                HKE_per_mass_dg[:, i] = 0.5 * (AGz[:, i] * AGz[:, i])
+                ival = np.where(HKE_per_mass_dg[modest, i] >= HKE_noise_threshold)
+                if np.size(ival) > 0:
+                    good_ke_prof[i] = 0  # flag profile as noisy
+            else:
+                good_ke_prof[i] = 0  # flag empty profile as noisy as well
+    # ---------------------------------------------------------------------------------------------------------------------
+    # Model
+    # select avg model profiles that coincide with dg velocity profiles in space and time
+    avg_mod_u = u_mod_at_mw_avg[:, 1:-1]
+    HKE_per_mass_model = np.nan * np.zeros([nmodes, np.shape(avg_mod_u)[1]])
+    good_ke_prof = np.ones(np.shape(avg_mod_u)[1])
+    AGz_model = np.zeros([nmodes, np.shape(avg_mod_u)[1]])
+    HKE_noise_threshold = 1e-5  # 1e-5
+    V_m_model = np.nan * np.zeros((len(dg_z), np.shape(avg_mod_u)[1]))
+    # avg_mod_u = np.flipud(np.nanmean(u_out_s[:, in_range, :], axis=2))
+    for i in range(np.shape(avg_mod_u)[1]):
+        good = np.where(~np.isnan(avg_mod_u[:, i]))[0]
+        avg_N2_match = np.interp(np.abs(dg_z[good]), np.abs(z_grid_n2), avg_N2)
+
+        G, Gz, c, epsilon = vertical_modes(avg_N2_match, -1.0 * dg_z[good], omega, mmax)  # N2
+
+        # fit to velocity profiles
+        this_V = avg_mod_u[good, i]
+        iv = np.where(~np.isnan(this_V))
+        if iv[0].size > 1:
+            AGz_model[:, i] = np.squeeze(np.linalg.lstsq(np.squeeze(Gz[iv, :]), np.transpose(np.atleast_2d(this_V[iv])))[0])
+            # Gz(iv,:)\V_g(iv,ip)
+            V_m_model[good, i] = np.squeeze(np.matrix(Gz) * np.transpose(np.matrix(AGz_model[:, i])))
+            # Gz*AGz[:,i];
+            HKE_per_mass_model[:, i] = 0.5 * (AGz_model[:, i] * AGz_model[:, i])
+            ival = np.where(HKE_per_mass_model[modest, i] >= HKE_noise_threshold)
+            if np.size(ival) > 0:
+                good_ke_prof[i] = 0  # flag profile as noisy
+        else:
+            good_ke_prof[i] = 0  # flag empty profile as noisy as well
+    # ----------------------------------------------------------------------------------------------------------------------
+    # Model (instant)
+    # if on, compute model ke spectrum over many many instantaneous model vel profiles
+    if u_mod_all > 0:
+        for m in range(len(u_mod_at_mw)):
+            this_mod_u = u_mod_at_mw[m]
+            this_mod_gamma = gamma_mod_at_mw[m]
+            for mt in range(np.shape(this_mod_u)[0]):  # loop in time
+                # PE
+                overlap = np.where((xy_grid > (dg_dac_mid[m + 1] - 10000)) & (xy_grid < (dg_dac_mid[m + 1] + 10000)))[0]
+                bck_gamma_xy = np.nanmean(np.nanmean(sig0_out_s, axis=0)[:, overlap], axis=1)
+
+                good = np.where(~np.isnan(bck_gamma_xy))[0]
+                avg_sig0_match = np.interp(np.abs(dg_z[good]), np.abs(z_grid), bck_gamma_xy)
+                ddz_avg_sig0_match = np.interp(np.abs(dg_z[good]), np.abs(z_grid_n2), ddz_avg_sig0)
+                avg_N2_match = np.interp(np.abs(dg_z[good]), np.abs(z_grid_n2), avg_N2)
+
+                this_model = this_mod_gamma[mt, good, :]
+                eta_model = (this_model - np.tile(bck_gamma_xy[good, None],
+                                                  (1, np.shape(this_model)[1]))) / np.tile(ddz_avg_sig0_match[:, None],
+                                                                                           (1, np.shape(this_model)[1]))
+
+                # KE
+                this_mod_u_sp = this_mod_u[mt, good, :]
+                HKE_per_mass_model_tot = np.nan * np.zeros([nmodes, np.shape(this_mod_u_sp)[1]])
+                good_ke_prof = np.ones(np.shape(this_mod_u_sp)[1])
+                AGz_model = np.zeros([nmodes, np.shape(this_mod_u_sp)[1]])
+                HKE_noise_threshold = 1e-5  # 1e-5
+                AG_model = np.zeros((nmodes, np.shape(eta_model)[1]))
+                PE_per_mass_model_tot = np.nan * np.ones((nmodes, np.shape(eta_model)[1]))
+                V_m_model_tot = np.nan * np.zeros((len(dg_z), np.shape(this_mod_u_sp)[1]))
+                eta_m_model_tot = np.nan * np.ones((len(dg_z), np.shape(eta_model)[1]))
+
+                for i in range(np.shape(this_mod_u_sp)[1]):
+                    good = np.where(~np.isnan(this_mod_u_sp[:, i]))[0]
+                    avg_N2_match = np.interp(np.abs(dg_z[good]), np.abs(z_grid_n2), avg_N2)
+                    G, Gz, c, epsilon = vertical_modes(avg_N2_match, -1.0 * dg_z[good], omega, mmax)  # N2
+
+                    grid = -1. * dg_z[good]
+                    this_eta = eta_model[good, i].copy()
+                    eta_fs = eta_model[good, i].copy()
+
+                    # fit to eta profiles
+                    iw = np.where((grid >= eta_fit_dep_min) & (grid <= eta_fit_dep_max))
+                    if iw[0].size > 1:
+                        i_sh = np.where((grid < eta_fit_dep_min))
+                        eta_fs[i_sh[0]] = grid[i_sh] * this_eta[iw[0][0]] / grid[iw[0][0]]
+
+                        i_dp = np.where((grid > eta_fit_dep_max))
+                        eta_fs[i_dp[0]] = (grid[i_dp] - grid[-1]) * this_eta[iw[0][-1]] / (grid[iw[0][-1]] - grid[-1])
+
+                        AG_model[1:, i] = np.squeeze(np.linalg.lstsq(G[:, 1:], eta_fs)[0])
+                        eta_m_model_tot[good, i] = np.squeeze(np.matrix(G) * np.transpose(np.matrix(AG_model[:, i])))
+                        PE_per_mass_model_tot[:, i] = (0.5) * AG_model[:, i] * AG_model[:, i] * c * c
+
+                    # fit to velocity profiles
+                    this_V = this_mod_u_sp[good, i]
+                    iv = np.where(~np.isnan(this_V))
+                    if iv[0].size > 1:
+                        AGz_model[:, i] = np.squeeze(np.linalg.lstsq(np.squeeze(Gz[iv, :]), np.transpose(np.atleast_2d(this_V[iv])))[0])
+                        # Gz(iv,:)\V_g(iv,ip)
+                        V_m_model_tot[good, i] = np.squeeze(np.matrix(Gz) * np.transpose(np.matrix(AGz_model[:, i])))
+                        # Gz*AGz[:,i];
+                        HKE_per_mass_model_tot[:, i] = 0.5 * (AGz_model[:, i] * AGz_model[:, i])
+                        ival = np.where(HKE_per_mass_model_tot[modest, i] >= HKE_noise_threshold)
+                        if np.size(ival) > 0:
+                            good_ke_prof[i] = 0  # flag profile as noisy
+                    else:
+                        good_ke_prof[i] = 0  # flag empty profile as noisy as well
+                print(str(mt))
+                if (m < 1) & (mt < 1):
+                    HKE_mod_TOT = HKE_per_mass_model_tot.copy()
+                    PE_mod_TOT = PE_per_mass_model_tot.copy()
+                else:
+                    HKE_mod_TOT = np.concatenate((HKE_mod_TOT, HKE_per_mass_model_tot), axis=1)
+                    PE_mod_TOT = np.concatenate((PE_mod_TOT, PE_per_mass_model_tot), axis=1)
+    # ---------------------------------------------------------------------------------------------------------------------
+    z_grid_f = z_grid_n2
+    dg_sig0_f = np.flipud(dg_sig0)
+    # ---------------------------------------------------------------------------------------------------------------------
+    # select only dg profiles with depths greater than 2000m
+    max_eta_dep = np.nan * np.ones(np.shape(eta)[1])
+    for i in range(np.shape(eta)[1]):
+        max_eta_dep[i] = dg_z[np.where(~np.isnan(eta[:, i]))[0][-1]]
+
+    max_eta_sm_dep = np.nan * np.ones(np.shape(eta)[1])
+    max_v_dep = np.nan * np.ones(np.shape(eta)[1])
+    for i in range(np.shape(eta_sm)[1]):
+        max_eta_sm_dep[i] = dg_z[np.where(~np.isnan(eta_sm[:, i]))[0][-1]]
+        max_v_dep[i] = dg_z[np.where(~np.isnan(v_g[:, i]))[0][-1]]
+
+    max_model_dep = np.nan * np.ones(np.shape(avg_mod_u)[1])
+    for i in range(np.shape(avg_mod_u)[1]):
+        max_model_dep[i] = dg_z[np.where(~np.isnan(avg_mod_u[:, i]))[0][-1]]
+
+    good_eta = np.where(max_eta_dep < -2000)[0]
+    good_sm = np.where(max_eta_sm_dep < -2000)[0]
+    good_vg = np.where(max_v_dep < -2000)[0]
+    good_mod = np.where(max_model_dep < -2000)[0]
+
+    # --- ENERGY
+    avg_PE = np.nanmean(PE_per_mass_dg[:, good_eta], axis=1)
+    avg_PE_smooth = np.nanmean(PE_per_mass_dg_sm[:, good_sm], axis=1)
+    avg_KE = np.nanmean(HKE_per_mass_dg[:, good_vg], axis=1)
+    avg_PE_model = np.nanmean(PE_per_mass_model[:, good_mod], axis=1)
+    avg_KE_model = np.nanmean(HKE_per_mass_model[:, good_mod], axis=1)
+    dk = ff / c[1]
+    # ---------------------------------------------------------------------------------------------------------------------
+    # save
+    if save_anom:
+        if u_mod_all:
+            my_dict = {'dg_z': dg_z, 'dg_v': v_g, 'model_u_at_mwv': u_mod_at_mw,
+                       'model_u_at_mw_avg': avg_mod_u,
+                       'shear_error': shear_error, 'igw_var': den_var, 'c': c,
+                       'KE_dg': HKE_per_mass_dg, 'KE_mod': HKE_per_mass_model,
+                       'eta_m_dg': eta_m_dg, 'PE_dg': PE_per_mass_dg,
+                       'eta_m_dg_avg': eta_m_dg_sm, 'PE_dg_avg': PE_per_mass_dg_sm,
+                       'eta_model': eta_m_model, 'PE_model': PE_per_mass_model,
+                       'glide_slope': np.ones(np.shape(v_g)[1]) * dg_glide_slope,
+                       'dg_w': np.ones(np.shape(v_g)[1]) * dg_vertical_speed,
+                       'avg_N2': avg_N2, 'z_grid_n2': z_grid_n2,
+                       'KE_mod_ALL': HKE_mod_TOT, 'PE_mod_ALL': PE_mod_TOT}
+            output = open(output_filename, 'wb')
+            pickle.dump(my_dict, output)
+            output.close()
+        else:
+            my_dict = {'dg_z': dg_z, 'dg_v': v_g, 'model_u_at_mwv': u_mod_at_mw,
+                       'model_u_at_mw_avg': avg_mod_u, 'shear_error': shear_error, 'igw_var': den_var, 'c': c,
+                       'KE_dg': HKE_per_mass_dg, 'KE_mod': HKE_per_mass_model,
+                       'eta_m_dg': eta_m_dg, 'PE_dg': PE_per_mass_dg,
+                       'eta_m_dg_avg': eta_m_dg_sm, 'PE_dg_avg': PE_per_mass_dg_sm,
+                       'eta_model': eta_m_model, 'PE_model': PE_per_mass_model,
+                       'glide_slope': np.ones(np.shape(v_g)[1]) * dg_glide_slope,
+                       'dg_w': np.ones(np.shape(v_g)[1]) * dg_vertical_speed}
+            output = open(output_filename, 'wb')
+            pickle.dump(my_dict, output)
+            output.close()
 # ---------------------------------------------------------------------------------------------------------------------
-ff = np.pi * np.sin(np.deg2rad(ref_lat)) / (12 * 1800)  # Coriolis parameter [s^-1]
-num_profs = np.shape(dg_sig0)[1]
-order_set = np.arange(0, np.shape(dg_sig0)[1], 2)
-
-# --- Estimate of DAC
-dg_dac = np.nan * np.ones(np.shape(dg_sig0)[1] - 1)
-dg_dac_off = np.nan * np.ones(np.shape(dg_sig0)[1] - 1)
-dg_dac_mid = np.nan * np.ones(np.shape(dg_sig0)[1] - 1)
-mw_time = np.nan * np.ones(np.shape(dg_sig0)[1] - 1)
-for i in range(0, num_profs-1, 2):
-    min_t = np.nanmin(dg_t[:, i:i + 2])
-    max_t = np.nanmax(dg_t[:, i:i + 2])
-    # mto = np.where((time_ord_s >= min_t) & (time_ord_s <= max_t))[0]
-    mtun = np.where(time_ord_s <= min_t)[0][-1]
-    mtov = np.where(time_ord_s > max_t)[0][0]
-
-    this_ys = np.nanmin(dg_y[:, i:i + 2])
-    this_ye = np.nanmax(dg_y[:, i:i + 2])
-    this_ygs = np.where(xy_grid <= this_ys)[0][-1]
-    this_yge = np.where(xy_grid >= this_ye)[0][0]
-    dg_dac[i] = np.nanmean(np.nanmean(np.nanmean(u_out_s[:, this_ygs+1:this_yge, mtun+1:mtov], axis=2), axis=0))
-    dg_dac_off[i] = np.nanmean(np.nanmean(np.nanmean(u_off_out_s[:, this_ygs+1:this_yge, mtun+1:mtov], axis=2), axis=0))
-    dg_dac_mid[i] = np.nanmean([this_ys, this_ye])
-    mw_time[i] = np.nanmean([min_t, max_t])
-    if i < num_profs-2:  # exclude timing of last climb (for now)
-        mw_time[i + 1] = max_t
-
-ws = np.where(np.isnan(dg_dac_mid))[0]
-for i in range(len(ws)):
-    dg_dac_mid[ws[i]] = np.nanmean([dg_dac_mid[ws[i] - 1], dg_dac_mid[ws[i] + 1]])
-# now dg_dac_mid is the same as mw_y computed later (the horizontal position of each m/w profile)
-
-if E_W:
-    dg_dac_v = nanseg_interp(dg_dac_mid, dg_dac)
-    dg_dac_u = nanseg_interp(dg_dac_mid, dg_dac_off)
-else:
-    dg_dac_u = nanseg_interp(dg_dac_mid, dg_dac)
-    dg_dac_v = nanseg_interp(dg_dac_mid, dg_dac_off)
-
-# model velocity profiles at locations within domain spanned by one m/w pattern and in the same time
-u_model = np.flipud(u_out_s)
-u_mod_at_mw = []
-gamma_mod_at_mw = []
-u_mod_at_mw_avg = np.nan * np.ones((len(dg_z), len(dg_dac_mid)))
-gamma_mod_at_mw_avg = np.nan * np.ones((len(dg_z), len(dg_dac_mid)))
-for i in range(len(dg_dac_mid)):
-    # time/space bounds of m/w profiles
-    # incomplete M
-    if i < 1:
-        min_t = dg_t[0, 0]
-        max_t = np.nanmax(dg_t[:, 2])
-        min_y = np.nanmin(dg_y[:, 0])
-        max_y = np.nanmean(dg_y[:, 2])
-    elif (i > 0) & (i < len(dg_dac_mid) - 2):
-        min_t = np.nanmin(dg_t[:, i - 1])
-        max_t = np.nanmax(dg_t[:, i + 2])
-        min_y = np.nanmin(dg_y[:, i - 1])
-        max_y = np.nanmax(dg_y[:, i + 2])
-    elif i >= len(dg_dac_mid) - 2:
-        min_t = np.nanmin(dg_t[:, i - 1])
-        max_t = np.nanmax(dg_t[:, -1])
-        min_y = np.nanmin(dg_y[:, i - 1])
-        max_y = np.nanmax(dg_y[:, -1])
-
-    mtun = np.where(time_ord_s <= min_t)[0][-1]
-    mtov = np.where(time_ord_s > max_t)[0][0]
-    this_ygs = np.where(xy_grid <= min_y)[0][-1]
-    this_yge = np.where(xy_grid >= max_y)[0][0]
-
-    print(str(min_t) + '-' + str(max_t))
-    print(str(time_ord_s[mtun]) + '-' + str(time_ord_s[mtov]))
-    print(str(min_y) + '-' + str(max_y))
-    print(str(xy_grid[this_ygs]) + '-' + str(xy_grid[this_yge]))
-
-    u_mod_at_mw.append(u_model[:, this_ygs+1:this_yge, mtun:mtov])
-    gamma_mod_at_mw.append(data_interp[:, this_ygs+1:this_yge, mtun:mtov])
-    u_mod_at_mw_avg[:, i] = np.nanmean(np.nanmean(u_model[:, this_ygs+1:this_yge, mtun:mtov], axis=2), axis=1)
-    gamma_mod_at_mw_avg[:, i] = np.nanmean(np.nanmean(data_interp[:, this_ygs+1:this_yge, mtun:mtov], axis=2), axis=1)
-
-# ----------------------------------------------------------------------------------------------------------------------
-# transect plan view with DAC
-if E_W:
-    dac_lon = dg_dac_mid / (1852. * 60. * np.cos(np.deg2rad(ref_lat))) + ref_lon
-    dac_lat = ref_lat * np.ones(len(dac_lon))
-else:
-    dac_lat = dg_dac_mid / (1852. * 60) + ref_lat
-    dac_lon = ref_lon * np.ones(len(dac_lat))
-
+# ---------------------------------------------------------------------------------------------------------------------
+# PLOTTING
 # --- PLAN VIEW plot
 if plan_plot:
     # -- LOAD processed output from model_testing_of glider.py (location of transect)
@@ -358,142 +1192,6 @@ if plan_plot:
     plot_pro(ax)
     # f.savefig("/Users/jake/Documents/glider_flight_sim_paper/roms_bathymetry_transect.png", dpi=300)
 # ---------------------------------------------------------------------------------------------------------------------
-# --- M/W estimation
-mw_y = np.nan * np.zeros(num_profs - 1)
-sigma_theta_out = np.nan * np.zeros((np.size(z_grid), num_profs - 1))
-shear = np.nan * np.zeros((np.size(z_grid), num_profs - 1))
-avg_sig_pd = np.nan * np.zeros((np.size(z_grid), num_profs - 1))
-avg_ct_pd = np.nan * np.zeros((np.size(z_grid), num_profs - 1))
-avg_sa_pd = np.nan * np.zeros((np.size(z_grid), num_profs - 1))
-isopycdep = np.nan * np.zeros((np.size(sigth_levels), num_profs))
-isopycx = np.nan * np.zeros((np.size(sigth_levels), num_profs))
-for i in order_set:
-    sigma_theta_pa_M = np.nan * np.zeros(np.size(z_grid))
-    sigma_theta_pa_W = np.nan * np.zeros(np.size(z_grid))
-    shearM = np.nan * np.zeros(np.size(z_grid))
-    shearW = np.nan * np.zeros(np.size(z_grid))
-    p_avg_sig_M = np.nan * np.zeros(np.size(z_grid))
-    p_avg_sig_W = np.nan * np.zeros(np.size(z_grid))
-    p_avg_ct_M = np.nan * np.zeros(np.size(z_grid))
-    p_avg_ct_W = np.nan * np.zeros(np.size(z_grid))
-    p_avg_sa_M = np.nan * np.zeros(np.size(z_grid))
-    p_avg_sa_W = np.nan * np.zeros(np.size(z_grid))
-    yy_M = np.nan * np.zeros(np.size(z_grid))
-    yy_W = np.nan * np.zeros(np.size(z_grid))
-    # LOOP OVER EACH BIN_DEPTH
-    for j in range(np.size(z_grid)):
-        # find array of indices for M / W sampling
-        if i < 2:
-            if partial_mw:
-                c_i_m = np.arange(i, i + 3)
-            else:
-                c_i_m = []  # omit partial "M" estimate
-            c_i_w = np.arange(i, i + 4)
-        elif (i >= 2) and (i < num_profs - 2):
-            c_i_m = np.arange(i - 1, i + 3)
-            c_i_w = np.arange(i, i + 4)
-        elif i >= num_profs - 2:
-            if partial_mw:
-                c_i_m = np.arange(i - 1, num_profs)
-            else:
-                c_i_m = []  # omit partial "M" estimated
-            c_i_w = []
-        nm = np.size(c_i_m)
-        nw = np.size(c_i_w)
-
-        # for M profile compute shear and eta
-        if nm > 2 and np.size(dg_sig0[j, c_i_m]) > 2:
-            sigmathetaM = dg_sig0[j, c_i_m]
-            sigma_theta_pa_M[j] = np.nanmean(sigmathetaM)  # average density across 4 profiles
-            yy_M[j] = np.nanmean(dg_y[j, c_i_m])
-            imv = ~np.isnan(np.array(dg_sig0[j, c_i_m]))
-            c_i_m_in = c_i_m[imv]
-
-            if np.size(c_i_m_in) > 1:
-                d_anom0M = sigmathetaM[imv] - np.nanmean(sigmathetaM[imv])
-                # drhodatM = np.nanmean(np.gradient(sigmathetaM[imv], dg_y[j, c_i_m]))
-                drhodatM = np.polyfit(dg_y[j, c_i_m], dg_sig0[j, c_i_m], 1)[0]
-                shearM[j] = -g * drhodatM / (rho0 * ff)  # shear to port of track [m/s/km]
-
-                p_avg_sig_M[j] = np.nanmean(dg_sig0[j, c_i_m])
-                p_avg_sa_M[j] = np.nanmean(dg_sa[j, c_i_m])
-                p_avg_ct_M[j] = np.nanmean(dg_ct[j, c_i_m])
-
-        # for W profile compute shear and eta
-        if nw > 2 and np.size(dg_sig0[j, c_i_w]) > 2:
-            sigmathetaW = dg_sig0[j, c_i_w]
-            sigma_theta_pa_W[j] = np.nanmean(sigmathetaW)  # average density across 4 profiles
-            yy_W[j] = np.nanmean(dg_y[j, c_i_w])
-            iwv = ~np.isnan(np.array(dg_sig0[j, c_i_w]))
-            c_i_w_in = c_i_w[iwv]
-
-            if np.size(c_i_w_in) > 1:
-                d_anom0W = sigmathetaW[iwv] - np.nanmean(sigmathetaW[iwv])
-                # drhodatW = np.nanmean(np.gradient(sigmathetaW[iwv], dg_y[j, c_i_w]))
-                drhodatW = np.polyfit(dg_y[j, c_i_w], dg_sig0[j, c_i_w], 1)[0]
-                shearW[j] = -g * drhodatW / (rho0 * ff)  # shear to port of track [m/s/km]
-
-                p_avg_sig_W[j] = np.nanmean(dg_sig0[j, c_i_w])
-                p_avg_sa_W[j] = np.nanmean(dg_sa[j, c_i_w])
-                p_avg_ct_W[j] = np.nanmean(dg_ct[j, c_i_w])
-
-    # OUTPUT FOR EACH TRANSECT (at least 2 DIVES)
-    # because this is M/W profiling, for a 3 dive transect, only 5 profiles of shear and eta are compiled
-    sigma_theta_out[:, i] = sigma_theta_pa_M
-    shear[:, i] = shearM
-    avg_sig_pd[:, i] = p_avg_sig_M
-    avg_sa_pd[:, i] = p_avg_sa_M
-    avg_ct_pd[:, i] = p_avg_ct_M
-    iq = np.where(~np.isnan(shearM))[0]
-    if len(iq) > 0:
-        mw_y[i] = dg_y[iq[-1], i]
-
-    if i < num_profs - 2:
-        sigma_theta_out[:, i + 1] = sigma_theta_pa_W
-        shear[:, i + 1] = shearW
-        avg_sig_pd[:, i + 1] = p_avg_sig_W
-        avg_sa_pd[:, i + 1] = p_avg_sa_W
-        avg_ct_pd[:, i + 1] = p_avg_ct_W
-        mw_y[i + 1] = dg_y[0, i + 1]
-
-    # ISOPYCNAL DEPTHS ON PROFILES ALONG EACH TRANSECT
-    sigthmin = np.nanmin(np.array(dg_sig0[:, i]))
-    sigthmax = np.nanmax(np.array(dg_sig0[:, i]))
-    isigth = (sigth_levels > sigthmin) & (sigth_levels < sigthmax)
-    isopycdep[isigth, i] = np.interp(sigth_levels[isigth], dg_sig0[:, i], np.flipud(z_grid))
-    isopycx[isigth, i] = np.interp(sigth_levels[isigth], dg_sig0[:, i], dg_y[:, i])
-
-    sigthmin = np.nanmin(np.array(dg_sig0[:, i + 1]))
-    sigthmax = np.nanmax(np.array(dg_sig0[:, i + 1]))
-    isigth = (sigth_levels > sigthmin) & (sigth_levels < sigthmax)
-    isopycdep[isigth, i + 1] = np.interp(sigth_levels[isigth], dg_sig0[:, i + 1], np.flipud(z_grid))
-    isopycx[isigth, i + 1] = np.interp(sigth_levels[isigth], dg_sig0[:, i + 1], dg_y[:, i + 1])
-
-# interpolate dac to be centered on m/w locations
-if E_W:
-    dg_dac_use = 1. * nanseg_interp(dg_dac_mid, dg_dac) + dac_error * np.random.rand(len(dg_dac))  # added noise to DAC
-else:
-    dg_dac_use = -1. * nanseg_interp(dg_dac_mid, dg_dac)
-# FOR EACH TRANSECT COMPUTE GEOSTROPHIC VELOCITY
-vbc_g = np.nan * np.zeros(np.shape(shear))
-v_g = np.nan * np.zeros((np.size(z_grid), num_profs))
-for m in range(num_profs - 1):
-    iq = np.where(~np.isnan(shear[:, m]))
-    if np.size(iq) > 10:
-        z2 = dg_z[iq]
-        vrel = cumtrapz(shear[iq, m], x=z2, initial=0)
-        vrel_av = np.trapz(vrel / (z2[-1] - 0), x=z2)
-        vbc = vrel - vrel_av
-        vbc_g[iq, m] = vbc
-        v_g[iq, m] = dg_dac_use[m] + vbc
-    else:
-        vbc_g[iq, m] = np.nan
-        v_g[iq, m] = np.nan
-if E_W:
-    v_g = 1. * v_g[:, 0:-1]
-else:
-    v_g = -1. * v_g[:, 0:-1]
-print('Completed M/W Vel Estimation')
 # ---------------------------------------------------------------------------------------------------------------------
 # --- PLOTTING
 h_max = np.nanmax(dg_y/1000 + 20)  # horizontal domain limit
@@ -514,17 +1212,22 @@ if plot0 > 0:
     rhoc = ax1.contour(np.tile(xy_grid/1000, (len(z_grid), 1)), np.tile(z_grid[:, None], (1, len(xy_grid))),
                        np.nanmean(sig0_out_s, axis=2), levels=sigth_levels, colors='#A9A9A9', linewidths=0.5)
     ax1.scatter(dg_y/1000, dg_z_g, 4, color='k', label='glider path')  # #FFD700
+    ax1.scatter(dg_y[:, 0:4] / 1000, dg_z_g[:, 0:4], 4, color='#8B0000', label='sample W pattern')  # #FFD700
+    ax1.scatter((dg_y[:, 1:5] / 1000) + 0.75, dg_z_g[:, 1:5], 4, color='#1E90FF', label='sample M pattern')  # #FFD700
     t_tot = np.int(np.round(24.0*(dg_t[0,-1] - dg_t[0,0])))
     ax1.set_title(str(datetime.date.fromordinal(np.int(time_ord_s[0]))) +
-                  ' - ' + str(datetime.date.fromordinal(np.int(time_ord_s[-2]))) + ', ' + str(t_tot) + 'hr. Model Avg.')
+                  ' - ' + str(datetime.date.fromordinal(np.int(time_ord_s[-2]))) + ',  ' + str(t_tot) + 'hr. Model Avg. Velocity')
     handles, labels = ax1.get_legend_handles_labels()
     ax1.legend(handles, labels, fontsize=11)
+    plt.gcf().text(0.12, 0.02, 'glider vertical speed = ' + str(dg_vertical_speed) + ' m/s', fontsize=8)
+    plt.gcf().text(0.06, 0.92, 'a)', fontsize=12)
+    plt.gcf().text(0.5, 0.92, 'b)', fontsize=12)
     ax1.set_ylim([z_max, 0])
     ax1.set_xlim([0, h_max])
     ax1.set_xlabel('E/W distance [km]')
     ax1.set_ylabel('z [m]')
     # plt.colorbar(uvcf, label='N/S Velocity [m/s]', ticks=u_levels)
-    ax1.grid()
+    # ax1.grid()
 
     from mpl_toolkits.axes_grid1.inset_locator import inset_axes
     axins = inset_axes(ax2,
@@ -536,55 +1239,29 @@ if plot0 > 0:
                        borderpad=0,
                        )
 
-    vh = ax2.contourf(np.tile(mw_y/1000, (len(z_grid), 1)), np.tile(dg_z[:, None], (1, len(mw_y))),
+    vh = ax2.contourf(np.tile(mw_y[1:-1]/1000, (len(z_grid), 1)), np.tile(dg_z[:, None], (1, len(mw_y[1:-1]))),
                  v_g, levels=u_levels, cmap=cmap)
     f.colorbar(vh, cax=axins, ticks=u_levels_i, label='N/S Velocity [m/s]')
-    uvc = ax2.contour(np.tile(mw_y/1000, (len(z_grid), 1)), np.tile(dg_z[:, None], (1, len(mw_y))), v_g,
+    uvc = ax2.contour(np.tile(mw_y[1:-1]/1000, (len(z_grid), 1)), np.tile(dg_z[:, None], (1, len(mw_y[1:-1]))), v_g,
                       levels=u_levels, colors='k', linewidths=0.75)
     ax2.scatter(dg_y/1000, dg_z_g, 4, color='k')
     ax2.contour(np.tile(xy_grid/1000, (len(z_grid), 1)), np.tile(z_grid[:, None], (1, len(xy_grid))),
                 np.nanmean(sig0_out_s, axis=2), levels=sigth_levels, colors='#A9A9A9', linewidths=0.35)
     for r in range(np.shape(isopycdep)[0]):
         ax2.plot(isopycx[r, :]/1000, isopycdep[r, :], color='r', linewidth=0.75)
-    ax2.plot(isopycx[r, :] / 1000, isopycdep[r, :], color='r', linewidth=0.5, label='glider measured isopycnals')
+        ax2.text(isopycx[r, -1]/1000 + 10, isopycdep[r, -1] - 30, str(sigth_levels[r]), fontsize=5)
+    ax2.plot(isopycx[r, :] / 1000, isopycdep[r, :], color='r', linewidth=0.5, label='select glider isopycnals')
     handles, labels = ax2.get_legend_handles_labels()
     ax2.legend(handles, labels, fontsize=11)
     ax2.set_xlim([0, h_max])
     ax2.set_title(r'Cross-Track Glider Vel. u$_g$(x,z)')
     ax2.set_xlabel('E/W distance [km]')
-
+    ax2.grid()
     plot_pro(ax2)
     if save_p > 0:
-        f.savefig("/Users/jake/Documents/glider_flight_sim_paper/roms_ind_cross.png", dpi=200)
+        f.savefig("/Users/jake/Documents/glider_flight_sim_paper/roms_ind_cross_mw.png", dpi=200)
 
-# ------------------------------
-# model - glider velocity error
-
-ua_mean = np.nan * np.ones((len(dg_z), len(dg_dac_mid)))
-ua_std = np.nan * np.ones((len(dg_z), len(dg_dac_mid)))
-ua_avg_mean = np.nan * np.ones((len(dg_z), len(dg_dac_mid)))
-ua_avg_std = np.nan * np.ones((len(dg_z), len(dg_dac_mid)))
-for i in range(len(dg_dac_mid)):
-    these_u = u_mod_at_mw[i]  # each u_mod_at_mw[i] contains all model profiles spanning the distance covered by
-    # one m/w set of profiles and including the amount of time it took to collect m/w profiles
-    for j in range(np.shape(these_u)[2]):
-        each_anoms = these_u[:, :, j] - np.tile(v_g[:, i][:, None], (1, np.shape(these_u)[1]))
-        if j < 1:
-            u_anoms = each_anoms.copy()
-        else:
-            u_anoms = np.concatenate((u_anoms, each_anoms), axis=1)
-    # u_anoms = these_u - np.transpose(np.tile(v_g[:, i], (np.shape(these_u)[1], np.shape(these_u)[2], 1)), (2, 0, 1))
-
-    these_u_space_avg = np.nanmean(these_u, axis=1)  # avg spatially then get statistic on time variability
-    # difference between this v_g profile and the avg profile of all model profiles spanning this dive-climb cycle
-    # at each time step
-    u_avg_anoms = these_u_space_avg - np.tile(v_g[:, i][:, None], (1, np.shape(these_u_space_avg)[1]))
-    for j in range(len(dg_z)):
-        ua_mean[j, i] = np.nanmean(u_anoms[j, :])
-        ua_std[j, i] = np.nanstd(u_anoms[j, :])
-        ua_avg_mean[j, i] = np.nanmean(u_avg_anoms[j, :])
-        ua_avg_std[j, i] = np.nanstd(u_avg_anoms[j, :])
-
+# ---------------------------------------------------------------------------------------------------------------------
 plot1 = 0
 if plot1 > 0:
     f, ax = plt.subplots()
@@ -609,6 +1286,7 @@ if plot1 > 0:
             ax.scatter(shear[j, i], np.nanmean(u_avg_anoms), s=3) # avg velocity anomaly at depth x for given shear
     plot_pro(ax)
 
+# ---------------------------------------------------------------------------------------------------------------------
 # model snapshots over the 72hr period
 plot2 = 0
 if plot2 > 0:
@@ -663,408 +1341,8 @@ if plot2 > 0:
     ax4.set_xlabel('Km')
     plot_pro(ax4)
 # ---------------------------------------------------------------------------------------------------------------------
-# --------------------------------------------------------------------------------------------------------------------
-# --- depth of isopycnals in time and  glider aliasing
-dive_1_s = dg_y[0, 0]
-dive_1_e = dg_y[0, 1]
-dive_1_t_s = dg_t[0, 0]
-dive_1_t_e = dg_t[0, 1]
-dive_1_span = dive_1_e - dive_1_s
-dive_1_t_span = dive_1_t_e - dive_1_t_s
-xy_grid_near = np.where(xy_grid <= dive_1_s)[0][-1]
-xy_grid_near_end = np.where(xy_grid >= dive_1_e)[0][0]
-t_near = np.where(time_ord_s <= dive_1_t_s)[0][-1]
-t_near_end = np.where(time_ord_s >= dive_1_t_e)[0][0]
-
-isops = [26.8, 27.4, 27.8, 27.9]
-t_steps = [t_near, t_near + 6, t_near + 12, t_near + 18, t_near + 24, t_near + 30]
-t_step_m = np.int(np.floor(24 * (dg_t[0, 3] - dg_t[0, 0])))
-t_steps = range(t_near, t_near + t_step_m, 2)
-
-# -- model isopycnal depths
-# these_data = data_interp[:, xy_grid_near, :]
-# these_data2 = data_interp[:, xy_grid_near + 2, :]
-these_data = data_interp[:, :, t_steps[0]]
-these_data2 = data_interp[:, :, t_steps[1]]
-these_data3 = data_interp[:, :, t_steps[2]]
-these_data4 = data_interp[:, :, t_steps[3]]
-these_data5 = data_interp[:, :, t_steps[4]]
-these_data6 = data_interp[:, :, t_steps[5]]
-isop_dep = np.nan * np.ones((len(isops), np.shape(these_data)[1]))
-isop_dep2 = np.nan * np.ones((len(isops), np.shape(these_data)[1]))
-isop_dep3 = np.nan * np.ones((len(isops), np.shape(these_data)[1]))
-isop_dep4 = np.nan * np.ones((len(isops), np.shape(these_data)[1]))
-isop_dep5 = np.nan * np.ones((len(isops), np.shape(these_data)[1]))
-isop_dep6 = np.nan * np.ones((len(isops), np.shape(these_data)[1]))
-for i in range(np.shape(these_data)[1]):
-    for j in range(len(isops)):
-        # each of these is at a different time in the ~ 30 hr window
-        isop_dep[j, i] = np.interp(isops[j], these_data[:, i], -1. * dg_z)
-        isop_dep2[j, i] = np.interp(isops[j], these_data2[:, i], -1. * dg_z)
-        isop_dep3[j, i] = np.interp(isops[j], these_data3[:, i], -1. * dg_z)
-        isop_dep4[j, i] = np.interp(isops[j], these_data4[:, i], -1. * dg_z)
-        isop_dep5[j, i] = np.interp(isops[j], these_data5[:, i], -1. * dg_z)
-        isop_dep6[j, i] = np.interp(isops[j], these_data6[:, i], -1. * dg_z)
-
-# -- glider measured isopycnal depth (over time span)
-dg_isop_dep = np.nan * np.ones((len(isops), 4))
-dg_isop_xy = np.nan * np.ones((len(isops), 4))
-# first dive
-for j in range(len(isops)):
-    dg_isop_dep[j, 0] = np.interp(isops[j], dg_sig0[:, 0], -1. * dg_z)
-    dg_isop_xy[j, 0] = np.interp(isops[j], dg_sig0[:, 0], dg_y[:, 0])
-# first climb
-for j in range(len(isops)):
-    dg_isop_dep[j, 1] = np.interp(isops[j], dg_sig0[:, 1], -1. * dg_z)
-    dg_isop_xy[j, 1] = np.interp(isops[j], dg_sig0[:, 1], dg_y[:, 1])
-# second dive
-for j in range(len(isops)):
-    dg_isop_dep[j, 2] = np.interp(isops[j], dg_sig0[:, 2], -1. * dg_z)
-    dg_isop_xy[j, 2] = np.interp(isops[j], dg_sig0[:, 2], dg_y[:, 2])
-# second climb
-for j in range(len(isops)):
-    dg_isop_dep[j, 3] = np.interp(isops[j], dg_sig0[:, 3], -1. * dg_z)
-    dg_isop_xy[j, 3] = np.interp(isops[j], dg_sig0[:, 3], dg_y[:, 3])
-
-# ---------------------------------------------------------------------------------------------------------------------
-# -- Variances
-# fraction of variance contained in igw/tide fluctuations (compared to total variance of isopynal depth
-l=0
-# 30 hr avg model isopycnal depth as a function of xy_grid
-avg_isop_pos = np.nanmean(np.squeeze(np.array([[isop_dep[l, :]], [isop_dep2[l, :]], [isop_dep3[l, :]],
-                                               [isop_dep4[l, :]], [isop_dep5[l, :]], [isop_dep6[l, :]]])), axis=0)
-
-# xy within glider dives
-inn = np.where((xy_grid >= dg_y[0,0]) & (xy_grid <= dg_y[0, -1]))[0]
-
-# at each xy_grid point square difference between 30 hr avg and hourly output
-isop_anom = (isop_dep[l, inn] - avg_isop_pos[inn])**2
-isop_anom2 = (isop_dep2[l, inn] - avg_isop_pos[inn])**2
-isop_anom3 = (isop_dep3[l, inn] - avg_isop_pos[inn])**2
-isop_anom4 = (isop_dep4[l, inn] - avg_isop_pos[inn])**2
-isop_anom5 = (isop_dep5[l, inn] - avg_isop_pos[inn])**2
-isop_anom6 = (isop_dep6[l, inn] - avg_isop_pos[inn])**2
-# list of square differences
-combo_0 = np.concatenate((isop_anom, isop_anom2, isop_anom3, isop_anom4, isop_anom5, isop_anom6))
-# mean square differences
-igw_var = (1./len(combo_0)) * np.nansum(combo_0)  # model noise signal
-# at each xy_grid point square difference between avg of 30 hr avg (horizontal line) and hourly output
-isop_anom_t = (isop_dep[l, inn] - np.nanmean(avg_isop_pos[inn]))**2
-isop_anom2_t = (isop_dep2[l, inn] - np.nanmean(avg_isop_pos[inn]))**2
-isop_anom3_t = (isop_dep3[l, inn] - np.nanmean(avg_isop_pos[inn]))**2
-isop_anom4_t = (isop_dep4[l, inn] - np.nanmean(avg_isop_pos[inn]))**2
-isop_anom5_t = (isop_dep5[l, inn] - np.nanmean(avg_isop_pos[inn]))**2
-isop_anom6_t = (isop_dep6[l, inn] - np.nanmean(avg_isop_pos[inn]))**2
-combo_1 = np.concatenate((isop_anom_t, isop_anom2_t, isop_anom3_t, isop_anom4_t, isop_anom5_t, isop_anom6_t))
-# mean square differences
-tot_var = (1./len(combo_1)) * np.nansum(combo_1)
-frac_igw_var = igw_var / tot_var
-
-# mean square of difference from avg of 30 hr avg and 30 hr avg
-model_eddy_rms = np.nanmean((avg_isop_pos[inn] - np.nanmean(avg_isop_pos[inn]))**2)  # model eddy signal
-
-inn = np.where((xy_grid >= dg_y[0,0]) & (xy_grid <= dg_y[0, 3]))[0]
-# fit model slope as glider does (for
-model_isop_slope = np.polyfit(xy_grid[inn], isop_dep[l, inn], 1)
-model_mean_isop = np.polyval(model_isop_slope, xy_grid[inn])
-
-# glider slope of 4 points
-dg_isop_slope = np.polyfit(dg_isop_xy[l, :], dg_isop_dep[l, :], 1)
-dg_mean_isop = np.polyval(dg_isop_slope, dg_isop_xy[l, :])
-dg_igw_var = np.nanmean((dg_isop_dep[l, :] - dg_mean_isop)**2)  # noise signal
-dg_tot_var = np.nanmean((dg_isop_dep[l, :] - np.nanmean(dg_mean_isop))**2)  # total signal
-
-# mean square of difference from avg of dg_isop_slope and dg_isop_slope
-dg_eddy_rms = np.nanmean((dg_mean_isop - np.nanmean(dg_mean_isop))**2)  # eddy signal
-
-# # variance of difference between glider measurement and mean isop pos
-# avg_isop_dep_at_dg = np.nan * np.ones(len(dg_isop_xy[l, :]))
-# dg_mod_anom = np.nan * np.ones(len(dg_isop_xy[l, :]))
-# for i in range(len(dg_isop_xy[l, :])):
-#     avg_isop_dep_at_dg[i] = np.interp(dg_isop_xy[l, i], xy_grid, avg_isop_pos)
-#     dg_mod_anom[i] = (dg_isop_dep[l, i] - avg_isop_dep_at_dg[i])**2
-# # mean square difference between DG isopycnal depth and avg model isopycnal depth
-# dg_mod_var = (1./len(dg_mod_anom)) * np.nansum(dg_mod_anom)
-# mod_var_at_dg_loc = (1./len(avg_isop_dep_at_dg)) * np.nansum((avg_isop_dep_at_dg - np.nanmean(avg_isop_dep_at_dg))**2)  # variance of model over the m/w pattern
-#
-# # fraction of variance from igw over m/w pattern
-# inn = np.where((xy_grid >= dg_y[0,0]) & (xy_grid <= dg_y[0, 3]))[0]
-# combo_3 = np.concatenate((isop_anom[inn], isop_anom2[inn], isop_anom3[inn], isop_anom4[inn], isop_anom5[inn], isop_anom6[inn]))
-# igw_var_in = (1./len(combo_3)) * np.nansum(combo_3)
-# combo_4 = np.concatenate((isop_anom_t[inn], isop_anom2_t[inn], isop_anom3_t[inn], isop_anom4_t[inn], isop_anom5_t[inn], isop_anom6_t[inn]))
-# tot_var_in = (1./len(combo_4)) * np.nansum(combo_4)
-# frac_var_from_igw = igw_var_in / tot_var_in
-
-dg_isop_slope = np.nan * np.ones((len(isops), 2))
-dg_mean_isop = np.nan * np.ones((len(isops), len(dg_isop_xy[0, :])))
-model_isop_slope = np.nan * np.ones((len(isops), 2))
-model_mean_isop = np.nan * np.ones((len(isops), len(xy_grid[inn])))
-for i in range(4):
-    dg_isop_slope[i, :] = np.polyfit(dg_isop_xy[i, :], dg_isop_dep[i, :], 1)
-    dg_mean_isop[i, :] = np.polyval(dg_isop_slope[i, :], dg_isop_xy[i, :])
-
-    model_isop_slope[i, :] = np.polyfit(xy_grid[inn], isop_dep[i, inn], 1)
-    model_mean_isop[i, :] = np.polyval(model_isop_slope[i, :], xy_grid[inn])
-
-# ---------------------------------------------------------------------------------------------------------------------
-# -- PLOT DEPTH OF ISOPYCNAL IN SPACE AND TIME
-# matplotlib.rcParams['figure.figsize'] = (10, 6)
-# cmap = plt.cm.get_cmap("YlGnBu_r")
-# f, ax = plt.subplots(4, 1, sharex=True)
-# for i in range(len(isops)):
-#     avg_isop_pos_i = np.nanmean(np.squeeze(np.array([[isop_dep[i, :]], [isop_dep2[i, :]], [isop_dep3[i, :]],
-#                                                    [isop_dep4[i, :]], [isop_dep5[i, :]], [isop_dep6[i, :]]])), axis=0)
-#
-#     ax[i].set_facecolor('#DCDCDC')
-#     ax[i].plot(xy_grid/1000, isop_dep[i, :])
-#     ax[i].plot(xy_grid/1000, isop_dep2[i, :], color=cmap(0.1))
-#     ax[i].plot(xy_grid/1000, isop_dep3[i, :], color=cmap(0.3))
-#     ax[i].plot(xy_grid/1000, isop_dep4[i, :], color=cmap(0.5))
-#     ax[i].plot(xy_grid/1000, isop_dep5[i, :], color=cmap(0.7))
-#     ax[i].plot(xy_grid/1000, isop_dep6[i, :], color=cmap(0.9))
-#     ax[i].plot(xy_grid/1000, avg_isop_pos_i, color='r', linestyle='--')
-#     ax[i].scatter(dg_isop_xy[i, :]/1000, dg_isop_dep[i, :], s=40, color='k', zorder=10)
-#     ax[i].plot([dg_y[0, 0]/1000, dg_y[0, 0]/1000], [0, 2000], linestyle='--', color='k')
-#     ax[i].plot([dg_y[0, 1]/1000, dg_y[0, 1]/1000], [0, 2000], linestyle='--', color='k')
-#     ax[i].plot([dg_y[0, 3]/1000, dg_y[0, 3]/1000], [0, 2000], linestyle='--', color='k')
-#     ax[i].plot(xy_grid[inn] / 1000, model_mean_isop[i, :], color='#FF8C00', linewidth=2)
-#     ax[i].plot(dg_isop_xy[i, :] / 1000, dg_mean_isop[i, :], color='m', linewidth=2)
-# ax[0].set_ylabel('Depth [m]')
-# ax[0].set_title('Isopycnal Depths over a 30hr Period (two glider dive-climb cycles)')
-# ax[0].set_ylim([225, 375])
-# ax[0].invert_yaxis()
-# ax[0].grid()
-# ax[0].set_xlim([0, h_max])
-# ax[1].set_ylabel('Depth [m]')
-# ax[1].set_ylim([700, 850])
-# ax[1].invert_yaxis()
-# ax[1].grid()
-# ax[2].set_ylabel('Depth [m]')
-# ax[2].set_ylim([1500, 1650])
-# ax[2].invert_yaxis()
-# ax[2].grid()
-# ax[3].set_ylabel('Depth [m]')
-# ax[3].set_ylim([1825, 1975])
-# ax[3].invert_yaxis()
-# ax[3].set_xlabel('Transect Distance [km]')
-# plot_pro(ax[3])
-# if save_p_g > 0:
-#     f.savefig("/Users/jake/Documents/baroclinic_modes/Meetings/meeting_19_06_13/model_ind_den_grad_dep.png", dpi=200)
-
-# - colormap key
-# f, ax = plt.subplots()
-# xx = np.arange(0, 1., 1./100)*30
-# ax.set_facecolor('#DCDCDC')
-# for i in range(100):
-#     ax.scatter(xx[i], 0, color=cmap(xx[i]/30), s=100)
-# ax.set_xlabel('Hour')
-# ax.set_ylim([-0.001, 0.001])
-# ax.yaxis.set_visible(False)
-# ax.grid()
-# plot_pro(ax)
-# ---------------------------------------------------------------------------------------------------------------------
-# remove nan profiles that are the result of deciding to use partial m/w profiles or not
-v_g_0 = v_g.copy()
-v_g = v_g[:, ~np.isnan(v_g_0[30, :])]
-goodie = np.where(~np.isnan(v_g_0[30, :]))[0]
-u_mod_at_mw = u_mod_at_mw[goodie[0]:goodie[-1]+1]
-gamma_mod_at_mw = gamma_mod_at_mw[goodie[0]:goodie[-1]+1]
-avg_sig_pd = avg_sig_pd[:, ~np.isnan(avg_sig_pd[30, :])]
-num_profs_eta = np.shape(avg_sig_pd)[1]
-shear = shear[:, ~np.isnan(shear[30, :])]
-# --------------------------------------------------------------------------------------------------------------------
-# -- DENSITY AT FIXED DEPTHS (this is how we estimate density gradients (drho/dx)
-deps = [250, 1000, 1500, 2000]
-# t_steps = [t_near, t_near + 6, t_near + 12, t_near + 18, t_near + 24, t_near + 30, t_near + 36,
-#            t_near + 42, t_near + 48, t_near + 54, t_near + 60, t_near + 66, t_near + 71]
-isop_dep = np.nan * np.ones((len(deps), np.shape(these_data)[1], len(t_steps)))
-for i in range(np.shape(these_data)[1]):  # loop over each horizontal grid point
-    for j in range(len(deps)):  # loop over each dep
-        for k in range(len(t_steps)):  # loop over each 6 hr increment
-            isop_dep[j, i, k] = np.interp(deps[j], -1. * dg_z, data_interp[:, i, t_steps[k]])
-
-# -- glider measured isopycnal depth (over time span)
-dg_isop_dep = np.nan * np.ones((len(deps), 4))
-dg_isop_xy = np.nan * np.ones((len(deps), 4))
-for j in range(len(deps)):
-    for k in range(4):  # loop over dive, climb, dive, climb
-        dg_isop_dep[j, k] = np.interp(deps[j], -1. * dg_z, dg_sig0[:, k])
-        dg_isop_xy[j, k] = np.interp(deps[j], -1. * dg_z, dg_y[:, k])
-
-# ---------
-# xy within glider dives (model xy over which to estimate density gradients)
-inn_per_mw = []
-inn_per_mw_t = []
-mw_ind_s = np.arange(0, np.shape(shear)[1])
-mw_ind_e = np.arange(3, 3 + np.shape(shear)[1])
-dg_t_hrs = 24. * (dg_t - dg_t[0, 0])
-model_t_hrs = (time_out_s - time_out_s[0]) / 3600.
-for i in range(np.shape(shear)[1]):
-    if np.mod(i, 2):  # M
-        inn_per_mw.append(np.where((xy_grid >= np.nanmin(dg_y[:, mw_ind_s[i]])) &
-                                   (xy_grid <= np.nanmax(dg_y[:, mw_ind_e[i]])))[0])
-        inn_per_mw_t.append(np.where((model_t_hrs > np.nanmin(dg_t_hrs[:, mw_ind_s[i]])) &
-                                      (model_t_hrs <= np.nanmax(dg_t_hrs[:, mw_ind_e[i]])))[0])
-    else:  # W
-        inn_per_mw.append(np.where((xy_grid >= dg_y[0, mw_ind_s[i]]) & (xy_grid <= dg_y[0, mw_ind_e[i]]))[0])
-        inn_per_mw_t.append(np.where((model_t_hrs >= dg_t_hrs[0, mw_ind_s[i]]) & (model_t_hrs <= dg_t_hrs[0, mw_ind_e[i]]))[0])
-
-# density interpolated to each depth at 6hr increments should go through 48 hr period?
-# t_steps = [t_near, t_near + 6, t_near + 12, t_near + 18, t_near + 24, t_near + 30, t_near + 36, t_near + 42, t_near + 48]
-# dens_at_z = np.nan * np.ones((len(dg_z), np.shape(data_interp)[1], len(t_steps)))
-# for i in range(np.shape(data_interp)[1]):  # loop over each horizontal grid point
-#     for j in range(len(dg_z)):  # loop over each dep
-#         for k in range(6):  # loop over each 6 hr increment
-#             dens_at_z[j, i, k] = np.interp(deps[j], -1. * dg_z, data_interp[:, i, t_steps[k]])
-
-# vertical shear difference between model and glider at all depths
-model_isop_slope_all = np.nan * np.ones((len(dg_z), 2, np.shape(shear)[1]))
-den_var = np.nan * np.ones((len(dg_z), np.shape(shear)[1]))
-# model_mean_isop_all = np.nan * np.ones((len(dg_z), len(xy_grid[inn]), np.shape(shear)[1]))
-for i in range(np.shape(shear)[1]):  # loop over each horizontal profile location
-    for j in range(len(dg_z)):  # loop over each depth
-        if np.sum(np.isnan(np.nanmean(data_interp[j, inn_per_mw[i], :], axis=1))) < 1:
-            model_isop_slope_all[j, :, i] = np.polyfit(xy_grid[inn_per_mw[i]],
-                                                       np.nanmean(data_interp[j, inn_per_mw[i][0]:inn_per_mw[i][-1]+1,
-                                                                  inn_per_mw_t[i][0]:inn_per_mw_t[i][-1]+1], axis=1), 1)
-            model_mean_isop_all = np.polyval(model_isop_slope_all[j, :, i], xy_grid[inn_per_mw[i]])
-            den_in = data_interp[j, inn_per_mw[i][0]:inn_per_mw[i][-1]+1,
-                                                                  inn_per_mw_t[i][0]:inn_per_mw_t[i][-1]+1]
-            signal_var = np.nanvar(model_mean_isop_all)
-            vary = np.nan * np.ones(len(xy_grid))
-            for l in range(len(xy_grid[inn_per_mw[i]])):
-                vary[l] = np.nanvar(den_in[l, :] - model_mean_isop_all[l])  # variance in time of iso about model mean
-            den_var[j, i] = np.nanmean(vary)/signal_var
-
-# vertical shear difference between model and glider at all depths (using different definition of slope and variance)
-model_isop_slope_all = np.nan * np.ones((len(dg_z), 2, np.shape(shear)[1]))
-den_var = np.nan * np.ones((len(dg_z), np.shape(shear)[1]))
-igw_var = np.nan * np.ones((len(dg_z), np.shape(shear)[1]))
-ed_var = np.nan * np.ones((len(dg_z), np.shape(shear)[1]))
-# model_mean_isop_all = np.nan * np.ones((len(dg_z), len(xy_grid[inn]), np.shape(shear)[1]))
-for i in range(np.shape(shear)[1]):  # loop over each horizontal profile location
-    for j in range(len(dg_z)):  # loop over each depth
-        if np.sum(np.isnan(np.nanmean(data_interp[j, inn_per_mw[i], :], axis=0))) < 1:
-            # gradient of density at depth j over model grid cells that span m_w limits
-
-            # data_interp[j, inn_per_mw[i][0]:inn_per_mw[i][-1] + 1, inn_per_mw_t[i][0]:inn_per_mw_t[i][-1] + 1]
-            model_isop_slope_all[j, :, i] = np.polyfit(xy_grid[inn_per_mw[i]],
-                                                       np.nanmean(data_interp[j, inn_per_mw[i][0]:inn_per_mw[i][-1]+1,
-                                                                  inn_per_mw_t[i][0]:inn_per_mw_t[i][-1]+1], axis=1), 1)
-            # create linear gradient
-            # model_mean_isop_all = np.polyval(model_isop_slope_all[j, :, i], xy_grid[inn_per_mw[i]])
-
-            # consider density at depth j over model grid cells that span fixed xy limits and 24hrs and not m_w time
-            time_ord_s_hr = time_ord_s - time_ord_s[0]
-            dive_mid_t_hr = 24. * np.nanmean(time_ord_s_hr[inn_per_mw_t[i]])
-            dive_min_t_hr = 24. * time_ord_s_hr[inn_per_mw_t[i][0]]
-            dive_max_t_hr = 24. * time_ord_s_hr[inn_per_mw_t[i][-1]]
-            dive_mid_xy = np.nanmean(xy_grid[inn_per_mw[i][0]:inn_per_mw[i][-1]+1])
-            xy_low = np.where(xy_grid >= (dive_mid_xy - 10000))[0][0]
-            xy_up = np.where(xy_grid <= (dive_mid_xy + 10000))[0][-1] + 1
-            if dive_mid_t_hr <= 24:
-                t_to_add = 24 - (dive_mid_t_hr - dive_min_t_hr)
-                t_up_win = np.where((24. * time_ord_s_hr) <= (dive_mid_t_hr + t_to_add))[0][-1]
-                model_isop_slope_all[j, :, i] = np.polyfit(xy_grid[xy_low:xy_up],
-                                                           np.nanmean(data_interp[j, xy_low:xy_up, 0:t_up_win + 1],
-                                                                      axis=1), 1)
-                den_in = data_interp[j, xy_low:xy_up, 0:t_up_win + 1]
-            elif dive_mid_t_hr >= (np.nanmax(24. * time_ord_s_hr) - 24):
-                t_to_sub = 24 - (dive_max_t_hr - dive_mid_t_hr)
-                t_bot_win = np.where((24. * time_ord_s_hr) >= (dive_mid_t_hr - t_to_sub))[0][0]
-                model_isop_slope_all[j, :, i] = np.polyfit(xy_grid[xy_low:xy_up],
-                                                           np.nanmean(data_interp[j, xy_low:xy_up, t_bot_win:],
-                                                                      axis=1), 1)
-                den_in = data_interp[j, xy_low:xy_up, t_bot_win:]
-            else:
-                midd = np.int(np.round(np.nanmean(inn_per_mw_t[i])))
-                midd_mi = midd - 12
-                midd_pl = midd + 12
-                model_isop_slope_all[j, :, i] = np.polyfit(xy_grid[xy_low:xy_up],
-                                                           np.nanmean(data_interp[j, xy_low:xy_up, midd_mi:midd_pl],
-                                                                      axis=1), 1)
-                den_in = data_interp[j, xy_low:xy_up, midd_mi:midd_pl]
-
-            # try 2 at linear gradient of model density
-            model_mean_isop_all = np.polyval(model_isop_slope_all[j, :, i], xy_grid[inn_per_mw[i]])
-
-            # # check if doing right
-            # if i > 0 & i < 3:
-            #     if j == 100:
-            #         print(str(i))
-            #         print(str(j))
-            #         f, ax = plt.subplots()
-            #         ax.plot(xy_grid[xy_low:xy_up], np.nanmean(den_in, axis=1), color='k')
-            #         for kk in range(np.shape(den_in)[1]):
-            #             ax.plot(xy_grid[xy_low:xy_up], den_in[:, kk], linewidth=0.5)
-            #         plot_pro(ax)
-
-
-            # density values at depth j used in above polyfit
-            # den_in = data_interp[inn_per_mw_t[i][0]:inn_per_mw_t[i][-1]+1, j, inn_per_mw[i][0]:inn_per_mw[i][-1]+1]
-
-            # variance of the linear fit
-            # signal_var = np.nanvar(model_mean_isop_all)
-            signal_var = (1.0/len(model_mean_isop_all))*np.nansum((model_mean_isop_all - np.nanmean(model_mean_isop_all))**2)
-            #
-            # vary = np.nan * np.ones(len(xy_grid))
-            for l in range(len(xy_grid[xy_low:xy_up])):
-                # variance in time of iso about model mean
-                # vary[l] = (1/len(den_in[:, l])) * np.nansum((den_in[:, l] - model_mean_isop_all[l])**2)
-                # square difference over all times at each grid point spanning each m/w pattern
-                vary = (den_in[l, :] - model_mean_isop_all[l])**2
-                if l < 1:
-                    vary_out = vary.copy()
-                else:
-                    vary_out = np.concatenate((vary_out, vary))
-            vary_tot = (1.0/len(vary_out)) * np.nansum(vary_out)
-            igw_var[j, i] = vary_tot.copy()
-            ed_var[j, i] = signal_var.copy()
-            den_var[j, i] = vary_tot/signal_var  # np.nanmean(vary)/signal_var
-            # note: igw variance is a function of glider speed because I consider variance of isopycnals about mean over
-            # the time it takes for the glider to complete an m/w
-            # faster w's will yield a better ratio because isopycnal variance will be lower because less time has
-            # elapsed for heaving to occur
-
-# difference in shear between glider and model
-shear_error = np.abs(100. * (shear - (-g * model_isop_slope_all[:, 0, :]/(rho0 * ff))) / (-g * model_isop_slope_all[:, 0, :]/(rho0 * ff)))
-# f, ax = plt.subplots()
-# for i in range(len(dg_z)):
-#     ax.scatter(shear_error[i, :], dg_z[i] * np.ones(len(shear_error[i, :])), s=2, color='b')
-# # filtered_error = savgol_filter(np.nanmean(np.log10(shear_error), axis=1), 5, 3)
-# ax.plot(np.nanmean(shear_error, axis=1), dg_z, color='k', linewidth=2)
-# ax.set_xscale('log')
-# ax.set_xlim([1, 10**4])
-# plot_pro(ax)
-
-# -- testing of variance of igw to eddy signals
-# f, (ax1, ax2, ax3) = plt.subplots(1, 3, sharey=True)
-# for i in range(np.shape(shear)[1]):
-#     ax1.plot(igw_var[:, i], z_grid, linewidth=0.75)
-#     ax2.plot(ed_var[:, i], z_grid, linewidth=0.75)
-#     ax3.plot((igw_var[0:230, i]/ed_var[0:230, i]), z_grid[0:230], linewidth=0.75)
-# ax1.set_xlim([0, 0.004])
-# ax1.invert_yaxis()
-# ax2.set_xlim([0, 0.004])
-# ax3.set_xlim([0, 5])
-# ax1.grid()
-# ax2.grid()
-# plot_pro(ax3)
-# ------------
-
-# density gradient computation for 4 depths for plot
-inn = np.where((xy_grid >= dg_y[0,0]) & (xy_grid <= dg_y[0, 3]))[0]
-dg_isop_slope = np.nan * np.ones((len(deps), 2))
-dg_mean_isop = np.nan * np.ones((len(deps), len(dg_isop_xy[0, :])))
-model_isop_slope = np.nan * np.ones((len(deps), 2))
-model_mean_isop = np.nan * np.ones((len(deps), len(xy_grid[inn])))
-for i in range(4):
-    dg_isop_slope[i, :] = np.polyfit(dg_isop_xy[i, :], dg_isop_dep[i, :], 1)
-    dg_mean_isop[i, :] = np.polyval(dg_isop_slope[i, :], dg_isop_xy[i, :])
-
-    model_isop_slope[i, :] = np.polyfit(xy_grid[inn], np.nanmean(isop_dep[i, inn, :], axis=1), 1)
-    model_mean_isop[i, :] = np.polyval(model_isop_slope[i, :], xy_grid[inn])
-
+# ----------------------------------------------------------------------------------------------------------------------
+# -- PLOT GRADIENT FIGURE
 # cmaps = [0.15, 0.22, 0.3, 0.37, 0.45, 0.52, 0.6, 0.67, 0.75, 0.82, .9, .98]
 cmaps = np.arange(0, 1, 1.0/np.array(len(t_steps)))
 # lab_y = [26.66, 27.53, 27.74, 27.92]
@@ -1116,337 +1394,7 @@ if plot_grad:
     plot_pro(ax[3])
     if save_p_g > 0:
         f.savefig("/Users/jake/Documents/glider_flight_sim_paper/roms_ind_den_grad.png", dpi=200)
-# --------------------------------------------------------------------------------------------------------------------
-# --- Background density
-pkl_file = open('/Users/jake/Documents/baroclinic_modes/Model/LiveOcean/background_density.pkl', 'rb')
-MOD = pickle.load(pkl_file)
-pkl_file.close()
-overlap = np.where((xy_grid > dg_y[0, 0]) & (xy_grid < dg_y[0, -1]))[0]
-bck_sa = np.flipud(MOD['sa_back'][:][:, overlap])
-bck_ct = np.flipud(MOD['ct_back'][:][:, overlap])
-bck_gamma = np.flipud(MOD['gamma_back'][:][:, overlap])
-z_back = np.flipud(z_grid)
-z_bm = np.where(z_back <= dg_z)[0]
-
-# or if no big feature is present, avg current profiles for background
-N2_bck_out = gsw.Nsquared(np.nanmean(bck_sa[0:z_bm[-1]+1, :], axis=1), np.nanmean(bck_ct[0:z_bm[-1]+1, :], axis=1),
-                          np.flipud(p_grid)[0:z_bm[-1]+1], lat=ref_lat)[0]
-# sig0_bck_out = np.nanmean(avg_sig_pd, axis=1)  # avg of glider profiles over this time period
-sig0_bck_out = np.nanmean(bck_gamma[0:z_bm[-1]+1, :], axis=1)
-
-sig0_bck_out = sig0_bck_out[~np.isnan(sig0_bck_out)]
-N2_bck_out = N2_bck_out[~np.isnan(sig0_bck_out)]
-for i in range(len(N2_bck_out)-15, len(N2_bck_out)):
-    N2_bck_out[i] = N2_bck_out[i - 1] - 1*10**(-8)
-z_back = z_back[~np.isnan(sig0_bck_out)]
-# ---------------------------------------------------------------------------------------------------------------------
-# -- MODES ------------------------------------------------------------------------------------------------------------
-# # --- MODE PARAMETERS
-# frequency zeroed for geostrophic modes
-omega = 0
-# highest baroclinic mode to be calculated
-mmax = 35
-nmodes = mmax + 1
-# maximum allowed deep shear [m/s/km]
-deep_shr_max = 0.1
-# minimum depth for which shear is limited [m]
-deep_shr_max_dep = 2000.0
-# fit limits
-eta_fit_dep_min = 200.0
-eta_fit_dep_max = 2600.0
-
-# adjust z_grid and N2 profile such that N2=0 at surface and that z_grid min = -2500
-# match background z_grid and N2 to current data
-z_grid_inter = z_back[0:-1] + (z_back[1:] - z_back[0:-1])/2
-z_grid_n2 = np.concatenate((np.array([0]), z_back))
-avg_N2 = np.concatenate((np.array([0]), N2_bck_out))
-avg_sig0 = np.concatenate((np.array([sig0_bck_out[0] - 0.01]), sig0_bck_out))
-# avg_sig0 = sig0_bck_out
-
-# need ddz profile to compute eta
-ddz_avg_sig0 = np.nan * np.ones(np.shape(avg_sig0))
-ddz_avg_sig0[0] = (avg_sig0[1] - avg_sig0[0])/(z_grid_n2[1] - z_grid_n2[0])
-ddz_avg_sig0[-1] = (avg_sig0[-1] - avg_sig0[-2])/(z_grid_n2[-1] - z_grid_n2[-2])
-ddz_avg_sig0[1:-1] = (avg_sig0[2:] - avg_sig0[0:-2]) / (z_grid_n2[2:] - z_grid_n2[0:-2])
-
-# # --- compute vertical mode shapes
-G, Gz, c, epsilon = vertical_modes(avg_N2, -1.0 * z_grid_n2, omega, mmax)  # N2
-#
-print('Computed Vertical Modes from Background Profiles')
-
-# ---------------------------------------------------------------------------------------------------------------------
-# -- DG eta from individual profiles
-eta = np.nan * np.ones(np.shape(dg_sig0))
-AG_dg = np.zeros((nmodes, num_profs))
-PE_per_mass_dg = np.nan * np.ones((nmodes, num_profs))
-eta_m_dg = np.nan * np.ones((len(dg_z), num_profs))
-Neta_m_dg = np.nan * np.ones((len(dg_z), num_profs))
-for i in range(num_profs):
-    good = np.where(~np.isnan(dg_sig0[:, i]))[0]
-    avg_sig0_match = np.interp(np.abs(dg_z[good]), np.abs(z_grid_n2), avg_sig0)
-    ddz_avg_sig0_match = np.interp(np.abs(dg_z[good]), np.abs(z_grid_n2), ddz_avg_sig0)
-    avg_N2_match = np.interp(np.abs(dg_z[good]), np.abs(z_grid_n2), avg_N2)
-
-    eta[good, i] = (dg_sig0[good, i] - avg_sig0_match) / ddz_avg_sig0_match
-
-    grid = -1. * dg_z[good]
-    bvf = np.sqrt(avg_N2_match)
-    this_eta = eta[good, i].copy()
-    eta_fs = eta[good, i].copy()
-    iw = np.where((grid >= eta_fit_dep_min) & (grid <= eta_fit_dep_max))
-    if iw[0].size > 1:
-        G, Gz, c, epsilon = vertical_modes(avg_N2_match, -1.0 * dg_z[good], omega, mmax)  # N2
-
-        i_sh = np.where((grid < eta_fit_dep_min))
-        eta_fs[i_sh[0]] = grid[i_sh] * this_eta[iw[0][0]] / grid[iw[0][0]]
-
-        i_dp = np.where((grid > eta_fit_dep_max))
-        eta_fs[i_dp[0]] = (grid[i_dp] - grid[-1]) * this_eta[iw[0][-1]] / (grid[iw[0][-1]] - grid[-1])
-
-        AG_dg[1:, i] = np.squeeze(np.linalg.lstsq(G[:, 1:], eta_fs)[0])
-        # AG[1:, i] = np.squeeze(np.linalg.lstsq(G[:, 1:], np.transpose(np.atleast_2d(eta_fs)))[0])
-        eta_m_dg[good, i] = np.squeeze(np.matrix(G) * np.transpose(np.matrix(AG_dg[:, i])))
-        Neta_m_dg[good, i] = bvf * np.array(np.squeeze(np.matrix(G) * np.transpose(np.matrix(AG_dg[:, i]))))
-        PE_per_mass_dg[:, i] = (0.5) * AG_dg[:, i] * AG_dg[:, i] * c * c
-
-    # AG_dg_0, eta_m_dg_0, Neta_m_dg_0, PE_per_mass_dg_0 = eta_fit(1, -1.0 * dg_z[good], nmodes, avg_N2_match, G, c,
-    #                                                              np.transpose(np.atleast_2d(eta[good, i])),
-    #                                                              eta_fit_dep_min, eta_fit_dep_max)
-
-G, Gz, c, epsilon = vertical_modes(avg_N2, -1.0 * z_grid_n2, omega, mmax)  # N2
-# ---------------------------------------------------------------------------------------------------------------------
-# -- DG eta avg across four profiles
-eta_sm = np.nan * np.ones(np.shape(avg_sig_pd))
-AG_dg_sm = np.zeros((nmodes, num_profs_eta))
-PE_per_mass_dg_sm = np.nan * np.ones((nmodes, num_profs_eta))
-eta_m_dg_sm = np.nan * np.ones((len(dg_z), num_profs_eta))
-Neta_m_dg_sm = np.nan * np.ones((len(dg_z), num_profs_eta))
-for i in range(np.shape(avg_sig_pd)[1]):
-    good = np.where(~np.isnan(avg_sig_pd[:, i]))[0]
-    avg_sig0_match = np.interp(np.abs(dg_z[good]), np.abs(z_grid_n2), avg_sig0)
-    ddz_avg_sig0_match = np.interp(np.abs(dg_z[good]), np.abs(z_grid_n2), ddz_avg_sig0)
-    avg_N2_match = np.interp(np.abs(dg_z[good]), np.abs(z_grid_n2), avg_N2)
-
-    eta_sm[good, i] = (avg_sig_pd[good, i] - avg_sig0_match) / ddz_avg_sig0_match
-
-    grid = -1. * dg_z[good]
-    bvf = np.sqrt(avg_N2_match)
-    this_eta = eta_sm[good, i].copy()
-    eta_fs = eta_sm[good, i].copy()
-    iw = np.where((grid >= eta_fit_dep_min) & (grid <= eta_fit_dep_max))
-    if iw[0].size > 1:
-        G, Gz, c, epsilon = vertical_modes(avg_N2_match, -1.0 * dg_z[good], omega, mmax)  # N2
-
-        i_sh = np.where((grid < eta_fit_dep_min))
-        eta_fs[i_sh[0]] = grid[i_sh] * this_eta[iw[0][0]] / grid[iw[0][0]]
-
-        i_dp = np.where((grid > eta_fit_dep_max))
-        eta_fs[i_dp[0]] = (grid[i_dp] - grid[-1]) * this_eta[iw[0][-1]] / (grid[iw[0][-1]] - grid[-1])
-
-        AG_dg_sm[1:, i] = np.squeeze(np.linalg.lstsq(G[:, 1:], eta_fs)[0])
-        # AG[1:, i] = np.squeeze(np.linalg.lstsq(G[:, 1:], np.transpose(np.atleast_2d(eta_fs)))[0])
-        eta_m_dg_sm[good, i] = np.squeeze(np.matrix(G) * np.transpose(np.matrix(AG_dg_sm[:, i])))
-        Neta_m_dg_sm[good, i] = bvf * np.array(np.squeeze(np.matrix(G) * np.transpose(np.matrix(AG_dg_sm[:, i]))))
-        PE_per_mass_dg_sm[:, i] = (0.5) * AG_dg_sm[:, i] * AG_dg_sm[:, i] * c * c
-
-        # AG_dg_sm, eta_m_dg_sm, Neta_m_dg_sm, PE_per_mass_dg_sm = eta_fit(np.shape(avg_sig_pd)[1], -1.0 * z_grid_n2,
-        #                                                                  nmodes, avg_N2, G, c, eta_sm[0:126, :],
-        #                                                                  eta_fit_dep_min, eta_fit_dep_max)
-
-# ---------------------------------------------------------------------------------------------------------------------
-# -- eta Model
-in_range = np.where((xy_grid > np.nanmin(dg_y)) & (xy_grid < np.nanmax(dg_y)))[0]
-eta_model = np.nan * np.ones(np.shape(sig0_out_s[:, in_range, 0]))
-
-eta_model = np.nan * np.ones(np.shape(gamma_mod_at_mw_avg))
-AG_model = np.zeros((nmodes, np.shape(eta_model)[1]))
-PE_per_mass_model = np.nan * np.ones((nmodes, np.shape(eta_model)[1]))
-eta_m_model = np.nan * np.ones((len(dg_z), np.shape(eta_model)[1]))
-Neta_m_model = np.nan * np.ones((len(dg_z), np.shape(eta_model)[1]))
-for i in range(np.shape(eta_model)[1]):
-    # range over which m/w profile takes up,
-    # consider each model density profile, avg at each grid point in time, estimate eta
-    # this_model = np.flipud(np.nanmean(sig0_out_s[:, in_range[i], :], axis=1))
-    this_model = gamma_mod_at_mw_avg[:, i]
-
-    good = np.where(~np.isnan(this_model))[0]
-    avg_sig0_match = np.interp(np.abs(dg_z[good]), np.abs(z_grid_n2), avg_sig0)
-    ddz_avg_sig0_match = np.interp(np.abs(dg_z[good]), np.abs(z_grid_n2), ddz_avg_sig0)
-    avg_N2_match = np.interp(np.abs(dg_z[good]), np.abs(z_grid_n2), avg_N2)
-
-    eta_model[good, i] = (this_model[good] - avg_sig0_match) / ddz_avg_sig0_match
-
-    grid = -1. * dg_z[good]
-    bvf = np.sqrt(avg_N2_match)
-    this_eta = eta_model[good, i].copy()
-    eta_fs = eta_model[good, i].copy()
-    iw = np.where((grid >= eta_fit_dep_min) & (grid <= eta_fit_dep_max))
-    if iw[0].size > 1:
-        G, Gz, c, epsilon = vertical_modes(avg_N2_match, -1.0 * dg_z[good], omega, mmax)  # N2
-
-        i_sh = np.where((grid < eta_fit_dep_min))
-        eta_fs[i_sh[0]] = grid[i_sh] * this_eta[iw[0][0]] / grid[iw[0][0]]
-
-        i_dp = np.where((grid > eta_fit_dep_max))
-        eta_fs[i_dp[0]] = (grid[i_dp] - grid[-1]) * this_eta[iw[0][-1]] / (grid[iw[0][-1]] - grid[-1])
-
-        AG_model[1:, i] = np.squeeze(np.linalg.lstsq(G[:, 1:], eta_fs)[0])
-        # AG[1:, i] = np.squeeze(np.linalg.lstsq(G[:, 1:], np.transpose(np.atleast_2d(eta_fs)))[0])
-        eta_m_model[good, i] = np.squeeze(np.matrix(G) * np.transpose(np.matrix(AG_model[:, i])))
-        Neta_m_model[good, i] = bvf * np.array(np.squeeze(np.matrix(G) * np.transpose(np.matrix(AG_model[:, i]))))
-        PE_per_mass_model[:, i] = (0.5) * AG_model[:, i] * AG_model[:, i] * c * c
-
-    # AG_model, eta_m_model, Neta_m_model, PE_per_mass_model = eta_fit(np.shape(eta_model)[1], -1.0 * z_grid_n2,
-    #                                                              nmodes, avg_N2, G, c, eta_model[0:126, :],
-    #                                                              eta_fit_dep_min, eta_fit_dep_max)
-
-# ---------------------------------------------------------------------------------------------------------------------
-# ---------------------------------------------------------------------------------------------------------------------
-# --- DG velocities ---
-HKE_per_mass_dg = np.nan * np.zeros([nmodes, num_profs_eta])
-modest = np.arange(11, nmodes)
-good_ke_prof = np.ones(num_profs_eta)
-AGz = np.zeros([nmodes, num_profs_eta])
-HKE_noise_threshold = 1e-5  # 1e-5
-V_m = np.nan * np.zeros((len(dg_z), num_profs_eta))
-for i in range(num_profs_eta):
-
-    good = np.where(~np.isnan(v_g[:, i]))[0]
-
-    if len(good) > 20:
-        avg_N2_match = np.interp(np.abs(dg_z[good]), np.abs(z_grid_n2), avg_N2)
-        G, Gz, c, epsilon = vertical_modes(avg_N2_match, -1.0 * dg_z[good], omega, mmax)  # N2
-
-        # fit to velocity profiles
-        this_V = v_g[good, i].copy()
-        iv = np.where(~np.isnan(this_V))
-        if iv[0].size > 1:
-            AGz[:, i] = np.squeeze(np.linalg.lstsq(np.squeeze(Gz[iv, :]), np.transpose(np.atleast_2d(this_V[iv])))[0])
-            # Gz(iv,:)\V_g(iv,ip)
-            V_m[good, i] = np.squeeze(np.matrix(Gz) * np.transpose(np.matrix(AGz[:, i])))
-            # Gz*AGz[:,i];
-            HKE_per_mass_dg[:, i] = 0.5 * (AGz[:, i] * AGz[:, i])
-            ival = np.where(HKE_per_mass_dg[modest, i] >= HKE_noise_threshold)
-            if np.size(ival) > 0:
-                good_ke_prof[i] = 0  # flag profile as noisy
-        else:
-            good_ke_prof[i] = 0  # flag empty profile as noisy as well
-# ---------------------------------------------------------------------------------------------------------------------
-# Model
-# select avg model profiles that coincide with dg velocity profiles in space and time
-avg_mod_u = u_mod_at_mw_avg[:, 1:-1]
-HKE_per_mass_model = np.nan * np.zeros([nmodes, np.shape(avg_mod_u)[1]])
-good_ke_prof = np.ones(np.shape(avg_mod_u)[1])
-AGz_model = np.zeros([nmodes, np.shape(avg_mod_u)[1]])
-HKE_noise_threshold = 1e-5  # 1e-5
-V_m_model = np.nan * np.zeros((len(dg_z), np.shape(avg_mod_u)[1]))
-# avg_mod_u = np.flipud(np.nanmean(u_out_s[:, in_range, :], axis=2))
-for i in range(np.shape(avg_mod_u)[1]):
-    good = np.where(~np.isnan(avg_mod_u[:, i]))[0]
-    avg_N2_match = np.interp(np.abs(dg_z[good]), np.abs(z_grid_n2), avg_N2)
-
-    G, Gz, c, epsilon = vertical_modes(avg_N2_match, -1.0 * dg_z[good], omega, mmax)  # N2
-
-    # fit to velocity profiles
-    this_V = avg_mod_u[good, i]
-    iv = np.where(~np.isnan(this_V))
-    if iv[0].size > 1:
-        AGz_model[:, i] = np.squeeze(np.linalg.lstsq(np.squeeze(Gz[iv, :]), np.transpose(np.atleast_2d(this_V[iv])))[0])
-        # Gz(iv,:)\V_g(iv,ip)
-        V_m_model[good, i] = np.squeeze(np.matrix(Gz) * np.transpose(np.matrix(AGz_model[:, i])))
-        # Gz*AGz[:,i];
-        HKE_per_mass_model[:, i] = 0.5 * (AGz_model[:, i] * AGz_model[:, i])
-        ival = np.where(HKE_per_mass_model[modest, i] >= HKE_noise_threshold)
-        if np.size(ival) > 0:
-            good_ke_prof[i] = 0  # flag profile as noisy
-    else:
-        good_ke_prof[i] = 0  # flag empty profile as noisy as well
-
-# ---------------------------------------------------------------------------------------------------------------------
-
 # ----------------------------------------------------------------------------------------------------------------------
-# Model (instant)
-# if on, compute model ke spectrum over many many instantaneous model vel profiles
-if u_mod_all > 0:
-    for m in range(len(u_mod_at_mw)):
-        this_mod_u = u_mod_at_mw[m]
-        this_mod_gamma = gamma_mod_at_mw[m]
-        for mt in range(np.shape(this_mod_u)[0]):  # loop in time
-            # PE
-            overlap = np.where((xy_grid > (dg_dac_mid[m + 1] - 10000)) & (xy_grid < (dg_dac_mid[m + 1] + 10000)))[0]
-            bck_gamma_xy = np.nanmean(np.nanmean(sig0_out_s, axis=0)[:, overlap], axis=1)
-
-            good = np.where(~np.isnan(bck_gamma_xy))[0]
-            avg_sig0_match = np.interp(np.abs(dg_z[good]), np.abs(z_grid), bck_gamma_xy)
-            ddz_avg_sig0_match = np.interp(np.abs(dg_z[good]), np.abs(z_grid_n2), ddz_avg_sig0)
-            avg_N2_match = np.interp(np.abs(dg_z[good]), np.abs(z_grid_n2), avg_N2)
-
-            this_model = this_mod_gamma[mt, good, :]
-            eta_model = (this_model - np.tile(bck_gamma_xy[good, None],
-                                              (1, np.shape(this_model)[1]))) / np.tile(ddz_avg_sig0_match[:, None],
-                                                                                       (1, np.shape(this_model)[1]))
-
-            # KE
-            this_mod_u_sp = this_mod_u[mt, good, :]
-            HKE_per_mass_model_tot = np.nan * np.zeros([nmodes, np.shape(this_mod_u_sp)[1]])
-            good_ke_prof = np.ones(np.shape(this_mod_u_sp)[1])
-            AGz_model = np.zeros([nmodes, np.shape(this_mod_u_sp)[1]])
-            HKE_noise_threshold = 1e-5  # 1e-5
-            AG_model = np.zeros((nmodes, np.shape(eta_model)[1]))
-            PE_per_mass_model_tot = np.nan * np.ones((nmodes, np.shape(eta_model)[1]))
-            V_m_model_tot = np.nan * np.zeros((len(dg_z), np.shape(this_mod_u_sp)[1]))
-            eta_m_model_tot = np.nan * np.ones((len(dg_z), np.shape(eta_model)[1]))
-
-            for i in range(np.shape(this_mod_u_sp)[1]):
-                good = np.where(~np.isnan(this_mod_u_sp[:, i]))[0]
-                avg_N2_match = np.interp(np.abs(dg_z[good]), np.abs(z_grid_n2), avg_N2)
-                G, Gz, c, epsilon = vertical_modes(avg_N2_match, -1.0 * dg_z[good], omega, mmax)  # N2
-
-                grid = -1. * dg_z[good]
-                this_eta = eta_model[good, i].copy()
-                eta_fs = eta_model[good, i].copy()
-
-                # fit to eta profiles
-                iw = np.where((grid >= eta_fit_dep_min) & (grid <= eta_fit_dep_max))
-                if iw[0].size > 1:
-                    i_sh = np.where((grid < eta_fit_dep_min))
-                    eta_fs[i_sh[0]] = grid[i_sh] * this_eta[iw[0][0]] / grid[iw[0][0]]
-
-                    i_dp = np.where((grid > eta_fit_dep_max))
-                    eta_fs[i_dp[0]] = (grid[i_dp] - grid[-1]) * this_eta[iw[0][-1]] / (grid[iw[0][-1]] - grid[-1])
-
-                    AG_model[1:, i] = np.squeeze(np.linalg.lstsq(G[:, 1:], eta_fs)[0])
-                    eta_m_model_tot[good, i] = np.squeeze(np.matrix(G) * np.transpose(np.matrix(AG_model[:, i])))
-                    PE_per_mass_model_tot[:, i] = (0.5) * AG_model[:, i] * AG_model[:, i] * c * c
-
-                # fit to velocity profiles
-                this_V = this_mod_u_sp[good, i]
-                iv = np.where(~np.isnan(this_V))
-                if iv[0].size > 1:
-                    AGz_model[:, i] = np.squeeze(np.linalg.lstsq(np.squeeze(Gz[iv, :]), np.transpose(np.atleast_2d(this_V[iv])))[0])
-                    # Gz(iv,:)\V_g(iv,ip)
-                    V_m_model_tot[good, i] = np.squeeze(np.matrix(Gz) * np.transpose(np.matrix(AGz_model[:, i])))
-                    # Gz*AGz[:,i];
-                    HKE_per_mass_model_tot[:, i] = 0.5 * (AGz_model[:, i] * AGz_model[:, i])
-                    ival = np.where(HKE_per_mass_model_tot[modest, i] >= HKE_noise_threshold)
-                    if np.size(ival) > 0:
-                        good_ke_prof[i] = 0  # flag profile as noisy
-                else:
-                    good_ke_prof[i] = 0  # flag empty profile as noisy as well
-            print(str(mt))
-            if (m < 1) & (mt < 1):
-                HKE_mod_TOT = HKE_per_mass_model_tot.copy()
-                PE_mod_TOT = PE_per_mass_model_tot.copy()
-            else:
-                HKE_mod_TOT = np.concatenate((HKE_mod_TOT, HKE_per_mass_model_tot), axis=1)
-                PE_mod_TOT = np.concatenate((PE_mod_TOT, PE_per_mass_model_tot), axis=1)
-
-# ----------------------------------------------------------------------------------------------------------------------
-
-# ---------------------------------------------------------------------------------------------------------------------
-z_grid_f = z_grid_n2
-dg_sig0_f = np.flipud(dg_sig0)
-
 # --- PLOT DENSITY ANOMALIES, ETA, AND VELOCITIES
 if plot_anom:
     f, (ax1, ax2, ax3) = plt.subplots(1, 3, sharey=True)
@@ -1481,36 +1429,6 @@ if plot_anom:
     plot_pro(ax3)
     if save_p > 0:
         f.savefig("/Users/jake/Documents/baroclinic_modes/Meetings/meeting_19_06_13/model_ind_vel_eta.png", dpi=200)
-
-# ---------------------------------------------------------------------------------------------------------------------
-# select only dg profiles with depths greater than 2000m
-max_eta_dep = np.nan * np.ones(np.shape(eta)[1])
-for i in range(np.shape(eta)[1]):
-    max_eta_dep[i] = dg_z[np.where(~np.isnan(eta[:, i]))[0][-1]]
-
-max_eta_sm_dep = np.nan * np.ones(np.shape(eta)[1])
-max_v_dep = np.nan * np.ones(np.shape(eta)[1])
-for i in range(np.shape(eta_sm)[1]):
-    max_eta_sm_dep[i] = dg_z[np.where(~np.isnan(eta_sm[:, i]))[0][-1]]
-    max_v_dep[i] = dg_z[np.where(~np.isnan(v_g[:, i]))[0][-1]]
-
-max_model_dep = np.nan * np.ones(np.shape(avg_mod_u)[1])
-for i in range(np.shape(avg_mod_u)[1]):
-    max_model_dep[i] = dg_z[np.where(~np.isnan(avg_mod_u[:, i]))[0][-1]]
-
-good_eta = np.where(max_eta_dep < -2000)[0]
-good_sm = np.where(max_eta_sm_dep < -2000)[0]
-good_vg = np.where(max_v_dep < -2000)[0]
-good_mod = np.where(max_model_dep < -2000)[0]
-
-# --- ENERGY
-avg_PE = np.nanmean(PE_per_mass_dg[:, good_eta], axis=1)
-avg_PE_smooth = np.nanmean(PE_per_mass_dg_sm[:, good_sm], axis=1)
-avg_KE = np.nanmean(HKE_per_mass_dg[:, good_vg], axis=1)
-avg_PE_model = np.nanmean(PE_per_mass_model[:, good_mod], axis=1)
-avg_KE_model = np.nanmean(HKE_per_mass_model[:, good_mod], axis=1)
-dk = ff / c[1]
-# PE_SD, PE_GM, GMPE, GMKE = PE_Tide_GM(rho0, -1.0 * z_grid_f, nmodes, np.flipud(np.transpose(np.atleast_2d(avg_N2))), ff)
 
 # --- PLOT ENERGY SPECTRA
 mm = 10
@@ -1577,39 +1495,9 @@ if plot_energy:
         f.savefig("/Users/jake/Documents/baroclinic_modes/Meetings/meeting_19_05_17/model_ind_energy_2.png", dpi=200)
 
 # ---------------------------------------------------------------------------------------------------------------------
-# ---------------------------------------------------------------------------------------------------------------------
-# save?
-if save_anom:
-    if u_mod_all:
-        my_dict = {'dg_z': dg_z, 'dg_v': v_g, 'model_u_at_mwv': u_mod_at_mw,
-                   'model_u_at_mw_avg': avg_mod_u,
-                   'shear_error': shear_error, 'igw_var': den_var, 'c': c,
-                   'KE_dg': HKE_per_mass_dg, 'KE_mod': HKE_per_mass_model,
-                   'eta_m_dg': eta_m_dg, 'PE_dg': PE_per_mass_dg,
-                   'eta_m_dg_avg': eta_m_dg_sm, 'PE_dg_avg': PE_per_mass_dg_sm,
-                   'eta_model': eta_m_model, 'PE_model': PE_per_mass_model,
-                   'glide_slope': np.ones(np.shape(v_g)[1]) * dg_glide_slope,
-                   'dg_w': np.ones(np.shape(v_g)[1]) * dg_vertical_speed,
-                   'avg_N2': avg_N2, 'z_grid_n2': z_grid_n2,
-                   'KE_mod_ALL': HKE_mod_TOT, 'PE_mod_ALL': PE_mod_TOT}
-        output = open(output_filename, 'wb')
-        pickle.dump(my_dict, output)
-        output.close()
-    else:
-        my_dict = {'dg_z': dg_z, 'dg_v': v_g, 'model_u_at_mwv': u_mod_at_mw,
-                   'model_u_at_mw_avg': avg_mod_u, 'shear_error': shear_error, 'igw_var': den_var, 'c': c,
-                   'KE_dg': HKE_per_mass_dg, 'KE_mod': HKE_per_mass_model,
-                   'eta_m_dg': eta_m_dg, 'PE_dg': PE_per_mass_dg,
-                   'eta_m_dg_avg': eta_m_dg_sm, 'PE_dg_avg': PE_per_mass_dg_sm,
-                   'eta_model': eta_m_model, 'PE_model': PE_per_mass_model,
-                   'glide_slope': np.ones(np.shape(v_g)[1]) * dg_glide_slope,
-                   'dg_w': np.ones(np.shape(v_g)[1]) * dg_vertical_speed}
-        output = open(output_filename, 'wb')
-        pickle.dump(my_dict, output)
-        output.close()
 
-# ---------------------------------------------------------------------------------------------------------------------
-# ---------------------------------------------------------------------------------------------------------------------
+
+
 # # --- DEPTH OF ISOPYCNALS IN TIME ----------------------------------------------
 # # isopycnals i care about
 # rho1 = 26.6

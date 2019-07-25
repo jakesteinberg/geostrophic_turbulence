@@ -17,7 +17,7 @@ from zrfun import get_basic_info, get_z
 file_list = glob.glob('/Users/jake/Documents/baroclinic_modes/Model/LiveOcean/simulated_dg_velocities/ve_ew_v*y40_*.pkl')
 tagg = 'yall_v08_slp3'
 save_metr = 0  # ratio
-save_e = 1  # save energy spectra
+save_e = 0  # save energy spectra
 save_rms = 0  # save v error plot
 
 direct_anom = []
@@ -96,7 +96,7 @@ matplotlib.rcParams['figure.figsize'] = (6.5, 8)
 f, ax = plt.subplots()
 low_er_mean = np.nan * np.ones(len(z_grid))
 for i in range(len(z_grid)):
-    low = np.where(igw_var[i, :] < 0.75)[0]
+    low = np.where(igw_var[i, :] < 1)[0]
     ax.scatter(slope_er[i, :], z_grid[i] * np.ones(len(slope_er[i, :])), s=2, color='b')
     ax.scatter(slope_er[i, low], z_grid[i] * np.ones(len(slope_er[i, low])), s=4, color='r')
     ax.scatter(np.nanmean(slope_er[i, low]), z_grid[i], s=20, color='r')
@@ -110,7 +110,7 @@ ax.legend(handles, labels, fontsize=12)
 ax.set_xscale('log')
 ax.set_xlabel('Percent Error')
 ax.set_ylabel('z [m]')
-ax.set_title('Percent Error between Model Shear and Glider Shear (' + str(MOD['glide_slope']) + ':1, w=' + str(MOD['dg_w']) + ' m/s)')
+ax.set_title('Percent Error between Model Shear and Glider Shear')
 ax.set_xlim([1, 10**4])
 ax.set_ylim([-3000, 0])
 plot_pro(ax)
@@ -218,7 +218,7 @@ ax[1].grid()
 ax[2].grid()
 plot_pro(ax[3])
 if save_rms > 0:
-    f.savefig('/Users/jake/Documents/glider_flight_sim_paper/LO_model_dg_vel_error_bats.png', dpi=200)
+    f.savefig('/Users/jake/Documents/glider_flight_sim_paper/lo_mod_dg_vel_e.png', dpi=200)
 
 matplotlib.rcParams['figure.figsize'] = (6, 6)
 f, ax2 = plt.subplots()
@@ -236,7 +236,7 @@ ax2.set_title(r'Glider/Model Velocity rms error ($u_{g}$ - $\overline{u_{model}}
 ax2.set_ylabel('z [m]')
 plot_pro(ax2)
 if save_rms > 0:
-    f.savefig('/Users/jake/Documents/glider_flight_sim_paper/LO_model_dg_vel_rms_e.png', dpi=200)
+    f.savefig('/Users/jake/Documents/glider_flight_sim_paper/lo_mod_dg_vel_rms_e.png', dpi=200)
 
 # ---------------------------------------------------------------------------------------------------------------------
 # --- PLOT ENERGY SPECTRA
@@ -266,50 +266,53 @@ sc_x = np.arange(1, mm)
 l_lim = 0.7
 dk = ff / c[1]
 
-avg_PE = np.nanmean(pe_dg, axis=1)
-avg_PE_ind = np.nanmean(pe_dg_ind, axis=1)
-avg_KE = np.nanmean(ke_dg, axis=1)
-avg_PE_model = np.nanmean(pe_mod, axis=1)
-avg_KE_model = np.nanmean(ke_mod, axis=1)
+good = np.where((ke_mod[1, :] < 1*10**0) & (slope_tag > 2))[0]
+avg_PE_model = np.nanmean(pe_mod[:, good], axis=1)
+avg_KE_model = 2 * np.nanmean(ke_mod[:, good], axis=1)
 
 matplotlib.rcParams['figure.figsize'] = (10, 6)
 f, (ax1, ax2) = plt.subplots(1, 2, sharey=True)
 # DG
-ax1.plot(sc_x, avg_PE[1:mm] / dk, 'r', label='PE$_{DG}$', linewidth=2)
-ax1.scatter(sc_x, avg_PE[1:mm] / dk, color='r', s=20)
-ax1.plot(sc_x, avg_PE_ind[1:mm] / dk, 'c', label='PE$_{DG_{ind}}$', linewidth=2)
-ax1.scatter(sc_x, avg_PE_ind[1:mm] / dk, color='c', s=20)
-ax2.plot(sc_x, avg_KE[1:mm] / dk, 'r', label='KE$_{DG}$', linewidth=3)
-ax2.scatter(sc_x, avg_KE[1:mm] / dk, color='r', s=20)  # DG KE
-ax2.plot([l_lim, sc_x[0]], avg_KE[0:2] / dk, 'r', linewidth=3)  # DG KE_0
-ax2.scatter(l_lim, avg_KE[0] / dk, color='r', s=25, facecolors='none')  # DG KE_0
+for i in range(len(w_s)):
+    inn = np.where((w_tag == w_s[i]) & (slope_tag > 2))[0]
+    # PE
+    avg_PE = np.nanmean(pe_dg[:, inn], axis=1)
+    ax1.plot(sc_x, avg_PE[1:mm] / dk, color=w_cols[i], label=r'|w| = ' + str(w_s[i]) + 'cm/s', linewidth=1.25)
+    ax1.scatter(sc_x, avg_PE[1:mm] / dk, color=w_cols[i], s=10)
+    # KE
+    avg_KE = 2 * np.nanmean(ke_dg[:, inn], axis=1)
+    ax2.plot(sc_x, avg_KE[1:mm] / dk, color=w_cols[i], label=r'|w| = ' + str(w_s[i]) + 'cm/s', linewidth=1.25)
+    ax2.scatter(sc_x, avg_KE[1:mm] / dk, color=w_cols[i], s=10)  # DG KE
+    ax2.plot([l_lim, sc_x[0]], avg_KE[0:2] / dk, color=w_cols[i], linewidth=1.5)  # DG KE_0
+    ax2.scatter(l_lim, avg_KE[0] / dk, color=w_cols[i], s=10, facecolors='none')  # DG KE_0
+
 # Model
 ax1.plot(sc_x, avg_PE_model[1:mm] / dk, color='k', label='PE$_{Model}$', linewidth=2)
-ax1.scatter(sc_x, avg_PE_model[1:mm] / dk, color='k', s=20)
+ax1.scatter(sc_x, avg_PE_model[1:mm] / dk, color='k', s=10)
 ax2.plot(sc_x, avg_KE_model[1:mm] / dk, color='k', label='KE$_{Model}$', linewidth=2)
-ax2.scatter(sc_x, avg_KE_model[1:mm] / dk, color='k', s=20)
+ax2.scatter(sc_x, avg_KE_model[1:mm] / dk, color='k', s=10)
 ax2.plot([l_lim, sc_x[0]], avg_KE_model[0:2] / dk, color='k', linewidth=2)
-ax2.scatter(l_lim, avg_KE_model[0] / dk, color='k', s=25, facecolors='none')
+ax2.scatter(l_lim, avg_KE_model[0] / dk, color='k', s=10, facecolors='none')
 
-modeno = '1', '2', '3', '4', '5', '6', '7', '8'
-for j in range(len(modeno)):
-    ax2.text(sc_x[j], (avg_KE[j + 1] + (avg_KE[j + 1] / 2)) / dk, modeno[j], color='k', fontsize=10)
+# avg_KE_model_ind_all = 2 * np.nanmean(ke_mod_tot, axis=1)
+# avg_PE_model_ind_all = 2 * np.nanmean(pe_mod_tot, axis=1)
+# ax2.plot(sc_x, avg_KE_model_ind_all[1:mm] / dk, color='k', label='KE$_{Model_{inst.}}$', linewidth=1, linestyle='--')
+# ax2.plot([l_lim, sc_x[0]], avg_KE_model_ind_all[0:2] / dk, color='k', linewidth=1, linestyle='--')
+# ax1.plot(sc_x, avg_PE_model_ind_all[1:mm] / dk, color='k', label='PE$_{Model_{inst.}}$', linewidth=1, linestyle='--')
 
 limm = 5
 ax1.set_xlim([l_lim, 0.5 * 10 ** 2])
 ax2.set_xlim([l_lim, 0.5 * 10 ** 2])
-ax2.set_ylim([10 ** (-4), 1 * 10 ** 2])
+ax2.set_ylim([10 ** (-4), 3 * 10 ** 2])
 ax1.set_yscale('log')
 ax1.set_xscale('log')
 ax2.set_xscale('log')
 
-# ax1.set_xlabel(r'Scaled Vertical Wavenumber = (L$_{d_{n}}$)$^{-1}$ = $\frac{f}{c_n}$ [$km^{-1}$]', fontsize=12)
-ax1.set_ylabel('Spectral Density', fontsize=12)  # ' (and Hor. Wavenumber)')
-# ax2.set_xlabel(r'Scaled Vertical Wavenumber = (L$_{d_{n}}$)$^{-1}$ = $\frac{f}{c_n}$ [$km^{-1}$]', fontsize=12)
+ax1.set_ylabel('Variance per Vertical Wavenumber', fontsize=12)  # ' (and Hor. Wavenumber)')
 ax1.set_xlabel('Mode Number', fontsize=12)
 ax2.set_xlabel('Mode Number', fontsize=12)
-ax1.set_title('PE Spectrum (' + str(np.int(MOD['glide_slope'][0])) + ':1)', fontsize=12)
-ax2.set_title('KE Spectrum (' + str(np.int(MOD['glide_slope'][0])) + ':1)', fontsize=12)
+ax1.set_title('LiveOcean: Potential Energy (1:' + str(np.int(slope_s[0])) + ')', fontsize=12)
+ax2.set_title('LiveOcean: Kinetic Energy (1:' + str(np.int(slope_s[0])) + ')', fontsize=12)
 handles, labels = ax2.get_legend_handles_labels()
 ax2.legend(handles, labels, fontsize=12)
 handles, labels = ax1.get_legend_handles_labels()
@@ -317,4 +320,58 @@ ax1.legend(handles, labels, fontsize=12)
 ax1.grid()
 plot_pro(ax2)
 if save_e > 0:
-    f.savefig('/Users/jake/Documents/glider_flight_sim_paper/LO_model_dg_vel_energy_eddy.png', dpi=200)
+    f.savefig('/Users/jake/Documents/glider_flight_sim_paper/lo_mod_energy.png', dpi=200)
+
+# OLD ENERGY
+# avg_PE = np.nanmean(pe_dg, axis=1)
+# avg_PE_ind = np.nanmean(pe_dg_ind, axis=1)
+# avg_KE = np.nanmean(ke_dg, axis=1)
+# avg_PE_model = np.nanmean(pe_mod, axis=1)
+# avg_KE_model = np.nanmean(ke_mod, axis=1)
+#
+# matplotlib.rcParams['figure.figsize'] = (10, 6)
+# f, (ax1, ax2) = plt.subplots(1, 2, sharey=True)
+# # DG
+# ax1.plot(sc_x, avg_PE[1:mm] / dk, 'r', label='PE$_{DG}$', linewidth=2)
+# ax1.scatter(sc_x, avg_PE[1:mm] / dk, color='r', s=20)
+# ax1.plot(sc_x, avg_PE_ind[1:mm] / dk, 'c', label='PE$_{DG_{ind}}$', linewidth=2)
+# ax1.scatter(sc_x, avg_PE_ind[1:mm] / dk, color='c', s=20)
+# ax2.plot(sc_x, avg_KE[1:mm] / dk, 'r', label='KE$_{DG}$', linewidth=3)
+# ax2.scatter(sc_x, avg_KE[1:mm] / dk, color='r', s=20)  # DG KE
+# ax2.plot([l_lim, sc_x[0]], avg_KE[0:2] / dk, 'r', linewidth=3)  # DG KE_0
+# ax2.scatter(l_lim, avg_KE[0] / dk, color='r', s=25, facecolors='none')  # DG KE_0
+# # Model
+# ax1.plot(sc_x, avg_PE_model[1:mm] / dk, color='k', label='PE$_{Model}$', linewidth=2)
+# ax1.scatter(sc_x, avg_PE_model[1:mm] / dk, color='k', s=20)
+# ax2.plot(sc_x, avg_KE_model[1:mm] / dk, color='k', label='KE$_{Model}$', linewidth=2)
+# ax2.scatter(sc_x, avg_KE_model[1:mm] / dk, color='k', s=20)
+# ax2.plot([l_lim, sc_x[0]], avg_KE_model[0:2] / dk, color='k', linewidth=2)
+# ax2.scatter(l_lim, avg_KE_model[0] / dk, color='k', s=25, facecolors='none')
+#
+# modeno = '1', '2', '3', '4', '5', '6', '7', '8'
+# for j in range(len(modeno)):
+#     ax2.text(sc_x[j], (avg_KE[j + 1] + (avg_KE[j + 1] / 2)) / dk, modeno[j], color='k', fontsize=10)
+#
+# limm = 5
+# ax1.set_xlim([l_lim, 0.5 * 10 ** 2])
+# ax2.set_xlim([l_lim, 0.5 * 10 ** 2])
+# ax2.set_ylim([10 ** (-4), 1 * 10 ** 2])
+# ax1.set_yscale('log')
+# ax1.set_xscale('log')
+# ax2.set_xscale('log')
+#
+# # ax1.set_xlabel(r'Scaled Vertical Wavenumber = (L$_{d_{n}}$)$^{-1}$ = $\frac{f}{c_n}$ [$km^{-1}$]', fontsize=12)
+# ax1.set_ylabel('Spectral Density', fontsize=12)  # ' (and Hor. Wavenumber)')
+# # ax2.set_xlabel(r'Scaled Vertical Wavenumber = (L$_{d_{n}}$)$^{-1}$ = $\frac{f}{c_n}$ [$km^{-1}$]', fontsize=12)
+# ax1.set_xlabel('Mode Number', fontsize=12)
+# ax2.set_xlabel('Mode Number', fontsize=12)
+# ax1.set_title('PE Spectrum (' + str(np.int(MOD['glide_slope'][0])) + ':1)', fontsize=12)
+# ax2.set_title('KE Spectrum (' + str(np.int(MOD['glide_slope'][0])) + ':1)', fontsize=12)
+# handles, labels = ax2.get_legend_handles_labels()
+# ax2.legend(handles, labels, fontsize=12)
+# handles, labels = ax1.get_legend_handles_labels()
+# ax1.legend(handles, labels, fontsize=12)
+# ax1.grid()
+# plot_pro(ax2)
+# if save_e > 0:
+#     f.savefig('/Users/jake/Documents/glider_flight_sim_paper/LO_model_dg_vel_energy_eddy.png', dpi=200)
