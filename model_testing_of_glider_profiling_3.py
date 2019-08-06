@@ -17,7 +17,7 @@ from zrfun import get_basic_info, get_z
 
 # because we load pickle protocol 2 (needed for matlab engine) we need 'glider' environment (not 'geo_env')
 
-this_path = 'e_w_extraction_nov28_nov30_offshore'  # 'n_s_extraction_eddy_nov1_nov3'  #
+this_path = 'e_w_extraction_nov10_nov12_offshore'  # 'n_s_extraction_eddy_nov1_nov3'  #
 these_paths = glob.glob('/Users/jake/Documents/baroclinic_modes/Model/LiveOcean/e_w*')
 
 # -- LOAD extracted and PROCESSED MODEL TIME STEPS WITH COMPUTED GAMMA
@@ -98,8 +98,9 @@ plot1 = 0  # vel error
 plot_anom = 0  # eta and v
 plot_grad = 0  # density grad at four depths
 plot_energy = 0  # energy spectra
+save_samp = 0  # save sample eta, v
 save_p = 0  # save figure cross section
-save_p_g = 0 # save figure density gradient
+save_p_g = 0  # save figure density gradient
 
 t_s = datetime.date.fromordinal(np.int(time_ord_s[0]))
 t_e = datetime.date.fromordinal(np.int(time_ord_s[-1]))
@@ -107,7 +108,7 @@ tag = str(t_s.month) + '_' + str(t_s.day) + '_' + str(t_e.month) + '_' + str(t_e
 
 # suite of parameters to sweep through
 # vertical speed, glide slope, number of dives, starting xy pos, starting time
-params = np.array([[0.1, 3, 4, 10000, np.nanmin(time_ord_s)]])
+params = np.array([[0.1, 3, 4, 100000, np.nanmin(time_ord_s)]])
 u_mod_all = 1  # instantaneous model spectra
 
 time_s = np.nanmin(time_ord_s)
@@ -288,10 +289,13 @@ for master in range(np.shape(params)[0]):
 
     # model velocity profiles at locations within domain spanned by one m/w pattern and in the same time
     u_model = np.flipud(u_out_s)
+    u_model_off = np.flipud(u_off_out_s)
     u_mod_at_mw = []
     gamma_mod_at_mw = []
     u_mod_at_mw_avg = np.nan * np.ones((len(dg_z), len(dg_dac_mid)))
     gamma_mod_at_mw_avg = np.nan * np.ones((len(dg_z), len(dg_dac_mid)))
+    u_mod_off_at_mw = []
+    u_mod_off_at_mw_avg = np.nan * np.ones((len(dg_z), len(dg_dac_mid)))
     for i in range(len(dg_dac_mid)):
         # time/space bounds of m/w profiles
         # incomplete M
@@ -325,6 +329,8 @@ for master in range(np.shape(params)[0]):
         gamma_mod_at_mw.append(data_interp[:, this_ygs+1:this_yge, mtun:mtov])
         u_mod_at_mw_avg[:, i] = np.nanmean(np.nanmean(u_model[:, this_ygs+1:this_yge, mtun:mtov], axis=2), axis=1)
         gamma_mod_at_mw_avg[:, i] = np.nanmean(np.nanmean(data_interp[:, this_ygs+1:this_yge, mtun:mtov], axis=2), axis=1)
+        u_mod_off_at_mw.append(u_model_off[:, this_ygs + 1:this_yge, mtun:mtov])
+        u_mod_off_at_mw_avg[:, i] = np.nanmean(np.nanmean(u_model_off[:, this_ygs + 1:this_yge, mtun:mtov], axis=2), axis=1)
 
     # ------------------------------------------------------------------------------------------------------------------
     # transect plan view with DAC
@@ -624,6 +630,7 @@ for master in range(np.shape(params)[0]):
     v_g = v_g[:, ~np.isnan(v_g_0[30, :])]
     goodie = np.where(~np.isnan(v_g_0[30, :]))[0]
     u_mod_at_mw = u_mod_at_mw[goodie[0]:goodie[-1]+1]
+    u_mod_off_at_mw = u_mod_off_at_mw[goodie[0]:goodie[-1] + 1]
     gamma_mod_at_mw = gamma_mod_at_mw[goodie[0]:goodie[-1]+1]
     avg_sig_pd = avg_sig_pd[:, ~np.isnan(avg_sig_pd[30, :])]
     num_profs_eta = np.shape(avg_sig_pd)[1]
@@ -835,6 +842,8 @@ for master in range(np.shape(params)[0]):
 
     # # --- compute vertical mode shapes
     G, Gz, c, epsilon = vertical_modes(avg_N2, -1.0 * z_grid_n2, omega, mmax)  # N2
+    z_grid_n2_0 = z_grid_n2.copy()
+    G_0, Gz_0, c_0, epsilon_0 = vertical_modes(avg_N2, -1.0 * z_grid_n2, omega, mmax)  # N2
     print('Computed Vertical Modes from Background Profiles')
     # ---------------------------------------------------------------------------------------------------------------------
     # -- DG eta from individual profiles
@@ -981,19 +990,23 @@ for master in range(np.shape(params)[0]):
     # Model
     # select avg model profiles that coincide with dg velocity profiles in space and time
     avg_mod_u = u_mod_at_mw_avg[:, 1:-1]
+    avg_mod_u_off = u_mod_off_at_mw_avg[:, 1:-1]
     HKE_per_mass_model = np.nan * np.zeros([nmodes, np.shape(avg_mod_u)[1]])
     good_ke_prof = np.ones(np.shape(avg_mod_u)[1])
     AGz_model = np.zeros([nmodes, np.shape(avg_mod_u)[1]])
-    HKE_noise_threshold = 1e-5  # 1e-5
     V_m_model = np.nan * np.zeros((len(dg_z), np.shape(avg_mod_u)[1]))
-    # avg_mod_u = np.flipud(np.nanmean(u_out_s[:, in_range, :], axis=2))
+
+    HKE_per_mass_model_off = np.nan * np.zeros([nmodes, np.shape(avg_mod_u_off)[1]])
+    good_ke_prof_off = np.ones(np.shape(avg_mod_u_off)[1])
+    AGz_model_off = np.zeros([nmodes, np.shape(avg_mod_u_off)[1]])
+    V_m_model_off = np.nan * np.zeros((len(dg_z), np.shape(avg_mod_u_off)[1]))
+
+    HKE_noise_threshold = 1e-5  # 1e-5
     for i in range(np.shape(avg_mod_u)[1]):
         good = np.where(~np.isnan(avg_mod_u[:, i]))[0]
         avg_N2_match = np.interp(np.abs(dg_z[good]), np.abs(z_grid_n2), avg_N2)
-
         G, Gz, c, epsilon = vertical_modes(avg_N2_match, -1.0 * dg_z[good], omega, mmax)  # N2
-
-        # fit to velocity profiles
+        # - fit to velocity profiles
         this_V = avg_mod_u[good, i]
         iv = np.where(~np.isnan(this_V))
         if iv[0].size > 1:
@@ -1007,12 +1020,34 @@ for master in range(np.shape(params)[0]):
                 good_ke_prof[i] = 0  # flag profile as noisy
         else:
             good_ke_prof[i] = 0  # flag empty profile as noisy as well
+
+        # ---
+        # off transect velocity (for E/W transect this is E/W velocity)
+        good = np.where(~np.isnan(avg_mod_u_off[:, i]))[0]
+        avg_N2_match = np.interp(np.abs(dg_z[good]), np.abs(z_grid_n2), avg_N2)
+        G, Gz, c, epsilon = vertical_modes(avg_N2_match, -1.0 * dg_z[good], omega, mmax)  # N2
+        # - fit to velocity profiles
+        this_V = avg_mod_u_off[good, i]
+        iv = np.where(~np.isnan(this_V))
+        if iv[0].size > 1:
+            AGz_model_off[:, i] = np.squeeze(np.linalg.lstsq(np.squeeze(Gz[iv, :]), np.transpose(np.atleast_2d(this_V[iv])))[0])
+            # Gz(iv,:)\V_g(iv,ip)
+            V_m_model_off[good, i] = np.squeeze(np.matrix(Gz) * np.transpose(np.matrix(AGz_model_off[:, i])))
+            # Gz*AGz[:,i];
+            HKE_per_mass_model_off[:, i] = 0.5 * (AGz_model_off[:, i] * AGz_model_off[:, i])
+            ival = np.where(HKE_per_mass_model_off[modest, i] >= HKE_noise_threshold)
+            if np.size(ival) > 0:
+                good_ke_prof_off[i] = 0  # flag profile as noisy
+        else:
+            good_ke_prof_off[i] = 0  # flag empty profile as noisy as well
+
     # ----------------------------------------------------------------------------------------------------------------------
     # Model (instant)
     # if on, compute model ke spectrum over many many instantaneous model vel profiles
     if u_mod_all > 0:
         for m in range(len(u_mod_at_mw)):  # loop over each glider velocity
             this_mod_u = u_mod_at_mw[m]
+            this_mod_u_off = u_mod_off_at_mw[m]
             this_mod_gamma = gamma_mod_at_mw[m]  # set of density profiles spannning the single glider profile in space and time
             for mt in range(np.shape(this_mod_u)[2]):  # loop in time
                 # # PE
@@ -1033,14 +1068,22 @@ for master in range(np.shape(params)[0]):
                                                                                            (1, np.shape(this_model)[1]))
 
                 # KE
+                HKE_noise_threshold = 1e-5  # 1e-5
+
                 this_mod_u_sp = this_mod_u[good, :, mt]
                 HKE_per_mass_model_tot = np.nan * np.zeros([nmodes, np.shape(this_mod_u_sp)[1]])
                 good_ke_prof = np.ones(np.shape(this_mod_u_sp)[1])
                 AGz_model = np.zeros([nmodes, np.shape(this_mod_u_sp)[1]])
-                HKE_noise_threshold = 1e-5  # 1e-5
+                V_m_model_tot = np.nan * np.zeros((len(dg_z), np.shape(this_mod_u_sp)[1]))
+
+                this_mod_u_off_sp = this_mod_u_off[good, :, mt]
+                HKE_per_mass_model_off_tot = np.nan * np.zeros([nmodes, np.shape(this_mod_u_off_sp)[1]])
+                good_ke_prof_off = np.ones(np.shape(this_mod_u_off_sp)[1])
+                AGz_model_off = np.zeros([nmodes, np.shape(this_mod_u_off_sp)[1]])
+                V_m_model_off_tot = np.nan * np.zeros((len(dg_z), np.shape(this_mod_u_off_sp)[1]))
+
                 AG_model = np.zeros((nmodes, np.shape(eta_model)[1]))
                 PE_per_mass_model_tot = np.nan * np.ones((nmodes, np.shape(eta_model)[1]))
-                V_m_model_tot = np.nan * np.zeros((len(dg_z), np.shape(this_mod_u_sp)[1]))
                 eta_m_model_tot = np.nan * np.ones((len(dg_z), np.shape(eta_model)[1]))
 
                 for i in range(np.shape(this_mod_u_sp)[1]):
@@ -1079,12 +1122,29 @@ for master in range(np.shape(params)[0]):
                             good_ke_prof[i] = 0  # flag profile as noisy
                     else:
                         good_ke_prof[i] = 0  # flag empty profile as noisy as well
+
+                    # fit to velocity profiles offfff
+                    this_V = this_mod_u_off_sp[good, i]
+                    iv = np.where(~np.isnan(this_V))
+                    if iv[0].size > 1:
+                        AGz_model_off[:, i] = np.squeeze(np.linalg.lstsq(np.squeeze(Gz[iv, :]), np.transpose(np.atleast_2d(this_V[iv])))[0])
+                        # Gz(iv,:)\V_g(iv,ip)
+                        V_m_model_off_tot[good, i] = np.squeeze(np.matrix(Gz) * np.transpose(np.matrix(AGz_model_off[:, i])))
+                        # Gz*AGz[:,i];
+                        HKE_per_mass_model_off_tot[:, i] = 0.5 * (AGz_model_off[:, i] * AGz_model_off[:, i])
+                        ival = np.where(HKE_per_mass_model_off_tot[modest, i] >= HKE_noise_threshold)
+                        if np.size(ival) > 0:
+                            good_ke_prof_off[i] = 0  # flag profile as noisy
+                    else:
+                        good_ke_prof_off[i] = 0  # flag empty profile as noisy as well
                 print(str(mt))
                 if (m < 1) & (mt < 1):
                     HKE_mod_TOT = HKE_per_mass_model_tot.copy()
+                    HKE_mod_off_TOT = HKE_per_mass_model_off_tot.copy()
                     PE_mod_TOT = PE_per_mass_model_tot.copy()
                 else:
                     HKE_mod_TOT = np.concatenate((HKE_mod_TOT, HKE_per_mass_model_tot), axis=1)
+                    HKE_mod_off_TOT = np.concatenate((HKE_mod_off_TOT, HKE_per_mass_model_off_tot), axis=1)
                     PE_mod_TOT = np.concatenate((PE_mod_TOT, PE_per_mass_model_tot), axis=1)
     # ---------------------------------------------------------------------------------------------------------------------
     z_grid_f = z_grid_n2
@@ -1124,21 +1184,21 @@ for master in range(np.shape(params)[0]):
             my_dict = {'dg_z': dg_z, 'dg_v': v_g, 'model_u_at_mwv': u_mod_at_mw,
                        'model_u_at_mw_avg': avg_mod_u,
                        'shear_error': shear_error, 'igw_var': den_var, 'c': c,
-                       'KE_dg': HKE_per_mass_dg, 'KE_mod': HKE_per_mass_model,
+                       'KE_dg': HKE_per_mass_dg, 'KE_mod': HKE_per_mass_model, 'KE_mod_off': HKE_per_mass_model_off,
                        'eta_m_dg': eta_m_dg, 'PE_dg': PE_per_mass_dg,
                        'eta_m_dg_avg': eta_m_dg_sm, 'PE_dg_avg': PE_per_mass_dg_sm,
                        'eta_model': eta_m_model, 'PE_model': PE_per_mass_model,
                        'glide_slope': np.ones(np.shape(v_g)[1]) * dg_glide_slope,
                        'dg_w': np.ones(np.shape(v_g)[1]) * dg_vertical_speed,
                        'avg_N2': avg_N2, 'z_grid_n2': z_grid_n2,
-                       'KE_mod_ALL': HKE_mod_TOT, 'PE_mod_ALL': PE_mod_TOT}
+                       'KE_mod_ALL': HKE_mod_TOT, 'KE_mod_off_ALL': HKE_mod_off_TOT, 'PE_mod_ALL': PE_mod_TOT}
             output = open(output_filename, 'wb')
             pickle.dump(my_dict, output)
             output.close()
         else:
             my_dict = {'dg_z': dg_z, 'dg_v': v_g, 'model_u_at_mwv': u_mod_at_mw,
                        'model_u_at_mw_avg': avg_mod_u, 'shear_error': shear_error, 'igw_var': den_var, 'c': c,
-                       'KE_dg': HKE_per_mass_dg, 'KE_mod': HKE_per_mass_model,
+                       'KE_dg': HKE_per_mass_dg, 'KE_mod': HKE_per_mass_model, 'KE_mod_off': HKE_per_mass_model_off,
                        'eta_m_dg': eta_m_dg, 'PE_dg': PE_per_mass_dg,
                        'eta_m_dg_avg': eta_m_dg_sm, 'PE_dg_avg': PE_per_mass_dg_sm,
                        'eta_model': eta_m_model, 'PE_model': PE_per_mass_model,
@@ -1189,7 +1249,7 @@ if plan_plot:
                        borderpad=0,
                        )
     b_levels = np.arange(0, 3000, 500)
-    f.colorbar(bpc, cax=axins, ticks=b_levels, label='Depth [m]')
+    f.colorbar(bpc, cax=axins, ticks=b_levels, label='z [m]')
 
     ax.clabel(bc, inline_spacing=-3, fmt='%.4g', colors='k', fontsize=6)
     ax.scatter(D['lon_rho'][:], D['lat_rho'][:], 6, color='r', zorder=4)
@@ -1200,15 +1260,15 @@ if plan_plot:
     ax.set_ylabel(r'Latitude [$^{\circ}$]')
     ax.set_title('LiveOcean Domain and Glider Transect')
     plot_pro(ax)
-    # f.savefig("/Users/jake/Documents/glider_flight_sim_paper/roms_bathymetry_transect.png", dpi=300)
+    f.savefig("/Users/jake/Documents/glider_flight_sim_paper/roms_bathymetry_transect.png", dpi=300)
 # ---------------------------------------------------------------------------------------------------------------------
 # ---------------------------------------------------------------------------------------------------------------------
 # --- PLOTTING
 h_max = np.nanmax(dg_y/1000 + 20)  # horizontal domain limit
 z_max = -3150
-u_levels = np.array([-0.4, -0.3, -.25, - .2, -.15, -.125, -.1, -.075, -.05, -0.025, 0,
+u_levels = np.array([-0.35, -.25, - .2, -.15, -.125, -.1, -.075, -.05, -0.025, 0,
                      0.025, 0.05, 0.075, 0.1, 0.125, 0.15, 0.2, 0.25, 0.3, 0.4])
-u_levels_i = np.array([-0.4, -.25, -.15, -.1, -.05, 0, 0.05, 0.1, 0.15, 0.25, 0.4])
+u_levels_i = np.array([-0.4, -.25, -.15, -.1, -.05, 0, 0.05, 0.1, 0.15, 0.25, 0.35])
 if plot0 > 0:
     matplotlib.rcParams['figure.figsize'] = (13, 6)
     cmap = plt.cm.get_cmap("Spectral")
@@ -1229,12 +1289,12 @@ if plot0 > 0:
                   ' - ' + str(datetime.date.fromordinal(np.int(time_ord_s[-2]))) + ',  ' + str(t_tot) + 'hr. Model Avg. Velocity')
     handles, labels = ax1.get_legend_handles_labels()
     ax1.legend(handles, labels, fontsize=11)
-    plt.gcf().text(0.12, 0.02, 'glider vertical speed = ' + str(dg_vertical_speed) + ' m/s', fontsize=8)
+    plt.gcf().text(0.12, 0.0175, r'glider vertical speed = ' + str(dg_vertical_speed) + ' m s$^{-1}$', fontsize=8)
     plt.gcf().text(0.06, 0.92, 'a)', fontsize=12)
     plt.gcf().text(0.5, 0.92, 'b)', fontsize=12)
     ax1.set_ylim([z_max, 0])
     ax1.set_xlim([0, h_max])
-    ax1.set_xlabel('E/W distance [km]')
+    ax1.set_xlabel('Along-Transect Distance [km]')
     ax1.set_ylabel('z [m]')
     # plt.colorbar(uvcf, label='N/S Velocity [m/s]', ticks=u_levels)
     # ax1.grid()
@@ -1251,7 +1311,7 @@ if plot0 > 0:
 
     vh = ax2.contourf(np.tile(mw_y[1:-1]/1000, (len(z_grid), 1)), np.tile(dg_z[:, None], (1, len(mw_y[1:-1]))),
                  v_g, levels=u_levels, cmap=cmap)
-    f.colorbar(vh, cax=axins, ticks=u_levels_i, label='N/S Velocity [m/s]')
+    f.colorbar(vh, cax=axins, ticks=u_levels_i, label=r'Northward Velocity [m s$^{-1}$]')
     uvc = ax2.contour(np.tile(mw_y[1:-1]/1000, (len(z_grid), 1)), np.tile(dg_z[:, None], (1, len(mw_y[1:-1]))), v_g,
                       levels=u_levels, colors='k', linewidths=0.75)
     ax2.scatter(dg_y/1000, dg_z_g, 4, color='k')
@@ -1264,8 +1324,8 @@ if plot0 > 0:
     handles, labels = ax2.get_legend_handles_labels()
     ax2.legend(handles, labels, fontsize=11)
     ax2.set_xlim([0, h_max])
-    ax2.set_title(r'Cross-Track Glider Vel. u$_g$(x,z)')
-    ax2.set_xlabel('E/W distance [km]')
+    ax2.set_title(r'Cross-Track Glider Velocity u$_g$(x,z)')
+    ax2.set_xlabel('Along-Track Distance [km]')
     ax2.grid()
     plot_pro(ax2)
     if save_p > 0:
@@ -1360,31 +1420,32 @@ lab_y = [np.round(np.nanmin(isop_dep[0, :, 0]), 2), np.round(np.nanmin(isop_dep[
          np.round(np.nanmin(isop_dep[2, :, 0]), 2), np.round(np.nanmin(isop_dep[3, :, 0]), 2)]
 if plot_grad:
     matplotlib.rcParams['figure.figsize'] = (10, 7)
+    cmap = plt.cm.get_cmap("YlGnBu")
     f, ax = plt.subplots(4, 1, sharex=True)
     for i in range(len(deps)):
         ax[i].set_facecolor('#DCDCDC')
         for j in range(len(t_steps)):
-            ax[i].plot(xy_grid/1000, isop_dep[i, :, j], color=cmap(cmaps[j]))
-        ax[i].plot(xy_grid/1000, np.nanmean(isop_dep[i, :, :], axis=1), color='r', linestyle='--')
-        ax[i].scatter(dg_isop_xy[i, :]/1000, dg_isop_dep[i, :], s=40, color='k', zorder=10)
+            ax[i].plot(xy_grid/1000, isop_dep[i, :, j], color=cmap(cmaps[j]), linewidth=0.75)
+        ax[i].plot(xy_grid/1000, np.nanmean(isop_dep[i, :, :], axis=1), color='r', linestyle='-', linewidth=1.5)
+        ax[i].scatter(dg_isop_xy[i, :]/1000, dg_isop_dep[i, :], s=50, color='k', zorder=10)
 
         ax[i].plot([dg_y[0, 0]/1000, dg_y[0, 0]/1000], [20, 30], linestyle='--', color='k')
         ax[i].plot([dg_y[0, 1]/1000, dg_y[0, 1]/1000], [20, 30], linestyle='--', color='k')
         ax[i].plot([dg_y[0, 3]/1000, dg_y[0, 3]/1000], [20, 30], linestyle='--', color='k')
-        ax[i].text(12, lab_y[i], str(deps[i]) + 'm', fontweight='bold')
-        ax[i].plot(xy_grid[inn] / 1000, model_mean_isop[i, :], color='#FF8C00', linewidth=2)
-        ax[i].plot(dg_isop_xy[i, :] / 1000, dg_mean_isop[i, :], color='m', linewidth=2)
-        ax[i].text(h_max - 45, lab_y[i],
+        ax[i].text(12, lab_y[i], str(-1.0 * deps[i]) + 'm', fontweight='bold')
+        ax[i].plot(xy_grid[inn] / 1000, model_mean_isop[i, :], color='#FF8C00', linewidth=2.5)
+        ax[i].plot(dg_isop_xy[i, :] / 1000, dg_mean_isop[i, :], color='m', linewidth=2.5)
+        ax[i].text(h_max - 35, lab_y[i],
                    r'du$_g$/dz error = ' +
                    str(np.round(100.*np.abs((dg_isop_slope[i, 0] - model_isop_slope[i, 0])/model_isop_slope[i, 0]), 0))
                    + '%', fontweight='bold')
 
     ax[i].plot(xy_grid/1000, np.nanmean(isop_dep[i, :, :], axis=1),
-            color='r', linestyle='--', linewidth=1.3, label='avg. density over 2 dive-cycle period')
+            color='r', linestyle='-', linewidth=1.3, label='avg. density over 2 dive-cycle period')
     handles, labels = ax[3].get_legend_handles_labels()
     ax[3].legend(handles, labels, fontsize=12)
     ax[0].set_ylabel('Neutral Density')
-    ax[0].set_title(r'Density along z=z$_i$')
+    ax[0].set_title(r'Density along z = -250,-1000,-1500,-2000 [m]')
     ax[0].set_ylim([np.round(np.nanmin(isop_dep[0, :, 0]), 2) - 0.1, np.round(np.nanmax(isop_dep[0, :, 0]), 2) + 0.1])
     ax[0].invert_yaxis()
     ax[0].grid()
@@ -1407,38 +1468,46 @@ if plot_grad:
 # ----------------------------------------------------------------------------------------------------------------------
 # --- PLOT DENSITY ANOMALIES, ETA, AND VELOCITIES
 if plot_anom:
-    f, (ax1, ax2, ax3) = plt.subplots(1, 3, sharey=True)
-    for i in range(np.shape(dg_sig0)[1]):
-        ax1.plot(dg_sig0[0:len(avg_sig0)-1, i] - avg_sig0[1:], z_grid_n2[1:])
-    ax1.grid()
-    ax1.set_xlim([-.5, .5])
-    ax1.set_ylim([z_max, 0])
-    ax1.set_ylabel('Z [m]')
-    ax1.set_xlabel('Density Anomaly')
-    ax1.set_title('Density Anomaly')
+    mode_col = '#A9A9A9'
+    matplotlib.rcParams['figure.figsize'] = (7, 8)
+    f, (ax2, ax3) = plt.subplots(1, 2, sharey=True)
+    ax2.plot(G_0[:, 1]/20, z_grid_n2_0, linewidth=0.5, color=mode_col, zorder=0)
+    ax2.plot(G_0[:, 2]/20, z_grid_n2_0, linewidth=0.5, color=mode_col, zorder=0)
+    ax2.plot(G_0[:, 3]/20, z_grid_n2_0, linewidth=0.5, color=mode_col, zorder=0)
     for i in range(np.shape(eta_sm)[1]):
-        ax2.plot(eta_sm[:, i], dg_z, color='#4682B4', linewidth=1.25, label='DG')
-        ax2.plot(eta_m_dg_sm[:, i], dg_z, color='k', linestyle='--', linewidth=.75)
-        ax2.plot(eta_model[0:-20, i + 1], dg_z[0:-20], linewidth=0.5, color='r', label='Model')
-    ax2.grid()
+        ax2.plot(eta_sm[(dg_z < -10) & (dg_z > -2750), i], dg_z[(dg_z < -10) & (dg_z > -2750)],
+                 color='#4682B4', linewidth=1.5, label=r'glider $\xi$, |w| = 0.1 m s$^{-1}$', zorder=1)
+        # ax2.plot(eta_m_dg_sm[(dg_z < -200) & (dg_z > -2750), i], dg_z[(dg_z < -200) & (dg_z > -2750)], color='k', linestyle='--', linewidth=.75)
+        ax2.plot(eta_model[(dg_z < -10) & (dg_z > -2750), i + 1], dg_z[(dg_z < -10) & (dg_z > -2750)],
+                 linewidth=1, color='r', label=r'model $\overline{\xi_{model}}$', zorder=1)
     handles, labels = ax2.get_legend_handles_labels()
     ax2.legend([handles[-2], handles[-1]], [labels[-2], labels[-1]], fontsize=10)
-    ax2.set_xlabel('Isopycnal Displacement [m]')
+    ax2.set_xlabel(r'Isopycnal Displacement $\xi$ [m]')
     ax2.set_title('Vertical Displacement')
+    ax2.set_ylabel('z [m]')
+    ax2.set_xlim([-150, 150])
+    ax2.set_ylim([-3000, 0])
+    ax2.grid()
 
+    ax3.plot(Gz_0[:, 1]/10, z_grid_n2_0, linewidth=0.5, color=mode_col, zorder=0)
+    ax3.plot(Gz_0[:, 2]/10, z_grid_n2_0, linewidth=0.5, color=mode_col, zorder=0)
+    ax3.plot(Gz_0[:, 3]/10, z_grid_n2_0, linewidth=0.5, color=mode_col, zorder=0)
     for i in range(np.shape(v_g)[1]):
-        ax3.plot(v_g[:, i], dg_z, color='#4682B4', linewidth=1.25, label='DG')
-        ax3.plot(V_m[:, i], dg_z, color='k', linestyle='--', linewidth=.75)
-        ax3.plot(avg_mod_u[0:-20, i], dg_z[0:-20], color='r', linewidth=0.5, label='Model')
-    handles, labels = ax2.get_legend_handles_labels()
-    ax2.legend([handles[-2], handles[-1]], [labels[-2], labels[-1]], fontsize=10)
-    ax2.set_xlim([-200, 200])
+        ax3.plot(v_g[:, i], dg_z, color='#4682B4', linewidth=1.5, label=r'glider $u_g$, |w| = 0.1 m s$^{-1}$',zorder=2)
+        # ax3.plot(V_m[:, i], dg_z, color='k', linestyle='--', linewidth=.75)
+        ax3.plot(avg_mod_u[0:-20, i], dg_z[0:-20], color='r', linewidth=1, label=r'model $\overline{u_{model}}$',zorder=2)
+    handles, labels = ax3.get_legend_handles_labels()
+    ax3.legend([handles[-2], handles[-1]], [labels[-2], labels[-1]], fontsize=10)
     ax3.set_xlim([-.4, .4])
-    ax3.set_title('Model and DG Velocity (u)')
-    ax3.set_xlabel('Velocity [m/s]')
+    ax3.set_title('Cross-Track Geostrophic Velocity')
+    ax3.set_xlabel(r'Geostrophic Velocity [m s$^{-1}$]')
+
+    plt.gcf().text(0.06, 0.92, 'a)', fontsize=12)
+    plt.gcf().text(0.5, 0.92, 'b)', fontsize=12)
+
     plot_pro(ax3)
-    if save_p > 0:
-        f.savefig("/Users/jake/Documents/baroclinic_modes/Meetings/meeting_19_06_13/model_ind_vel_eta.png", dpi=200)
+    if save_samp > 0:
+        f.savefig('/Users/jake/Documents/glider_flight_sim_paper/lo_mod_dg_samp.png', dpi=200)
 
 # --- PLOT ENERGY SPECTRA
 mm = 10

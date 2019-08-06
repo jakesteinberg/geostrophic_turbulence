@@ -76,6 +76,8 @@ x = Glider(35, np.arange(gs, ge + 1), '/Users/jake/Documents/baroclinic_modes/DG
 # Test alternate density computation
 import_dg = si.loadmat('/Users/jake/Documents/baroclinic_modes/sg035_2015_neutral_density_bin.mat')
 dg_data = import_dg['out']
+lon = dg_data['Lon'][0][0][0:limm, d_in]
+lat = dg_data['Lat'][0][0][0:limm, d_in]
 limm = 450
 profile_tags = dg_data['prof_number'][0][0][0]
 if profile_tags[0] == gs:
@@ -1873,10 +1875,7 @@ for i in range(4):
     seasonal_PE_output[1:, i] = np.nanmean(PE_per_mass_0[1:, inn], axis=1) / dk
     seasonal_KE_output[1:, i] = np.nanmean(HKE_per_mass_0[1:, inn], axis=1) / dk
     seasonal_KE_output[0, i] = np.nanmean(HKE_per_mass_0[:, inn], axis=1)[0] / dk
-ax1.plot([7 * 10**-3, 7 * 10**-1], [10**3, 10**-3], color='k', linewidth=0.5)
-ax1.text(3*10**-1, 2*10**-3, '-3', fontsize=10)
-ax1.plot([10**-2, 10**1], [3*10**2, 3*10**-4], color='k', linewidth=0.5)
-ax1.text(2*10**0, 3*10**-3, '-2', fontsize=10)
+
 ax2.plot([7 * 10**-3, 7 * 10**-1], [10**3, 10**-3], color='k', linewidth=0.5)
 ax2.text(3*10**-1, 2*10**-3, '-3', fontsize=10)
 ax2.plot([10**-2, 10**1], [3*10**2, 3*10**-4], color='k', linewidth=0.5)

@@ -20,11 +20,11 @@ from zrfun import get_basic_info, get_z
 
 # -- BATS --
 # pp = '1'
-# filename = 'HYCOM_hrly_b_3087N_214_01_228_00'  # E_W profile 1
+filename = 'HYCOM_hrly_b_3087N_214_01_228_00'  # E_W profile 1
 # filename = 'HYCOM_hrly_b_6336W_214_01_228_00'  # N_S profile 1
 pp = '2'
 # filename = 'HYCOM_hrly_b_3128N_214_01_228_00'  # E_W profile 2
-filename = 'HYCOM_hrly_b_6376W_214_01_228_00'  # N_S profile 2
+# filename = 'HYCOM_hrly_b_6376W_214_01_228_00'  # N_S profile 2
 
 # -- 36N,65W --
 # pp = '1'
@@ -114,7 +114,7 @@ save_v = 0
 save_rho = 0
 
 # use these settings as the background to compute instant model fields (use n/s transect)
-params = np.array([[0.06, 2, 4, 10000, 154]])
+params = np.array([[0.06, 3, 4, 10000, 10]])
 u_mod_all = 1
 # if on, compute model pe/ke spectrum over many many instantaneous model vel profiles
 
@@ -233,11 +233,11 @@ for master in range(np.shape(params)[0]):
           str(np.int((dg_t[0, -1] - np.floor(dg_t_e)) * 24))
     # save filename
     if E_W > 0:
-        output_filename = '/Users/jake/Documents/baroclinic_modes/Model/HYCOM/simulated_dg_velocities_bats/gs_2/ve_bew' + \
+        output_filename = '/Users/jake/Documents/baroclinic_modes/Model/HYCOM/simulated_dg_velocities_bats/ve_bew' + \
                           pp + '_v' + str(np.int(100*dg_vertical_speed)) + '_slp' + str(np.int(dg_glide_slope)) + \
                           '_y' + str(np.int(y_dg_s/1000)) + '_' + tag + '.pkl'
     else:
-        output_filename = '/Users/jake/Documents/baroclinic_modes/Model/HYCOM/simulated_dg_velocities_bats/gs_2/ve_bns' + \
+        output_filename = '/Users/jake/Documents/baroclinic_modes/Model/HYCOM/simulated_dg_velocities_bats/ve_bns' + \
                           pp + '_v' + str(np.int(100 * dg_vertical_speed)) + '_slp' + str(np.int(dg_glide_slope)) + \
                           '_y' + str(np.int(y_dg_s/1000)) + '_' + tag + '.pkl'
 

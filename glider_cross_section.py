@@ -820,16 +820,27 @@ class Glider(object):
         cmap = plt.cm.get_cmap("Blues_r")
         cmap.set_over('#808000')  # ('#E6E6E6')
 
+        # plot all dives under single transect
+        import scipy.io as si
+        from mpl_toolkits.axes_grid1 import make_axes_locatable
+        import_dg = si.loadmat('/Users/jake/Documents/baroclinic_modes/sg035_2015_neutral_density_bin.mat')
+        dg_data = import_dg['out']
+        lon_all = np.nanmean(dg_data['Lon'][0][0], axis=0)
+        lat_all = np.nanmean(dg_data['Lat'][0][0], axis=0)
+
         fig, ax = plt.subplots()
         bc = ax.contourf(bath_lon, bath_lat, bath_z, levels, cmap='Blues_r', extend='both', zorder=0)
         matplotlib.rcParams['contour.negative_linestyle'] = 'solid'
-        # ax.plot(mwe_lon, mwe_lat, color='k')
-        ax.scatter(lon, lat, s=2, color='#FF8C00')
-        ax.scatter(mwe_lon, mwe_lat, s=10, color='#8B0000')
+        ax.plot(lon_all, lat_all, linewidth=0.5, color='#A9A9A9', zorder=1)
+        ax.scatter(lon, lat, s=2, color='#FF8C00', zorder=2)
+        ax.scatter(mwe_lon, mwe_lat, s=10, color='#8B0000', zorder=3)
         for i in range(0, len(mwe_lat)-1, 2):
-            ax.text(mwe_lon[i] - 0.1, mwe_lat[i] + 0.02, str(np.int(profile_tags[i])), color='#00FA9A',
-                    fontsize=10, fontweight='bold')
-        ax.quiver(mwe_lon, mwe_lat, dac_u, dac_v, color='r', scale=1.1, headwidth=2, headlength=2, width=.0025)
+            ax.text(mwe_lon[i] - 0.1, mwe_lat[i] + 0.085, str(np.int(profile_tags[i])), color='#00FA9A',
+                    fontsize=11, fontweight='bold', zorder=3)
+        ax.quiver(mwe_lon, mwe_lat, dac_u, dac_v, color='r', scale=1,
+                  headwidth=3, headlength=3, width=.0035, zorder=4)
+        ax.quiver(-65.8, 31.2, 0.1, 0, color='r', scale=1, headwidth=3, headlength=3, width=.0035, zorder=4)
+        ax.text(-65.8, 31.08, '0.1 m/s', fontsize=8, color='w')
         w = 1 / np.cos(np.deg2rad(ref_lat))
         ax.axis(limits)
         ax.set_aspect(w)
@@ -839,6 +850,9 @@ class Glider(object):
             t_s.month) + '/' + np.str(t_s.day) + ' - ' + np.str(t_e.month) + '/' + np.str(t_e.day), fontsize=14)
         ax.set_xlabel('Lon')
         ax.set_ylabel('Lat')
+        divider = make_axes_locatable(ax)
+        cax = divider.append_axes("right", size="5%", pad=0.01)
+        fig.colorbar(bc, cax=cax, label='[m]')
         ax.grid()
         plot_pro(ax)
         return fig
@@ -1017,9 +1031,12 @@ class Glider(object):
                                     lon[j, c_i_m_in] - lon[0, c_i_m_in[0]])  # E
                             yMj = 1.852 * 60 * (lat[j, c_i_m_in] - lat[0, c_i_m_in[0]])  # N
                             ax.scatter(x_ds, y_ds, 4, color='k', label='glider path through water', zorder=0)
-                            ax.scatter(x_ds[15, :], y_ds[15, :], color='k', s=50)
+                            ax.scatter(x_ds[15, :], y_ds[15, :], color='k', s=50, zorder=1)
                             ax.scatter(xMj, yMj, color='r', s=120, label='density obs. at 2000m', zorder=1)
-                            ax.plot(xMj, yMj, color='r', zorder=0)
+                            ax.plot(xMj, yMj, color='r', linewidth=1, zorder=1)
+                            for pn in range(len(xMj)):
+                                ax.text(xMj[pn] - 2, yMj[pn] - 4, str(profile_tags[c_i_m[pn]]),
+                                        color='r', fontweight='bold')
                             # location of this velocity profile
                             if i < order_set[-1]:
                                 me_lon = lon[np.where(np.isfinite(lon[:, i]))[0], i][-1]
@@ -1035,8 +1052,8 @@ class Glider(object):
                             # ax.text(x_pr, y_pr + 1, profile_tags[i])
                             # vectors
                             testx, testy = pol2cart(1, ang_sfc_m)
-                            ax.quiver(x_pr, y_pr, testx, testy, color='g', scale=4)  # dives dir
-                            ax.quiver(-30, 0, testx*.3, 0, color='g', scale=4, zorder=2)
+                            ax.quiver(x_pr, y_pr, testx, testy, color='g', scale=4, zorder=3)  # dives dir
+                            ax.quiver(-30, 0, testx*.3, 0, color='g', scale=4, zorder=3)
                             ax.text(-28, 0, 'avg. along-track dir.')
                             # ax.quiver(x_pr, y_pr, drhodxM, drhodyM, color='g', scale=.01,
                             #           label='den. grad. dir.')  # den gradient dir
@@ -1048,10 +1065,11 @@ class Glider(object):
                             ax.text(-28, -2.5, 'shear to port')
 
                             # cross-track shear projected into E
-                            ax.quiver(x_pr, y_pr, shear_x_M[j], 0, color='b', scale=.125)
+                            # ax.quiver(x_pr, y_pr, shear_x_M[j], 0, color='b', scale=.125)
 
                             # cross-track shear projected into N
-                            ax.quiver(x_pr, y_pr, 0, shear_y_M[j], color='b', scale=.125)
+                            # ax.quiver(x_pr, y_pr, 0, shear_y_M[j], color='b', scale=.125)
+
                             ax.set_title('M/W schematic at 2000m, ' + 'profiles in estimation = ' +
                                          str(profile_tags[c_i_m[0]]) + ' - ' + str(profile_tags[c_i_m[-1]]))
                             ax.axis(
@@ -1064,7 +1082,8 @@ class Glider(object):
                             # plot_pro(ax)
                             fna = 'grad_schem_' + str(i)
                             ax.grid()
-                            f.savefig("/Users/jake/Documents/glider_flight_sim_paper/" + fna + ".jpeg", dpi=450)
+                            f.savefig("/Users/jake/Documents/glider_flight_sim_paper/gradient_schematics/" +
+                                      fna + ".jpeg", dpi=450)
 
                 # for W profile compute shear and eta
                 if nw > 2 and np.size(sig0[j, c_i_w]) > 2:
