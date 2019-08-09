@@ -87,16 +87,16 @@ else:
 if profile_tags[-1] == ge + 0.5:
     last = len(profile_tags)
 else:
-    last = np.where(profile_tags > ge)[0][0] - 1
-d_in = range(first, last)
+    last = np.where(profile_tags > ge)[0][0]
+d_in = range(first, last + 1)
 profile_tags = profile_tags[d_in]
 neutral_density = dg_data['Neut_den'][0][0][0:limm, d_in]
 t = dg_data['Temp'][0][0][0:limm, d_in]
 s = dg_data['Sal'][0][0][0:limm, d_in]
 lon = dg_data['Lon'][0][0][0:limm, d_in]
 lat = dg_data['Lat'][0][0][0:limm, d_in]
-dac_u = dg_data['Dac_u'][0][0][0]
-dac_v = dg_data['Dac_v'][0][0][0]
+dac_u = dg_data['Dac_u'][0][0][0][d_in]
+dac_v = dg_data['Dac_v'][0][0][0][d_in]
 d_time = dg_data['Time'][0][0][0:limm, d_in] - 366
 ref_lat = np.nanmean(lat)
 time_rec_bin = np.nanmean(d_time, axis=0)

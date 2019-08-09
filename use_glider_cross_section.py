@@ -25,9 +25,19 @@ from toolkit import plot_pro
 # x = Glider(35, np.concatenate((np.arange(123, 126), np.array([127]))), '/Users/jake/Documents/baroclinic_modes/DG/BATS_2014/sg035')
 # x = Glider(35, np.arange(123, 126), '/Users/jake/Documents/baroclinic_modes/DG/BATS_2014/sg035')
 # ---- DG BATS 2015
-x = Glider(35, np.arange(132, 136), '/Users/jake/Documents/baroclinic_modes/DG/BATS_2015/sg035')  # 114,117
+# x = Glider(35, np.arange(132, 136), '/Users/jake/Documents/baroclinic_modes/DG/BATS_2015/sg035')  # 114,117
 # ---- DG BATS 2018
 # x = Glider(41, np.arange(158, 162), '/Users/jake/Documents/baroclinic_modes/DG/BATS_2018/sg041')
+# ---- DG LDE 2019 (sg037)
+# x = Glider(37, np.arange(46, 58), '/Users/jake/Documents/seaglider/dg037_bermuda_19/')
+# box = np.array([[30.595, 69.9725], [31.405, 69.9725], [31.405, 69.0275], [30.595, 69.0275]])  # SW, NW, NE, SE (corners)
+# box_mid = np.array([[30.595, 69.5], [31, 69.9725], [31.405, 69.5], [31, 69.0275]])  # S, W, N, E (mids)
+# bbi = [1, box, box_mid]
+# ---- DG 36N 2019 (sg037)
+x = Glider(45, np.arange(47, 61), '/Users/jake/Documents/seaglider/dg045_bermuda_19/')
+box = np.array([[35.595, 65.5005], [36.405, 65.5005], [36.405, 64.4995], [35.595, 64.4995]])  # SW, NW, NE, SE (corners)
+box_mid = np.array([[35.595, 65.0], [36.0, 65.5005], [36.405, 65.0], [36.0, 64.4995]])  # S, W, N, E (mids)
+bbi = [1, box, box_mid]
 
 # -- match max dive depth to bin_depth
 # GD = Dataset('BATs_2015_gridded_apr04.nc', 'r')
@@ -36,7 +46,7 @@ x = Glider(35, np.arange(132, 136), '/Users/jake/Documents/baroclinic_modes/DG/B
 # bin_depth = np.concatenate((np.arange(0, 300, 5), np.arange(300, 1000, 10), np.arange(1000, 2700, 20)))  # deeper
 # bin_depth = np.concatenate((np.arange(0, 300, 5), np.arange(300, 1000, 10), np.arange(1000, 1780, 20)))  # shallower
 # bin_depth = np.concatenate((np.arange(0, 300, 5), np.arange(300, 1000, 10), np.arange(1000, 4710, 20)))  # shallower
-bin_depth = np.concatenate((np.arange(0, 300, 5), np.arange(300, 1000, 10), np.arange(1000, 5000, 20)))  # 36N
+bin_depth = np.concatenate((np.arange(0, 300, 5), np.arange(300, 1000, 10), np.arange(1000, 5200, 20)))  # 36N
 
 # -----------------------------------------------------------------------------------------------
 # vertical bin averaging separation of dive-climb cycle into two profiles (extractions from nc files)
@@ -77,7 +87,7 @@ sa, ct, theta, sig0, sig2, N2 = x.density(bin_depth, ref_lat, t, s, lon, lat)
 # compute M/W sections and compute velocity
 sigth_levels = np.concatenate(
     [np.arange(23, 25.4, 0.4), np.arange(26.2, 27.2, 0.2),
-     np.arange(27.2, 27.8, 0.2), np.arange(27.72, 27.8, 0.02), np.arange(27.8, 27.9, 0.01)])
+     np.arange(27.2, 27.8, 0.2), np.arange(27.72, 27.8, 0.02), np.arange(27.8, 27.89, 0.01), np.array([27.885])])
 # sigth_levels = np.concatenate(
 #     [np.arange(23, 26.5, 0.5), np.arange(26.2, 27.2, 0.2),
 #      np.arange(27.2, 27.7, 0.2), np.arange(27.7, 28, 0.02), np.arange(28, 28.15, 0.01)])
@@ -86,22 +96,24 @@ sigth_levels = np.concatenate(
 # isopycdep, isopycx, mwe_lon, mwe_lat, DACe_MW, DACn_MW, profile_tags_per = \
 #     x.transect_cross_section_1(bin_depth, sig0, ct, sa, lon, lat, dac_u, dac_v, profile_tags, sigth_levels)
 # use this one
-# ds, dist, avg_ct_per_dep_0, avg_sa_per_dep_0, avg_sig0_per_dep_0, v_g, vbt, \
-# isopycdep, isopycx, mwe_lon, mwe_lat, DACe_MW, DACn_MW, profile_tags_per, shear, v_g_east, v_g_north = \
-#     x.transect_cross_section_1(bin_depth, sig0, ct, sa, lon, lat, dac_u, dac_v, profile_tags, sigth_levels)
+ds, dist, avg_ct_per_dep_0, avg_sa_per_dep_0, avg_sig0_per_dep_0, v_g, vbt, \
+isopycdep, isopycx, mwe_lon, mwe_lat, DACe_MW, DACn_MW, profile_tags_per, shear, box_side, v_g_east, v_g_north = \
+    x.transect_cross_section_1(bin_depth, sig0, ct, sa, lon, lat, dac_u, dac_v, profile_tags, sigth_levels, bbi)
+# note box_side can be switch for shear_dir (applicable for BATS butterfly pattern, along/across slope flow)
+
 # --- for single transects
-ds, dist, v_g, vbt, isopycdep, isopycx, mwe_lon, mwe_lat, DACe_MW, DACn_MW, profile_tags_per = \
-    x.transect_cross_section_0(bin_depth, sig0, lon, lat, dac_u, dac_v, profile_tags, sigth_levels)
+# ds, dist, v_g, vbt, isopycdep, isopycx, mwe_lon, mwe_lat, DACe_MW, DACn_MW, profile_tags_per = \
+#     x.transect_cross_section_0(bin_depth, sig0, lon, lat, dac_u, dac_v, profile_tags, sigth_levels)
 
 # -----------------------------------------------------------------------------------------------
 # PLOTTING cross section
 u_levels = np.arange(-.4, .44, .04)
 # choose which transect
-# transect_no = 0
-# x.plot_cross_section(bin_depth, ds[transect_no], v_g[transect_no], dist[transect_no],
-#                      profile_tags_per[transect_no], isopycdep[transect_no], isopycx[transect_no],
-#                      sigth_levels, d_time, u_levels)
-fig0 = x.plot_cross_section(bin_depth, ds, v_g, dist, profile_tags_per, isopycdep, isopycx, sigth_levels, d_time, u_levels)
+transect_no = 1
+x.plot_cross_section(bin_depth, ds[transect_no], v_g[transect_no], dist[transect_no],
+                     profile_tags_per[transect_no], isopycdep[transect_no], isopycx[transect_no],
+                     sigth_levels, d_time, u_levels)
+# fig0 = x.plot_cross_section(bin_depth, ds, v_g, dist, profile_tags_per, isopycdep, isopycx, sigth_levels, d_time, u_levels)
 
 # fig0.savefig("/Users/jake/Documents/glider_flight_sim_paper/sample_cross.jpeg", dpi=300)
 # -----------------------------------------------------------------------------------------------
@@ -115,21 +127,24 @@ fig0 = x.plot_cross_section(bin_depth, ds, v_g, dist, profile_tags_per, isopycde
 # plan_window = [-77.5, -73.5, 25.5, 27]
 # BATS
 # bathy_path = '/Users/jake/Desktop/bats/bats_bathymetry/GEBCO_2014_2D_-67.7_29.8_-59.9_34.8.nc'
-bathy_path = '/Users/jake/Desktop/bats/bats_bathymetry/bathymetry_b38e_27c7_f8c3_f3d6_790d_30c7.nc'
-plan_window = [-66, -63, 31, 33]
+# bathy_path = '/Users/jake/Desktop/bats/bats_bathymetry/bathymetry_b38e_27c7_f8c3_f3d6_790d_30c7.nc'
+# plan_window = [-66, -63, 31, 33]
 # plan_window = [-66, -63, 32, 37]
 # bath_fid = Dataset(bathy_path, 'r')
+# LDE
+bathy_path = '/Users/jake/Desktop/bats/bats_bathymetry/bathymetry_b38e_27c7_f8c3_f3d6_790d_30c7.nc'
+plan_window = [-67, -63, 35, 37]
 
 # from netCDF4 import Dataset
 # bath_fid = Dataset(bathy_path, 'r')
 
 # --- for combined set of transects ---
-# x.plot_plan_view(lon, lat, mwe_lon[transect_no], mwe_lat[transect_no],
-#                  DACe_MW[transect_no], DACn_MW[transect_no],
-#                  ref_lat, profile_tags_per[transect_no], d_time, plan_window, bathy_path)
+x.plot_plan_view(lon, lat, mwe_lon[transect_no], mwe_lat[transect_no],
+                 DACe_MW[transect_no], DACn_MW[transect_no],
+                 ref_lat, profile_tags_per[transect_no], d_time, plan_window, bathy_path)
 # --- for single transect ---
-fig1 = x.plot_plan_view(lon, lat, mwe_lon, mwe_lat, DACe_MW, DACn_MW,
-                 ref_lat, profile_tags_per, d_time, plan_window, bathy_path)
+# fig1 = x.plot_plan_view(lon, lat, mwe_lon, mwe_lat, DACe_MW, DACn_MW,
+#                  ref_lat, profile_tags_per, d_time, plan_window, bathy_path)
 
 # plot t/s
 # x.plot_t_s(ct, sa)
@@ -159,6 +174,7 @@ fig1 = x.plot_plan_view(lon, lat, mwe_lon, mwe_lat, DACe_MW, DACn_MW,
 #         expect = v + step
 #     return result
 #
+#
 # # separate dives into unique transects
 # target_test = 1000000 * x.target[:, 0] + np.round(x.target[:, 1], 3)
 # unique_targets = np.unique(target_test)
@@ -167,6 +183,31 @@ fig1 = x.plot_plan_view(lon, lat, mwe_lon, mwe_lat, DACe_MW, DACn_MW,
 #     indices = np.where(target_test == unique_targets[m])[0]
 #     if len(indices) > 1:
 #         transects.append(group_consecutives(indices, step=1))
+
+# # loop over each target (if S, W, N, E ... need to assign new target)
+# new_target = np.nan * np.ones(np.shape(x.target))
+# for i in range(np.shape(x.target)[0]):
+#     this_target = np.tile(x.target[i, :], (np.shape(box)[0], 1))
+#     target_diff = box_mid - this_target
+#     target_tag = np.where(np.abs(np.nansum(target_diff, 1)) < 0.0001)[0]
+#     if len(target_tag) > 0:
+#         target_tag = target_tag[0]
+#         if target_tag == 0:  # target is S, want SE
+#             new_target[i, :] = box[0, :]
+#         elif target_tag == 1:
+#             new_target[i, :] = box[1, :]
+#         elif target_tag == 2:
+#             new_target[i, :] = box[2, :]
+#         elif target_tag == 3:
+#             new_target[i, :] = box[3, :]
+#     else:
+#         new_target[i, :] = x.target[i, :]
+
+# attempt at reading target files
+# with open("file.txt", "r") as ins:
+#     array = []
+#     for line in ins:
+#         array.append(line)
 
 # ds_out = []
 # dist_out = []

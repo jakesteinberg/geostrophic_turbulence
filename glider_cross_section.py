@@ -240,7 +240,7 @@ class Glider(object):
     # glider target changes (when it reaches a targets and begins to head towards a new one). If transects are repeated,
     # each occupation of the line is treated as its own transect
     def transect_cross_section_1(self, bin_depth, sig0_0, ct_0, sa_0,
-                                 lon_0, lat_0, dac_u_0, dac_v_0, profile_tags_0, sigth_levels):
+                                 lon_0, lat_0, dac_u_0, dac_v_0, profile_tags_0, sigth_levels, box_box_info):
         deep_shr_max = 0.1
         deep_shr_max_dep = 3500
         # -- for computation of eta (reference to average density profile and gradient of average density profile
@@ -265,8 +265,44 @@ class Glider(object):
                 expect = v + step
             return result
 
-        # separate dives into unique transects
-        target_test = 1000000 * self.target[:, 0] + np.round(self.target[:, 1], 3)
+        # if box pattern with midpoint box targets
+        box_box = box_box_info[0]
+        if box_box > 0:
+            box = box_box_info[1]
+            box_mid = box_box_info[2]
+            # this technique needs box corners and box midpoints (it is arranged for clockwise adjustment)
+            # loop over each target (if S, W, N, E ... need to assign new target)
+            new_target = np.nan * np.ones(np.shape(self.target))
+            box_side_0 = np.nan * np.ones(np.shape(self.target)[0])
+            for i in range(np.shape(self.target)[0]):
+                this_target = np.tile(self.target[i, :], (np.shape(box)[0], 1))
+                target_diff = box_mid - this_target
+                target_tag = np.where(np.abs(np.nansum(target_diff, 1)) < 0.0001)[0]
+                if len(target_tag) > 0:
+                    target_tag = target_tag[0]
+                    if target_tag == 0:  # target is S, want SE (this is southern box side)
+                        new_target[i, :] = box[0, :]
+                        box_side_0[i] = 0
+                    elif target_tag == 1:  # western box side
+                        new_target[i, :] = box[1, :]
+                        box_side_0[i] = 1
+                    elif target_tag == 2:  # northern box side
+                        new_target[i, :] = box[2, :]
+                        box_side_0[i] = 2
+                    elif target_tag == 3:  # eastern box side
+                        new_target[i, :] = box[3, :]
+                        box_side_0[i] = 3
+                else:
+                    new_target[i, :] = self.target[i, :]
+            target_test = 1000000 * new_target[:, 0] + np.round(new_target[:, 1], 3)
+        else:
+            # separate dives into unique transects
+            target_test = 1000000 * self.target[:, 0] + np.round(self.target[:, 1], 3)
+            box_side = -999
+
+        target_test = np.round(target_test, decimals=3)
+
+        # collect unique transects and sort to process M/W scheme in chunks
         unique_targets = np.unique(target_test)
         transects = []
         for m in range(len(unique_targets)):
@@ -300,9 +336,11 @@ class Glider(object):
         DACn_MW_out = []
         profile_tags_out = []
         info_out = []
+        box_side = []
         for n in range(len(transects)):  # loop over all transect segments
             print('transects = ' + str(transects[n]))
             for o in range(len(transects[n])):  # loop over all times a glider executed that segment
+                box_side.append(np.nanmean(box_side_0[transects[n][o]]))
                 this_transect = transects[n][o]
                 print(this_transect)
                 index_start = 2 * this_transect[0]
@@ -741,8 +779,8 @@ class Glider(object):
             # everywhere there is a len(profile_tags) there was a self.num_profs
 
         return ds_out, dist_out, avg_ct_out, avg_sa_out, avg_sig_out, v_g_out, vbt_out, isopycdep_out, isopycx_out, \
-            mwe_lon_out, mwe_lat_out, DACe_MW_out, DACn_MW_out, profile_tags_out, shear_out, v_g_dir_out, \
-               v_g_east_out, v_g_north_out,
+            mwe_lon_out, mwe_lat_out, DACe_MW_out, DACn_MW_out, profile_tags_out, shear_out, box_side, \
+               v_g_east_out, v_g_north_out
 
     def plot_cross_section(self, bin_depth, ds, v_g, dist, profile_tags, isopycdep, isopycx, sigth_levels, time, levels):
             sns.set(context="notebook", style="whitegrid", rc={"axes.axisbelow": False})
@@ -816,7 +854,7 @@ class Glider(object):
             bath_z = bath_fid.variables['z'][:]
         elif 'elevation' in bath_fid.variables:
             bath_z = bath_fid.variables['elevation'][:]
-        levels = [-5000, -4500, -4000, -3500, -3000, -2500, -2000, -1500, -1000, -500, 5]
+        levels = [-5500, -5250, -5000, -4500, -4250, -4000, -3500, -3000, -2500, -2000, -1500, -1000, -500, 5]
         cmap = plt.cm.get_cmap("Blues_r")
         cmap.set_over('#808000')  # ('#E6E6E6')
 
