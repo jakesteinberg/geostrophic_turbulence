@@ -103,19 +103,19 @@ s_error = 0.01
 z_dg_s = 0        # depth, start of glider dives
 partial_mw = 0    # include exclude partial m/w estimates
 
-plot0 = 0  # plot model, glider cross section
-plot_v = 0  # plot velocity eta profiles
-plot_rho = 0  # plot density at 4 depths in space and time
+plot0 = 1  # plot model, glider cross section
+plot_v = 1  # plot velocity eta profiles
+plot_rho = 1  # plot density at 4 depths in space and time
 plot_sp = 0  # run and save gif
 
-save_anom = 1
+save_anom = 0
 save_p = 0
 save_v = 0
 save_rho = 0
 
 # use these settings as the background to compute instant model fields (use n/s transect)
-params = np.array([[0.06, 3, 4, 10000, 10]])
-u_mod_all = 1
+params = np.array([[0.06, 3, 3, 50000, 10]])
+u_mod_all = 0
 # if on, compute model pe/ke spectrum over many many instantaneous model vel profiles
 
 # iterate over everything

@@ -17,7 +17,7 @@ from zrfun import get_basic_info, get_z
 
 # because we load pickle protocol 2 (needed for matlab engine) we need 'glider' environment (not 'geo_env')
 
-this_path = 'e_w_extraction_nov10_nov12_offshore'  # 'n_s_extraction_eddy_nov1_nov3'  #
+this_path = 'e_w_extraction_nov28_nov30_offshore'  # 'n_s_extraction_eddy_nov1_nov3'  #
 these_paths = glob.glob('/Users/jake/Documents/baroclinic_modes/Model/LiveOcean/e_w*')
 
 # -- LOAD extracted and PROCESSED MODEL TIME STEPS WITH COMPUTED GAMMA
@@ -108,22 +108,23 @@ tag = str(t_s.month) + '_' + str(t_s.day) + '_' + str(t_e.month) + '_' + str(t_e
 
 # suite of parameters to sweep through
 # vertical speed, glide slope, number of dives, starting xy pos, starting time
-params = np.array([[0.1, 3, 4, 100000, np.nanmin(time_ord_s)]])
+params = np.array([[0.1, 3, 4, 10000, np.nanmin(time_ord_s)]])
 u_mod_all = 1  # instantaneous model spectra
 
 time_s = np.nanmin(time_ord_s)
-# params = np.array([[0.06, 2, 2, 10000, time_s], [0.06, 2, 2, 25000, time_s], [0.06, 2, 2, 40000, time_s], [0.06, 2, 2, 55000, time_s],
-#                    [0.06, 2, 2, 70000, time_s], [0.06, 2, 2, 85000, time_s], [0.06, 2, 2, 100000, time_s], [0.06, 2, 2, 115000, time_s],
-#                    [0.075, 2, 2, 10000, time_s], [0.075, 2, 2, 25000, time_s], [0.075, 2, 2, 40000, time_s], [0.075, 2, 2, 55000, time_s],
-#                    [0.075, 2, 2, 70000, time_s], [0.075, 2, 2, 85000, time_s], [0.075, 2, 2, 100000, time_s], [0.075, 2, 2, 115000, time_s],
-#                    [0.1, 2, 4, 10000, time_s], [0.1, 2, 4, 40000, time_s], [0.1, 2, 4, 70000, time_s], [0.1, 2, 4, 100000, time_s],
-#                    [0.2, 2, 4, 10000, time_s], [0.2, 2, 4, 40000, time_s], [0.2, 2, 4, 70000, time_s], [0.2, 2, 4, 100000, time_s]])
+# [w, glide-slope, number of dives, horizontal dive start loc, time start]
 # params = np.array([[0.06, 3, 2, 10000, time_s], [0.06, 3, 2, 25000, time_s], [0.06, 3, 2, 40000, time_s], [0.06, 3, 2, 55000, time_s],
 #                    [0.06, 3, 2, 70000, time_s], [0.06, 3, 2, 85000, time_s], [0.06, 3, 2, 100000, time_s], [0.06, 3, 2, 115000, time_s],
 #                    [0.075, 3, 2, 10000, time_s], [0.075, 3, 2, 25000, time_s], [0.075, 3, 2, 40000, time_s], [0.075, 3, 2, 55000, time_s],
 #                    [0.075, 3, 2, 70000, time_s], [0.075, 3, 2, 85000, time_s], [0.075, 3, 2, 100000, time_s], [0.075, 3, 2, 115000, time_s],
 #                    [0.1, 3, 4, 10000, time_s], [0.1, 3, 4, 40000, time_s], [0.1, 3, 4, 70000, time_s], [0.1, 3, 4, 100000, time_s],
-#                    [0.2, 3, 4, 10000, time_s], [0.2, 3, 4, 40000, time_s], [0.2, 3, 4, 70000, time_s], [0.2, 3, 4, 100000, time_s]])
+#                    [0.2, 3, 4, 10000, time_s], [0.2, 3, 4, 40000, time_s], [0.2, 3, 4, 70000, time_s], [0.2, 3, 4, 100000, time_s],
+#                    [0.06, 2, 2, 10000, time_s], [0.06, 2, 2, 25000, time_s], [0.06, 2, 2, 40000, time_s], [0.06, 2, 2, 55000, time_s],
+#                    [0.06, 2, 2, 70000, time_s], [0.06, 2, 2, 85000, time_s], [0.06, 2, 2, 100000, time_s], [0.06, 2, 2, 115000, time_s],
+#                    [0.075, 2, 2, 10000, time_s], [0.075, 2, 2, 25000, time_s], [0.075, 2, 2, 40000, time_s], [0.075, 2, 2, 55000, time_s],
+#                    [0.075, 2, 2, 70000, time_s], [0.075, 2, 2, 85000, time_s], [0.075, 2, 2, 100000, time_s], [0.075, 2, 2, 115000, time_s],
+#                    [0.1, 2, 4, 10000, time_s], [0.1, 2, 4, 40000, time_s], [0.1, 2, 4, 70000, time_s], [0.1, 2, 4, 100000, time_s],
+#                    [0.2, 2, 4, 10000, time_s], [0.2, 2, 4, 40000, time_s], [0.2, 2, 4, 70000, time_s], [0.2, 2, 4, 100000, time_s]])
 
 # loop over varied flight parameters
 for master in range(np.shape(params)[0]):
@@ -1179,10 +1180,11 @@ for master in range(np.shape(params)[0]):
     dk = ff / c[1]
     # ---------------------------------------------------------------------------------------------------------------------
     # save
+    # model slice indices to look at time series of background velocities
     if save_anom:
         if u_mod_all:
             my_dict = {'dg_z': dg_z, 'dg_v': v_g, 'model_u_at_mwv': u_mod_at_mw,
-                       'model_u_at_mw_avg': avg_mod_u,
+                       'model_u_at_mw_avg': avg_mod_u, 'model_u_off_at_mw_avg': avg_mod_u_off,
                        'shear_error': shear_error, 'igw_var': den_var, 'c': c,
                        'KE_dg': HKE_per_mass_dg, 'KE_mod': HKE_per_mass_model, 'KE_mod_off': HKE_per_mass_model_off,
                        'eta_m_dg': eta_m_dg, 'PE_dg': PE_per_mass_dg,
@@ -1197,7 +1199,8 @@ for master in range(np.shape(params)[0]):
             output.close()
         else:
             my_dict = {'dg_z': dg_z, 'dg_v': v_g, 'model_u_at_mwv': u_mod_at_mw,
-                       'model_u_at_mw_avg': avg_mod_u, 'shear_error': shear_error, 'igw_var': den_var, 'c': c,
+                       'model_u_at_mw_avg': avg_mod_u, 'model_u_off_at_mw_avg': avg_mod_u_off,
+                       'shear_error': shear_error, 'igw_var': den_var, 'c': c,
                        'KE_dg': HKE_per_mass_dg, 'KE_mod': HKE_per_mass_model, 'KE_mod_off': HKE_per_mass_model_off,
                        'eta_m_dg': eta_m_dg, 'PE_dg': PE_per_mass_dg,
                        'eta_m_dg_avg': eta_m_dg_sm, 'PE_dg_avg': PE_per_mass_dg_sm,

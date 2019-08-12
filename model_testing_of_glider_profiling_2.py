@@ -12,7 +12,7 @@ from toolkit import plot_pro
 
 
 # ---- LOAD model extraction FILES ------------------------------------------------------------------------------------
-file_path = 'e_w_extraction_oct01_oct03_offshore'  # 'n_s_extraction_eddy_nov1_nov3'  #
+file_path = 'e_w_extraction_nov10_nov12_offshore'  # 'n_s_extraction_eddy_nov1_nov3'  #
 
 # file_list = glob.glob('/Users/jake/Documents/baroclinic_modes/Model/' + file_path + '/*.pkl')
 # first run will save output as old pickle format (above)
