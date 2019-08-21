@@ -17,7 +17,7 @@ from zrfun import get_basic_info, get_z
 
 # because we load pickle protocol 2 (needed for matlab engine) we need 'glider' environment (not 'geo_env')
 
-this_path = 'e_w_extraction_nov28_nov30_offshore'  # 'n_s_extraction_eddy_nov1_nov3'  #
+this_path = 'e_w_extraction_nov25_nov27_offshore'  # 'n_s_extraction_eddy_nov1_nov3'  #
 these_paths = glob.glob('/Users/jake/Documents/baroclinic_modes/Model/LiveOcean/e_w*')
 
 # -- LOAD extracted and PROCESSED MODEL TIME STEPS WITH COMPUTED GAMMA
@@ -90,12 +90,12 @@ t_error = 0.003
 s_error = 0.01
 partial_mw = 0    # include exclude partial m/w estimates
 
-save_anom = 1  # save file
+save_anom = 0  # save file
 
 plan_plot = 0  # plot plan view of slice
 plot0 = 0  # cross section
 plot1 = 0  # vel error
-plot_anom = 0  # eta and v
+plot_anom = 1  # eta and v
 plot_grad = 0  # density grad at four depths
 plot_energy = 0  # energy spectra
 save_samp = 0  # save sample eta, v
@@ -109,7 +109,7 @@ tag = str(t_s.month) + '_' + str(t_s.day) + '_' + str(t_e.month) + '_' + str(t_e
 # suite of parameters to sweep through
 # vertical speed, glide slope, number of dives, starting xy pos, starting time
 params = np.array([[0.1, 3, 4, 10000, np.nanmin(time_ord_s)]])
-u_mod_all = 1  # instantaneous model spectra
+u_mod_all = 0  # instantaneous model spectra
 
 time_s = np.nanmin(time_ord_s)
 # [w, glide-slope, number of dives, horizontal dive start loc, time start]
@@ -1252,16 +1252,16 @@ if plan_plot:
                        borderpad=0,
                        )
     b_levels = np.arange(0, 3000, 500)
-    f.colorbar(bpc, cax=axins, ticks=b_levels, label='z [m]')
+    f.colorbar(bpc, cax=axins, ticks=b_levels, label='Depth [m]')
 
     ax.clabel(bc, inline_spacing=-3, fmt='%.4g', colors='k', fontsize=6)
     ax.scatter(D['lon_rho'][:], D['lat_rho'][:], 6, color='r', zorder=4)
     w = 1 / np.cos(np.deg2rad(46))
     ax.set_aspect(w)
     ax.axis([-127.4, -123.5, 42.5, 47])
-    ax.set_xlabel(r'Longitude [$^{\circ}$]')
-    ax.set_ylabel(r'Latitude [$^{\circ}$]')
-    ax.set_title('LiveOcean Domain and Glider Transect')
+    ax.set_xlabel(r'Longitude $^{\circ}$')
+    ax.set_ylabel(r'Latitude $^{\circ}$N')
+    ax.set_title('LiveOcean Domain')
     plot_pro(ax)
     f.savefig("/Users/jake/Documents/glider_flight_sim_paper/roms_bathymetry_transect.png", dpi=300)
 # ---------------------------------------------------------------------------------------------------------------------
@@ -1285,8 +1285,8 @@ if plot0 > 0:
     rhoc = ax1.contour(np.tile(xy_grid/1000, (len(z_grid), 1)), np.tile(z_grid[:, None], (1, len(xy_grid))),
                        np.nanmean(sig0_out_s, axis=2), levels=sigth_levels, colors='#A9A9A9', linewidths=0.5)
     ax1.scatter(dg_y/1000, dg_z_g, 4, color='k', label='glider path')  # #FFD700
-    ax1.scatter(dg_y[:, 0:4] / 1000, dg_z_g[:, 0:4], 4, color='#8B0000', label='sample W pattern')  # #FFD700
-    ax1.scatter((dg_y[:, 1:5] / 1000) + 0.75, dg_z_g[:, 1:5], 4, color='#1E90FF', label='sample M pattern')  # #FFD700
+    ax1.scatter(dg_y[:, 0:4] / 1000, dg_z_g[:, 0:4], 11, color='#8B0000', label='sample W pattern')  # #FFD700
+    ax1.scatter((dg_y[:, 1:5] / 1000) + 0.75, dg_z_g[:, 1:5], 11, color='#1E90FF', label='sample M pattern')  # #FFD700
     t_tot = np.int(np.round(24.0*(dg_t[0,-1] - dg_t[0,0])))
     ax1.set_title(str(datetime.date.fromordinal(np.int(time_ord_s[0]))) +
                   ' - ' + str(datetime.date.fromordinal(np.int(time_ord_s[-2]))) + ',  ' + str(t_tot) + 'hr. Model Avg. Velocity')

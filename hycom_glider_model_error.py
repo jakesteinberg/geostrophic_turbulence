@@ -14,11 +14,12 @@ from toolkit import plot_pro, nanseg_interp
 from zrfun import get_basic_info, get_z
 
 
-file_list = glob.glob('/Users/jake/Documents/baroclinic_modes/Model/HYCOM/simulated_dg_velocities_bats/ve_b*_v*_slp*_y*.pkl')
+file_list = glob.glob('/Users/jake/Documents/baroclinic_modes/Model/HYCOM/simulated_dg_velocities_bats/ve_bew*_v*_slp*_y*.pkl')
 tagg = 'yall_v20_slp3'
 savee = 0
 save_rms = 0  # vel error plot
-save_e = 1  # energy spectra plot
+save_e = 0  # energy spectra plot
+save_eof = 1
 plot_se = 0  # plot shear error scatter plot
 
 count = 0
@@ -169,6 +170,50 @@ if plot_se > 0:
 # ax2.set_title('Cross-Track Geostrophic Velocity')
 # plot_pro(ax2)
 
+# --- EOFs of glider and model velocity profiles
+# glider
+check1 = 7      # upper index to include in eof computation
+check2 = -50     # lower index to include in eof computation
+not_shallow = np.isfinite(v[-50, :]) & (slope_tag < 3)
+grid_check = z_grid[check1:check2]
+Uzq = v[check1:check2, not_shallow].copy()
+nq = np.size(Uzq[0, :])
+avg_Uzq = np.nanmean(np.transpose(Uzq), axis=0)
+Uzqa = Uzq #  - np.transpose(np.tile(avg_Uzq, [nq, 1]))
+cov_Uzqa = (1 / nq) * np.matrix(Uzqa) * np.matrix(np.transpose(Uzqa))
+D_Uzqa, V_Uzqa = np.linalg.eig(cov_Uzqa)
+t1 = np.real(D_Uzqa[0:10])
+PEV = t1 / np.sum(t1)
+eof1 = np.array(np.real(V_Uzqa[:, 0]))
+eof2 = np.array(np.real(V_Uzqa[:, 1]))
+# model
+check1 = 7      # upper index to include in eof computation
+check2 = -50     # lower index to include in eof computation
+Uzq = mod_space_out[check1:check2, :].copy()
+nq = np.size(Uzq[0, :])
+avg_Uzq = np.nanmean(np.transpose(Uzq), axis=0)
+Uzqa = Uzq #  - np.transpose(np.tile(avg_Uzq, [nq, 1]))
+cov_Uzqa = (1 / nq) * np.matrix(Uzqa) * np.matrix(np.transpose(Uzqa))
+Dmod_Uzqa, Vmod_Uzqa = np.linalg.eig(cov_Uzqa)
+t1mod = np.real(Dmod_Uzqa[0:10])
+PEV_model = t1mod / np.sum(t1mod)
+mod_eof1 = np.array(np.real(Vmod_Uzqa[:, 0]))
+mod_eof2 = np.array(np.real(Vmod_Uzqa[:, 1]))
+
+matplotlib.rcParams['figure.figsize'] = (5.5, 7)
+f, ax = plt.subplots()
+ax.plot(eof1, grid_check, color='b', label=r'dg$_1$ PEV=' + str(np.round(PEV[0]*100,1)))
+ax.plot(1.0*eof2, grid_check, color='b', linestyle='--', label=r'dg$_2$ PEV=' + str(np.round(PEV[1]*100,1)))
+ax.plot(1.0*mod_eof1, grid_check, color='g', label=r'mod$_1$ PEV=' + str(np.round(PEV_model[0]*100,1)))
+ax.plot(-1.0*mod_eof2, grid_check, color='g', linestyle='--', label=r'mod$_1$ PEV=' + str(np.round(PEV_model[1]*100,1)))
+handles, labels = ax.get_legend_handles_labels()
+ax.legend(handles, labels, fontsize=9)
+ax.set_title('Glider-Model Velocity EOFs slope=1:2')
+ax.set_xlim([-.3, 0.3])
+plot_pro(ax)
+if save_eof > 0:
+    f.savefig('/Users/jake/Documents/glider_flight_sim_paper/hy_mod_eof_nsflow.png', dpi=300)
+
 # RMS at different depths
 anomy = v - mod_v_avg  # velocity anomaly
 # estimate rms error by w
@@ -243,7 +288,7 @@ for i in range(len(w_s)):
     ax[i].set_title(r'($u_{g}$ - $\overline{u_{model}}$) (|w|=$\mathbf{' + str(np.round(w_s[i]/100, decimals=2)) + '}$ m s$^{-1}$)', fontsize=10)
 ax[0].set_ylabel('z [m]')
 ax[0].set_ylim([-4750, 0])
-ax[0].text(0.025, -2800, str(np.shape(anomy[:, slope_tag < 3])[1]) + ' profiles')
+# ax[0].text(0.025, -2800, str(np.shape(anomy[:, slope_tag < 3])[1]) + ' profiles')
 ax[0].grid()
 ax[1].grid()
 ax[2].grid()
@@ -263,7 +308,7 @@ ax2.legend(handles, labels, fontsize=10, loc='lower right')
 ax2.set_xlim([0, .05])
 ax2.set_ylim([-4750, 0])
 ax2.set_xlabel(r'm$^2$ s$^{-2}$')
-ax2.set_title(r'HYCOM: Glider/Model Velocity rms error ($u_{g}$ - $\overline{u_{model}}$)$^2$')
+ax2.set_title(r'HYCOM: Glider-Model Mean Square Error ($u_{g}$ - $\overline{u_{model}}$)$^2$')
 ax2.set_ylabel('z [m]')
 plot_pro(ax2)
 if save_rms > 0:

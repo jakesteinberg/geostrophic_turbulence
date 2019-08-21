@@ -15,12 +15,12 @@ from zrfun import get_basic_info, get_z
 
 
 # file_list_0 = glob.glob('/Users/jake/Documents/baroclinic_modes/Model/LiveOcean/simulated_dg_velocities/ve_ew_v*slp*_y10_11_2*.pkl')
-file_list = glob.glob('/Users/jake/Documents/baroclinic_modes/Model/LiveOcean/simulated_dg_velocities/ve_ew_v*slp*_y*_*.pkl')
+file_list = glob.glob('/Users/jake/Documents/baroclinic_modes/Model/LiveOcean/simulated_dg_velocities/ve_ew_v*_slp*_y*_*.pkl')
 # file_list = np.concatenate([file_list_0, file_list_1])
 save_metr = 0  # ratio
-save_samp = 0  # sample velocity/eta
 save_e = 0  # save energy spectra
 save_rms = 0  # save v error plot
+save_eof = 0
 
 direct_anom = []
 count = 0  # not all files have instantaneous model output
@@ -32,6 +32,7 @@ for i in range(len(file_list)):
     glider_v = MOD['dg_v'][:]
     model_v = MOD['model_u_at_mwv']
     model_v_avg = MOD['model_u_at_mw_avg']
+    model_v_off_avg = MOD['model_u_off_at_mw_avg']
     z_grid = MOD['dg_z'][:]
     slope_error = MOD['shear_error'][:]
     igw = MOD['igw_var']
@@ -68,6 +69,7 @@ for i in range(len(file_list)):
         v = glider_v.copy()
         mod_v = model_mean_per_mw.copy()
         mod_v_avg = model_v_avg.copy()
+        mod_v_off_avg = model_v_off_avg.copy()
         mod_space_out = mod_space
         mod_time_out = mod_time
         anoms = glider_v - model_mean_per_mw
@@ -88,6 +90,7 @@ for i in range(len(file_list)):
         v = np.concatenate((v, glider_v.copy()), axis=1)
         mod_v = np.concatenate((mod_v, model_mean_per_mw), axis=1)
         mod_v_avg = np.concatenate((mod_v_avg, model_v_avg), axis=1)
+        mod_v_off_avg = np.concatenate((mod_v_off_avg, model_v_off_avg), axis=1)
         mod_space_out = np.concatenate((mod_space_out, mod_space), axis=1)
         mod_time_out = np.concatenate((mod_time_out, mod_time), axis=1)
         anoms = np.concatenate((anoms, glider_v - model_mean_per_mw), axis=1)
@@ -145,6 +148,64 @@ plot_pro(ax)
 if save_metr > 0:
     f.savefig('/Users/jake/Documents/glider_flight_sim_paper/lo_mod_shear_error.png', dpi=300)
 
+# --- EOFs of glider and model velocity profiles
+# -- glider
+check1 = 2     # upper index to include in eof computation
+check2 = -25     # lower index to include in eof computation
+not_shallow = np.isfinite(v[-25, :]) & (slope_tag < 3)
+grid_check = z_grid[check1:check2]
+Uzq = v[check1:check2, not_shallow].copy()
+nq = np.size(Uzq[0, :])
+avg_Uzq = np.nanmean(np.transpose(Uzq), axis=0)
+Uzqa = Uzq - np.transpose(np.tile(avg_Uzq, [nq, 1]))
+cov_Uzqa = (1.0 / nq) * np.matrix(Uzqa) * np.matrix(np.transpose(Uzqa))
+D_Uzqa, V_Uzqa = np.linalg.eig(cov_Uzqa)
+t1 = np.real(D_Uzqa[0:10])
+PEV = t1 / np.sum(t1)
+eof1 = np.array(np.real(V_Uzqa[:, 0]))
+eof2 = np.array(np.real(V_Uzqa[:, 1]))
+# -- model cross-transect
+check1 = 2      # upper index to include in eof computation
+check2 = -25     # lower index to include in eof computation
+Uzq = mod_v_avg[check1:check2, not_shallow].copy()
+nq = np.size(Uzq[0, :])
+avg_Uzq = np.nanmean(np.transpose(Uzq), axis=0)
+Uzqa = Uzq - np.transpose(np.tile(avg_Uzq, [nq, 1]))
+cov_Uzqa = (1.0 / nq) * np.matrix(Uzqa) * np.matrix(np.transpose(Uzqa))
+Dmod_Uzqa, Vmod_Uzqa = np.linalg.eig(cov_Uzqa)
+t1mod = np.real(Dmod_Uzqa[0:10])
+PEV_model = t1mod / np.sum(t1mod)
+mod_eof1 = np.array(np.real(Vmod_Uzqa[:, 0]))
+mod_eof2 = np.array(np.real(Vmod_Uzqa[:, 1]))
+# -- model along-transect
+Uzq = mod_v_off_avg[check1:check2, not_shallow].copy()
+nq = np.size(Uzq[0, :])
+avg_Uzq = np.nanmean(np.transpose(Uzq), axis=0)
+Uzqa = Uzq - np.transpose(np.tile(avg_Uzq, [nq, 1]))
+cov_Uzqa = (1.0 / nq) * np.matrix(Uzqa) * np.matrix(np.transpose(Uzqa))
+Dmod_Uzqa, Vmodoff_Uzqa = np.linalg.eig(cov_Uzqa)
+t1mod = np.real(Dmod_Uzqa[0:10])
+PEV_model_off = t1mod / np.sum(t1mod)
+mod_off_eof1 = np.array(np.real(Vmodoff_Uzqa[:, 0]))
+mod_off_eof2 = np.array(np.real(Vmodoff_Uzqa[:, 1]))
+
+matplotlib.rcParams['figure.figsize'] = (5.5, 7)
+f, ax = plt.subplots()
+ax.plot(-1.0*eof1, grid_check, color='b', label=r'dg$_1$ PEV=' + str(np.round(PEV[0]*100,1)))
+ax.plot(mod_eof1, grid_check, color='g', label=r'mod$_1$ PEV=' + str(np.round(PEV_model[0]*100,1)))
+ax.plot(-1.0*mod_off_eof1, grid_check, color='m', label=r'mod$_1$ off PEV=' + str(np.round(PEV_model_off[0]*100,1)))
+
+ax.plot(1.0*eof2, grid_check, color='b', linestyle='--', label=r'dg$_2$ PEV=' + str(np.round(PEV[1]*100,1)))
+ax.plot(1.0*mod_eof2, grid_check, color='g', linestyle='--', label=r'mod$_2$ PEV=' + str(np.round(PEV_model[1]*100,1)))
+ax.plot(-1.0*mod_off_eof2, grid_check, color='m', linestyle='--', label=r'mod$_2$ off PEV=' + str(np.round(PEV_model_off[1]*100,1)))
+
+handles, labels = ax.get_legend_handles_labels()
+ax.legend(handles, labels, fontsize=9)
+ax.set_title('Glider-Model Velocity EOFs slope=1:2')
+plot_pro(ax)
+if save_eof > 0:
+    f.savefig('/Users/jake/Documents/glider_flight_sim_paper/lo_mod_eofs_s2.png', dpi=300)
+
 # RMS at different depths
 anomy = v - mod_v_avg  # velocity anomaly
 # estimate rms error by w
@@ -155,8 +216,14 @@ avg_anom = np.nan * np.ones((len(slope_s), len(z_grid), len(w_s)))
 for ss in range(len(np.unique(slope_tag))):
     for i in range(len(np.unique(w_tag))):
         inn = np.where((w_tag == w_s[i]) & (slope_tag == slope_s[ss]))[0]
-        mm[ss, :, i] = np.nanmean(anomy[:, inn]**2, axis=1)  # rms error
-        avg_anom[ss, :, i] = np.nanmean(anomy[:, inn], axis=1)
+
+        this_anom = anomy[:, inn]
+        this_sq_anom = anomy[:, inn]**2
+
+        good = np.where(~np.isnan(this_anom[100, :]))[0]
+
+        mm[ss, :, i] = np.nanmean(this_sq_anom[:, good], axis=1)  # rms error
+        avg_anom[ss, :, i] = np.nanmean(this_anom[:, good], axis=1)
 # std about error
 min_a = np.nan * np.ones((len(slope_s), len(z_grid), 4))
 max_a = np.nan * np.ones((len(slope_s), len(z_grid), 4))
@@ -164,8 +231,12 @@ for ss in range(len(np.unique(slope_tag))):
     for i in range(np.shape(anomy)[0]):
         for j in range(len(w_s)):
             inn = np.where((w_tag == w_s[j]) & (slope_tag == slope_s[ss]))[0]
-            min_a[ss, i, j] = np.nanmean(anomy[i, inn]) - np.nanstd(anomy[i, inn])
-            max_a[ss, i, j] = np.nanmean(anomy[i, inn]) + np.nanstd(anomy[i, inn])
+
+            this_anom = anomy[i, inn]
+            good = np.where(~np.isnan(anomy[100, inn]))[0]
+
+            min_a[ss, i, j] = np.nanmean(this_anom[good]) - np.nanstd(this_anom[good])
+            max_a[ss, i, j] = np.nanmean(this_anom[good]) + np.nanstd(this_anom[good])  # np.nanmean(anomy[i, inn])
 
 matplotlib.rcParams['figure.figsize'] = (12, 6.5)
 f, ax = plt.subplots(1, 4, sharey=True)
@@ -179,31 +250,33 @@ for i in range(len(w_s)):
     ax[i].set_title(r'($u_{g}$ - $\overline{u_{model}}$) (|w|=$\mathbf{' + str(np.round(w_s[i]/100, decimals=2)) + '}$ m s$^{-1}$)', fontsize=10)
 ax[0].set_ylabel('z [m]')
 ax[0].set_ylim([-3000, 0])
-ax[0].text(0.025, -2800, str(np.shape(anomy[:, slope_tag < 3])[1]) + ' profiles')
+good = np.where(~np.isnan(anomy[100, :]) & (slope_tag > 2))[0]
+# ax[0].text(0.025, -2800, str(np.shape(anomy[:, slope_tag > 2])[1]) + ' profiles')
+print(str(np.shape(anomy[:, slope_tag > 2])[1]) + ' profiles')
 ax[0].grid()
 ax[1].grid()
 ax[2].grid()
 plot_pro(ax[3])
 if save_rms > 0:
-    f.savefig('/Users/jake/Documents/glider_flight_sim_paper/lo_mod_dg_vel_e.png', dpi=200)
+    f.savefig('/Users/jake/Documents/glider_flight_sim_paper/lo_mod_dg_vel_e.png', dpi=300)
 
 matplotlib.rcParams['figure.figsize'] = (6.5, 7)
 f, ax2 = plt.subplots()
 for i in range(np.shape(mm)[2]):
     ax2.plot(mm[0, :, i], z_grid, linewidth=1.5, color=w_cols[i], linestyle='--',
-             label='w=' + str(np.round(w_s[i]/100, decimals=3)) + ' m s$^{-1}$) (gs=1:' + str(np.int(slope_s[0])) + ')')
+             label='w=' + str(np.round(w_s[i]/100, decimals=3)) + ' m s$^{-1}$ (gs=1:' + str(np.int(slope_s[0])) + ')')
     ax2.plot(mm[1, :, i], z_grid, linewidth=1.5, color=w_cols[i],
-             label='w=' + str(np.round(w_s[i]/100, decimals=3)) + ' m s$^{-1}$) (gs=1:' + str(np.int(slope_s[1])) + ')')
+             label='w=' + str(np.round(w_s[i]/100, decimals=3)) + ' m s$^{-1}$ (gs=1:' + str(np.int(slope_s[1])) + ')')
 handles, labels = ax2.get_legend_handles_labels()
 ax2.legend(handles, labels, fontsize=10, loc='lower right')
 ax2.set_xlim([0, .005])
 ax2.set_ylim([-3000, 0])
 ax2.set_xlabel(r'm$^2$ s$^{-2}$')
-ax2.set_title(r'LiveOcean: Glider/Model Velocity rms error ($u_{g}$ - $\overline{u_{model}}$)$^2$')
+ax2.set_title(r'LiveOcean: Glider-Model Mean Square Error $\overline{(u_{g} - \overline{u_{model}})^2}$')
 ax2.set_ylabel('z [m]')
 plot_pro(ax2)
 if save_rms > 0:
-    f.savefig('/Users/jake/Documents/glider_flight_sim_paper/lo_mod_dg_vel_rms_e.png', dpi=200)
+    f.savefig('/Users/jake/Documents/glider_flight_sim_paper/lo_mod_dg_vel_rms_e.png', dpi=300)
 
 # ---------------------------------------------------------------------------------------------------------------------
 # --- PLOT ENERGY SPECTRA
