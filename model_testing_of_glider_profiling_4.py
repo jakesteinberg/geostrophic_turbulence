@@ -53,13 +53,14 @@ for i in range(len(file_list)):
         z_grid_n2_0 = MOD['z_grid_n2'][:]
 
     model_mean_per_mw = np.nan * np.ones(np.shape(glider_v))
-    for j in range(len(model_v)):
-        this_mod = model_v[j]
+    for j in range(len(model_v)):  # loop over each set of instantaneous profiles associated with each m/w profile
+        this_mod = model_v[j]  # dimensions [depth, space, time]
         g_rep = np.repeat(np.tile(glider_v[:, j][:, None], np.shape(this_mod)[1])[:, :, None],
                           np.shape(this_mod)[2], axis=2)
         direct_anom = g_rep - this_mod
         mod_space = np.nanmean(this_mod, axis=2)  # average across time
-        mod_time = np.nanmean(this_mod, axis=1)  # average across space
+        si = np.int((np.shape(this_mod)[1])/2.0)  # midpoint space index
+        mod_time = np.squeeze(this_mod[:, si, :])  # midpoint profile, all times, old(average across space)
         spatial_anom = np.nanmean(direct_anom, axis=2)  # average across time
         time_anom = np.nanmean(direct_anom, axis=1)  # average across space
 
@@ -148,6 +149,21 @@ plot_pro(ax)
 if save_metr > 0:
     f.savefig('/Users/jake/Documents/glider_flight_sim_paper/lo_mod_shear_error.png', dpi=300)
 
+# load in hycom and liveocean sampled as a mooring, to compute eof and compare (look at decay of eof with depth)
+pkl_file = open('/Users/jake/Documents/baroclinic_modes/Model/model_mooring_samplings.pkl', 'rb')
+MM = pickle.load(pkl_file)
+pkl_file.close()
+hy_u_moor = MM['hy_mod_u'][:]  # [time, dep_levs, xy_pos]
+hy_u_moor_filt = MM['hy_mod_u_xy1_lo_pass'][:]
+hy_z = MM['hy_depth'][:]
+hy_z_dep = MM['hy_z_samp_deps'][:]
+lo_u_moor = MM['lo_mod_u'][:]  # [dep_levs, xy_pos, time]
+lo_u_moor_filt = MM['lo_mod_u_xy1_lo_pass'][:]
+lo_z = MM['lo_depth'][:]
+lo_z_dep = MM['lo_z_samp_deps'][:]
+# ----------------------------------------------------
+# EOF need to make sure that length of z is shorter than number of profiles
+# ----------------------------------------------------
 # --- EOFs of glider and model velocity profiles
 # -- glider
 check1 = 2     # upper index to include in eof computation
@@ -160,10 +176,14 @@ avg_Uzq = np.nanmean(np.transpose(Uzq), axis=0)
 Uzqa = Uzq - np.transpose(np.tile(avg_Uzq, [nq, 1]))
 cov_Uzqa = (1.0 / nq) * np.matrix(Uzqa) * np.matrix(np.transpose(Uzqa))
 D_Uzqa, V_Uzqa = np.linalg.eig(cov_Uzqa)
-t1 = np.real(D_Uzqa[0:10])
+D_sort = np.flipud(np.argsort(D_Uzqa))
+D_Uz = D_Uzqa[D_sort]
+V_Uz = V_Uzqa[:, D_sort]
+t1 = np.real(D_Uz[0:10])
 PEV = t1 / np.sum(t1)
-eof1 = np.array(np.real(V_Uzqa[:, 0]))
-eof2 = np.array(np.real(V_Uzqa[:, 1]))
+eof1 = np.array(np.real(V_Uz[:, 0]))
+eof2 = np.array(np.real(V_Uz[:, 1]))
+# ----------------------------------------------------
 # -- model cross-transect
 check1 = 2      # upper index to include in eof computation
 check2 = -25     # lower index to include in eof computation
@@ -173,38 +193,124 @@ avg_Uzq = np.nanmean(np.transpose(Uzq), axis=0)
 Uzqa = Uzq - np.transpose(np.tile(avg_Uzq, [nq, 1]))
 cov_Uzqa = (1.0 / nq) * np.matrix(Uzqa) * np.matrix(np.transpose(Uzqa))
 Dmod_Uzqa, Vmod_Uzqa = np.linalg.eig(cov_Uzqa)
-t1mod = np.real(Dmod_Uzqa[0:10])
+D_sort = np.flipud(np.argsort(Dmod_Uzqa))
+Dmod_Uz = Dmod_Uzqa[D_sort]
+Vmod_Uz = Vmod_Uzqa[:, D_sort]
+t1mod = np.real(Dmod_Uz[0:10])
 PEV_model = t1mod / np.sum(t1mod)
-mod_eof1 = np.array(np.real(Vmod_Uzqa[:, 0]))
-mod_eof2 = np.array(np.real(Vmod_Uzqa[:, 1]))
+mod_eof1 = np.array(np.real(Vmod_Uz[:, 0]))
+mod_eof2 = np.array(np.real(Vmod_Uz[:, 1]))
+# ----------------------------------------------------
 # -- model along-transect
 Uzq = mod_v_off_avg[check1:check2, not_shallow].copy()
 nq = np.size(Uzq[0, :])
 avg_Uzq = np.nanmean(np.transpose(Uzq), axis=0)
 Uzqa = Uzq - np.transpose(np.tile(avg_Uzq, [nq, 1]))
 cov_Uzqa = (1.0 / nq) * np.matrix(Uzqa) * np.matrix(np.transpose(Uzqa))
-Dmod_Uzqa, Vmodoff_Uzqa = np.linalg.eig(cov_Uzqa)
-t1mod = np.real(Dmod_Uzqa[0:10])
+Dmodoff_Uzqa, Vmodoff_Uzqa = np.linalg.eig(cov_Uzqa)
+D_sort = np.flipud(np.argsort(Dmodoff_Uzqa))
+Dmodoff_Uz = Dmodoff_Uzqa[D_sort]
+Vmodoff_Uz = Vmodoff_Uzqa[:, D_sort]
+t1mod = np.real(Dmodoff_Uz[0:10])
 PEV_model_off = t1mod / np.sum(t1mod)
-mod_off_eof1 = np.array(np.real(Vmodoff_Uzqa[:, 0]))
-mod_off_eof2 = np.array(np.real(Vmodoff_Uzqa[:, 1]))
+mod_off_eof1 = np.array(np.real(Vmodoff_Uz[:, 0]))
+mod_off_eof2 = np.array(np.real(Vmodoff_Uz[:, 1]))
+# ----------------------------------------------------
+# -- model cross-transect (no temporal averaging, select profile position at midpoints of m/w patterns)
+check1 = 2      # upper index to include in eof computation
+check2 = -25     # lower index to include in eof computation
+Uzq = mod_time_out[check1:check2, :].copy()
+nq = np.size(Uzq[0, :])
+avg_Uzq = np.nanmean(np.transpose(Uzq), axis=0)
+Uzqa = Uzq - np.transpose(np.tile(avg_Uzq, [nq, 1]))
+cov_Uzqa = (1.0 / nq) * np.matrix(Uzqa) * np.matrix(np.transpose(Uzqa))
+Dmods_Uzqa, Vmods_Uzqa = np.linalg.eig(cov_Uzqa)
+D_sort = np.flipud(np.argsort(Dmods_Uzqa))
+Dmods_Uz = Dmods_Uzqa[D_sort]
+Vmods_Uz = Vmods_Uzqa[:, D_sort]
+t1mod = np.real(Dmods_Uz[0:10])
+PEV_models = t1mod / np.sum(t1mod)
+mods_eof1 = np.array(np.real(Vmods_Uz[:, 0]))
+mods_eof2 = np.array(np.real(Vmods_Uz[:, 1]))
+# ----------------------------------------------------
+# -- lo sampled as a mooring
+Uzq_lom = np.squeeze(lo_u_moor[:, 0, :].copy())
+for i in range(1, np.shape(lo_u_moor)[1]):
+    Uzq_lom = np.concatenate((Uzq_lom, np.squeeze(lo_u_moor[:, i, :])), axis=1)
+nq = np.size(Uzq_lom[0, :])
+avg_Uzq = np.nanmean(np.transpose(Uzq_lom), axis=0)
+Uzqa = Uzq_lom - np.transpose(np.tile(avg_Uzq, [nq, 1]))
+cov_Uzqa = (1.0 / nq) * np.matrix(Uzqa) * np.matrix(np.transpose(Uzqa))
+Dmods_Uzqa, Vmods_Uzqa = np.linalg.eig(cov_Uzqa)
+D_sort = np.flipud(np.argsort(Dmods_Uzqa))
+Dmod_m_Uz = Dmods_Uzqa[D_sort]
+Vmod_Uz = Vmods_Uzqa[:, D_sort]
+t1mod = np.real(Dmod_m_Uz[0:10])
+lo_moor_PEV_model = t1mod / np.sum(t1mod)
+lo_moor_eof1 = np.array(np.real(Vmod_Uz[:, 0]))
+lo_moor_eof2 = np.array(np.real(Vmod_Uz[:, 1]))
+# ----------------------------------------------------
+# -- lo sampled as a mooring (with low pass filtering)
+# Uzq = np.transpose(lo_u_moor_filt[12:-12, :, 0].copy())
+Uzq_lomf = np.transpose(np.squeeze(lo_u_moor_filt[12:-12, :, 0].copy()))
+for i in range(1, np.shape(lo_u_moor_filt)[2]):
+    Uzq_lomf = np.concatenate((Uzq_lom, np.transpose(np.squeeze(lo_u_moor_filt[12:-12, :, i]))), axis=1)
+nqf = np.size(Uzq_lomf[0, :])
+avg_Uzqf = np.nanmean(np.transpose(Uzq_lomf), axis=0)
+Uzqaf = Uzq_lomf - np.transpose(np.tile(avg_Uzqf, [nqf, 1]))
+cov_Uzqa_f = (1.0 / nqf) * np.matrix(Uzqaf) * np.matrix(np.transpose(Uzqaf))
+Dmodf_Uzqa, Vmodf_Uzqa = np.linalg.eig(cov_Uzqa_f)
+D_sort = np.flipud(np.argsort(Dmodf_Uzqa))
+Dmodf_Uz = Dmodf_Uzqa[D_sort]
+Vmodf_Uz = Vmodf_Uzqa[:, D_sort]
+t1modf = np.real(Dmodf_Uz[0:10])
+lo_moor_f_PEV_model = t1modf / np.sum(t1modf)
+lo_moor_f_eof1 = np.array(np.real(Vmodf_Uz[:, 0]))
+lo_moor_f_eof2 = np.array(np.real(Vmodf_Uz[:, 1]))
 
 matplotlib.rcParams['figure.figsize'] = (5.5, 7)
 f, ax = plt.subplots()
-ax.plot(-1.0*eof1, grid_check, color='b', label=r'dg$_1$ PEV=' + str(np.round(PEV[0]*100,1)))
-ax.plot(mod_eof1, grid_check, color='g', label=r'mod$_1$ PEV=' + str(np.round(PEV_model[0]*100,1)))
-ax.plot(-1.0*mod_off_eof1, grid_check, color='m', label=r'mod$_1$ off PEV=' + str(np.round(PEV_model_off[0]*100,1)))
+for i in range(np.shape(v)[1]):
+    if slope_tag[i] < 3:
+        ax.plot(v[:, i], z_grid, color='#48D1CC', linewidth=0.5)
+    else:
+        ax.plot(v[:, i], z_grid, color='#B22222', linewidth=0.5)
+ax.set_title('Simulated DG Cross-Track Velocities (1:2 = blue, 1:3 = red)')
+ax.set_xlabel(r'm s$^{-1}$')
+ax.set_ylabel('z [m]')
+ax.set_xlim([-0.4, 0.4])
+plot_pro(ax)
+if save_eof > 0:
+    f.savefig('/Users/jake/Documents/glider_flight_sim_paper/lo_mod_all_v.png', dpi=300)
 
-ax.plot(1.0*eof2, grid_check, color='b', linestyle='--', label=r'dg$_2$ PEV=' + str(np.round(PEV[1]*100,1)))
-ax.plot(1.0*mod_eof2, grid_check, color='g', linestyle='--', label=r'mod$_2$ PEV=' + str(np.round(PEV_model[1]*100,1)))
-ax.plot(-1.0*mod_off_eof2, grid_check, color='m', linestyle='--', label=r'mod$_2$ off PEV=' + str(np.round(PEV_model_off[1]*100,1)))
+
+matplotlib.rcParams['figure.figsize'] = (10, 7)
+f, (ax, ax2) = plt.subplots(1, 2)
+ax.plot(-1.0*eof1*D_Uz[0], grid_check, color='b', label=r'dg$_1$ PEV=' + str(np.round(PEV[0]*100,1)))
+ax.plot(mod_eof1*Dmod_Uz[0], grid_check, color='g', label=r'mod$_1$ PEV=' + str(np.round(PEV_model[0]*100,1)))
+ax.plot(-1.0*mod_off_eof1*Dmodoff_Uz[0], grid_check, color='m', label=r'mod$_1$ off PEV=' + str(np.round(PEV_model_off[0]*100,1)))
+ax.plot(-1.0*mods_eof1*Dmods_Uz[0], grid_check, color='c', label=r'mod$_1$ ind PEV=' + str(np.round(PEV_models[0]*100,1)))
+# ax.plot(lo_moor_eof1, lo_z_dep, color='r', label='mooring PEV = ' + str(np.round(lo_moor_PEV_model[0]*100,1)))
+ax.plot(lo_moor_eof1*Dmod_m_Uz[0], lo_z_dep, color='r', linestyle='-',label=r'mod$_1$ moor PEV = ' + str(np.round(lo_moor_f_PEV_model[0]*100,1)))
+
+ax2.plot(eof2*D_Uz[0], grid_check, color='b', linestyle='--', label=r'dg$_2$ PEV=' + str(np.round(PEV[1]*100,1)))
+ax2.plot(mod_eof2*Dmod_Uz[0], grid_check, color='g', linestyle='--', label=r'mod$_2$ PEV=' + str(np.round(PEV_model[1]*100,1)))
+ax2.plot(-1.0*mod_off_eof2*Dmodoff_Uz[0], grid_check, color='m', linestyle='--', label=r'mod$_2$ off PEV=' + str(np.round(PEV_model_off[1]*100,1)))
+ax2.plot(mods_eof2*Dmods_Uz[0], grid_check, color='c', linestyle='--', label=r'mod$_2$ ind PEV=' + str(np.round(PEV_models[1]*100,1)))
+ax2.plot(lo_moor_eof2*Dmod_m_Uz[0], lo_z_dep, color='r', linestyle='--', label=r'mod$_1$ moor PEV = ' + str(np.round(lo_moor_f_PEV_model[1]*100,1)))
 
 handles, labels = ax.get_legend_handles_labels()
 ax.legend(handles, labels, fontsize=9)
-ax.set_title('Glider-Model Velocity EOFs slope=1:2')
-plot_pro(ax)
+ax.set_title('Glider-Model Velocity EOF1 slope=1:2')
+handles, labels = ax2.get_legend_handles_labels()
+ax2.legend(handles, labels, fontsize=9)
+ax2.set_title('Glider-Model Velocity EOF2 slope=1:2')
+ax.set_xlim([-.1, 0.025])
+ax2.set_xlim([-.1, 0.1])
+ax.grid()
+plot_pro(ax2)
 if save_eof > 0:
-    f.savefig('/Users/jake/Documents/glider_flight_sim_paper/lo_mod_eofs_s2.png', dpi=300)
+    f.savefig('/Users/jake/Documents/glider_flight_sim_paper/lo_mod_eofs_s3.png', dpi=300)
 
 # RMS at different depths
 anomy = v - mod_v_avg  # velocity anomaly
