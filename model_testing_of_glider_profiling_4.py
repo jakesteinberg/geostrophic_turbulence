@@ -161,6 +161,30 @@ lo_u_moor = MM['lo_mod_u'][:]  # [dep_levs, xy_pos, time]
 lo_u_moor_filt = MM['lo_mod_u_xy1_lo_pass'][:]
 lo_z = MM['lo_depth'][:]
 lo_z_dep = MM['lo_z_samp_deps'][:]
+# load in hycom and liveocean (2) sampled as a mooring, to compute eof and compare (look at decay of eof with depth)
+pkl_file = open('/Users/jake/Documents/baroclinic_modes/Model/model_mooring_samplings_3_1.pkl', 'rb')
+MM2 = pickle.load(pkl_file)
+pkl_file.close()
+hy_u_moor2 = MM2['hy_mod_u'][:]  # [time, dep_levs, xy_pos]
+hy_u_moor_filt2 = MM2['hy_mod_u_xy1_lo_pass'][:]
+hy_z2 = MM2['hy_depth'][:]
+hy_z_dep2 = MM2['hy_z_samp_deps'][:]
+lo_u_moor2 = MM2['lo_mod_u'][:]  # [dep_levs, xy_pos, time]
+lo_u_moor_filt2 = MM2['lo_mod_u_xy1_lo_pass'][:]
+lo_z2 = MM2['lo_depth'][:]
+lo_z_dep2 = MM2['lo_z_samp_deps'][:]
+# load in hycom and liveocean (3) sampled as a mooring, to compute eof and compare (look at decay of eof with depth)
+pkl_file = open('/Users/jake/Documents/baroclinic_modes/Model/model_mooring_samplings_3_2.pkl', 'rb')
+MM3 = pickle.load(pkl_file)
+pkl_file.close()
+hy_u_moor3 = MM3['hy_mod_u'][:]  # [time, dep_levs, xy_pos]
+hy_u_moor_filt3 = MM3['hy_mod_u_xy1_lo_pass'][:]
+hy_z3 = MM3['hy_depth'][:]
+hy_z_dep3 = MM3['hy_z_samp_deps'][:]
+lo_u_moor3 = MM3['lo_mod_u'][:]  # [dep_levs, xy_pos, time]
+lo_u_moor_filt3 = MM3['lo_mod_u_xy1_lo_pass'][:]
+lo_z3 = MM3['lo_depth'][:]
+lo_z_dep3 = MM3['lo_z_samp_deps'][:]
 # ----------------------------------------------------
 # EOF need to make sure that length of z is shorter than number of profiles
 # ----------------------------------------------------
@@ -233,7 +257,7 @@ PEV_models = t1mod / np.sum(t1mod)
 mods_eof1 = np.array(np.real(Vmods_Uz[:, 0]))
 mods_eof2 = np.array(np.real(Vmods_Uz[:, 1]))
 # ----------------------------------------------------
-# -- lo sampled as a mooring
+# -- lo sampled as a mooring (5 points)
 Uzq_lom = np.squeeze(lo_u_moor[:, 0, :].copy())
 for i in range(1, np.shape(lo_u_moor)[1]):
     Uzq_lom = np.concatenate((Uzq_lom, np.squeeze(lo_u_moor[:, i, :])), axis=1)
@@ -249,6 +273,40 @@ t1mod = np.real(Dmod_m_Uz[0:10])
 lo_moor_PEV_model = t1mod / np.sum(t1mod)
 lo_moor_eof1 = np.array(np.real(Vmod_Uz[:, 0]))
 lo_moor_eof2 = np.array(np.real(Vmod_Uz[:, 1]))
+# ----------------------------------------------------
+# -- lo sampled as a mooring (9 points)
+Uzq_lom2 = np.squeeze(lo_u_moor2[:, 0, :].copy())
+for i in range(1, np.shape(lo_u_moor2)[1]):
+    Uzq_lom2 = np.concatenate((Uzq_lom2, np.squeeze(lo_u_moor2[:, i, :])), axis=1)
+nq2 = np.size(Uzq_lom2[0, :])
+avg_Uzq2 = np.nanmean(np.transpose(Uzq_lom2), axis=0)
+Uzqa2 = Uzq_lom2 - np.transpose(np.tile(avg_Uzq2, [nq2, 1]))
+cov_Uzqa2 = (1.0 / nq2) * np.matrix(Uzqa2) * np.matrix(np.transpose(Uzqa2))
+Dmods_Uzqa2, Vmods_Uzqa2 = np.linalg.eig(cov_Uzqa2)
+D_sort2 = np.flipud(np.argsort(Dmods_Uzqa2))
+Dmod_m_Uz2 = Dmods_Uzqa2[D_sort2]
+Vmod_Uz2 = Vmods_Uzqa2[:, D_sort2]
+t1mod = np.real(Dmod_m_Uz2[0:10])
+lo_moor2_PEV_model = t1mod / np.sum(t1mod)
+lo_moor2_eof1 = np.array(np.real(Vmod_Uz2[:, 0]))
+lo_moor2_eof2 = np.array(np.real(Vmod_Uz2[:, 1]))
+# ----------------------------------------------------
+# -- lo sampled as a mooring (16 points)
+Uzq_lom3 = np.squeeze(lo_u_moor3[:, 0, :].copy())
+for i in range(1, np.shape(lo_u_moor3)[1]):
+    Uzq_lom3 = np.concatenate((Uzq_lom3, np.squeeze(lo_u_moor3[:, i, :])), axis=1)
+nq3 = np.size(Uzq_lom3[0, :])
+avg_Uzq3 = np.nanmean(np.transpose(Uzq_lom3), axis=0)
+Uzqa3 = Uzq_lom3 - np.transpose(np.tile(avg_Uzq3, [nq2, 1]))
+cov_Uzqa3 = (1.0 / nq3) * np.matrix(Uzqa3) * np.matrix(np.transpose(Uzqa3))
+Dmods_Uzqa3, Vmods_Uzqa3 = np.linalg.eig(cov_Uzqa3)
+D_sort3 = np.flipud(np.argsort(Dmods_Uzqa3))
+Dmod_m_Uz3 = Dmods_Uzqa3[D_sort3]
+Vmod_Uz3 = Vmods_Uzqa3[:, D_sort3]
+t1mod = np.real(Dmod_m_Uz3[0:10])
+lo_moor3_PEV_model = t1mod / np.sum(t1mod)
+lo_moor3_eof1 = np.array(np.real(Vmod_Uz3[:, 0]))
+lo_moor3_eof2 = np.array(np.real(Vmod_Uz3[:, 1]))
 # ----------------------------------------------------
 # -- lo sampled as a mooring (with low pass filtering)
 # Uzq = np.transpose(lo_u_moor_filt[12:-12, :, 0].copy())
@@ -268,6 +326,8 @@ lo_moor_f_PEV_model = t1modf / np.sum(t1modf)
 lo_moor_f_eof1 = np.array(np.real(Vmodf_Uz[:, 0]))
 lo_moor_f_eof2 = np.array(np.real(Vmodf_Uz[:, 1]))
 
+# ----------------------------------------------------
+# ----------------------------------------------------
 matplotlib.rcParams['figure.figsize'] = (5.5, 7)
 f, ax = plt.subplots()
 for i in range(np.shape(v)[1]):
@@ -291,13 +351,18 @@ ax.plot(mod_eof1*Dmod_Uz[0], grid_check, color='g', label=r'mod$_1$ PEV=' + str(
 ax.plot(-1.0*mod_off_eof1*Dmodoff_Uz[0], grid_check, color='m', label=r'mod$_1$ off PEV=' + str(np.round(PEV_model_off[0]*100,1)))
 ax.plot(-1.0*mods_eof1*Dmods_Uz[0], grid_check, color='c', label=r'mod$_1$ ind PEV=' + str(np.round(PEV_models[0]*100,1)))
 # ax.plot(lo_moor_eof1, lo_z_dep, color='r', label='mooring PEV = ' + str(np.round(lo_moor_PEV_model[0]*100,1)))
-ax.plot(lo_moor_eof1*Dmod_m_Uz[0], lo_z_dep, color='r', linestyle='-',label=r'mod$_1$ moor PEV = ' + str(np.round(lo_moor_f_PEV_model[0]*100,1)))
+ax.plot(lo_moor_eof1*Dmod_m_Uz[0], lo_z_dep, color='r', linestyle='-',label=r'mod$_1$ moor' + str(len(lo_z_dep)) + ' PEV = ' + str(np.round(lo_moor_PEV_model[0]*100,1)))
+ax.plot(-1.0*lo_moor2_eof1*Dmod_m_Uz2[0], lo_z_dep2, color='r', linestyle='-.',label=r'mod$_1$ moor' + str(len(lo_z_dep2)) + ' PEV = ' + str(np.round(lo_moor2_PEV_model[0]*100,1)))
+ax.plot(1.0*lo_moor3_eof1*Dmod_m_Uz3[0], lo_z_dep3, color='r', linestyle='--',label=r'mod$_1$ moor' + str(len(lo_z_dep3)) + ' PEV = ' + str(np.round(lo_moor3_PEV_model[0]*100,1)))
 
 ax2.plot(eof2*D_Uz[0], grid_check, color='b', linestyle='--', label=r'dg$_2$ PEV=' + str(np.round(PEV[1]*100,1)))
 ax2.plot(mod_eof2*Dmod_Uz[0], grid_check, color='g', linestyle='--', label=r'mod$_2$ PEV=' + str(np.round(PEV_model[1]*100,1)))
 ax2.plot(-1.0*mod_off_eof2*Dmodoff_Uz[0], grid_check, color='m', linestyle='--', label=r'mod$_2$ off PEV=' + str(np.round(PEV_model_off[1]*100,1)))
 ax2.plot(mods_eof2*Dmods_Uz[0], grid_check, color='c', linestyle='--', label=r'mod$_2$ ind PEV=' + str(np.round(PEV_models[1]*100,1)))
-ax2.plot(lo_moor_eof2*Dmod_m_Uz[0], lo_z_dep, color='r', linestyle='--', label=r'mod$_1$ moor PEV = ' + str(np.round(lo_moor_f_PEV_model[1]*100,1)))
+ax2.plot(lo_moor_eof2*Dmod_m_Uz[1], lo_z_dep, color='r', linestyle='-', label=r'mod$_2$ moor PEV = ' + str(np.round(lo_moor_PEV_model[1]*100,1)))
+ax2.plot(lo_moor2_eof2*Dmod_m_Uz2[1], lo_z_dep2, color='r', linestyle='-.', label=r'mod$_2$ moor PEV = ' + str(np.round(lo_moor2_PEV_model[1]*100,1)))
+ax2.plot(lo_moor3_eof2*Dmod_m_Uz3[1], lo_z_dep3, color='r', linestyle='--', label=r'mod$_2$ moor PEV = ' + str(np.round(lo_moor3_PEV_model[1]*100,1)))
+
 
 handles, labels = ax.get_legend_handles_labels()
 ax.legend(handles, labels, fontsize=9)

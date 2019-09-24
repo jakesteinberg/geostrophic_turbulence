@@ -92,10 +92,10 @@ partial_mw = 0    # include exclude partial m/w estimates
 
 save_anom = 0  # save file
 
-plan_plot = 0  # plot plan view of slice
+plan_plot = 1  # plot plan view of slice
 plot0 = 0  # cross section
 plot1 = 0  # vel error
-plot_anom = 1  # eta and v
+plot_anom = 0  # eta and v
 plot_grad = 0  # density grad at four depths
 plot_energy = 0  # energy spectra
 save_samp = 0  # save sample eta, v
@@ -1261,7 +1261,7 @@ if plan_plot:
     ax.axis([-127.4, -123.5, 42.5, 47])
     ax.set_xlabel(r'Longitude $^{\circ}$')
     ax.set_ylabel(r'Latitude $^{\circ}$N')
-    ax.set_title('LiveOcean Domain')
+    ax.set_title('Subset of LiveOcean Domain')
     plot_pro(ax)
     f.savefig("/Users/jake/Documents/glider_flight_sim_paper/roms_bathymetry_transect.png", dpi=300)
 # ---------------------------------------------------------------------------------------------------------------------
