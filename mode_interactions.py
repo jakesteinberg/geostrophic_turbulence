@@ -11,6 +11,11 @@ from mode_decompositions import vertical_modes, vertical_modes_f, PE_Tide_GM
 from toolkit import plot_pro, find_nearest
 
 
+# plotting controls
+plot_mode_solutions = 0
+plot_mode_structure = 0
+plot_mode_interactions = 0
+
 # load in N2 from various sites
 omega = 0
 mmax = 30
@@ -96,46 +101,49 @@ for i in range(mmax + 1):
     F[:, i] = np.interp(SB['depth'], grid2, F_g2[:, i])
     F_int[:, i] = np.interp(SB['depth'], grid2, F_int_g2[:, i])
 
-plt.rcParams['figure.figsize'] = 11, 5.5
-f, (ax1, ax15, ax2, ax3) = plt.subplots(1, 4, sharey=True)
-ax1.plot(sta_bats_n2_0 * 40000000, sta_bats_depth, label=r'N$^2$ $\times$ $ \left( 4 \times 10^{7} \right) $',color='k')
-ax1.plot(sta_G_B_0[:, 1], sta_bats_depth, label='m=1', color='#228B22', linewidth=1.5)
-ax1.plot(sta_G_B_0[:, 2], sta_bats_depth, label='m=2', color='#1E90FF', linewidth=1.5)
-ax1.plot(sta_G_B_0[:, 3], sta_bats_depth, label='m=3', color='#FF4500', linewidth=1.5)
-ax1.plot(sta_G_B_0[:, 4], sta_bats_depth, label='m=4', color='#778899', linewidth=1.5)
-ax1.set_xlim([-3000, 3000])
-ax1.set_ylim([0, 4800])
-ax1.set_title(r'G$_{m}$(z) (Flat Bottom)')
-ax1.set_ylabel('Depth [m]')
-ax1.set_xlabel('Normalized Mode Amplitude')
-ax15.plot(F_int[:, 1], sta_bats_depth, color='k')
-ax15.plot(F_int[:, 2], sta_bats_depth, color='#228B22', linewidth=1.5)
-ax15.plot(F_int[:, 3], sta_bats_depth, color='#1E90FF', linewidth=1.5)
-ax15.plot(F_int[:, 4], sta_bats_depth, color='#FF4500', linewidth=1.5)
-ax15.set_title(r'G$_{m}$(z) (Slope = $5*10^{-3}$)')
-ax15.set_xlabel('Normalized Mode Amplitude')
-ax15.grid()
+# -----
+# PlOT
+if plot_mode_solutions > 0:
+    plt.rcParams['figure.figsize'] = 11, 5.5
+    f, (ax1, ax15, ax2, ax3) = plt.subplots(1, 4, sharey=True)
+    ax1.plot(sta_bats_n2_0 * 40000000, sta_bats_depth, label=r'N$^2$ $\times$ $ \left( 4 \times 10^{7} \right) $',color='k')
+    ax1.plot(sta_G_B_0[:, 1], sta_bats_depth, label='m=1', color='#228B22', linewidth=1.5)
+    ax1.plot(sta_G_B_0[:, 2], sta_bats_depth, label='m=2', color='#1E90FF', linewidth=1.5)
+    ax1.plot(sta_G_B_0[:, 3], sta_bats_depth, label='m=3', color='#FF4500', linewidth=1.5)
+    ax1.plot(sta_G_B_0[:, 4], sta_bats_depth, label='m=4', color='#778899', linewidth=1.5)
+    ax1.set_xlim([-3000, 3000])
+    ax1.set_ylim([0, 4800])
+    ax1.set_title(r'G$_{m}$(z) (Flat Bottom)')
+    ax1.set_ylabel('Depth [m]')
+    ax1.set_xlabel('Normalized Mode Amplitude')
+    ax15.plot(F_int[:, 1], sta_bats_depth, color='k')
+    ax15.plot(F_int[:, 2], sta_bats_depth, color='#228B22', linewidth=1.5)
+    ax15.plot(F_int[:, 3], sta_bats_depth, color='#1E90FF', linewidth=1.5)
+    ax15.plot(F_int[:, 4], sta_bats_depth, color='#FF4500', linewidth=1.5)
+    ax15.set_title(r'G$_{m}$(z) (Slope = $5*10^{-3}$)')
+    ax15.set_xlabel('Normalized Mode Amplitude')
+    ax15.grid()
 
-ax2.plot(sta_Gz_B_0[:, 0], sta_bats_depth, color='k')
-ax2.plot(sta_Gz_B_0[:, 1], sta_bats_depth, color='#228B22', linewidth=1.5)
-ax2.plot(sta_Gz_B_0[:, 2], sta_bats_depth, color='#1E90FF', linewidth=1.5)
-ax2.plot(sta_Gz_B_0[:, 3], sta_bats_depth, color='#FF4500', linewidth=1.5)
-# ax3.plot(F[:, 0], sta_bats_depth, color='k')
-ax3.plot(F[:, 1], sta_bats_depth, color='#228B22', linewidth=1.5)
-ax3.plot(F[:, 2], sta_bats_depth, color='#1E90FF', linewidth=1.5)
-ax3.plot(F[:, 3], sta_bats_depth, color='#FF4500', linewidth=1.5)
-handles, labels = ax1.get_legend_handles_labels()
-ax1.legend(handles, labels, fontsize=8)
-ax1.invert_yaxis()
-ax1.grid()
-ax2.set_xlim([-3, 3])
-ax2.set_title(r'F$_{m}$(z) (Flat Bottom)')
-ax2.set_xlabel('Normalized Mode Amplitude')
-ax2.grid()
-ax3.set_title(r'F$_{m}$(z) (Slope = $5*10^{-3}$)')
-ax3.set_xlabel('Normalized Mode Amplitude')
-plot_pro(ax3)
-f.savefig("/Users/jake/Documents/baroclinic_modes/dissertation/mode_shapes_flat_slope.jpg", dpi=300)
+    ax2.plot(sta_Gz_B_0[:, 0], sta_bats_depth, color='k')
+    ax2.plot(sta_Gz_B_0[:, 1], sta_bats_depth, color='#228B22', linewidth=1.5)
+    ax2.plot(sta_Gz_B_0[:, 2], sta_bats_depth, color='#1E90FF', linewidth=1.5)
+    ax2.plot(sta_Gz_B_0[:, 3], sta_bats_depth, color='#FF4500', linewidth=1.5)
+    # ax3.plot(F[:, 0], sta_bats_depth, color='k')
+    ax3.plot(F[:, 1], sta_bats_depth, color='#228B22', linewidth=1.5)
+    ax3.plot(F[:, 2], sta_bats_depth, color='#1E90FF', linewidth=1.5)
+    ax3.plot(F[:, 3], sta_bats_depth, color='#FF4500', linewidth=1.5)
+    handles, labels = ax1.get_legend_handles_labels()
+    ax1.legend(handles, labels, fontsize=8)
+    ax1.invert_yaxis()
+    ax1.grid()
+    ax2.set_xlim([-3, 3])
+    ax2.set_title(r'F$_{m}$(z) (Flat Bottom)')
+    ax2.set_xlabel('Normalized Mode Amplitude')
+    ax2.grid()
+    ax3.set_title(r'F$_{m}$(z) (Slope = $5*10^{-3}$)')
+    ax3.set_xlabel('Normalized Mode Amplitude')
+    plot_pro(ax3)
+    # f.savefig("/Users/jake/Documents/baroclinic_modes/dissertation/mode_shapes_flat_slope.jpg", dpi=300)
 
 test = sta_bats_n2_0 * (sta_G_B_0[:, 1]**2) /(sta_bats_c[1]**2)
 test2 = sta_bats_n2_0 * (sta_G_B_0[:, 2]**2) /(sta_bats_c[2]**2)
@@ -235,130 +243,122 @@ const_G, const_Gz, const_c, epsilon_const = vertical_modes(0.00005 * np.ones(np.
 
 # --------------------------------------------------------------------------------------------------------------------
 # PLOTTING
-matplotlib.rcParams['figure.figsize'] = (14, 6)
-f, (ax0, ax1, ax2, ax3) = plt.subplots(1, 4, sharey=True)
-ax0.plot(sta_aloha_n2, sta_aloha_depth, label='ALOHA', color='#B22222')
-ax0.plot(this_ship_n2, abaco_dg['depth'][:], label='ABACO', color='#FF8C00')
-ax0.plot(sta_bats_n2_1, sta_bats_depth, label='BATS Ship Sum.', color='#00FF7F')
-ax0.plot(sta_bats_n2_0, sta_bats_depth, label='BATS Ship Win.', color='k')
-# ax0.plot(dg_36n_N2, dg_36n_depth, label='36$^{\circ}$N DG Fall', color='k')
-ax0.plot(papa_mean_corrected, sta_papa_depth, label='PAPA', color='#4682B4')
-handles, labels = ax0.get_legend_handles_labels()
-ax0.legend(handles, labels, fontsize=10)
+if plot_mode_structure > 0:
+    matplotlib.rcParams['figure.figsize'] = (14, 6)
+    f, (ax0, ax1, ax2, ax3) = plt.subplots(1, 4, sharey=True)
+    ax0.plot(sta_aloha_n2, sta_aloha_depth, label='ALOHA', color='#B22222')
+    ax0.plot(this_ship_n2, abaco_dg['depth'][:], label='ABACO', color='#FF8C00')
+    ax0.plot(sta_bats_n2_1, sta_bats_depth, label='BATS Ship Sum.', color='#00FF7F')
+    ax0.plot(sta_bats_n2_0, sta_bats_depth, label='BATS Ship Win.', color='k')
+    # ax0.plot(dg_36n_N2, dg_36n_depth, label='36$^{\circ}$N DG Fall', color='k')
+    ax0.plot(papa_mean_corrected, sta_papa_depth, label='PAPA', color='#4682B4')
+    handles, labels = ax0.get_legend_handles_labels()
+    ax0.legend(handles, labels, fontsize=10)
 
-ax1.plot(Gz_AL[:, 1], sta_aloha_depth, label='ALOHA (22$^{\circ}$N) (Mode$_{111}$ IC = ' + str(np.round(epsilon_AL[1, 1, 1], 2)) + ')', color='#B22222')
-ax1.plot(Gz_AB[:, 1], abaco_dg['depth'][:], label='ABACO (26.5$^{\circ}$N) (Mode$_{111}$ IC = ' + str(np.round(epsilon_AB[1, 1, 1], 2)) + ')', color='#FF8C00')
-ax1.plot(sta_Gz_B_1[:, 1], sta_bats_depth, label='BATS Sum. (32$^{\circ}$N) (Mode$_{111}$ IC = ' + str(np.round(sta_epsilon_B_1[1, 1, 1], 2)) + ')', color='#00FF7F')
-ax1.plot(sta_Gz_B_0[:, 1], sta_bats_depth, label='BATS Win. (32$^{\circ}$N) (Mode$_{111}$ IC = ' + str(np.round(epsilon_B_0[1, 1, 1], 2)) + ')', color='k')
-# ax1.plot(DG_36n_Gz[:, 1], dg_36n_depth, label='36$^{\circ}$N DG Fall (Mode$_{111}$ IC = ' + str(np.round(epsilon_B_1[1, 1, 1], 2)) + ')', color='k')
-ax1.plot(Gz_P[:, 1], sta_papa_depth, label=r'PAPA Sum. (50$^{\circ}$N) (Mode$_{111}$ IC = ' + str(np.round(epsilon_P[1, 1, 1], 2)) + ')', color='#4682B4')
-handles, labels = ax1.get_legend_handles_labels()
-ax1.legend(handles, labels, fontsize=8)
+    ax1.plot(Gz_AL[:, 1], sta_aloha_depth, label='ALOHA (22$^{\circ}$N) (Mode$_{111}$ IC = ' + str(np.round(epsilon_AL[1, 1, 1], 2)) + ')', color='#B22222')
+    ax1.plot(Gz_AB[:, 1], abaco_dg['depth'][:], label='ABACO (26.5$^{\circ}$N) (Mode$_{111}$ IC = ' + str(np.round(epsilon_AB[1, 1, 1], 2)) + ')', color='#FF8C00')
+    ax1.plot(sta_Gz_B_1[:, 1], sta_bats_depth, label='BATS Sum. (32$^{\circ}$N) (Mode$_{111}$ IC = ' + str(np.round(sta_epsilon_B_1[1, 1, 1], 2)) + ')', color='#00FF7F')
+    ax1.plot(sta_Gz_B_0[:, 1], sta_bats_depth, label='BATS Win. (32$^{\circ}$N) (Mode$_{111}$ IC = ' + str(np.round(epsilon_B_0[1, 1, 1], 2)) + ')', color='k')
+    # ax1.plot(DG_36n_Gz[:, 1], dg_36n_depth, label='36$^{\circ}$N DG Fall (Mode$_{111}$ IC = ' + str(np.round(epsilon_B_1[1, 1, 1], 2)) + ')', color='k')
+    ax1.plot(Gz_P[:, 1], sta_papa_depth, label=r'PAPA Sum. (50$^{\circ}$N) (Mode$_{111}$ IC = ' + str(np.round(epsilon_P[1, 1, 1], 2)) + ')', color='#4682B4')
+    handles, labels = ax1.get_legend_handles_labels()
+    ax1.legend(handles, labels, fontsize=8)
 
-ax2.plot(Gz_AL[:, 2], sta_aloha_depth, label='ALOHA (22$^{\circ}$N) (Mode$_{222}$ IC = ' + str(np.abs(np.round(epsilon_AL[2, 2, 2], 2))) + ')', color='#B22222')
-ax2.plot(Gz_AB[:, 2], abaco_dg['depth'][:], label='ABACO (26.5$^{\circ}$N) (Mode$_{222}$ IC = ' + str(np.abs(np.round(epsilon_AB[2, 2, 2], 2))) + ')', color='#FF8C00')
-ax2.plot(sta_Gz_B_1[:, 2], sta_bats_depth, label='BATS Sum. (32$^{\circ}$N) (Mode$_{222}$ IC = ' + str(np.abs(np.round(sta_epsilon_B_1[2, 2, 2], 2))) + ')', color='#00FF7F')
-ax2.plot(sta_Gz_B_0[:, 2], sta_bats_depth, label='BATS Win. (32$^{\circ}$N) (Mode$_{222}$ IC = ' + str(np.abs(np.round(epsilon_B_0[2, 2, 2], 2))) + ')', color='k')
-# ax2.plot(DG_36n_Gz[:, 2], dg_36n_depth, label='36$^{\circ}$N DG Fall (Mode$_{222}$ IC = ' + str(np.round(epsilon_B_1[2, 2, 2], 2)) + ')', color='k')
-ax2.plot(Gz_P[:, 2], sta_papa_depth, label=r'PAPA Sum. (50$^{\circ}$N) (Mode$_{222}$ IC = ' + str(np.abs(np.round(epsilon_P[2, 2, 2], 2))) + ')', color='#4682B4')
-handles, labels = ax2.get_legend_handles_labels()
-ax2.legend(handles, labels, fontsize=8)
+    ax2.plot(Gz_AL[:, 2], sta_aloha_depth, label='ALOHA (22$^{\circ}$N) (Mode$_{222}$ IC = ' + str(np.abs(np.round(epsilon_AL[2, 2, 2], 2))) + ')', color='#B22222')
+    ax2.plot(Gz_AB[:, 2], abaco_dg['depth'][:], label='ABACO (26.5$^{\circ}$N) (Mode$_{222}$ IC = ' + str(np.abs(np.round(epsilon_AB[2, 2, 2], 2))) + ')', color='#FF8C00')
+    ax2.plot(sta_Gz_B_1[:, 2], sta_bats_depth, label='BATS Sum. (32$^{\circ}$N) (Mode$_{222}$ IC = ' + str(np.abs(np.round(sta_epsilon_B_1[2, 2, 2], 2))) + ')', color='#00FF7F')
+    ax2.plot(sta_Gz_B_0[:, 2], sta_bats_depth, label='BATS Win. (32$^{\circ}$N) (Mode$_{222}$ IC = ' + str(np.abs(np.round(epsilon_B_0[2, 2, 2], 2))) + ')', color='k')
+    # ax2.plot(DG_36n_Gz[:, 2], dg_36n_depth, label='36$^{\circ}$N DG Fall (Mode$_{222}$ IC = ' + str(np.round(epsilon_B_1[2, 2, 2], 2)) + ')', color='k')
+    ax2.plot(Gz_P[:, 2], sta_papa_depth, label=r'PAPA Sum. (50$^{\circ}$N) (Mode$_{222}$ IC = ' + str(np.abs(np.round(epsilon_P[2, 2, 2], 2))) + ')', color='#4682B4')
+    handles, labels = ax2.get_legend_handles_labels()
+    ax2.legend(handles, labels, fontsize=8)
 
-ax3.plot(Gz_AL[:, 3], sta_aloha_depth, label='ALOHA (22$^{\circ}$N) (Mode$_{333}$ IC = ' + str(np.abs(np.round(epsilon_AL[3, 3, 3], 2))) + ')', color='#B22222')
-ax3.plot(Gz_AB[:, 3], abaco_dg['depth'][:], label='ABACO (26.5$^{\circ}$N) (Mode$_{333}$ IC = ' + str(np.abs(np.round(epsilon_AB[3, 3, 3], 2))) + ')', color='#FF8C00')
-ax3.plot(sta_Gz_B_1[:, 3], sta_bats_depth, label='BATS Sum. (32$^{\circ}$N) (Mode$_{333}$ IC = ' + str(np.abs(np.round(sta_epsilon_B_1[3, 3, 3], 2))) + ')', color='#00FF7F')
-ax3.plot(sta_Gz_B_0[:, 3], sta_bats_depth, label='BATS Win. (32$^{\circ}$N) (Mode$_{333}$ IC = ' + str(np.abs(np.round(epsilon_B_0[3, 3, 3], 2))) + ')', color='k')
-# ax3.plot(DG_36n_Gz[:, 3], dg_36n_depth, label='36$^{\circ}$N DG Fall (Mode$_{333}$ IC = ' + str(np.round(epsilon_B_1[3, 3, 3], 2)) + ')', color='k')
-ax3.plot(Gz_P[:, 3], sta_papa_depth, label=r'PAPA Sum. (50$^{\circ}$N) (Mode$_{333}$ IC = ' + str(np.abs(np.round(epsilon_P[3, 3, 3], 2))) + ')', color='#4682B4')
-handles, labels = ax3.get_legend_handles_labels()
-ax3.legend(handles, labels, fontsize=8)
+    ax3.plot(Gz_AL[:, 3], sta_aloha_depth, label='ALOHA (22$^{\circ}$N) (Mode$_{333}$ IC = ' + str(np.abs(np.round(epsilon_AL[3, 3, 3], 2))) + ')', color='#B22222')
+    ax3.plot(Gz_AB[:, 3], abaco_dg['depth'][:], label='ABACO (26.5$^{\circ}$N) (Mode$_{333}$ IC = ' + str(np.abs(np.round(epsilon_AB[3, 3, 3], 2))) + ')', color='#FF8C00')
+    ax3.plot(sta_Gz_B_1[:, 3], sta_bats_depth, label='BATS Sum. (32$^{\circ}$N) (Mode$_{333}$ IC = ' + str(np.abs(np.round(sta_epsilon_B_1[3, 3, 3], 2))) + ')', color='#00FF7F')
+    ax3.plot(sta_Gz_B_0[:, 3], sta_bats_depth, label='BATS Win. (32$^{\circ}$N) (Mode$_{333}$ IC = ' + str(np.abs(np.round(epsilon_B_0[3, 3, 3], 2))) + ')', color='k')
+    # ax3.plot(DG_36n_Gz[:, 3], dg_36n_depth, label='36$^{\circ}$N DG Fall (Mode$_{333}$ IC = ' + str(np.round(epsilon_B_1[3, 3, 3], 2)) + ')', color='k')
+    ax3.plot(Gz_P[:, 3], sta_papa_depth, label=r'PAPA Sum. (50$^{\circ}$N) (Mode$_{333}$ IC = ' + str(np.abs(np.round(epsilon_P[3, 3, 3], 2))) + ')', color='#4682B4')
+    handles, labels = ax3.get_legend_handles_labels()
+    ax3.legend(handles, labels, fontsize=8)
 
-ax0.set_ylim([0, 2000])
-ax0.set_ylabel('Depth [m]')
-ax0.set_xlabel(r'N$^2$ [s$^{-2}$]')
-ax1.set_xlabel('Normalized Mode Amplitude')
-ax2.set_xlabel('Normalized Mode Amplitude')
-ax3.set_xlabel('Normalized Mode Amplitude')
-ax1.set_title('Mode 1 Strucutre')
-ax2.set_title('Mode 2 Strucutre')
-ax3.set_title('Mode 3 Strucutre')
-ax0.set_title('Variations in Buoyancy Frequency')
-ax0.invert_yaxis()
-ax0.grid()
-ax1.grid()
-ax2.grid()
-plot_pro(ax3)
-f.savefig("/Users/jake/Documents/baroclinic_modes/dissertation/site_n2_mode1_interaction_shapes.jpg", dpi=300)
+    ax0.set_ylim([0, 2000])
+    ax0.set_ylabel('Depth [m]')
+    ax0.set_xlabel(r'N$^2$ [s$^{-2}$]')
+    ax1.set_xlabel('Normalized Mode Amplitude')
+    ax2.set_xlabel('Normalized Mode Amplitude')
+    ax3.set_xlabel('Normalized Mode Amplitude')
+    ax1.set_title('Mode 1 Strucutre')
+    ax2.set_title('Mode 2 Strucutre')
+    ax3.set_title('Mode 3 Strucutre')
+    ax0.set_title('Variations in Buoyancy Frequency')
+    ax0.invert_yaxis()
+    ax0.grid()
+    ax1.grid()
+    ax2.grid()
+    plot_pro(ax3)
+    # f.savefig("/Users/jake/Documents/baroclinic_modes/dissertation/site_n2_mode1_interaction_shapes.jpg", dpi=300)
 # ---------------------------------------------------------------------------------------------------------------------
 # Block Diagram of Interaction Coefficients
-cmap = matplotlib.cm.get_cmap('hot_r')
+if plot_mode_interactions > 0:
+    cmap = matplotlib.cm.get_cmap('hot_r')
+    matplotlib.rcParams['figure.figsize'] = (17.5, 5.5)
+    vmi = 0
+    vma = 2.75
+    fs = 10
+    modes = [0, 1, 2, 3]
+    mode_labs = '0', '1', '2', '3'
+    mm = 4  # max mode index (i,j) to color in each pcolor
+    epsils = [epsilon_const, epsilon_AL, epsilon_P, epsilon_AB, DG_36n_epsilon, DG_36n_2_epsilon, epsilon_B_0, epsilon_B_1, DG_lde_epsilon]
+    epsils_labs = ['Constant N$^2$', 'ALOHA', 'PAPA Sum.', 'ABACO', '36$^{\circ}$N Win.', '36$^{\circ}$N Sum.','BATS Win.', 'BATS Sum.', 'LDE Sum.',]
+    f, arm = plt.subplots(3, len(epsils_labs), sharex=True, sharey=True)
+    for i in range(len(epsils)):
+        # arm[0, i].pcolor(epsils[i][modes[0], :, :], cmap=cmap, vmin=vmi, vmax=vma)
+        # arm[0, i].set_title(epsils_labs[i] + ', i=' + str(modes[0]), fontsize=fs)
+        # plt.xticks(np.arange(0.5, len(mode_labs) + .5, 1), mode_labs)
+        # plt.yticks(np.arange(0.5, len(mode_labs) + .5, 1), mode_labs)
 
-matplotlib.rcParams['figure.figsize'] = (17.5, 5.5)
+        arm[0, i].pcolor(np.abs(epsils[i][modes[1], 0:mm, 0:mm]), cmap=cmap, vmin=vmi, vmax=vma)
+        arm[0, i].set_title(epsils_labs[i] + ', i=' + str(modes[1]), fontsize=fs)
+        plt.xticks(np.arange(0.5, len(mode_labs) + .5, 1), mode_labs)
+        plt.yticks(np.arange(0.5, len(mode_labs) + .5, 1), mode_labs)
 
-vmi = 0
-vma = 2.75
-fs = 10
-modes = [0, 1, 2, 3]
-mode_labs = '0', '1', '2', '3'
-mm = 4  # max mode index (i,j) to color in each pcolor
-epsils = [epsilon_const, epsilon_AL, epsilon_P, epsilon_AB,
-          DG_36n_epsilon, DG_36n_2_epsilon, epsilon_B_0, epsilon_B_1, DG_lde_epsilon]
-epsils_labs = ['Constant N$^2$', 'ALOHA', 'PAPA Sum.', 'ABACO',
-               '36$^{\circ}$N Win.', '36$^{\circ}$N Sum.','BATS Win.', 'BATS Sum.', 'LDE Sum.',]
-# epsils = [epsilon_const, epsilon_B_0, epsilon_B_1]
-# epsils_labs = ['Constant N$^2$','BATS Winter', 'BATS Summer']
-f, arm = plt.subplots(3, len(epsils_labs), sharex=True, sharey=True)
-for i in range(len(epsils)):
-    # arm[0, i].pcolor(epsils[i][modes[0], :, :], cmap=cmap, vmin=vmi, vmax=vma)
-    # arm[0, i].set_title(epsils_labs[i] + ', i=' + str(modes[0]), fontsize=fs)
-    # plt.xticks(np.arange(0.5, len(mode_labs) + .5, 1), mode_labs)
-    # plt.yticks(np.arange(0.5, len(mode_labs) + .5, 1), mode_labs)
+        arm[1, i].pcolor(np.abs(epsils[i][modes[2], 0:mm, 0:mm]), cmap=cmap, vmin=vmi, vmax=vma)
+        # arm[1, i].set_title(epsils_labs[i] + ', i=' + str(modes[2]), fontsize=fs)
+        arm[1, i].set_title('i=' + str(modes[2]), fontsize=fs)
+        plt.xticks(np.arange(0.5, len(mode_labs) + .5, 1), mode_labs)
+        plt.yticks(np.arange(0.5, len(mode_labs) + .5, 1), mode_labs)
 
-    arm[0, i].pcolor(np.abs(epsils[i][modes[1], 0:mm, 0:mm]), cmap=cmap, vmin=vmi, vmax=vma)
-    arm[0, i].set_title(epsils_labs[i] + ', i=' + str(modes[1]), fontsize=fs)
-    plt.xticks(np.arange(0.5, len(mode_labs) + .5, 1), mode_labs)
-    plt.yticks(np.arange(0.5, len(mode_labs) + .5, 1), mode_labs)
-
-    arm[1, i].pcolor(np.abs(epsils[i][modes[2], 0:mm, 0:mm]), cmap=cmap, vmin=vmi, vmax=vma)
-    # arm[1, i].set_title(epsils_labs[i] + ', i=' + str(modes[2]), fontsize=fs)
-    arm[1, i].set_title('i=' + str(modes[2]), fontsize=fs)
-    plt.xticks(np.arange(0.5, len(mode_labs) + .5, 1), mode_labs)
-    plt.yticks(np.arange(0.5, len(mode_labs) + .5, 1), mode_labs)
-
-    arm[2, i].pcolor(np.abs(epsils[i][modes[3], 0:mm, 0:mm]), cmap=cmap, vmin=vmi, vmax=vma)
-    # arm[2, i].set_title(epsils_labs[i] + ', i=' + str(modes[3]), fontsize=fs)
-    arm[2, i].set_title('i=' + str(modes[3]), fontsize=fs)
-    plt.xticks(np.arange(0.5, len(mode_labs) + .5, 1), mode_labs)
-    plt.yticks(np.arange(0.5, len(mode_labs) + .5, 1), mode_labs)
-arm[0, 0].invert_yaxis()
-arm[0, 0].set_ylabel('j', fontsize=fs)
-arm[1, 0].set_ylabel('j', fontsize=fs)
-arm[2, 0].set_ylabel('j', fontsize=fs)
-# arm[3, 0].set_ylabel('j', fontsize=fs)
-arm[2, 0].set_xlabel('m', fontsize=fs)
-arm[2, 1].set_xlabel('m', fontsize=fs)
-arm[2, 2].set_xlabel('m', fontsize=fs)
-arm[2, 3].set_xlabel('m', fontsize=fs)
-arm[2, 4].set_xlabel('m', fontsize=fs)
-arm[2, 5].set_xlabel('m', fontsize=fs)
-arm[2, 6].set_xlabel('m', fontsize=fs)
-arm[2, 7].set_xlabel('m', fontsize=fs)
-arm[2, 8].set_xlabel('m', fontsize=fs)
-c_map_ax = f.add_axes([0.925, 0.1, 0.02, 0.8])
-norm = matplotlib.colors.Normalize(vmin=vmi, vmax=vma)
-cb1 = matplotlib.colorbar.ColorbarBase(c_map_ax, cmap=cmap, norm=norm, orientation='vertical')
-cb1.set_label('Epsilon')
-arm[2, len(epsils_labs)-1].grid()
-plot_pro(arm[2, len(epsils_labs)-1])
-f.savefig("/Users/jake/Documents/baroclinic_modes/dissertation/mode_interactions_blocks.jpg", dpi=300)
+        arm[2, i].pcolor(np.abs(epsils[i][modes[3], 0:mm, 0:mm]), cmap=cmap, vmin=vmi, vmax=vma)
+        # arm[2, i].set_title(epsils_labs[i] + ', i=' + str(modes[3]), fontsize=fs)
+        arm[2, i].set_title('i=' + str(modes[3]), fontsize=fs)
+        plt.xticks(np.arange(0.5, len(mode_labs) + .5, 1), mode_labs)
+        plt.yticks(np.arange(0.5, len(mode_labs) + .5, 1), mode_labs)
+    arm[0, 0].invert_yaxis()
+    arm[0, 0].set_ylabel('j', fontsize=fs)
+    arm[1, 0].set_ylabel('j', fontsize=fs)
+    arm[2, 0].set_ylabel('j', fontsize=fs)
+    # arm[3, 0].set_ylabel('j', fontsize=fs)
+    arm[2, 0].set_xlabel('m', fontsize=fs)
+    arm[2, 1].set_xlabel('m', fontsize=fs)
+    arm[2, 2].set_xlabel('m', fontsize=fs)
+    arm[2, 3].set_xlabel('m', fontsize=fs)
+    arm[2, 4].set_xlabel('m', fontsize=fs)
+    arm[2, 5].set_xlabel('m', fontsize=fs)
+    arm[2, 6].set_xlabel('m', fontsize=fs)
+    arm[2, 7].set_xlabel('m', fontsize=fs)
+    arm[2, 8].set_xlabel('m', fontsize=fs)
+    c_map_ax = f.add_axes([0.925, 0.1, 0.02, 0.8])
+    norm = matplotlib.colors.Normalize(vmin=vmi, vmax=vma)
+    cb1 = matplotlib.colorbar.ColorbarBase(c_map_ax, cmap=cmap, norm=norm, orientation='vertical')
+    cb1.set_label('Epsilon')
+    arm[2, len(epsils_labs)-1].grid()
+    plot_pro(arm[2, len(epsils_labs)-1])
+    # f.savefig("/Users/jake/Documents/baroclinic_modes/dissertation/mode_interactions_blocks.jpg", dpi=300)
 
 # ---------------------------------------------------------------------------------------------------------------------
 # PE across geographic locations
-# --- ABACO ---
-pkl_file = open('/Users/jake/Documents/geostrophic_turbulence/ABACO_2017_energy.pkl', 'rb')
-abaco_energies = pickle.load(pkl_file)
-pkl_file.close()
-
+# Shipboard Data
 # --- PAPA ---
 pkl_file = open('/Users/jake/Documents/baroclinic_modes/Line_P/canada_DFO/papa_energy_spectra_sept17.pkl', 'rb')
 SP = pickle.load(pkl_file)
@@ -406,16 +406,31 @@ sta_bats_pe_total = np.nanmean(np.concatenate((np.nanmean(sta_bats_pe[0], axis=1
 sta_bats_n2_1 = SB['N2_per_season'][:, 1]
 PE_SD_bats, PE_GM_bats, GMPE_bats, GMKE_bats = PE_Tide_GM(rho0, sta_bats_depth,
                                                           len(sta_bats_pe_total), sta_bats_n2_1[:, None], sta_bats_f)
+# --- Deepgliders ---
+# --- BATS DG (2014) ---
+pkl_file = open('/Users/jake/Documents/baroclinic_modes/DG/sg035_2014_energy_oct_4_2019.pkl', 'rb')
+DGB0 = pickle.load(pkl_file)
+pkl_file.close()
+bats0_dg_bckgrds = DGB0['indices'][0]  # all index
+bats0_dg_KE_all = np.nanmean(DGB0['KE_all'][:, bats0_dg_bckgrds], axis=1)
+bats0_dg_PE_all = np.nanmean(DGB0['PE_all'][:, bats0_dg_bckgrds], axis=1)
+bats0_dg_c = DGB0['c']
+bats0_dg_f = DGB0['f']
+bats0_dg_depth = DGB0['depth']
+bats0_dg_GMKE = DGB0['GMKE']
+bats0_dg_GMPE = DGB0['GMPE']
+dk_bats0 = bats0_dg_f / bats0_dg_c[1]
+sc_x_bats0 = 1000 * bats0_dg_f / bats0_dg_c[1:]
 
-# --- BATS DG
+# --- BATS DG (2015) ---
 pkl_file = open('/Users/jake/Documents/baroclinic_modes/DG/sg035_2015_energy_may2019.pkl', 'rb')
 DGB = pickle.load(pkl_file)
 pkl_file.close()
 bats_dg_KE = DGB['KE']
 bats_dg_PE = DGB['PE']
 bats_dg_bckgrds = DGB['background_eddy_indicies_for_energy'][0]  # winter index
-bats_dg_KE_all = np.nanmean(DGB['KE_all'][:, bats_dg_bckgrds], axis=1)
-bats_dg_PE_all = np.nanmean(DGB['PE_all'][:, bats_dg_bckgrds], axis=1)
+bats_dg_KE_all = np.nanmean(DGB['KE_all'], axis=1)  # [:, bats_dg_bckgrds]
+bats_dg_PE_all = np.nanmean(DGB['PE_all'], axis=1)
 bats_dg_c = DGB['c']
 bats_dg_f = DGB['f']
 bats_dg_depth = DGB['depth']
@@ -424,7 +439,14 @@ bats_dg_GMPE = DGB['GMPE']
 dk_bats = bats_dg_f / bats_dg_c[1]
 sc_x_bats = 1000 * bats_dg_f / bats_dg_c[1:]
 
-# --- 36N DG
+# --- ABACO DG sg037, sg038 (2017) ---
+pkl_file = open('/Users/jake/Documents/baroclinic_modes/DG/sg037_38_2017_energy_oct_4_2019.pkl', 'rb')
+abaco_energies = pickle.load(pkl_file)
+pkl_file.close()
+PE_ab = np.nanmean(abaco_energies['PE_all'], axis=1)
+KE_ab = np.nanmean(abaco_energies['KE_v_all'], axis=1)  # energy is 1/2 because all profiles are E/W so velocities are N/S
+
+# --- 36N DG (2018) ---
 pkl_file = open('/Users/jake/Documents/baroclinic_modes/DG/sg041_2018_energy.pkl', 'rb')
 DG36 = pickle.load(pkl_file)
 pkl_file.close()
@@ -441,37 +463,147 @@ dg_36n_GMPE = DG36['GMPE']
 dk_36n = dg_36n_f / dg_36n_c[1]
 sc_x_36n = 1000 * dg_36n_f / dg_36n_c[1:]
 
+# --- 36N DG (2019) ---
+pkl_file = open('/Users/jake/Documents/baroclinic_modes/DG/sg045_2019_energy_oct_4_2019.pkl', 'rb')
+DG36_2 = pickle.load(pkl_file)
+pkl_file.close()
+dg_36_2_KE_u_all = np.nanmean(DG36_2['KE_u_all'], axis=1)
+dg_36_2_KE_v_all = np.nanmean(DG36_2['KE_v_all'], axis=1)
+dg_36_2_PE_all = np.nanmean(DG36_2['PE_all'], axis=1)
+dg_36_2_c = DG36_2['c']
+dg_36_2_f = DG36_2['f']
+dg_36_2_depth = DG36_2['depth']
+dg_36_2_GMKE = DG36_2['GMKE']
+dg_36_2_GMPE = DG36_2['GMPE']
+dk_36_2 = dg_36_2_f / dg_36_2_c[1]
+sc_x_36_2 = 1000 * dg_36_2_f / dg_36_2_c[1:]
+
+# --- LDE DG (2019) ---
+pkl_file = open('/Users/jake/Documents/baroclinic_modes/DG/sg037_2019_energy_oct_4_2019.pkl', 'rb')
+DGLDE = pickle.load(pkl_file)
+pkl_file.close()
+dg_LDE_KE_u_all = np.nanmean(DGLDE['KE_u_all'], axis=1)
+dg_LDE_KE_v_all = np.nanmean(DGLDE['KE_v_all'], axis=1)
+dg_LDE_PE_all = np.nanmean(DGLDE['PE_all'], axis=1)
+dg_LDE_c = DGLDE['c']
+dg_LDE_f = DGLDE['f']
+dg_LDE_depth = DGLDE['depth']
+dg_LDE_GMKE = DGLDE['GMKE']
+dg_LDE_GMPE = DGLDE['GMPE']
+dk_LDE = dg_LDE_f / dg_LDE_c[1]
+sc_x_LDE = 1000 * dg_LDE_f / dg_LDE_c[1:]
+
 mode_num = np.arange(1, 61, 1)
 # --- PLOT
-# PE and KE by mode number for DG missions, BATS, 36N, ABACO
-matplotlib.rcParams['figure.figsize'] = (7, 6)
+# ---------------------------------------------------------
+# PE and KE by mode number for DG missions, BATS 2015, 36N 2018, 36N 2019, ABACO 2018, LDE 2019
+matplotlib.rcParams['figure.figsize'] = (12, 8)
 scols = ['#00BFFF', '#6B8E23', '#800000']
-fig01, ax0 = plt.subplots()
+fig01, ax = plt.subplots(2, 3)
 mode_num = np.arange(1, 61, 1)
-# PE_ab = ax0.plot(mode_num, abaco_energies['avg_PE'][1:] / (abaco_energies['f_ref'] / abaco_energies['c'][1]),
-#                  label='ABACO')
-PE_bats = ax0.plot(mode_num[0:45], bats_dg_PE_all[1:] / dk_bats, label='BATS', linewidth=2, color=scols[0])
-PE_36n = ax0.plot(mode_num[0:40], dg_36n_PE_all[1:] / dk_36n, label='36N', linewidth=2, color=scols[1])
-KE_bats = ax0.plot(mode_num[0:45], bats_dg_KE_all[1:] / dk_bats, label='BATS',
-                   linewidth=2, color=scols[0], linestyle='--')
-KE_36n = ax0.plot(mode_num[0:40], dg_36n_KE_all[1:] / dk_36n, label='36N',
-                  linewidth=2, color=scols[1], linestyle='--')
-ax0.plot([10 ** 0, 10 ** 2], [10 ** 3, 10 ** -3], color='k', linewidth=0.5)
-ax0.plot([10 ** 0, 10 ** 3], [3 * 10 ** 2, 3 * 10 ** -4], color='k', linewidth=0.5)
-ax0.text(8 * 10 ** 1, 6 * 10 ** -2, '-2', fontsize=10)
-ax0.text(8 * 10 ** 1, 3 * 10 ** -3, '-3', fontsize=10)
+x_min = 7 * 10 ** -1
 
-ax0.set_xlabel('Mode Number', fontsize=14)
-ax0.set_ylabel('Spectral Density', fontsize=14)
-ax0.set_title('Potential Energy Spectra (Across DG Missions)', fontsize=16)
-ax0.set_yscale('log')
-ax0.set_xscale('log')
-ax0.axis([8 * 10 ** -1, 10 ** 2, 10 ** (-3), 1 * 10 ** 3])
-handles, labels = ax0.get_legend_handles_labels()
-ax0.legend(handles, labels, fontsize=12)
-plot_pro(ax0)
+ax[0, 0].plot(mode_num[0:45], bats0_dg_PE_all[1:], label='BATS', linewidth=2, color=scols[0])
+ax[0, 0].plot(mode_num[0:45], bats0_dg_KE_all[1:], label='BATS', linewidth=2, color=scols[1])
+ax[0, 0].plot([x_min, mode_num[0]], [bats0_dg_KE_all[0], bats0_dg_KE_all[1]], linewidth=2, color=scols[1])
 
-# PE (by mode number) COMPARISON BY SITE
+ax[0, 1].plot(mode_num[0:45], bats_dg_PE_all[1:], label='BATS', linewidth=2, color=scols[0])
+ax[0, 1].plot(mode_num[0:45], bats_dg_KE_all[1:], label='BATS', linewidth=2, color=scols[1])
+ax[0, 1].plot([x_min, mode_num[0]], [bats_dg_KE_all[0], bats_dg_KE_all[1]], linewidth=2, color=scols[1])
+
+ax[0, 2].plot(mode_num[0:len(PE_ab)-1], PE_ab[1:], label='ABACO', linewidth=2, color=scols[0])
+ax[0, 2].plot(mode_num[0:len(PE_ab)-1], KE_ab[1:], label='ABACO', linewidth=2, color=scols[1])
+ax[0, 2].plot([x_min, mode_num[0]], [KE_ab[0], KE_ab[1]], linewidth=2, color=scols[1])
+
+ax[1, 0].plot(mode_num[0:40], dg_36n_PE_all[1:], label='36N', linewidth=2, color=scols[0])
+ax[1, 0].plot(mode_num[0:40], dg_36n_KE_all[1:], label='36N', linewidth=2, color=scols[1])
+ax[1, 0].plot([x_min, mode_num[0]], [dg_36n_KE_all[0], dg_36n_KE_all[1]], linewidth=2, color=scols[1])
+
+ax[1, 1].plot(mode_num[0:45], dg_36_2_PE_all[1:], label='36N', linewidth=2, color=scols[0])
+ax[1, 1].plot(mode_num[0:45], dg_36_2_KE_u_all[1:] + dg_36_2_KE_v_all[1:], label='36N', linewidth=2, color=scols[1])
+ax[1, 1].plot(mode_num[0:45], dg_36_2_KE_u_all[1:], label='36N', linewidth=1, color=scols[1], linestyle=':')
+ax[1, 1].plot(mode_num[0:45], dg_36_2_KE_v_all[1:], label='36N', linewidth=1, color=scols[1], linestyle='--')
+ke36_2_tot = dg_36_2_KE_u_all + dg_36_2_KE_v_all
+ax[1, 1].plot([x_min, mode_num[0]], [ke36_2_tot[0], ke36_2_tot[1]], linewidth=2, color=scols[1])
+
+ax[1, 2].plot(mode_num[0:45], dg_LDE_PE_all[1:], label='LDE', linewidth=2, color=scols[0])
+ax[1, 2].plot(mode_num[0:45], dg_LDE_KE_u_all[1:] + dg_LDE_KE_v_all[1:], label='LDE', linewidth=2, color=scols[1])
+ax[1, 2].plot(mode_num[0:45], dg_LDE_KE_u_all[1:], label='LDE', linewidth=1, color=scols[1], linestyle=':')
+ax[1, 2].plot(mode_num[0:45], dg_LDE_KE_v_all[1:], label='LDE', linewidth=1, color=scols[1], linestyle='--')
+ke_lde_tot = dg_LDE_KE_u_all + dg_LDE_KE_v_all
+ax[1, 2].plot([x_min, mode_num[0]], [ke_lde_tot[0], ke_lde_tot[1]], linewidth=2, color=scols[1])
+
+# ax[0, 0].plot([10 ** 0, 10 ** 2], [10 ** 3, 10 ** -3], color='k', linewidth=0.5)
+# ax[0, 0].plot([10 ** 0, 10 ** 3], [3 * 10 ** 2, 3 * 10 ** -4], color='k', linewidth=0.5)
+# ax[0, 0].text(8 * 10 ** 1, 6 * 10 ** -2, '-2', fontsize=10)
+# ax[0, 0].text(8 * 10 ** 1, 3 * 10 ** -3, '-3', fontsize=10)
+
+ax[0, 0].plot([10 ** 0, 10 ** 2], [10 ** -3, 10 ** -9], color='k', linewidth=0.5)
+ax[0, 0].plot([10 ** 0, 10 ** 3], [3*10 ** -4, 3*10 ** -10], color='k', linewidth=0.5)
+ax[0, 0].text(1.4 * 10 ** 1, 1.5 * 10 ** -7, '-3', fontsize=10)
+ax[0, 0].text(3 * 10 ** 1, 1.5 * 10 ** -7, '-2', fontsize=10)
+ax[0, 1].plot([10 ** 0, 10 ** 2], [10 ** -3, 10 ** -9], color='k', linewidth=0.5)
+ax[0, 1].plot([10 ** 0, 10 ** 3], [3*10 ** -4, 3*10 ** -10], color='k', linewidth=0.5)
+ax[0, 1].text(1.4 * 10 ** 1, 1.5 * 10 ** -7, '-3', fontsize=10)
+ax[0, 1].text(3 * 10 ** 1, 1.5 * 10 ** -7, '-2', fontsize=10)
+ax[0, 2].plot([10 ** 0, 10 ** 2], [10 ** -3, 10 ** -9], color='k', linewidth=0.5)
+ax[0, 2].plot([10 ** 0, 10 ** 3], [3*10 ** -4, 3*10 ** -10], color='k', linewidth=0.5)
+ax[0, 2].text(1.4 * 10 ** 1, 1.5 * 10 ** -7, '-3', fontsize=10)
+ax[0, 2].text(3 * 10 ** 1, 1.5 * 10 ** -7, '-2', fontsize=10)
+ax[1, 0].plot([10 ** 0, 10 ** 2], [10 ** -3, 10 ** -9], color='k', linewidth=0.5)
+ax[1, 0].plot([10 ** 0, 10 ** 3], [3*10 ** -4, 3*10 ** -10], color='k', linewidth=0.5)
+ax[1, 0].text(1.4 * 10 ** 1, 1.5 * 10 ** -7, '-3', fontsize=10)
+ax[1, 0].text(3 * 10 ** 1, 1.5 * 10 ** -7, '-2', fontsize=10)
+ax[1, 1].plot([10 ** 0, 10 ** 2], [10 ** -3, 10 ** -9], color='k', linewidth=0.5)
+ax[1, 1].plot([10 ** 0, 10 ** 3], [3*10 ** -4, 3*10 ** -10], color='k', linewidth=0.5)
+ax[1, 1].text(1.4 * 10 ** 1, 1.5 * 10 ** -7, '-3', fontsize=10)
+ax[1, 1].text(3 * 10 ** 1, 1.5 * 10 ** -7, '-2', fontsize=10)
+ax[1, 2].plot([10 ** 0, 10 ** 2], [10 ** -3, 10 ** -9], color='k', linewidth=0.5)
+ax[1, 2].plot([10 ** 0, 10 ** 3], [3*10 ** -4, 3*10 ** -10], color='k', linewidth=0.5)
+ax[1, 2].text(1.4 * 10 ** 1, 1.5 * 10 ** -7, '-3', fontsize=10)
+ax[1, 2].text(3 * 10 ** 1, 1.5 * 10 ** -7, '-2', fontsize=10)
+
+ax[1, 0].set_xlabel('Mode Number', fontsize=14)
+ax[1, 1].set_xlabel('Mode Number', fontsize=14)
+ax[1, 2].set_xlabel('Mode Number', fontsize=14)
+ax[0, 0].set_ylabel('Spectral Density', fontsize=14)
+ax[1, 0].set_ylabel('Spectral Density', fontsize=14)
+ax[0, 0].set_title('BATS (sg035 2014)', fontsize=12)
+ax[0, 1].set_title('BATS (sg035 2015)', fontsize=12)
+ax[0, 2].set_title('ABACO (sg037, sg038 2017)', fontsize=12)
+ax[1, 0].set_title(r'36$^{\circ}$N (sg041 2018)', fontsize=12)
+ax[1, 1].set_title(r'36$^{\circ}$N (sg045 2019)', fontsize=12)
+ax[1, 2].set_title('LDE (sg037 2019)', fontsize=12)
+ax[0, 0].set_yscale('log')
+ax[0, 0].set_xscale('log')
+ax[0, 1].set_yscale('log')
+ax[0, 1].set_xscale('log')
+ax[0, 2].set_yscale('log')
+ax[0, 2].set_xscale('log')
+ax[1, 0].set_yscale('log')
+ax[1, 0].set_xscale('log')
+ax[1, 1].set_yscale('log')
+ax[1, 1].set_xscale('log')
+ax[1, 2].set_yscale('log')
+ax[1, 2].set_xscale('log')
+# ax[0, 0].axis([8 * 10 ** -1, 10 ** 2, 10 ** (-3), 1 * 10 ** 3])
+ax[0, 0].axis([x_min, 10 ** 2, 10 ** (-8), 1 * 10 ** (-2)])
+ax[0, 1].axis([x_min, 10 ** 2, 10 ** (-8), 1 * 10 ** (-2)])
+ax[0, 2].axis([x_min, 10 ** 2, 10 ** (-8), 1 * 10 ** (-2)])
+ax[1, 0].axis([x_min, 10 ** 2, 10 ** (-8), 1 * 10 ** (-2)])
+ax[1, 1].axis([x_min, 10 ** 2, 10 ** (-8), 1 * 10 ** (-2)])
+ax[1, 2].axis([x_min, 10 ** 2, 10 ** (-8), 1 * 10 ** (-2)])
+# handles, labels = ax0.get_legend_handles_labels()
+# ax0.legend(handles, labels, fontsize=12)
+ax[0, 0].grid()
+ax[0, 1].grid()
+ax[0, 2].grid()
+ax[1, 0].grid()
+ax[1, 1].grid()
+plot_pro(ax[1, 2])
+fig01.savefig("/Users/jake/Documents/baroclinic_modes/dissertation/pe_ke_across_sites.jpg", dpi=300)
+# -------------------------------------------------------------------
+# --- PE (by mode number) COMPARISON BY SITE (ALL SHIPBOARD DATA) ---
 matplotlib.rcParams['figure.figsize'] = (7, 6)
 scols = ['#00BFFF', '#6B8E23', '#800000']
 fig01, ax0 = plt.subplots()
@@ -498,7 +630,8 @@ ax0.axis([8 * 10 ** -1, 10 ** 2, 10 ** (-8), 1 * 10 ** (-2)])
 handles, labels = ax0.get_legend_handles_labels()
 ax0.legend(handles, labels, fontsize=12)
 plot_pro(ax0)
-fig01.savefig("/Users/jake/Documents/baroclinic_modes/dissertation/pe_ship_comp.jpg", dpi=300)
+# fig01.savefig("/Users/jake/Documents/baroclinic_modes/dissertation/pe_ship_comp.jpg", dpi=300)
+
 # ---------------------------------------------------------------------------------------------------------------------
 # --- Internal Wave Computations / Testing of new formulation
 Depth = sta_bats_depth.copy()

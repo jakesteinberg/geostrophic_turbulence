@@ -19,7 +19,7 @@ tagg = 'yall_v20_slp3'
 savee = 0
 save_rms = 0  # vel error plot
 save_e = 0  # energy spectra plot
-save_eof = 1
+save_eof = 0
 plot_se = 0  # plot shear error scatter plot
 
 count = 0

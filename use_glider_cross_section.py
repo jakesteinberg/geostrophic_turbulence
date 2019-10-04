@@ -12,8 +12,8 @@ from toolkit import plot_pro
 #        SG NUMBER,  DIVE NUMBERS,                DIVE FILE PATH
 # -----------------------------------------------------------------------------------------
 # ---- Gulf Stream Cross 2015
-x = Glider(36, np.arange(57, 85), '/Users/jake/Documents/baroclinic_modes/DG/BATS_2015/sg036')
-bbi = [0, 0, 0]
+# x = Glider(36, np.arange(57, 85), '/Users/jake/Documents/baroclinic_modes/DG/BATS_2015/sg036')
+# bbi = [0, 0, 0]
 # ---- DG WA Coast
 # x = Glider(30, np.arange(53, 65), '/Users/jake/Documents/Cuddy_tailored/DG_wa_coast/2006')
 # x = Glider(30, np.arange(46, 50), '/Users/jake/Documents/Cuddy_tailored/DG_wa_coast/2006')
@@ -28,8 +28,8 @@ bbi = [0, 0, 0]
 # x = Glider(35, np.concatenate((np.arange(123, 126), np.array([127]))), '/Users/jake/Documents/baroclinic_modes/DG/BATS_2014/sg035')
 # x = Glider(35, np.arange(123, 126), '/Users/jake/Documents/baroclinic_modes/DG/BATS_2014/sg035')
 # ---- DG BATS 2015
-# x = Glider(35, np.arange(62, 65), '/Users/jake/Documents/baroclinic_modes/DG/BATS_2015/sg035')  # 132, 136 (nice linear transect)
-# bbi = [0, 0, 0]
+x = Glider(35, np.arange(132, 136), '/Users/jake/Documents/baroclinic_modes/DG/BATS_2015/sg035')  # 132, 136 (nice linear transect, 62:65)
+bbi = [0, 0, 0]
 # ---- DG BATS 2018
 # x = Glider(41, np.arange(158, 162), '/Users/jake/Documents/baroclinic_modes/DG/BATS_2018/sg041')
 # ---- DG LDE 2019 (sg037)
@@ -113,6 +113,7 @@ ds, dist, v_g, vbt, isopycdep, isopycx, mwe_lon, mwe_lat, DACe_MW, DACn_MW, prof
 # -----------------------------------------------------------------------------------------------
 # PLOTTING cross section
 u_levels = np.arange(-1.7, 1.75, .05)
+u_levels = np.arange(-.38, .42, .04)
 # choose which transect
 # transect_no = 0
 # fig0 = x.plot_cross_section(bin_depth, ds[transect_no], v_g[transect_no], dist[transect_no],
@@ -120,7 +121,7 @@ u_levels = np.arange(-1.7, 1.75, .05)
 #                      sigth_levels, d_time, u_levels)
 fig0 = x.plot_cross_section(bin_depth, ds, v_g, dist, profile_tags_per, isopycdep, isopycx, sigth_levels, d_time, u_levels)
 
-fig0.savefig("/Users/jake/Documents/Post/bios_talk/sample_gs_cross.jpeg", dpi=300)
+fig0.savefig("/Users/jake/Documents/glider_flight_sim_paper/sample_cross.jpeg", dpi=300)
 # -----------------------------------------------------------------------------------------------
 # plot plan view
 # load in bathymetry and lat/lon plotting bounds
@@ -131,10 +132,10 @@ fig0.savefig("/Users/jake/Documents/Post/bios_talk/sample_gs_cross.jpeg", dpi=30
 # bathy_path = '/Users/jake/Documents/baroclinic_modes/DG/ABACO_2017/OceanWatch_smith_sandwell.nc'
 # plan_window = [-77.5, -73.5, 25.5, 27]
 # BATS
-# bathy_path = '/Users/jake/Desktop/bats/bats_bathymetry/GEBCO_2014_2D_-67.7_29.8_-59.9_34.8.nc'
-bathy_path = '/Users/jake/Desktop/bats/bats_bathymetry/bathymetry_b38e_27c7_f8c3_f3d6_790d_30c7.nc'
-# plan_window = [-66, -63, 31, 33]
-plan_window = [-70, -62, 31, 39]
+bathy_path = '/Users/jake/Desktop/bats/bats_bathymetry/GEBCO_2014_2D_-67.7_29.8_-59.9_34.8.nc'
+# bathy_path = '/Users/jake/Desktop/bats/bats_bathymetry/bathymetry_b38e_27c7_f8c3_f3d6_790d_30c7.nc'
+plan_window = [-66, -63, 31, 33]
+# plan_window = [-70, -62, 31, 39]
 # bath_fid = Dataset(bathy_path, 'r')
 # LDE
 # bathy_path = '/Users/jake/Desktop/bats/bats_bathymetry/bathymetry_b38e_27c7_f8c3_f3d6_790d_30c7.nc'
@@ -154,7 +155,7 @@ fig1 = x.plot_plan_view(lon, lat, mwe_lon, mwe_lat, DACe_MW, DACn_MW,
 # plot t/s
 # x.plot_t_s(ct, sa)
 
-fig1.savefig("/Users/jake/Documents/Post/bios_talk/sample_gs_plan.jpeg", dpi=300)
+fig1.savefig("/Users/jake/Documents/glider_flight_sim_paper/sample_plan.jpeg", dpi=300)
 # -------------------
 # vertical modes
 # N2_avg = np.nanmean(N2, axis=1)

@@ -70,7 +70,9 @@ for i in range(len(these_paths)):
     lo_z_grid = np.flipud(lo_MOD['z'][:])
     lo_mod_u_rec = np.flipud(u_out_s)
     lo_mod_u_off_rec = np.flipud(u_off_out_s)
-    lo_msz = np.array([7, 14, 34, 74, 139]) # first is 100m, second is 500m, third is 2000m (select to match moorings)
+    # lo_msz = np.array([7, 14, 34, 74, 139]) # first is 100m, second is 500m, third is 2000m (select to match moorings)
+    # lo_msz = np.array([7, 10, 14, 19, 34, 50, 74, 100, 139]) # first is 100m, second is 500m, third is 2000m (select to match moorings)
+    lo_msz = np.array([2, 4, 7, 10, 12, 14, 16, 19, 22, 25, 28, 30, 34, 40, 45, 50, 55, 60, 65, 70, 74, 80, 85, 90, 95, 100, 105, 110, 115, 120, 125, 130, 135, 139]) # first is 100m, second is 500m, third is 2000m (select to match moorings)
     # old one lo_msz = np.array([4, 24, 99, 99, 134])
     lo_msx = np.array([10, 40, 80, 110]) # horizontal location along transect
     lo_mod_u_rec = lo_mod_u_rec[:, lo_msx, :]
@@ -114,7 +116,7 @@ if sa > 0:
                'lo_depth': lo_z_grid, 'lo_mod_u': lo_mod_u_rec_0, 'lo_mod_u_off': lo_mod_u_off_rec_0,
                'lo_z_samp_deps': lo_z_grid[lo_msz], 'lo_x_samp_pos': lo_xy_grid[lo_msx], 'lo_time': 'time step = 1 hour',
                'lo_mod_u_xy1_lo_pass': lo_test1_filt, 'lo_mod_u_off_xy1_lo_pass': lo_test1_off_filt,}
-    output = open('/Users/jake/Documents/baroclinic_modes/Model/model_mooring_samplings.pkl', 'wb')
+    output = open('/Users/jake/Documents/baroclinic_modes/Model/model_mooring_samplings_3_2.pkl', 'wb')
     pickle.dump(my_dict, output)
     output.close()
 
