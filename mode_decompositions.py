@@ -41,6 +41,8 @@ def vertical_modes(N2_0, Depth, omega, mmax):
     C = np.concatenate(
         [[-1 / dz[1]], [1 / dz[1]], (1 / dz[2:] + 1 / dz[1:nm1]) / dzm[1:nm1], -1 / (dz[1:nm1] * dzm[1:nm1]),
          -1 / (dz[2:n] * dzm[1:nm1]), [-1]])
+        # [[-1 / dz[1]], [1 / dz[1]], (1 / dz[2:] + 1 / dz[1:nm1]) / dzm[1:nm1], -1 / (dz[1:nm1] * dzm[1:nm1]),
+        #  -1 / (dz[2:n] * dzm[1:nm1]), [-1]])
     mat1 = coo_matrix((C, (A, B)), shape=(n, n))
 
     D = np.concatenate([[0], np.arange(1, n)])
@@ -69,6 +71,7 @@ def vertical_modes(N2_0, Depth, omega, mmax):
         # dw_dz = np.gradient(wmodes[:, i], z)
         norm_constant = np.sqrt(np.trapz((dw_dz * dw_dz), (-1 * z)) / (-1 * z[-1]))
         # norm_constant = np.abs(np.trapz(dw_dz * dw_dz, z) / Depth.max())
+
         if dw_dz[0] < 0:
             norm_constant = -1 * norm_constant
         Gz[:, i] = dw_dz / norm_constant
@@ -80,7 +83,7 @@ def vertical_modes(N2_0, Depth, omega, mmax):
     for i in range(0, 5):  # i modes
         for j in range(0, 5):  # j modes
             for m in range(0, 5):  # k modes
-                epsilon[i, j, m] = np.trapz((Gz[:, i] * Gz[:, j] * Gz[:, m]), z) / (z[-1])
+                epsilon[i, j, m] = np.trapz((Gz[:, i] * Gz[:, j] * Gz[:, m]), -1.0*z) / (-1.0*z[-1])
 
     return G, Gz, c, epsilon
 

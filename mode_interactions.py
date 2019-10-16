@@ -12,9 +12,9 @@ from toolkit import plot_pro, find_nearest
 
 
 # plotting controls
-plot_mode_solutions = 1
-plot_mode_structure = 1
-plot_mode_interactions = 1
+plot_mode_solutions = 0
+plot_mode_structure = 0
+plot_mode_interactions = 0
 
 # load in N2 from various sites
 omega = 0
@@ -148,7 +148,7 @@ if plot_mode_solutions > 0:
     plt.gcf().text(0.51, 0.93, 'c)', fontsize=12)
     plt.gcf().text(0.71, 0.93, 'd)', fontsize=12)
     plot_pro(ax3)
-    f.savefig("/Users/jake/Documents/baroclinic_modes/dissertation/mode_shapes_flat_slope.jpg", dpi=300)
+    # f.savefig("/Users/jake/Documents/baroclinic_modes/dissertation/mode_shapes_flat_slope.jpg", dpi=300)
 
 test = sta_bats_n2_0 * (sta_G_B_0[:, 1]**2) /(sta_bats_c[1]**2)
 test2 = sta_bats_n2_0 * (sta_G_B_0[:, 2]**2) /(sta_bats_c[2]**2)
@@ -456,6 +456,8 @@ abaco_energies = pickle.load(pkl_file)
 pkl_file.close()
 PE_ab = np.nanmean(abaco_energies['PE_all'], axis=1)
 KE_ab = np.nanmean(abaco_energies['KE_v_all'], axis=1)  # energy is 1/2 because all profiles are E/W so velocities are N/S
+dg_ab_GMKE = abaco_energies['GMKE']
+dg_ab_GMPE = abaco_energies['GMPE']
 
 # --- 36N DG (2018) ---
 pkl_file = open('/Users/jake/Documents/baroclinic_modes/DG/sg041_2018_energy.pkl', 'rb')
@@ -506,7 +508,20 @@ sc_x_LDE = 1000 * dg_LDE_f / dg_LDE_c[1:]
 
 mode_num = np.arange(1, 61, 1)
 # --- PLOT
-# ---------------------------------------------------------
+# --------------------------------------------------------------------------------------------
+# seasonal and variable spread at bats station for each mode
+mode_num = np.arange(1, 61, 1)
+sta_max = np.nan * np.ones(len(mode_num[0:45]))
+sta_min = np.nan * np.ones(len(mode_num[0:45]))
+for i in range(1, 45+1):
+    test1 = np.nanmean(sta_bats_pe[0][i, :])
+    test2 = np.nanmean(sta_bats_pe[1][i, :])
+    test3 = np.nanmean(sta_bats_pe[2][i, :])
+    # test4 = np.nanmean(sta_bats_pe[3][i, :])
+    sta_max[i - 1] = np.max([test1, test2, test3])
+    sta_min[i - 1] = np.min([test1, test2, test3])
+
+# --------------------------------------------------------------------------------------------
 # PE and KE by mode number for DG missions, BATS 2015, 36N 2018, 36N 2019, ABACO 2018, LDE 2019
 matplotlib.rcParams['figure.figsize'] = (12, 8)
 scols = ['#00BFFF', '#6B8E23', '#800000']
@@ -514,29 +529,35 @@ fig01, ax = plt.subplots(2, 3)
 mode_num = np.arange(1, 61, 1)
 x_min = 7 * 10 ** -1
 
+ax[0, 0].fill_between(mode_num[0:45], sta_min, sta_max, label='PE$_{sta.}$', color='#D3D3D3')
 ax[0, 0].plot(mode_num[0:45], bats0_dg_PE_all[1:], label='PE', linewidth=2, color=scols[0])
 ax[0, 0].plot(mode_num[0:45], bats0_dg_KE_all[1:], label='KE', linewidth=2, color=scols[1])
 ax[0, 0].plot([x_min, mode_num[0]], [bats0_dg_KE_all[0], bats0_dg_KE_all[1]], linewidth=2, color=scols[1])
+ax[0, 0].plot(mode_num[0:45], 0.25 * GMPE_bats[0:45], color='k', linewidth=0.5, linestyle='--')
 bats0_hl = np.sqrt(bats0_dg_PE_all[1] / bats0_dg_KE_all[1])  # hor length scale as ratio to L_d1 (PE/KE = (L/L_d)^2)
 ax[0, 0].text(x_min + 1.2*x_min, 10 ** (-8) + 2*10 ** (-8), r'L$_1$ = ' + str(np.round(bats0_hl, 2)) + 'L$_{d1}$')
 handles, labels = ax[0, 0].get_legend_handles_labels()
 ax[0, 0].legend(handles, labels, fontsize=12)
 
+ax[0, 1].fill_between(mode_num[0:45], sta_min, sta_max, label='PE$_{sta.}$', color='#D3D3D3')
 ax[0, 1].plot(mode_num[0:45], bats_dg_PE_all[1:], label='BATS', linewidth=2, color=scols[0])
 ax[0, 1].plot(mode_num[0:45], bats_dg_KE_all[1:], label='BATS', linewidth=2, color=scols[1])
 ax[0, 1].plot([x_min, mode_num[0]], [bats_dg_KE_all[0], bats_dg_KE_all[1]], linewidth=2, color=scols[1])
+ax[0, 1].plot(mode_num[0:45], 0.25 * GMPE_bats[0:45], color='k', linewidth=0.5, linestyle='--')
 bats_hl = np.sqrt(bats_dg_PE_all[1] / bats_dg_KE_all[1])  # hor length scale as ratio to L_d1 (PE/KE = (L/L_d)^2)
 ax[0, 1].text(x_min + 1.2*x_min, 10 ** (-8) + 2*10 ** (-8), r'L$_1$ = ' + str(np.round(bats_hl, 2)) + 'L$_{d1}$')
 
 ax[0, 2].plot(mode_num[0:len(PE_ab)-1], PE_ab[1:], label='ABACO', linewidth=2, color=scols[0])
 ax[0, 2].plot(mode_num[0:len(PE_ab)-1], KE_ab[1:], label='ABACO', linewidth=2, color=scols[1])
 ax[0, 2].plot([x_min, mode_num[0]], [KE_ab[0], KE_ab[1]], linewidth=2, color=scols[1])
+ax[0, 2].plot(mode_num[0:45], 0.25 * dg_ab_GMPE[0:45], color='k', linewidth=0.5, linestyle='--')
 ab_hl = np.sqrt(PE_ab[1] / KE_ab[1])  # hor length scale as ratio to L_d1 (PE/KE = (L/L_d)^2)
 ax[0, 2].text(x_min + 1.2*x_min, 10 ** (-8) + 2*10 ** (-8), r'L$_1$ = ' + str(np.round(ab_hl, 2)) + 'L$_{d1}$')
 
 ax[1, 0].plot(mode_num[0:40], dg_36n_PE_all[1:], label='36N', linewidth=2, color=scols[0])
 ax[1, 0].plot(mode_num[0:40], dg_36n_KE_all[1:], label='36N', linewidth=2, color=scols[1])
 ax[1, 0].plot([x_min, mode_num[0]], [dg_36n_KE_all[0], dg_36n_KE_all[1]], linewidth=2, color=scols[1])
+ax[1, 0].plot(mode_num[0:45], 0.25 * dg_36_2_GMPE[0:45], color='k', linewidth=0.5, linestyle='--')
 n36_hl = np.sqrt(dg_36n_PE_all[1] / dg_36n_KE_all[1])  # hor length scale as ratio to L_d1 (PE/KE = (L/L_d)^2)
 ax[1, 0].text(x_min + 1.2*x_min, 10 ** (-8) + 2*10 ** (-8), r'L$_1$ = ' + str(np.round(n36_hl, 2)) + 'L$_{d1}$')
 
@@ -544,6 +565,7 @@ ax[1, 1].plot(mode_num[0:45], dg_36_2_PE_all[1:], label='36N', linewidth=2, colo
 ax[1, 1].plot(mode_num[0:45], dg_36_2_KE_u_all[1:] + dg_36_2_KE_v_all[1:], label='36N', linewidth=2, color=scols[1])
 ax[1, 1].plot(mode_num[0:45], dg_36_2_KE_u_all[1:], label='36N', linewidth=1, color=scols[1], linestyle=':')
 ax[1, 1].plot(mode_num[0:45], dg_36_2_KE_v_all[1:], label='36N', linewidth=1, color=scols[1], linestyle='--')
+ax[1, 1].plot(mode_num[0:45], 0.25 * dg_36_2_GMPE[0:45], color='k', linewidth=0.5, linestyle='--')
 ke36_2_tot = dg_36_2_KE_u_all + dg_36_2_KE_v_all
 ax[1, 1].plot([x_min, mode_num[0]], [ke36_2_tot[0], ke36_2_tot[1]], linewidth=2, color=scols[1])
 n36_2_hl = np.sqrt(dg_36_2_PE_all[1] / ke36_2_tot[1])  # hor length scale as ratio to L_d1 (PE/KE = (L/L_d)^2)
@@ -553,6 +575,7 @@ ax[1, 2].plot(mode_num[0:45], dg_LDE_PE_all[1:], label='LDE', linewidth=2, color
 ax[1, 2].plot(mode_num[0:45], dg_LDE_KE_u_all[1:] + dg_LDE_KE_v_all[1:], label='LDE', linewidth=2, color=scols[1])
 ax[1, 2].plot(mode_num[0:45], dg_LDE_KE_u_all[1:], label='LDE', linewidth=1, color=scols[1], linestyle=':')
 ax[1, 2].plot(mode_num[0:45], dg_LDE_KE_v_all[1:], label='LDE', linewidth=1, color=scols[1], linestyle='--')
+ax[1, 2].plot(mode_num[0:45], 0.25 * dg_LDE_GMPE[0:45], color='k', linewidth=0.5, linestyle='--')
 ke_lde_tot = dg_LDE_KE_u_all + dg_LDE_KE_v_all
 ax[1, 2].plot([x_min, mode_num[0]], [ke_lde_tot[0], ke_lde_tot[1]], linewidth=2, color=scols[1])
 lde_hl = np.sqrt(dg_LDE_PE_all[1] / ke_lde_tot[1])  # hor length scale as ratio to L_d1 (PE/KE = (L/L_d)^2)
@@ -565,28 +588,28 @@ ax[1, 2].text(x_min + 1.2*x_min, 10 ** (-8) + 2*10 ** (-8), r'L$_1$ = ' + str(np
 
 ax[0, 0].plot([10 ** 0, 10 ** 2], [10 ** -3, 10 ** -9], color='k', linewidth=0.5)
 ax[0, 0].plot([10 ** 0, 10 ** 3], [3*10 ** -4, 3*10 ** -10], color='k', linewidth=0.5)
-ax[0, 0].text(1.2 * 10 ** 1, 1.5 * 10 ** -7, '-3', fontsize=10)
-ax[0, 0].text(2.5 * 10 ** 1, 1.5 * 10 ** -7, '-2', fontsize=10)
+ax[0, 0].text(4.5 * 10 ** 1, 1.5 * 10 ** -8, '-3', fontsize=8)
+ax[0, 0].text(7 * 10 ** 1, 2.5 * 10 ** -8, '-2', fontsize=8)
 ax[0, 1].plot([10 ** 0, 10 ** 2], [10 ** -3, 10 ** -9], color='k', linewidth=0.5)
 ax[0, 1].plot([10 ** 0, 10 ** 3], [3*10 ** -4, 3*10 ** -10], color='k', linewidth=0.5)
-ax[0, 1].text(1.2 * 10 ** 1, 1.5 * 10 ** -7, '-3', fontsize=10)
-ax[0, 1].text(2.5 * 10 ** 1, 1.5 * 10 ** -7, '-2', fontsize=10)
+ax[0, 1].text(4.5 * 10 ** 1, 1.5 * 10 ** -8, '-3', fontsize=8)
+ax[0, 1].text(7 * 10 ** 1, 2.5 * 10 ** -8, '-2', fontsize=8)
 ax[0, 2].plot([10 ** 0, 10 ** 2], [10 ** -3, 10 ** -9], color='k', linewidth=0.5)
 ax[0, 2].plot([10 ** 0, 10 ** 3], [3*10 ** -4, 3*10 ** -10], color='k', linewidth=0.5)
-ax[0, 2].text(1.2 * 10 ** 1, 1.5 * 10 ** -7, '-3', fontsize=10)
-ax[0, 2].text(2.5 * 10 ** 1, 1.5 * 10 ** -7, '-2', fontsize=10)
+ax[0, 2].text(4.5 * 10 ** 1, 1.5 * 10 ** -8, '-3', fontsize=8)
+ax[0, 2].text(7 * 10 ** 1, 2.5 * 10 ** -8, '-2', fontsize=8)
 ax[1, 0].plot([10 ** 0, 10 ** 2], [10 ** -3, 10 ** -9], color='k', linewidth=0.5)
 ax[1, 0].plot([10 ** 0, 10 ** 3], [3*10 ** -4, 3*10 ** -10], color='k', linewidth=0.5)
-ax[1, 0].text(1.2 * 10 ** 1, 1.5 * 10 ** -7, '-3', fontsize=10)
-ax[1, 0].text(2.5 * 10 ** 1, 1.5 * 10 ** -7, '-2', fontsize=10)
+ax[1, 0].text(4.5 * 10 ** 1, 1.5 * 10 ** -8, '-3', fontsize=8)
+ax[1, 0].text(7 * 10 ** 1, 2.5 * 10 ** -8, '-2', fontsize=8)
 ax[1, 1].plot([10 ** 0, 10 ** 2], [10 ** -3, 10 ** -9], color='k', linewidth=0.5)
 ax[1, 1].plot([10 ** 0, 10 ** 3], [3*10 ** -4, 3*10 ** -10], color='k', linewidth=0.5)
-ax[1, 1].text(1.2 * 10 ** 1, 1.5 * 10 ** -7, '-3', fontsize=10)
-ax[1, 1].text(2.5 * 10 ** 1, 1.5 * 10 ** -7, '-2', fontsize=10)
+ax[1, 1].text(4.5 * 10 ** 1, 1.5 * 10 ** -8, '-3', fontsize=8)
+ax[1, 1].text(7 * 10 ** 1, 2.5 * 10 ** -8, '-2', fontsize=8)
 ax[1, 2].plot([10 ** 0, 10 ** 2], [10 ** -3, 10 ** -9], color='k', linewidth=0.5)
 ax[1, 2].plot([10 ** 0, 10 ** 3], [3*10 ** -4, 3*10 ** -10], color='k', linewidth=0.5)
-ax[1, 2].text(1.2 * 10 ** 1, 1.5 * 10 ** -7, '-3', fontsize=10)
-ax[1, 2].text(2.5 * 10 ** 1, 1.5 * 10 ** -7, '-2', fontsize=10)
+ax[1, 2].text(4.5 * 10 ** 1, 1.5 * 10 ** -8, '-3', fontsize=8)
+ax[1, 2].text(7 * 10 ** 1, 2.5 * 10 ** -8, '-2', fontsize=8)
 
 ax[1, 0].set_xlabel('Mode Number', fontsize=14)
 ax[1, 1].set_xlabel('Mode Number', fontsize=14)
@@ -626,7 +649,7 @@ ax[0, 2].grid()
 ax[1, 0].grid()
 ax[1, 1].grid()
 plot_pro(ax[1, 2])
-# fig01.savefig("/Users/jake/Documents/baroclinic_modes/dissertation/pe_ke_across_sites.jpg", dpi=300)
+fig01.savefig("/Users/jake/Documents/baroclinic_modes/dissertation/pe_ke_across_sites.jpg", dpi=300)
 # -------------------------------------------------------------------
 # PE/KE comparisons on same plot
 matplotlib.rcParams['figure.figsize'] = (11, 6)
