@@ -13,7 +13,7 @@ from toolkit import plot_pro, find_nearest
 
 # plotting controls
 plot_mode_solutions = 0
-plot_mode_structure = 0
+plot_mode_structure = 1
 plot_mode_interactions = 0
 
 # load in N2 from various sites
@@ -101,7 +101,7 @@ for i in range(mmax + 1):
     F[:, i] = np.interp(SB['depth'], grid2, F_g2[:, i])
     F_int[:, i] = np.interp(SB['depth'], grid2, F_int_g2[:, i])
 
-# -----
+# ---------------------------------------------------------------------------------------------------------------------
 # PlOT
 if plot_mode_solutions > 0:
     plt.rcParams['figure.figsize'] = 11, 5.5
@@ -247,7 +247,7 @@ const_G, const_Gz, const_c, epsilon_const = vertical_modes(0.00005 * np.ones(np.
                                                            argo_depth, omega, mmax)
 
 # --------------------------------------------------------------------------------------------------------------------
-# PLOTTING
+# PLOTTING (N2 profiles and first three mode self interaction coefficients)
 if plot_mode_structure > 0:
     matplotlib.rcParams['figure.figsize'] = (14, 6)
     f, (ax0, ax1, ax2, ax3) = plt.subplots(1, 4, sharey=True)
@@ -255,8 +255,8 @@ if plot_mode_structure > 0:
     ax0.plot(this_ship_n2, abaco_dg['depth'][:], label='ABACO', color='#FF8C00')
     ax0.plot(sta_bats_n2_1, sta_bats_depth, label='BATS Ship Sum.', color='#00FF7F')
     ax0.plot(sta_bats_n2_0, sta_bats_depth, label='BATS Ship Win.', color='k')
-    # ax0.plot(dg_36n_N2, dg_36n_depth, label='36$^{\circ}$N DG Fall', color='k')
-    ax0.plot(papa_mean_corrected, sta_papa_depth, label='PAPA', color='#4682B4')
+    ax0.plot(dg_lde_N2, dg_lde_depth, label='LDE DG Sum.', color='m')
+    ax0.plot(papa_mean_corrected, sta_papa_depth, label='PAPA Sum.', color='#4682B4')
     handles, labels = ax0.get_legend_handles_labels()
     ax0.legend(handles, labels, fontsize=10)
 
@@ -264,7 +264,7 @@ if plot_mode_structure > 0:
     ax1.plot(Gz_AB[:, 1], abaco_dg['depth'][:], label='ABACO (26.5$^{\circ}$N) (Mode$_{111}$ IC = ' + str(np.round(epsilon_AB[1, 1, 1], 2)) + ')', color='#FF8C00')
     ax1.plot(sta_Gz_B_1[:, 1], sta_bats_depth, label='BATS Sum. (32$^{\circ}$N) (Mode$_{111}$ IC = ' + str(np.round(sta_epsilon_B_1[1, 1, 1], 2)) + ')', color='#00FF7F')
     ax1.plot(sta_Gz_B_0[:, 1], sta_bats_depth, label='BATS Win. (32$^{\circ}$N) (Mode$_{111}$ IC = ' + str(np.round(epsilon_B_0[1, 1, 1], 2)) + ')', color='k')
-    # ax1.plot(DG_36n_Gz[:, 1], dg_36n_depth, label='36$^{\circ}$N DG Fall (Mode$_{111}$ IC = ' + str(np.round(epsilon_B_1[1, 1, 1], 2)) + ')', color='k')
+    ax1.plot(DG_lde_Gz[:, 1], dg_lde_depth, label='LDE Sum. (Mode$_{111}$ IC = ' + str(np.round(DG_lde_epsilon[1, 1, 1], 2)) + ')', color='m')
     ax1.plot(Gz_P[:, 1], sta_papa_depth, label=r'PAPA Sum. (50$^{\circ}$N) (Mode$_{111}$ IC = ' + str(np.round(epsilon_P[1, 1, 1], 2)) + ')', color='#4682B4')
     handles, labels = ax1.get_legend_handles_labels()
     ax1.legend(handles, labels, fontsize=8)
@@ -273,7 +273,7 @@ if plot_mode_structure > 0:
     ax2.plot(Gz_AB[:, 2], abaco_dg['depth'][:], label='ABACO (26.5$^{\circ}$N) (Mode$_{222}$ IC = ' + str(np.abs(np.round(epsilon_AB[2, 2, 2], 2))) + ')', color='#FF8C00')
     ax2.plot(sta_Gz_B_1[:, 2], sta_bats_depth, label='BATS Sum. (32$^{\circ}$N) (Mode$_{222}$ IC = ' + str(np.abs(np.round(sta_epsilon_B_1[2, 2, 2], 2))) + ')', color='#00FF7F')
     ax2.plot(sta_Gz_B_0[:, 2], sta_bats_depth, label='BATS Win. (32$^{\circ}$N) (Mode$_{222}$ IC = ' + str(np.abs(np.round(epsilon_B_0[2, 2, 2], 2))) + ')', color='k')
-    # ax2.plot(DG_36n_Gz[:, 2], dg_36n_depth, label='36$^{\circ}$N DG Fall (Mode$_{222}$ IC = ' + str(np.round(epsilon_B_1[2, 2, 2], 2)) + ')', color='k')
+    ax2.plot(DG_lde_Gz[:, 2], dg_lde_depth, label='LDE Sum. (Mode$_{222}$ IC = ' + str(np.round(DG_lde_epsilon[2, 2, 2], 2)) + ')', color='m')
     ax2.plot(Gz_P[:, 2], sta_papa_depth, label=r'PAPA Sum. (50$^{\circ}$N) (Mode$_{222}$ IC = ' + str(np.abs(np.round(epsilon_P[2, 2, 2], 2))) + ')', color='#4682B4')
     handles, labels = ax2.get_legend_handles_labels()
     ax2.legend(handles, labels, fontsize=8)
@@ -282,7 +282,7 @@ if plot_mode_structure > 0:
     ax3.plot(Gz_AB[:, 3], abaco_dg['depth'][:], label='ABACO (26.5$^{\circ}$N) (Mode$_{333}$ IC = ' + str(np.abs(np.round(epsilon_AB[3, 3, 3], 2))) + ')', color='#FF8C00')
     ax3.plot(sta_Gz_B_1[:, 3], sta_bats_depth, label='BATS Sum. (32$^{\circ}$N) (Mode$_{333}$ IC = ' + str(np.abs(np.round(sta_epsilon_B_1[3, 3, 3], 2))) + ')', color='#00FF7F')
     ax3.plot(sta_Gz_B_0[:, 3], sta_bats_depth, label='BATS Win. (32$^{\circ}$N) (Mode$_{333}$ IC = ' + str(np.abs(np.round(epsilon_B_0[3, 3, 3], 2))) + ')', color='k')
-    # ax3.plot(DG_36n_Gz[:, 3], dg_36n_depth, label='36$^{\circ}$N DG Fall (Mode$_{333}$ IC = ' + str(np.round(epsilon_B_1[3, 3, 3], 2)) + ')', color='k')
+    ax3.plot(DG_lde_Gz[:, 3], dg_lde_depth, label='LDE Sum. (Mode$_{333}$ IC = ' + str(np.round(DG_lde_epsilon[3, 3, 3], 2)) + ')', color='m')
     ax3.plot(Gz_P[:, 3], sta_papa_depth, label=r'PAPA Sum. (50$^{\circ}$N) (Mode$_{333}$ IC = ' + str(np.abs(np.round(epsilon_P[3, 3, 3], 2))) + ')', color='#4682B4')
     handles, labels = ax3.get_legend_handles_labels()
     ax3.legend(handles, labels, fontsize=8)
@@ -308,7 +308,7 @@ if plot_mode_structure > 0:
     ax1.grid()
     ax2.grid()
     plot_pro(ax3)
-    f.savefig("/Users/jake/Documents/baroclinic_modes/dissertation/site_n2_mode1_interaction_shapes.jpg", dpi=300)
+    # f.savefig("/Users/jake/Documents/baroclinic_modes/dissertation/site_n2_mode1_interaction_shapes.jpg", dpi=300)
 # ---------------------------------------------------------------------------------------------------------------------
 # Block Diagram of Interaction Coefficients
 if plot_mode_interactions > 0:
@@ -649,7 +649,7 @@ ax[0, 2].grid()
 ax[1, 0].grid()
 ax[1, 1].grid()
 plot_pro(ax[1, 2])
-fig01.savefig("/Users/jake/Documents/baroclinic_modes/dissertation/pe_ke_across_sites.jpg", dpi=300)
+# fig01.savefig("/Users/jake/Documents/baroclinic_modes/dissertation/pe_ke_across_sites.jpg", dpi=300)
 # -------------------------------------------------------------------
 # PE/KE comparisons on same plot
 matplotlib.rcParams['figure.figsize'] = (11, 6)

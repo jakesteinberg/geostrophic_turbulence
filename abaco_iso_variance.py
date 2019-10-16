@@ -170,9 +170,15 @@ sa, ct, theta, sig0, sig2, dg_N2 = x.density(grid, ref_lat, t, s, lon, lat)
 sigth_levels = np.concatenate(
     [np.arange(23, 26.5, 0.5), np.arange(26.2, 27.2, 0.2),
      np.arange(27.2, 27.8, 0.2), np.arange(27.7, 27.8, 0.02), np.arange(27.8, 27.9, 0.01)])
+partial = 0
+bbi = [0, 0, 0]
 ds, dist, avg_ct_out, avg_sa_out, avg_sig0_per_dep_0, v_g, vbt, isopycdep, isopycx, mwe_lon, mwe_lat, DACe_MW, \
-    DACn_MW, profile_tags_per = x.transect_cross_section_1(grid, sig0, ct, sa, lon, lat, dac_u, dac_v, profile_tags,
-                                                           sigth_levels)
+    DACn_MW, profile_tags_per, shear, box_side, v_g_east, v_g_north = x.transect_cross_section_1(grid, sig0, ct, sa,
+                                                                                                 lon, lat,
+                                                                                                 dac_u, dac_v,
+                                                                                                 profile_tags,
+                                                                                                 sigth_levels,
+                                                                                                 partial, bbi)
 # -----------------------------------------------------------------------------------------------
 # PLOTTING cross section
 # choose which transect
