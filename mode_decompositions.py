@@ -196,16 +196,33 @@ def vertical_modes_f(N2_0, depth, omega, mmax, bc_bot, ref_lat, slope):
 
 def PE_Tide_GM(rho0, Depth, nmodes, N2, f_ref):
     modenum = np.arange(0, nmodes)
-    Navg = np.trapz(np.nanmean(np.sqrt(N2), 1), Depth) / Depth[-1]
+    Navg = np.trapz(np.nanmean(np.sqrt(N2), 1), Depth) / Depth[-1]  # mean N (where input is multiple profiles)
+    # exNavg = np.trapz(np.sqrt(N2), Depth) / Depth[-1]  # mean N (where input is a single profile)
 
     TE_SD = (75 + 280 + 72) / (rho0 * Depth[-1])  # SD tidal energy [m^2/s^2] Hendry 1977
     sigma_SD = 2.0 * np.pi / (12 * 3600)  # SD frequency [s^-1]
     PE_SD = TE_SD * (sigma_SD ** 2 - f_ref ** 2) / (2.0 * sigma_SD ** 2)
 
-    bGM = 1300.0  # GM internal wave depth scale [m]
-    N0_GM = 5.2e-3  # GM N scale [s^-1];
-    jstar = 3.0  # GM vertical mode number scale
-    EGM = 6.3e-5  # GM energy level [no dimensions]
+    # e-folding scale of N
+    def n_exp(p, n_e, z):
+        a = p[0]
+        b = p[1]
+        fsq = (n_e - a * np.exp((z / b))) ** 2
+        return fsq.sum()
+
+    from scipy.optimize import fmin
+    N2_f = np.nanmean(np.sqrt(N2), 1)
+    ins = np.transpose(np.concatenate([N2_f[:, None], -1.0 * Depth[:, None]], axis=1))
+    p = [0.001, 500.0]
+    coeffs = fmin(n_exp, p, args=(tuple(ins)), disp=0)
+
+    if np.abs(coeffs[1]) < 100:
+        bGM = 200.0  # GM e folding scale of N [m]
+    else:
+        bGM = np.abs(coeffs[1])  # GM e folding scale of N [m]
+    N0_GM = 0.0052  # GM N scale [s^-1];
+    jstar = 6.0  # GM vertical mode number scale
+    EGM = 0.000063  # GM energy level [no dimensions]
     HHterm = 1.0 / (modenum[1:] * modenum[1:] + jstar * jstar)
     HH = HHterm / np.sum(HHterm)
 
@@ -213,25 +230,26 @@ def PE_Tide_GM(rho0, Depth, nmodes, N2, f_ref):
     omega = np.arange(np.round(f_ref, 5), np.round(Navg, 5), 0.00001)
     if omega[0] < f_ref:
         omega[0] = f_ref.copy() + 0.000001
-    BBterm = (2.0 / 3.14159) * (f_ref / omega) * (1.0 / np.sqrt((omega ** 2) - (f_ref ** 2)))
+    BBterm = (2.0 / 3.14159) * (f_ref / omega) * (((omega ** 2) - (f_ref ** 2))**(-0.5))
     BBint = np.trapz(BBterm, omega)
     BBterm2 = (1.0 / BBint) * BBterm
 
     EE = np.tile(BBterm2[:, None], (1, len(modenum) - 1)) * np.tile(HH[None, :], (len(omega), 1)) * EGM
     omega_g = np.tile(omega[:, None], (1, len(modenum) - 1))
-    FPE = 0.5 * (Navg ** 2.0) * (
-                bGM ** 2.0 * N0_GM * (1.0 / Navg) * (omega_g ** 2 - f_ref ** 2) * (1 / (omega_g ** 2)) * EE)
-    FKE = 0.5 * bGM * bGM * N0_GM * Navg * (omega_g ** 2 + f_ref ** 2) * (1.0 / (omega_g ** 2)) * EE
+    FPE = 0.5 * (Navg ** 2.0) * ((bGM ** 2.0) * N0_GM * (1.0 / Navg) * (omega_g ** 2 - f_ref ** 2) * (1 / (omega_g ** 2)) * EE)
+    FKE = 0.5 * bGM * bGM * N0_GM * Navg * ((omega_g ** 2) + (f_ref ** 2)) * (1.0 / (omega_g ** 2)) * EE
+
+    PE_GM_tot = bGM * bGM * N0_GM * Navg * EE # (bGM * bGM * N0_GM * Navg * HH * EGM/2  method charlie employed)
 
     FPE_int = np.nan * np.ones(np.shape(FPE[0, :]))
     FKE_int = np.nan * np.ones(np.shape(FPE[0, :]))
+    FPE_tot_int = np.nan * np.ones(np.shape(FPE[0, :]))
     for i in range(len(modenum[1:])):
         FPE_int[i] = np.trapz(FPE[:, i], omega)
         FKE_int[i] = np.trapz(FKE[:, i], omega)
+        FPE_tot_int[i] = np.trapz(PE_GM_tot[:, i], omega)
 
-    PE_GM = bGM * bGM * N0_GM * Navg * HH * EGM / 2.0
-
-    return (PE_SD, PE_GM, FPE_int, FKE_int)
+    return (PE_SD, FPE_tot_int, FPE_int, FKE_int, bGM)
 
 
 def eta_fit(num_profs, grid, nmodes, n2, G, c, eta, eta_fit_dep_min, eta_fit_dep_max):
