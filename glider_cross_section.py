@@ -790,7 +790,7 @@ class Glider(object):
 
     def plot_cross_section(self, bin_depth, ds, v_g, dist, profile_tags, isopycdep, isopycx, sigth_levels, time, levels):
             sns.set(context="notebook", style="whitegrid", rc={"axes.axisbelow": False})
-            matplotlib.rcParams['figure.figsize'] = (14, 6)
+            matplotlib.rcParams['figure.figsize'] = (10, 6)
             fig0, ax0 = plt.subplots()
             matplotlib.rcParams['contour.negative_linestyle'] = 'solid'
             # levels = np.arange(np.float(np.nanmin(v_g)), np.float(np.nanmax(v_g)), .02)
@@ -866,11 +866,11 @@ class Glider(object):
         cmap.set_over('#808000')  # ('#E6E6E6')
 
         # plot all dives under single transect (BATS
-        # import scipy.io as si
-        # import_dg = si.loadmat('/Users/jake/Documents/baroclinic_modes/sg035_2015_neutral_density_bin.mat')
-        # dg_data = import_dg['out']
-        # lon_all = np.nanmean(dg_data['Lon'][0][0], axis=0)
-        # lat_all = np.nanmean(dg_data['Lat'][0][0], axis=0)
+        import scipy.io as si
+        import_dg = si.loadmat('/Users/jake/Documents/baroclinic_modes/sg035_2015_neutral_density_bin.mat')
+        dg_data = import_dg['out']
+        lon_all = np.nanmean(dg_data['Lon'][0][0], axis=0)
+        lat_all = np.nanmean(dg_data['Lat'][0][0], axis=0)
 
         matplotlib.rcParams['figure.figsize'] = (8, 6)
         from mpl_toolkits.axes_grid1 import make_axes_locatable
@@ -878,7 +878,7 @@ class Glider(object):
         bc = ax.contourf(bath_lon, bath_lat, bath_z, levels, cmap='Blues_r', extend='both', zorder=0)
         bcl = ax.contour(bath_lon, bath_lat, bath_z, levels=np.array([-5000, -4800, -4600, -4400, -4200, -4000, 0]), colors='k', zorder=1, linewidths=0.5)
         matplotlib.rcParams['contour.negative_linestyle'] = 'solid'
-        # ax.plot(lon_all, lat_all, linewidth=0.5, color='#A9A9A9', zorder=1)
+        ax.plot(lon_all, lat_all, linewidth=0.5, color='#A9A9A9', zorder=1)
         ax.scatter(lon, lat, s=2, color='#FF8C00', zorder=2)
         ax.scatter(mwe_lon, mwe_lat, s=10, color='#8B0000', zorder=3)
         for i in range(0, len(mwe_lat)-1, 2):

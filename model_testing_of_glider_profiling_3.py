@@ -17,7 +17,7 @@ from zrfun import get_basic_info, get_z
 
 # because we load pickle protocol 2 (needed for matlab engine) we need 'glider' environment (not 'geo_env')
 
-this_path = 'e_w_extraction_nov25_nov27_offshore'  # 'n_s_extraction_eddy_nov1_nov3'  #
+this_path = 'e_w_extraction_nov28_nov30_offshore'  # 'n_s_extraction_eddy_nov1_nov3'  #
 these_paths = glob.glob('/Users/jake/Documents/baroclinic_modes/Model/LiveOcean/e_w*')
 
 # -- LOAD extracted and PROCESSED MODEL TIME STEPS WITH COMPUTED GAMMA
@@ -92,14 +92,14 @@ partial_mw = 0    # include exclude partial m/w estimates
 
 save_anom = 0  # save file
 
-plan_plot = 1  # plot plan view of slice
-plot0 = 0  # cross section
+plan_plot = 0  # plot plan view of slice
+plot0 = 1  # cross section
 plot1 = 0  # vel error
 plot_anom = 0  # eta and v
 plot_grad = 0  # density grad at four depths
 plot_energy = 0  # energy spectra
 save_samp = 0  # save sample eta, v
-save_p = 0  # save figure cross section
+save_p = 1  # save figure cross section
 save_p_g = 0  # save figure density gradient
 
 t_s = datetime.date.fromordinal(np.int(time_ord_s[0]))
@@ -1286,7 +1286,9 @@ if plot0 > 0:
                        np.nanmean(sig0_out_s, axis=2), levels=sigth_levels, colors='#A9A9A9', linewidths=0.5)
     ax1.scatter(dg_y/1000, dg_z_g, 4, color='k', label='glider path')  # #FFD700
     ax1.scatter(dg_y[:, 0:4] / 1000, dg_z_g[:, 0:4], 11, color='#8B0000', label='sample W pattern')  # #FFD700
+    ax1.plot([np.nanmean(dg_y[0, 0:4] / 1000), np.nanmean(dg_y[0, 0:4] / 1000)], [-3200, 0], color='#8B0000', linestyle='--', linewidth=2)
     ax1.scatter((dg_y[:, 1:5] / 1000) + 0.75, dg_z_g[:, 1:5], 11, color='#1E90FF', label='sample M pattern')  # #FFD700
+    ax1.plot([np.nanmean(dg_y[0, 1:5] / 1000), np.nanmean(dg_y[0, 1:5] / 1000)], [-3200, 0], color='#1E90FF', linestyle='--', linewidth=2)
     t_tot = np.int(np.round(24.0*(dg_t[0,-1] - dg_t[0,0])))
     ax1.set_title(str(datetime.date.fromordinal(np.int(time_ord_s[0]))) +
                   ' - ' + str(datetime.date.fromordinal(np.int(time_ord_s[-2]))) + ',  ' + str(t_tot) + 'hr. Model Avg. Velocity')
