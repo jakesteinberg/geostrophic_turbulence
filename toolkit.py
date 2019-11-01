@@ -141,6 +141,37 @@ def trend_fit(lon, lat, data):
     return C[0][0], C[0][1], C[0][2]
 
 
+def trifilt(x, n):
+    def x_triang(n):
+        # W = TRIANG(N) returns the N-point triangular window.
+        if np.remainder(n, 2):
+            # It's an odd length sequence
+            w1 = 2 * (np.arange(1, (n + 2) / 2)) / (n + 1)
+            w2 = np.fliplr(w1[None, 0:-1])
+            w = np.concatenate((np.transpose(w1[None, :]), np.transpose(w2)), axis=0)
+        else:
+            # It's even
+            w1 = 2 * (np.arange(1, (n + 1) / 2)) / n
+            w2 = np.fliplr(w1[None, 0:-1])
+            w = np.concatenate((np.transpose(w1[None, :]), np.transpose(w2)), axis=0)
+        return w
+        # xf is x filtered with a triangular filter of half-width n
+
+    # xf has the same length as x so that features in xf and x
+    # line up.  Endpoints are corrected by filter area so that
+    # effective filter area is half at the endpoints and progressively
+    # increases to unity 2*n points from the ends of the series x
+    m = len(x)
+    g = x_triang(2 * n - 1) / n
+    y = np.convolve(x, g[:, 0])
+    s = len(y)
+    xf = y[np.int((s - m) / 2 + 1):np.int((s - m) / 2 + m + 1)]
+    uu = np.ones((m, 1))
+    vv = np.convolve(uu[:, 0], g[:, 0])
+    uu = vv[np.int((s - m) / 2 + 1):np.int((s - m) / 2 + m + 1)]
+    xf = xf / uu
+    return xf
+
 # for power spectrum (finding break in slope, linear trends in log space)
 # --- fminsearch to find break in slope that best matches k-5/3 k -3
 def spectrum_fit(ipoint_0, x, pe):
