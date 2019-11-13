@@ -109,6 +109,7 @@ sigth_levels = np.concatenate(
 # --- for single transects
 ds, dist, v_g, vbt, isopycdep, isopycx, mwe_lon, mwe_lat, DACe_MW, DACn_MW, profile_tags_per = \
     x.transect_cross_section_0(bin_depth, sig0, lon, lat, dac_u, dac_v, profile_tags, sigth_levels)
+# the last value of mwe_lon/lat is a nan because partial velocity profiles are not estimated
 
 # -----------------------------------------------------------------------------------------------
 # PLOTTING cross section

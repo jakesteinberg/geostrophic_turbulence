@@ -790,7 +790,7 @@ class Glider(object):
 
     def plot_cross_section(self, bin_depth, ds, v_g, dist, profile_tags, isopycdep, isopycx, sigth_levels, time, levels):
             sns.set(context="notebook", style="whitegrid", rc={"axes.axisbelow": False})
-            matplotlib.rcParams['figure.figsize'] = (10, 6)
+            matplotlib.rcParams['figure.figsize'] = (9, 6)
             fig0, ax0 = plt.subplots()
             matplotlib.rcParams['contour.negative_linestyle'] = 'solid'
             # levels = np.arange(np.float(np.nanmin(v_g)), np.float(np.nanmax(v_g)), .02)
@@ -819,7 +819,7 @@ class Glider(object):
             t_e = datetime.date.fromordinal(np.int(time[0, -1]))
             ax0.set_title(self.ID + ' ' + self.project + '  ' + np.str(
                 t_s.month) + '/' + np.str(t_s.day) + ' - ' + np.str(t_e.month) + '/' + np.str(t_e.day), fontsize=14)
-            plt.colorbar(vc, label='[m/s]')
+            plt.colorbar(vc, label='[m s$^{-1}$]')
             plt.tight_layout()
             plot_pro(ax0)
             return fig0
@@ -887,7 +887,7 @@ class Glider(object):
         ax.quiver(mwe_lon, mwe_lat, dac_u, dac_v, color='r', scale=1,
                   headwidth=3, headlength=3, width=.0035, zorder=4)
         ax.quiver(-65.8, 31.2, 0.1, 0, color='r', scale=1, headwidth=3, headlength=3, width=.0035, zorder=4)
-        ax.text(-65.8, 31.08, '0.1 m/s', fontsize=8, color='w')
+        ax.text(-65.8, 31.08, '0.1 m s$^{-1}$', fontsize=8, color='w')
         w = 1 / np.cos(np.deg2rad(ref_lat))
         ax.axis(limits)
         ax.set_aspect(w)
@@ -895,11 +895,11 @@ class Glider(object):
         t_e = datetime.date.fromordinal(np.int(time[0, -1]))
         ax.set_title(self.ID + '  ' + self.project + '  ' + np.str(
             t_s.month) + '/' + np.str(t_s.day) + ' - ' + np.str(t_e.month) + '/' + np.str(t_e.day), fontsize=14)
-        ax.set_xlabel(r'Longitude $^{\circ}$E')
-        ax.set_ylabel(r'Latitude $^{\circ}$N')
+        ax.set_xlabel(r'Longitude [$^{\circ}$E]')
+        ax.set_ylabel(r'Latitude [$^{\circ}$N]')
         divider = make_axes_locatable(ax)
         cax = divider.append_axes("right", size="5%", pad=0.01)
-        fig.colorbar(bc, cax=cax, label='[m]')
+        fig.colorbar(bc, cax=cax, label='z [m]')
         ax.grid()
         ax.grid()
         plot_pro(ax)

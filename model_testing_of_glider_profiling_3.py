@@ -93,14 +93,14 @@ partial_mw = 0    # include exclude partial m/w estimates
 save_anom = 0  # save file
 
 plan_plot = 0  # plot plan view of slice
-plot0 = 1  # cross section
+plot0 = 0  # cross section
 plot1 = 0  # vel error
 plot_anom = 0  # eta and v
-plot_grad = 0  # density grad at four depths
+plot_grad = 1  # density grad at four depths
 plot_energy = 0  # energy spectra
 save_samp = 0  # save sample eta, v
-save_p = 1  # save figure cross section
-save_p_g = 0  # save figure density gradient
+save_p = 0  # save figure cross section
+save_p_g = 1  # save figure density gradient
 
 t_s = datetime.date.fromordinal(np.int(time_ord_s[0]))
 t_e = datetime.date.fromordinal(np.int(time_ord_s[-1]))
@@ -1259,8 +1259,8 @@ if plan_plot:
     w = 1 / np.cos(np.deg2rad(46))
     ax.set_aspect(w)
     ax.axis([-127.4, -123.5, 42.5, 47])
-    ax.set_xlabel(r'Longitude $^{\circ}$')
-    ax.set_ylabel(r'Latitude $^{\circ}$N')
+    ax.set_xlabel(r'Longitude [$^{\circ}$E]')
+    ax.set_ylabel(r'Latitude [$^{\circ}$N]')
     ax.set_title('Subset of LiveOcean Domain')
     plot_pro(ax)
     f.savefig("/Users/jake/Documents/glider_flight_sim_paper/roms_bathymetry_transect.png", dpi=300)
@@ -1329,12 +1329,12 @@ if plot0 > 0:
     handles, labels = ax2.get_legend_handles_labels()
     ax2.legend(handles, labels, fontsize=11)
     ax2.set_xlim([0, h_max])
-    ax2.set_title(r'Cross-Track Glider Velocity u$_g$(x,z)')
+    ax2.set_title(r'Cross-Track Glider Velocity v(x,z)')
     ax2.set_xlabel('Along-Track Distance [km]')
     ax2.grid()
     plot_pro(ax2)
     if save_p > 0:
-        f.savefig("/Users/jake/Documents/glider_flight_sim_paper/roms_ind_cross_mw.png", dpi=200)
+        f.savefig("/Users/jake/Documents/glider_flight_sim_paper/roms_ind_cross_mw.png", dpi=300)
 
 # ---------------------------------------------------------------------------------------------------------------------
 plot1 = 0
@@ -1430,27 +1430,27 @@ if plot_grad:
     for i in range(len(deps)):
         ax[i].set_facecolor('#DCDCDC')
         for j in range(len(t_steps)):
-            ax[i].plot(xy_grid/1000, isop_dep[i, :, j], color=cmap(cmaps[j]), linewidth=0.75)
-        ax[i].plot(xy_grid/1000, np.nanmean(isop_dep[i, :, :], axis=1), color='r', linestyle='-', linewidth=1.5)
+            ax[i].plot(xy_grid/1000, isop_dep[i, :, j], color=cmap(cmaps[j]), linewidth=0.75, zorder=0)
+        ax[i].plot(xy_grid/1000, np.nanmean(isop_dep[i, :, :], axis=1), color='r', linestyle='-', linewidth=1.5, zorder=1)
         ax[i].scatter(dg_isop_xy[i, :]/1000, dg_isop_dep[i, :], s=50, color='k', zorder=10)
 
         ax[i].plot([dg_y[0, 0]/1000, dg_y[0, 0]/1000], [20, 30], linestyle='--', color='k')
         ax[i].plot([dg_y[0, 1]/1000, dg_y[0, 1]/1000], [20, 30], linestyle='--', color='k')
         ax[i].plot([dg_y[0, 3]/1000, dg_y[0, 3]/1000], [20, 30], linestyle='--', color='k')
         ax[i].text(12, lab_y[i], str(-1.0 * deps[i]) + 'm', fontweight='bold')
-        ax[i].plot(xy_grid[inn] / 1000, model_mean_isop[i, :], color='#FF8C00', linewidth=2.5)
-        ax[i].plot(dg_isop_xy[i, :] / 1000, dg_mean_isop[i, :], color='m', linewidth=2.5)
+        ax[i].plot(xy_grid[inn] / 1000, model_mean_isop[i, :], color='k', linewidth=2, linestyle='-.')  # #FFD700
+        ax[i].plot(dg_isop_xy[i, :] / 1000, dg_mean_isop[i, :], color='#7CFC00', linewidth=2)
         ax[i].text(h_max - 35, lab_y[i],
                    r'du$_g$/dz error = ' +
                    str(np.round(100.*np.abs((dg_isop_slope[i, 0] - model_isop_slope[i, 0])/model_isop_slope[i, 0]), 0))
                    + '%', fontweight='bold')
 
     ax[i].plot(xy_grid/1000, np.nanmean(isop_dep[i, :, :], axis=1),
-            color='r', linestyle='-', linewidth=1.3, label='avg. density over 2 dive-cycle period')
+            color='r', linestyle='-', linewidth=1.3, label='avg. density over 2 dive-cycle period', zorder=1)
     handles, labels = ax[3].get_legend_handles_labels()
     ax[3].legend(handles, labels, fontsize=12)
     ax[0].set_ylabel('Neutral Density')
-    ax[0].set_title(r'Density along z = -250,-1000,-1500,-2000 [m]')
+    ax[0].set_title(r'Density at z = -250,-1000,-1500,-2000 [m]')
     ax[0].set_ylim([np.round(np.nanmin(isop_dep[0, :, 0]), 2) - 0.1, np.round(np.nanmax(isop_dep[0, :, 0]), 2) + 0.1])
     ax[0].invert_yaxis()
     ax[0].grid()
@@ -1469,7 +1469,7 @@ if plot_grad:
     ax[3].set_xlabel('Transect Distance [km]')
     plot_pro(ax[3])
     if save_p_g > 0:
-        f.savefig("/Users/jake/Documents/glider_flight_sim_paper/roms_ind_den_grad.png", dpi=200)
+        f.savefig("/Users/jake/Documents/glider_flight_sim_paper/roms_ind_den_grad.png", dpi=300)
 # ----------------------------------------------------------------------------------------------------------------------
 # --- PLOT DENSITY ANOMALIES, ETA, AND VELOCITIES
 if plot_anom:
@@ -1498,14 +1498,14 @@ if plot_anom:
     ax3.plot(Gz_0[:, 2]/10, z_grid_n2_0, linewidth=0.5, color=mode_col, zorder=0)
     ax3.plot(Gz_0[:, 3]/10, z_grid_n2_0, linewidth=0.5, color=mode_col, zorder=0)
     for i in range(np.shape(v_g)[1]):
-        ax3.plot(v_g[:, i], dg_z, color='#4682B4', linewidth=1.5, label=r'glider $u_g$, |w| = 0.1 m s$^{-1}$',zorder=2)
+        ax3.plot(v_g[:, i], dg_z, color='#4682B4', linewidth=1.5, label=r'glider $v$, |w| = 0.1 m s$^{-1}$',zorder=2)
         # ax3.plot(V_m[:, i], dg_z, color='k', linestyle='--', linewidth=.75)
-        ax3.plot(avg_mod_u[0:-20, i], dg_z[0:-20], color='r', linewidth=1, label=r'model $\overline{u_{model}}$',zorder=2)
+        ax3.plot(avg_mod_u[0:-20, i], dg_z[0:-20], color='r', linewidth=1, label=r'model $\overline{v_{model}}$',zorder=2)
     handles, labels = ax3.get_legend_handles_labels()
     ax3.legend([handles[-2], handles[-1]], [labels[-2], labels[-1]], fontsize=10)
     ax3.set_xlim([-.4, .4])
     ax3.set_title('Cross-Track Geostrophic Velocity')
-    ax3.set_xlabel(r'Geostrophic Velocity [m s$^{-1}$]')
+    ax3.set_xlabel(r'Geostrophic Velocity $v$ [m s$^{-1}$]')
 
     plt.gcf().text(0.06, 0.92, 'a)', fontsize=12)
     plt.gcf().text(0.5, 0.92, 'b)', fontsize=12)

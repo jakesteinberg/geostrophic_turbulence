@@ -310,7 +310,7 @@ if plot_mode_structure > 0:
     ax1.grid()
     ax2.grid()
     plot_pro(ax3)
-    f.savefig("/Users/jake/Documents/baroclinic_modes/dissertation/site_n2_mode1_interaction_shapes.jpg", dpi=300)
+    # f.savefig("/Users/jake/Documents/baroclinic_modes/dissertation/site_n2_mode1_interaction_shapes.jpg", dpi=300)
 # ---------------------------------------------------------------------------------------------------------------------
 # Block Diagram of Interaction Coefficients
 if plot_mode_interactions > 0:
@@ -367,7 +367,7 @@ if plot_mode_interactions > 0:
     cb1.set_label(r'$\epsilon_{mij}$')
     arm[2, len(epsils_labs)-1].grid()
     plot_pro(arm[2, len(epsils_labs)-1])
-    f.savefig("/Users/jake/Documents/baroclinic_modes/dissertation/mode_interactions_blocks.jpg", dpi=300)
+    # f.savefig("/Users/jake/Documents/baroclinic_modes/dissertation/mode_interactions_blocks.jpg", dpi=300)
 
 # ---------------------------------------------------------------------------------------------------------------------
 # PE across geographic locations
@@ -682,7 +682,7 @@ ax[0, 2].grid()
 ax[1, 0].grid()
 ax[1, 1].grid()
 plot_pro(ax[1, 2])
-fig01.savefig("/Users/jake/Documents/baroclinic_modes/dissertation/pe_ke_across_sites.jpg", dpi=300)
+# fig01.savefig("/Users/jake/Documents/baroclinic_modes/dissertation/pe_ke_across_sites.jpg", dpi=300)
 # -------------------------------------------------------------------
 # PE/KE comparisons on same plot
 matplotlib.rcParams['figure.figsize'] = (11, 6)

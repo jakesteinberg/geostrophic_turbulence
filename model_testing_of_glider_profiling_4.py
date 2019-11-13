@@ -17,7 +17,7 @@ from zrfun import get_basic_info, get_z
 # file_list_0 = glob.glob('/Users/jake/Documents/baroclinic_modes/Model/LiveOcean/simulated_dg_velocities/ve_ew_v*slp*_y10_11_2*.pkl')
 file_list = glob.glob('/Users/jake/Documents/baroclinic_modes/Model/LiveOcean/simulated_dg_velocities/ve_ew_v*_slp*_y*_*.pkl')
 # file_list = np.concatenate([file_list_0, file_list_1])
-save_metr = 0  # ratio
+save_metr = 1  # ratio
 save_e = 0  # save energy spectra
 save_rms = 0  # save v error plot
 save_eof = 0
@@ -142,7 +142,7 @@ ax.legend(handles, labels, fontsize=12)
 ax.set_xscale('log')
 ax.set_xlabel('Percent Error')
 ax.set_ylabel('z [m]')
-ax.set_title('Percent Error between Model Shear and Glider Shear (1:' + str(np.int(slope_s[1])) + ')')
+ax.set_title('Percent Error between Model Shear and Glider Shear (s = 1/' + str(np.int(slope_s[1])) + ')')
 ax.set_xlim([1, 10**4])
 ax.set_ylim([-3000, 0])
 plot_pro(ax)
@@ -417,8 +417,8 @@ for i in range(len(w_s)):
     ax[i].fill_betweenx(z_grid, min_a[1, :, i], x2=max_a[1, :, i], color=w_cols_2[i], zorder=i, alpha=0.95)
     ax[i].plot(avg_anom[1, :, i], z_grid, color=w_cols[i], linewidth=3, zorder=4, label='dg w = ' + str(np.round(w_s[i]/100, decimals=3)) + ' m s$^{-1}$')
     ax[i].set_xlim([-.2, .2])
-    ax[i].set_xlabel(r'm s$^{-1}$')
-    ax[i].set_title(r'($u_{g}$ - $\overline{u_{model}}$) (|w|=$\mathbf{' + str(np.round(w_s[i]/100, decimals=2)) + '}$ m s$^{-1}$)', fontsize=10)
+    ax[i].set_xlabel(r'[m s$^{-1}$]')
+    ax[i].set_title(r'($v$ - $\overline{v_{model}}$) (|w|=$\mathbf{' + str(np.round(w_s[i]/100, decimals=2)) + '}$ m s$^{-1}$)', fontsize=10)
 ax[0].set_ylabel('z [m]')
 ax[0].set_ylim([-3000, 0])
 good = np.where(~np.isnan(anomy[100, :]) & (slope_tag > 2))[0]
@@ -429,25 +429,25 @@ ax[1].grid()
 ax[2].grid()
 plot_pro(ax[3])
 if save_rms > 0:
-    f.savefig('/Users/jake/Documents/glider_flight_sim_paper/lo_mod_dg_vel_e.png', dpi=300)
+    f.savefig('/Users/jake/Documents/glider_flight_sim_paper/lo_mod_dg_vel_e.png', dpi=350)
 
 matplotlib.rcParams['figure.figsize'] = (6.5, 7)
 f, ax2 = plt.subplots()
 for i in range(np.shape(mm)[2]):
     ax2.plot(mm[0, :, i], z_grid, linewidth=1.5, color=w_cols[i], linestyle='--',
-             label='w=' + str(np.round(w_s[i]/100, decimals=3)) + ' m s$^{-1}$ (gs=1:' + str(np.int(slope_s[0])) + ')')
+             label='|w| = ' + str(np.round(w_s[i]/100, decimals=3)) + ' m s$^{-1}$ (s=1/' + str(np.int(slope_s[0])) + ')')
     ax2.plot(mm[1, :, i], z_grid, linewidth=1.5, color=w_cols[i],
-             label='w=' + str(np.round(w_s[i]/100, decimals=3)) + ' m s$^{-1}$ (gs=1:' + str(np.int(slope_s[1])) + ')')
+             label='|w| = ' + str(np.round(w_s[i]/100, decimals=3)) + ' m s$^{-1}$ (s=1/' + str(np.int(slope_s[1])) + ')')
 handles, labels = ax2.get_legend_handles_labels()
 ax2.legend(handles, labels, fontsize=10, loc='lower right')
 ax2.set_xlim([0, .005])
 ax2.set_ylim([-3000, 0])
-ax2.set_xlabel(r'm$^2$ s$^{-2}$')
-ax2.set_title(r'LiveOcean: Glider-Model Mean Square Error $\overline{(u_{g} - \overline{u_{model}})^2}$')
+ax2.set_xlabel(r'[m$^2$ s$^{-2}$]')
+ax2.set_title(r'LiveOcean: Glider-Model Mean Square Error $\left< (v - \overline{v_{model}})^2 \right>$')
 ax2.set_ylabel('z [m]')
 plot_pro(ax2)
 if save_rms > 0:
-    f.savefig('/Users/jake/Documents/glider_flight_sim_paper/lo_mod_dg_vel_rms_e.png', dpi=300)
+    f.savefig('/Users/jake/Documents/glider_flight_sim_paper/lo_mod_dg_vel_rms_e.png', dpi=350)
 
 # ---------------------------------------------------------------------------------------------------------------------
 # --- PLOT ENERGY SPECTRA
@@ -505,9 +505,12 @@ ax[0,1].plot([l_lim, sc_x[0]], avg_KE_model[0:2] / dk, color='k', linewidth=2)
 ax[0,1].scatter(l_lim, avg_KE_model[0] / dk, color='k', s=10, facecolors='none')
 
 # avg_KE_model_ind_all = 2 * np.nanmean(ke_mod_tot, axis=1)
+# avg_KE_model_off_ind_all = 2 * np.nanmean(ke_mod_off_tot, axis=1)
 # avg_PE_model_ind_all = np.nanmean(pe_mod_tot, axis=1)
-# ax[0,1].plot(sc_x, avg_KE_model_ind_all[1:mm] / dk, color='k', label='KE$_{Model_{inst.}}$', linewidth=1, linestyle='--')
+# ax[0,1].plot(sc_x, avg_KE_model_ind_all[1:mm] / dk, color='k', label='KE$_{Model_{inst.,1}}$', linewidth=1, linestyle='--')
 # ax[0,1].plot([l_lim, sc_x[0]], avg_KE_model_ind_all[0:2] / dk, color='k', linewidth=1, linestyle='--')
+# ax[0,1].plot(sc_x, avg_KE_model_off_ind_all[1:mm] / dk, color='k', label='KE$_{Model_{inst.,2}}$', linewidth=1, linestyle='-.')
+# ax[0,1].plot([l_lim, sc_x[0]], avg_KE_model_off_ind_all[0:2] / dk, color='k', linewidth=1, linestyle='-.')
 # ax[0,0].plot(sc_x, avg_PE_model_ind_all[1:mm] / dk, color='k', label='PE$_{Model_{inst.}}$', linewidth=1, linestyle='--')
 
 ax[0,0].plot([10**0, 10**1], [10**-1, 10**-4], linewidth=0.75, color='k')
@@ -529,12 +532,12 @@ ax[0,1].set_xscale('log')
 ax[0,0].set_ylabel('Variance per Vertical Wavenumber', fontsize=10)  # ' (and Hor. Wavenumber)')
 # ax[0,0].set_xlabel('Mode Number', fontsize=12)
 # ax[0,1].set_xlabel('Mode Number', fontsize=12)
-ax[0,0].set_title('LiveOcean: Potential Energy (1:' + str(np.int(slope_s[0])) + ')', fontsize=12)
-ax[0,1].set_title('LiveOcean: Kinetic Energy (1:' + str(np.int(slope_s[0])) + ')', fontsize=12)
+ax[0,0].set_title('LiveOcean: Potential Energy (s = 1/' + str(np.int(slope_s[0])) + ')', fontsize=12)
+ax[0,1].set_title('LiveOcean: Kinetic Energy (s = 1/' + str(np.int(slope_s[0])) + ')', fontsize=12)
 handles, labels = ax[0,1].get_legend_handles_labels()
-ax[0,1].legend(handles, labels, fontsize=10)
+ax[0,1].legend(handles, labels, fontsize=8, loc=1)
 handles, labels = ax[0,0].get_legend_handles_labels()
-ax[0,0].legend(handles, labels, fontsize=10)
+ax[0,0].legend(handles, labels, fontsize=8, loc=1)
 ax[0,0].grid()
 ax[0,1].grid()
 
@@ -566,9 +569,9 @@ ax[1,1].scatter(l_lim, avg_KE_model[0] / dk, color='k', s=10, facecolors='none')
 avg_KE_model_ind_all = 2 * np.nanmean(ke_mod_tot, axis=1)
 avg_KE_model_off_ind_all = 2 * np.nanmean(ke_mod_off_tot, axis=1)
 avg_PE_model_ind_all = np.nanmean(pe_mod_tot, axis=1)
-ax[1,1].plot(sc_x, avg_KE_model_ind_all[1:mm] / dk, color='k', label='KE$_{Model_{inst.}}$', linewidth=1, linestyle='--')
+ax[1,1].plot(sc_x, avg_KE_model_ind_all[1:mm] / dk, color='k', label='KE$_{Model_{inst.,1}}$', linewidth=1, linestyle='--')
 ax[1,1].plot([l_lim, sc_x[0]], avg_KE_model_ind_all[0:2] / dk, color='k', linewidth=1, linestyle='--')
-ax[1,1].plot(sc_x, avg_KE_model_off_ind_all[1:mm] / dk, color='k', label='KE$_{Model_{inst.}}$', linewidth=1, linestyle='-.')
+ax[1,1].plot(sc_x, avg_KE_model_off_ind_all[1:mm] / dk, color='k', label='KE$_{Model_{inst.,2}}$', linewidth=1, linestyle='-.')
 ax[1,1].plot([l_lim, sc_x[0]], avg_KE_model_off_ind_all[0:2] / dk, color='k', linewidth=1, linestyle='-.')
 ax[1,0].plot(sc_x, avg_PE_model_ind_all[1:mm] / dk, color='k', label='PE$_{Model_{inst.}}$', linewidth=1, linestyle='--')
 
@@ -591,12 +594,12 @@ ax[1,1].set_xscale('log')
 ax[1,0].set_ylabel('Variance per Vertical Wavenumber', fontsize=10)  # ' (and Hor. Wavenumber)')
 ax[1,0].set_xlabel('Mode Number', fontsize=10)
 ax[1,1].set_xlabel('Mode Number', fontsize=10)
-ax[1,0].set_title('LiveOcean: Potential Energy (1:' + str(np.int(slope_s[1])) + ')', fontsize=12)
-ax[1,1].set_title('LiveOcean: Kinetic Energy (1:' + str(np.int(slope_s[1])) + ')', fontsize=12)
+ax[1,0].set_title('LiveOcean: Potential Energy (s = 1/' + str(np.int(slope_s[1])) + ')', fontsize=12)
+ax[1,1].set_title('LiveOcean: Kinetic Energy (s = 1/' + str(np.int(slope_s[1])) + ')', fontsize=12)
 handles, labels = ax[1,1].get_legend_handles_labels()
-ax[1,1].legend(handles, labels, fontsize=7)
+ax[1,1].legend(handles, labels, fontsize=8, loc=1)
 handles, labels = ax[1,0].get_legend_handles_labels()
-ax[1,0].legend(handles, labels, fontsize=10)
+ax[1,0].legend(handles, labels, fontsize=8, loc=1)
 ax[1,0].grid()
 
 plt.gcf().text(0.06, 0.9, 'a)', fontsize=12)
@@ -606,7 +609,7 @@ plt.gcf().text(0.5, 0.48, 'd)', fontsize=12)
 
 plot_pro(ax[1,1])
 if save_e > 0:
-    f.savefig('/Users/jake/Documents/glider_flight_sim_paper/lo_mod_energy_eddy.png', dpi=200)
+    f.savefig('/Users/jake/Documents/glider_flight_sim_paper/lo_mod_energy_eddy.png', dpi=300)
 
 # ----------------
 # horizontal scale
