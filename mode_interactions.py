@@ -39,7 +39,7 @@ dg_36n_2_N2 = dg_36n_2['N2_by_season_quad'][:]
 DG_36n_2_G, DG_36n_2_Gz, DG_36n_2_c, DG_36n_2_epsilon = vertical_modes(dg_36n_2_N2, dg_36n_2_depth, omega, mmax)
 # --------------------------------------------------------------------------------------------------------------------
 # BATS DG (2015)
-pkl_file = open('/Users/jake/Documents/baroclinic_modes/DG/sg035_2015_initial_processing.pkl', 'rb')
+pkl_file = open('/Users/jake/Documents/baroclinic_modes/DG/sg035_2015_initial_processing_3_seasons.pkl', 'rb')
 bats_dg = pickle.load(pkl_file)
 pkl_file.close()
 dg_depth = bats_dg['depth']
@@ -441,12 +441,12 @@ PE_SD_bats0, PE_GM_bats0, bats0_dg_GMPE, bats0_dg_GMKE, n_cross_dep_bats0 = PE_T
                                                                                        DGB0['N2'][:, None], bats0_dg_f)
 
 # --- BATS DG (2015) ---
-pkl_file = open('/Users/jake/Documents/baroclinic_modes/DG/sg035_2015_energy_may2019.pkl', 'rb')
+pkl_file = open('/Users/jake/Documents/baroclinic_modes/DG/sg035_2015_energy_nov_18_2019.pkl', 'rb')
 DGB = pickle.load(pkl_file)
 pkl_file.close()
-bats_dg_KE = DGB['KE']
-bats_dg_PE = DGB['PE']
-bats_dg_bckgrds = DGB['background_eddy_indicies_for_energy'][0]  # winter index
+bats_dg_bckgrds = DGB['background_eddy_indicies_for_energy']
+bats_dg_KE = DGB['KE_all']
+bats_dg_PE = DGB['PE_all']
 bats_dg_KE_all = np.nanmean(DGB['KE_all'], axis=1)  # [:, bats_dg_bckgrds]
 bats_dg_PE_all = np.nanmean(DGB['PE_all'], axis=1)
 bats_dg_c = DGB['c']
@@ -472,7 +472,7 @@ dg_ab_depth = abaco_energies['depth']
 PE_SD_ab, PE_GM_ab, dg_ab_GMPE, dg_ab_GMKE, n_cross_dep_ab = PE_Tide_GM(rho0, dg_ab_depth, len(dg_ab_c),
                                                                              dg_ab_N2[:, None], dg_ab_f)
 
-# --- 36N DG (2018) ---
+# --- 36N DG (2018) (November - June) ---
 pkl_file = open('/Users/jake/Documents/baroclinic_modes/DG/sg041_2018_energy.pkl', 'rb')
 DG36 = pickle.load(pkl_file)
 pkl_file.close()
@@ -493,7 +493,7 @@ sc_x_36n = 1000 * dg_36n_f / dg_36n_c[1:]
 PE_SD_36n, PE_GM_36n, dg_36n_GMPE, dg_36n_GMKE, n_cross_dep_36 = PE_Tide_GM(rho0, dg_36n_depth, len(dg_36n_c),
                                                                              dg_36n_N2m[:, None], dg_36n_f)
 
-# --- 36N DG (2019) ---
+# --- 36N DG (2019) (June - August) ---
 pkl_file = open('/Users/jake/Documents/baroclinic_modes/DG/sg045_2019_energy_oct_4_2019.pkl', 'rb')
 DG36_2 = pickle.load(pkl_file)
 pkl_file.close()
@@ -512,7 +512,7 @@ PE_SD_36_2, PE_GM_36_2, dg_36_2_GMPE, dg_36_2_GMKE, n_cross_dep_36_2 = PE_Tide_G
                                                                              dg_36_2_N2[:, None], dg_36_2_f)
 
 # --- LDE DG (2019) ---
-pkl_file = open('/Users/jake/Documents/baroclinic_modes/DG/sg037_2019_energy_oct_4_2019.pkl', 'rb')
+pkl_file = open('/Users/jake/Documents/baroclinic_modes/DG/sg037_2019_energy_nov_18_2019.pkl', 'rb')
 DGLDE = pickle.load(pkl_file)
 pkl_file.close()
 dg_LDE_KE_u_all = np.nanmean(DGLDE['KE_u_all'], axis=1)
@@ -553,6 +553,7 @@ fig01, ax = plt.subplots(2, 3)
 mode_num = np.arange(1, 61, 1)
 x_min = 7 * 10 ** -1
 
+# -- bats 2014
 ax[0, 0].fill_between(mode_num[0:45], sta_min, sta_max, label='PE$_{sta.}$', color='#D3D3D3')
 ax[0, 0].plot(mode_num[0:45], bats0_dg_PE_all[1:], label='PE', linewidth=2, color=scols[0])
 ax[0, 0].plot(mode_num[0:45], bats0_dg_KE_all[1:], label='KE', linewidth=2, color=scols[1])
@@ -564,14 +565,20 @@ ax[0, 0].text(x_min + 1.2*x_min, 10 ** (-8) + 2*10 ** (-8), r'L$_1$ = ' + str(np
 handles, labels = ax[0, 0].get_legend_handles_labels()
 ax[0, 0].legend(handles, labels, fontsize=8)
 
-ax[0, 1].fill_between(mode_num[0:45], sta_min, sta_max, label='PE$_{sta.}$', color='#D3D3D3')
-ax[0, 1].plot(mode_num[0:45], bats_dg_PE_all[1:], label='BATS', linewidth=2, color=scols[0])
-ax[0, 1].plot(mode_num[0:45], bats_dg_KE_all[1:], label='BATS', linewidth=2, color=scols[1])
-ax[0, 1].plot([x_min, mode_num[0]], [bats_dg_KE_all[0], bats_dg_KE_all[1]], linewidth=2, color=scols[1])
+# -- bats 2015
+ax[0, 1].fill_between(mode_num[0:45], sta_min, sta_max, label='PE$_{sta.}$', color='#D3D3D3')  # station bats
+bats_dg_back_combo = np.concatenate((bats_dg_bckgrds[0], bats_dg_bckgrds[1]))
+ax[0, 1].plot(mode_num[0:45], np.nanmean(bats_dg_PE[1:, bats_dg_back_combo], axis=1), label='BATS', linewidth=2, color=scols[0])  # pe all
+ax[0, 1].plot(mode_num[0:45], np.nanmean(bats_dg_KE[1:, bats_dg_back_combo], axis=1), label='BATS', linewidth=2, color=scols[1])  # ke all
+ax[0, 1].plot([x_min, mode_num[0]], [np.nanmean(bats_dg_KE[0, bats_dg_back_combo]),
+                                     np.nanmean(bats_dg_KE[1, bats_dg_back_combo])], linewidth=2, color=scols[1]) # ke all 0,1
+# ax[0, 1].plot(mode_num[0:45], bats_dg_PE_all[1:], label='BATS', linewidth=2, color=scols[0])  # pe all
+# ax[0, 1].plot(mode_num[0:45], bats_dg_KE_all[1:], label='BATS', linewidth=2, color=scols[1])  # ke all
+# ax[0, 1].plot([x_min, mode_num[0]], [bats_dg_KE_all[0], bats_dg_KE_all[1]], linewidth=2, color=scols[1]) # ke all 0,1
 ax[0, 1].plot(mode_num[0:45], 0.25 * GMPE_bats[0:45], color=scols[0], linewidth=0.5, linestyle='--')
 ax[0, 1].plot(mode_num[0:45], 0.25 * GMKE_bats[0:45], color=scols[1], linewidth=0.5, linestyle='--')
 # ax[0, 1].plot(mode_num[0:45], 0.25 * PE_GM_bats[0:45], color='r', linewidth=0.5, linestyle='--')
-bats_hl = np.sqrt(bats_dg_PE_all[1] / bats_dg_KE_all[1])  # hor length scale as ratio to L_d1 (PE/KE = (L/L_d)^2)
+bats_hl = np.sqrt(np.nanmean(bats_dg_PE[1, bats_dg_back_combo]) / np.nanmean(bats_dg_KE[1, bats_dg_back_combo]))  # hor length scale as ratio to L_d1 (PE/KE = (L/L_d)^2)
 ax[0, 1].text(x_min + 1.2*x_min, 10 ** (-8) + 2*10 ** (-8), r'L$_1$ = ' + str(np.round(bats_hl, 2)) + 'L$_{d1}$')
 
 ax[0, 2].plot(mode_num[0:len(PE_ab)-1], PE_ab[1:], label='ABACO', linewidth=2, color=scols[0])
@@ -582,6 +589,7 @@ ax[0, 2].plot(mode_num[0:45], 0.25 * dg_ab_GMKE[0:45], color=scols[1], linewidth
 ab_hl = np.sqrt(PE_ab[1] / KE_ab[1])  # hor length scale as ratio to L_d1 (PE/KE = (L/L_d)^2)
 ax[0, 2].text(x_min + 1.2*x_min, 10 ** (-8) + 2*10 ** (-8), r'L$_1$ = ' + str(np.round(ab_hl, 2)) + 'L$_{d1}$')
 
+# -- 36N
 ax[1, 0].plot(mode_num[0:40], dg_36n_PE_all[1:], label='36N', linewidth=2, color=scols[0])
 ax[1, 0].plot(mode_num[0:40], dg_36n_KE_all[1:], label='36N', linewidth=2, color=scols[1])
 ax[1, 0].plot([x_min, mode_num[0]], [dg_36n_KE_all[0], dg_36n_KE_all[1]], linewidth=2, color=scols[1])
@@ -649,12 +657,12 @@ ax[1, 1].set_xlabel('Mode Number', fontsize=14)
 ax[1, 2].set_xlabel('Mode Number', fontsize=14)
 ax[0, 0].set_ylabel('Spectral Density', fontsize=14)
 ax[1, 0].set_ylabel('Spectral Density', fontsize=14)
-ax[0, 0].set_title('BATS (sg035 2014)', fontsize=12)
+ax[0, 0].set_title('BATS (sg035 Winter 2014)', fontsize=12)
 ax[0, 1].set_title('BATS (sg035 2015)', fontsize=12)
 ax[0, 2].set_title('ABACO (sg037, sg038 2017)', fontsize=12)
-ax[1, 0].set_title(r'36$^{\circ}$N (sg041 2018)', fontsize=12)
-ax[1, 1].set_title(r'36$^{\circ}$N (sg045 2019)', fontsize=12)
-ax[1, 2].set_title('LDE (sg037 2019)', fontsize=12)
+ax[1, 0].set_title(r'36$^{\circ}$N (sg041 Winter 2018)', fontsize=12)
+ax[1, 1].set_title(r'36$^{\circ}$N (sg045 Summer 2019)', fontsize=12)
+ax[1, 2].set_title('LDE (sg037 Summer 2019)', fontsize=12)
 ax[0, 0].set_yscale('log')
 ax[0, 0].set_xscale('log')
 ax[0, 1].set_yscale('log')
@@ -682,9 +690,80 @@ ax[0, 2].grid()
 ax[1, 0].grid()
 ax[1, 1].grid()
 plot_pro(ax[1, 2])
-# fig01.savefig("/Users/jake/Documents/baroclinic_modes/dissertation/pe_ke_across_sites.jpg", dpi=300)
+fig01.savefig("/Users/jake/Documents/baroclinic_modes/dissertation/pe_ke_across_sites.jpg", dpi=300)
 # -------------------------------------------------------------------
-# PE/KE comparisons on same plot
+# --- PE/KE seasonal plots for 36N in winter 2018-19 and summer 2019 ---
+matplotlib.rcParams['figure.figsize'] = (16,8)
+f_s_en, (ax1, ax2) = plt.subplots(1, 2, sharey=True)
+x_min = 10 ** (-2)
+y_min = 10 ** (-3)
+sc_x = 1000 * dg_36n_f / dg_36n_c[1:]
+cols = ['#2F4F4F', '#FF4500', '#DAA520', '#800080']
+
+# - winter
+pmean = dg_36n_PE_all[1:] / dk_36n
+pstd = np.nanstd(DG36['PE_all'][1:, dg_36n_bckgrds] / dk_36n, axis=1)
+low_ci = pmean - 1.960 * (pstd / np.sqrt(len(DG36['PE_all'][1, dg_36n_bckgrds])))
+high_ci = pmean + 1.960 * (pstd / np.sqrt(len(DG36['PE_all'][1, dg_36n_bckgrds])))
+ax1.fill_between(sc_x, low_ci, high_ci, color=cols[0], alpha=0.5)
+ax1.plot(sc_x, dg_36n_PE_all[1:] / dk_36n, color=cols[0], label='Winter (Nov - Jun)', linewidth=2)
+ax1.scatter(sc_x, dg_36n_PE_all[1:] / dk_36n, color=cols[0], s=5)
+
+kmean = dg_36n_KE_all / dk_36n
+kstd = np.nanstd(DG36['KE_all'][:, dg_36n_bckgrds] / dk_36n, axis=1)
+low_ci = kmean - 1.960 * (kstd / np.sqrt(len(DG36['KE_all'][1, dg_36n_bckgrds])))
+high_ci = kmean + 1.960 * (kstd / np.sqrt(len(DG36['KE_all'][1, dg_36n_bckgrds])))
+ax2.fill_between(np.concatenate((np.array([x_min])[None, :], sc_x[None, :]), axis=1)[0, :], low_ci, high_ci, color=cols[0], alpha=0.5)
+ax2.plot(sc_x, dg_36n_KE_all[1:] / dk_36n, color=cols[0], linewidth=2)
+ax2.scatter(sc_x, dg_36n_KE_all[1:] / dk_36n, color=cols[0], s=5)
+ax2.plot([10 ** -2, 1000 * dg_36n_f / dg_36n_c[1]], dg_36n_KE_all[0:2] / dk_36n, color=cols[0], linewidth=1.5)
+ax2.scatter(10 ** -2, dg_36n_KE_all[0] / dk_36n, color=cols[0], s=5 * 1.5, facecolors='none')
+
+# - summer
+pmean = dg_36_2_PE_all[1:] / dk_36n
+pstd = np.nanstd(DG36_2['PE_all'][1:, :] / dk_36n, axis=1)
+low_ci = pmean - 1.960 * (pstd / np.sqrt(len(DG36_2['PE_all'][1, :])))
+high_ci = pmean + 1.960 * (pstd / np.sqrt(len(DG36_2['PE_all'][1, :])))
+ax1.fill_between(sc_x, low_ci[0:40], high_ci[0:40], color=cols[1], alpha=0.5)
+ax1.plot(sc_x, dg_36_2_PE_all[1:41] / dk_36n, color=cols[1], label='Summer (Jun - Aug)', linewidth=2)
+ax1.scatter(sc_x, dg_36_2_PE_all[1:41] / dk_36n, color=cols[1], s=5)
+
+kmean = dg_36_2_KE_u_all[0:41] / dk_36n
+kstd = np.nanstd(DG36_2['KE_u_all'][0:41, :] / dk_36n, axis=1)
+low_ci = kmean - 1.960 * (kstd / np.sqrt(len(DG36_2['KE_u_all'][1, :])))
+high_ci = kmean + 1.960 * (kstd / np.sqrt(len(DG36_2['KE_u_all'][1, :])))
+ax2.fill_between(np.concatenate((np.array([x_min])[None, :], sc_x[None, :]), axis=1)[0, :], low_ci, high_ci, color=cols[1], alpha=0.5)
+ax2.plot(sc_x, dg_36_2_KE_u_all[1:41] / dk_36n, color=cols[1], label='Winter', linewidth=2)
+ax2.scatter(sc_x, dg_36_2_KE_u_all[1:41] / dk_36n, color=cols[1], s=5)
+ax2.plot([10 ** -2, 1000 * dg_36n_f / dg_36n_c[1]], dg_36_2_KE_u_all[0:2] / dk_36n, color=cols[1], linewidth=1.5)
+ax2.scatter(10 ** -2, dg_36_2_KE_u_all[0] / dk_36n, color=cols[1], s=5 * 1.5, facecolors='none')
+
+ax1.plot([7 * 10**-3, 7 * 10**-1], [10**3, 10**-3], color='k', linewidth=0.5)
+ax1.text(3.5*10**-1, 2*10**-3, '-3', fontsize=13)
+ax1.plot([10**-2, 10**1], [3*10**2, 3*10**-4], color='k', linewidth=0.5)
+ax1.text(2*10**0, 3*10**-3, '-2', fontsize=13)
+ax2.plot([7 * 10**-3, 7 * 10**-1], [10**3, 10**-3], color='k', linewidth=0.5)
+ax2.text(3*10**-1, 2*10**-3, '-3', fontsize=13)
+ax2.plot([10**-2, 10**1], [3*10**2, 3*10**-4], color='k', linewidth=0.5)
+ax2.text(2*10**0, 3*10**-3, '-2', fontsize=13)
+handles, labels = ax1.get_legend_handles_labels()
+ax1.legend(handles, labels, fontsize=14)
+ax1.set_xlabel(r'Scaled Vertical Wavenumber = (L$_{d_{n}}$)$^{-1}$ = $\frac{f}{c_n}$ [$km^{-1}$]', fontsize=15)
+ax1.set_ylabel('Variance Per Vertical Wavenumber', fontsize=15)
+ax1.set_title('Potential Energy', fontsize=18)
+ax1.set_xlim([x_min, 3 * 10 ** 0])
+ax1.set_ylim([y_min, 1 * 10 ** 3])
+ax1.set_yscale('log')
+ax1.set_xscale('log')
+ax2.set_xlabel(r'Scaled Vertical Wavenumber = (L$_{d_{n}}$)$^{-1}$ = $\frac{f}{c_n}$ [$km^{-1}$]', fontsize=15)
+ax2.set_title('Kinetic Energy', fontsize=18)
+ax2.set_xlim([x_min, 3 * 10 ** 0])
+ax2.set_xscale('log')
+ax1.grid()
+plot_pro(ax2)
+f_s_en.savefig("/Users/jake/Documents/baroclinic_modes/dissertation/dg_36n_energy_seasons_95percent.jpg", dpi=400)
+# -------------------------------------------------------------------
+# --- PE/KE comparisons on same plot ---
 matplotlib.rcParams['figure.figsize'] = (11, 6)
 f, (ax1, ax2) = plt.subplots(1, 2)
 mode_num = np.arange(1, 61, 1)

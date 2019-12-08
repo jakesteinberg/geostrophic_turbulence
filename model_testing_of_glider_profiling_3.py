@@ -100,7 +100,7 @@ plot_grad = 1  # density grad at four depths
 plot_energy = 0  # energy spectra
 save_samp = 0  # save sample eta, v
 save_p = 0  # save figure cross section
-save_p_g = 1  # save figure density gradient
+save_p_g = 0  # save figure density gradient
 
 t_s = datetime.date.fromordinal(np.int(time_ord_s[0]))
 t_e = datetime.date.fromordinal(np.int(time_ord_s[-1]))

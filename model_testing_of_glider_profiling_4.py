@@ -17,7 +17,7 @@ from zrfun import get_basic_info, get_z
 # file_list_0 = glob.glob('/Users/jake/Documents/baroclinic_modes/Model/LiveOcean/simulated_dg_velocities/ve_ew_v*slp*_y10_11_2*.pkl')
 file_list = glob.glob('/Users/jake/Documents/baroclinic_modes/Model/LiveOcean/simulated_dg_velocities/ve_ew_v*_slp*_y*_*.pkl')
 # file_list = np.concatenate([file_list_0, file_list_1])
-save_metr = 1  # ratio
+save_metr = 0  # ratio
 save_e = 0  # save energy spectra
 save_rms = 0  # save v error plot
 save_eof = 0
@@ -136,7 +136,7 @@ for i in range(len(z_grid)):
     low_er_mean[i] = np.nanmean(slope_er[i, low])
 # ax.scatter(lo, z_grid, s=15, color='k', label=r'var$_{igw}$/var$_{gstr}$ < 1')
 ax.plot(np.nanmedian(slope_er, axis=1), z_grid, color='#000080', linewidth=2.5, label='Error Median')
-ax.plot(low_er_mean, z_grid, linewidth=2.5, color='#8B0000', label=r'Error Mean for var$_{gstr.}$/var$_{igw}$ > 1')
+ax.plot(low_er_mean, z_grid, linewidth=2.5, color='#8B0000', label=r'Error Mean for g(z)/f(z) > 1')
 handles, labels = ax.get_legend_handles_labels()
 ax.legend(handles, labels, fontsize=12)
 ax.set_xscale('log')
