@@ -590,6 +590,16 @@ ab_hl = np.sqrt(PE_ab[1] / KE_ab[1])  # hor length scale as ratio to L_d1 (PE/KE
 ax[0, 2].text(x_min + 1.2*x_min, 10 ** (-8) + 2*10 ** (-8), r'L$_1$ = ' + str(np.round(ab_hl, 2)) + 'L$_{d1}$')
 
 # -- 36N
+pmean0 = dg_36n_PE_all[1:]
+pstd0 = np.nanstd(DG36['PE_all'][1:, dg_36n_bckgrds], axis=1)
+low_ci0 = pmean0 - 1.960 * (pstd0 / np.sqrt(len(DG36['PE_all'][1, dg_36n_bckgrds])))
+high_ci0 = pmean0 + 1.960 * (pstd0 / np.sqrt(len(DG36['PE_all'][1, dg_36n_bckgrds])))
+ax[1, 0].fill_between(mode_num[0:40], low_ci0, high_ci0, color=scols[0], alpha=0.5)
+pmean0 = dg_36n_KE_all
+pstd0 = np.nanstd(DG36['KE_all'][:, dg_36n_bckgrds], axis=1)
+low_ci0 = pmean0 - 1.960 * (pstd0 / np.sqrt(len(DG36['KE_all'][1, dg_36n_bckgrds])))
+high_ci0 = pmean0 + 1.960 * (pstd0 / np.sqrt(len(DG36['KE_all'][2, dg_36n_bckgrds])))
+ax[1, 0].fill_between(np.concatenate((np.array([x_min]), mode_num[0:40])), low_ci0, high_ci0, color=scols[1], alpha=0.5)
 ax[1, 0].plot(mode_num[0:40], dg_36n_PE_all[1:], label='36N', linewidth=2, color=scols[0])
 ax[1, 0].plot(mode_num[0:40], dg_36n_KE_all[1:], label='36N', linewidth=2, color=scols[1])
 ax[1, 0].plot([x_min, mode_num[0]], [dg_36n_KE_all[0], dg_36n_KE_all[1]], linewidth=2, color=scols[1])
@@ -598,13 +608,24 @@ ax[1, 0].plot(mode_num[0:45], 0.25 * dg_36_2_GMKE[0:45], color=scols[1], linewid
 n36_hl = np.sqrt(dg_36n_PE_all[1] / dg_36n_KE_all[1])  # hor length scale as ratio to L_d1 (PE/KE = (L/L_d)^2)
 ax[1, 0].text(x_min + 1.2*x_min, 10 ** (-8) + 2*10 ** (-8), r'L$_1$ = ' + str(np.round(n36_hl, 2)) + 'L$_{d1}$')
 
+pmean0 = dg_36_2_PE_all[1:]
+pstd0 = np.nanstd(DG36_2['PE_all'][1:, :], axis=1)
+low_ci0 = pmean0 - 1.960 * (pstd0 / np.sqrt(len(DG36_2['PE_all'][1, :])))
+high_ci0 = pmean0 + 1.960 * (pstd0 / np.sqrt(len(DG36_2['PE_all'][1, :])))
+ax[1, 1].fill_between(mode_num[0:45], low_ci0, high_ci0, color=scols[0], alpha=0.5)
+pmean0 = 0.5*(dg_36_2_KE_u_all + dg_36_2_KE_v_all)
+DG36_2_KE_tot = np.concatenate((DG36_2['KE_u_all'], DG36_2['KE_v_all']), axis=1)
+pstd0 = np.nanstd(DG36_2_KE_tot, axis=1)
+low_ci0 = pmean0 - 1.960 * (pstd0 / np.sqrt(len(DG36_2_KE_tot[1, :])))
+high_ci0 = pmean0 + 1.960 * (pstd0 / np.sqrt(len(DG36_2_KE_tot[1, :])))
+ax[1, 1].fill_between(np.concatenate((np.array([x_min]), mode_num[0:45])), low_ci0, high_ci0, color=scols[1], alpha=0.5)
 ax[1, 1].plot(mode_num[0:45], dg_36_2_PE_all[1:],  linewidth=2, color=scols[0])
-ax[1, 1].plot(mode_num[0:45], dg_36_2_KE_u_all[1:] + dg_36_2_KE_v_all[1:], linewidth=2, color=scols[1])
+ax[1, 1].plot(mode_num[0:45], 0.5*(dg_36_2_KE_u_all[1:] + dg_36_2_KE_v_all[1:]), linewidth=2, color=scols[1])
 ax[1, 1].plot(mode_num[0:45], dg_36_2_KE_u_all[1:], linewidth=1, color=scols[1], linestyle=':', label='KE$_{u}$')
 ax[1, 1].plot(mode_num[0:45], dg_36_2_KE_v_all[1:], linewidth=1, color=scols[1], linestyle='--', label='KE$_{v}$')
 ax[1, 1].plot(mode_num[0:45], 0.25 * dg_36_2_GMPE[0:45], color=scols[0], linewidth=0.5, linestyle='--')
 ax[1, 1].plot(mode_num[0:45], 0.25 * dg_36_2_GMKE[0:45], color=scols[1], linewidth=0.5, linestyle='--')
-ke36_2_tot = dg_36_2_KE_u_all + dg_36_2_KE_v_all
+ke36_2_tot = 0.5*(dg_36_2_KE_u_all + dg_36_2_KE_v_all)
 ax[1, 1].plot([x_min, mode_num[0]], [ke36_2_tot[0], ke36_2_tot[1]], linewidth=2, color=scols[1])
 n36_2_hl = np.sqrt(dg_36_2_PE_all[1] / ke36_2_tot[1])  # hor length scale as ratio to L_d1 (PE/KE = (L/L_d)^2)
 ax[1, 1].text(x_min + 1.2*x_min, 10 ** (-8) + 2*10 ** (-8), r'L$_1$ = ' + str(np.round(n36_2_hl, 2)) + 'L$_{d1}$')
@@ -761,7 +782,7 @@ ax2.set_xlim([x_min, 3 * 10 ** 0])
 ax2.set_xscale('log')
 ax1.grid()
 plot_pro(ax2)
-f_s_en.savefig("/Users/jake/Documents/baroclinic_modes/dissertation/dg_36n_energy_seasons_95percent.jpg", dpi=400)
+# f_s_en.savefig("/Users/jake/Documents/baroclinic_modes/dissertation/dg_36n_energy_seasons_95percent.jpg", dpi=400)
 # -------------------------------------------------------------------
 # --- PE/KE comparisons on same plot ---
 matplotlib.rcParams['figure.figsize'] = (11, 6)
