@@ -512,7 +512,7 @@ PE_SD_36_2, PE_GM_36_2, dg_36_2_GMPE, dg_36_2_GMKE, n_cross_dep_36_2 = PE_Tide_G
                                                                              dg_36_2_N2[:, None], dg_36_2_f)
 
 # --- LDE DG (2019) ---
-pkl_file = open('/Users/jake/Documents/baroclinic_modes/DG/sg037_2019_energy_nov_18_2019.pkl', 'rb')
+pkl_file = open('/Users/jake/Documents/baroclinic_modes/DG/sg037_2019_energy_dec_08_2019.pkl', 'rb')
 DGLDE = pickle.load(pkl_file)
 pkl_file.close()
 dg_LDE_KE_u_all = np.nanmean(DGLDE['KE_u_all'], axis=1)
@@ -554,6 +554,17 @@ mode_num = np.arange(1, 61, 1)
 x_min = 7 * 10 ** -1
 
 # -- bats 2014
+pmean0 = bats0_dg_PE_all[1:]
+pstd0 = np.nanstd(DGB0['PE_all'][1:, bats0_dg_bckgrds], axis=1)  # bats0_dg_bckgrds
+low_ci0 = pmean0 - 1.960 * (pstd0 / np.sqrt(len(DGB0['PE_all'][1, bats0_dg_bckgrds])))
+high_ci0 = pmean0 + 1.960 * (pstd0 / np.sqrt(len(DGB0['PE_all'][1, bats0_dg_bckgrds])))
+ax[0, 0].fill_between(mode_num[0:45], low_ci0, high_ci0, color=scols[0], alpha=0.5)
+pmean0 = bats0_dg_KE_all
+pstd0 = np.nanstd(DGB0['KE_all'][:, bats0_dg_bckgrds], axis=1)
+low_ci0 = pmean0 - 1.960 * (pstd0 / np.sqrt(len(DGB0['KE_all'][1, bats0_dg_bckgrds])))
+high_ci0 = pmean0 + 1.960 * (pstd0 / np.sqrt(len(DGB0['KE_all'][2, bats0_dg_bckgrds])))
+ax[0, 0].fill_between(np.concatenate((np.array([x_min]), mode_num[0:45])), low_ci0, high_ci0, color=scols[1], alpha=0.5)
+
 ax[0, 0].fill_between(mode_num[0:45], sta_min, sta_max, label='PE$_{sta.}$', color='#D3D3D3')
 ax[0, 0].plot(mode_num[0:45], bats0_dg_PE_all[1:], label='PE', linewidth=2, color=scols[0])
 ax[0, 0].plot(mode_num[0:45], bats0_dg_KE_all[1:], label='KE', linewidth=2, color=scols[1])
@@ -566,8 +577,19 @@ handles, labels = ax[0, 0].get_legend_handles_labels()
 ax[0, 0].legend(handles, labels, fontsize=8)
 
 # -- bats 2015
+bats_dg_back_combo = np.arange(0, len(DGB['PE_all'][1, :]))  # len(np.concatenate((bats_dg_bckgrds[0], bats_dg_bckgrds[1]))
+pmean0 = np.nanmean(DGB['PE_all'][1:, bats_dg_back_combo], axis=1)
+pstd0 = np.nanstd(DGB['PE_all'][1:, bats_dg_back_combo], axis=1)
+low_ci0 = pmean0 - 1.960 * (pstd0 / np.sqrt(len(DGB['PE_all'][1, bats_dg_back_combo])))
+high_ci0 = pmean0 + 1.960 * (pstd0 / np.sqrt(len(DGB['PE_all'][1, bats_dg_back_combo])))
+ax[0, 1].fill_between(mode_num[0:45], low_ci0, high_ci0, color=scols[0], alpha=0.5)
+pmean0 = np.nanmean(DGB['KE_all'][:, bats_dg_back_combo], axis=1)
+pstd0 = np.nanstd(DGB['KE_all'][:, bats_dg_back_combo], axis=1)
+low_ci0 = pmean0 - 1.960 * (pstd0 / np.sqrt(len(DGB['KE_all'][1, bats_dg_back_combo])))
+high_ci0 = pmean0 + 1.960 * (pstd0 / np.sqrt(len(DGB['KE_all'][2, bats_dg_back_combo])))
+ax[0, 1].fill_between(np.concatenate((np.array([x_min]), mode_num[0:45])), low_ci0, high_ci0, color=scols[1], alpha=0.5)
+
 ax[0, 1].fill_between(mode_num[0:45], sta_min, sta_max, label='PE$_{sta.}$', color='#D3D3D3')  # station bats
-bats_dg_back_combo = np.concatenate((bats_dg_bckgrds[0], bats_dg_bckgrds[1]))
 ax[0, 1].plot(mode_num[0:45], np.nanmean(bats_dg_PE[1:, bats_dg_back_combo], axis=1), label='BATS', linewidth=2, color=scols[0])  # pe all
 ax[0, 1].plot(mode_num[0:45], np.nanmean(bats_dg_KE[1:, bats_dg_back_combo], axis=1), label='BATS', linewidth=2, color=scols[1])  # ke all
 ax[0, 1].plot([x_min, mode_num[0]], [np.nanmean(bats_dg_KE[0, bats_dg_back_combo]),
@@ -577,9 +599,20 @@ ax[0, 1].plot([x_min, mode_num[0]], [np.nanmean(bats_dg_KE[0, bats_dg_back_combo
 # ax[0, 1].plot([x_min, mode_num[0]], [bats_dg_KE_all[0], bats_dg_KE_all[1]], linewidth=2, color=scols[1]) # ke all 0,1
 ax[0, 1].plot(mode_num[0:45], 0.25 * GMPE_bats[0:45], color=scols[0], linewidth=0.5, linestyle='--')
 ax[0, 1].plot(mode_num[0:45], 0.25 * GMKE_bats[0:45], color=scols[1], linewidth=0.5, linestyle='--')
-# ax[0, 1].plot(mode_num[0:45], 0.25 * PE_GM_bats[0:45], color='r', linewidth=0.5, linestyle='--')
 bats_hl = np.sqrt(np.nanmean(bats_dg_PE[1, bats_dg_back_combo]) / np.nanmean(bats_dg_KE[1, bats_dg_back_combo]))  # hor length scale as ratio to L_d1 (PE/KE = (L/L_d)^2)
 ax[0, 1].text(x_min + 1.2*x_min, 10 ** (-8) + 2*10 ** (-8), r'L$_1$ = ' + str(np.round(bats_hl, 2)) + 'L$_{d1}$')
+
+# -- ABACO
+pmean0 = PE_ab[1:]
+pstd0 = np.nanstd(abaco_energies['PE_all'][1:, :], axis=1)
+low_ci0 = pmean0 - 1.960 * (pstd0 / np.sqrt(len(abaco_energies['PE_all'][1, :])))
+high_ci0 = pmean0 + 1.960 * (pstd0 / np.sqrt(len(abaco_energies['PE_all'][1, :])))
+ax[0, 2].fill_between(mode_num[0:45], low_ci0, high_ci0, color=scols[0], alpha=0.5)
+pmean0 = KE_ab
+pstd0 = np.nanstd(abaco_energies['KE_v_all'][:, :], axis=1)
+low_ci0 = pmean0 - 1.960 * (pstd0 / np.sqrt(len(abaco_energies['KE_v_all'][1, :])))
+high_ci0 = pmean0 + 1.960 * (pstd0 / np.sqrt(len(abaco_energies['KE_v_all'][1, :])))
+ax[0, 2].fill_between(np.concatenate((np.array([x_min]), mode_num[0:45])), low_ci0, high_ci0, color=scols[1], alpha=0.5)
 
 ax[0, 2].plot(mode_num[0:len(PE_ab)-1], PE_ab[1:], label='ABACO', linewidth=2, color=scols[0])
 ax[0, 2].plot(mode_num[0:len(PE_ab)-1], KE_ab[1:], label='ABACO', linewidth=2, color=scols[1])
@@ -632,13 +665,26 @@ ax[1, 1].text(x_min + 1.2*x_min, 10 ** (-8) + 2*10 ** (-8), r'L$_1$ = ' + str(np
 handles, labels = ax[1, 1].get_legend_handles_labels()
 ax[1, 1].legend(handles, labels, fontsize=8)
 
+# -- LDE
+pmean0 = dg_LDE_PE_all[1:]
+pstd0 = np.nanstd(DGLDE['PE_all'][1:, :], axis=1)
+low_ci0 = pmean0 - 1.960 * (pstd0 / np.sqrt(len(DGLDE['PE_all'][1, :])))
+high_ci0 = pmean0 + 1.960 * (pstd0 / np.sqrt(len(DGLDE['PE_all'][1, :])))
+ax[1, 2].fill_between(mode_num[0:45], low_ci0, high_ci0, color=scols[0], alpha=0.5)
+pmean0 = 0.5*(dg_LDE_KE_u_all + dg_LDE_KE_v_all)
+DGLDE_KE_tot = np.concatenate((DGLDE['KE_u_all'], DGLDE['KE_v_all']), axis=1)
+pstd0 = np.nanstd(DGLDE_KE_tot, axis=1)
+low_ci0 = pmean0 - 1.960 * (pstd0 / np.sqrt(len(DGLDE_KE_tot[1, :])))
+high_ci0 = pmean0 + 1.960 * (pstd0 / np.sqrt(len(DGLDE_KE_tot[1, :])))
+ax[1, 2].fill_between(np.concatenate((np.array([x_min]), mode_num[0:45])), low_ci0, high_ci0, color=scols[1], alpha=0.5)
+
 ax[1, 2].plot(mode_num[0:45], dg_LDE_PE_all[1:], label='LDE', linewidth=2, color=scols[0])
-ax[1, 2].plot(mode_num[0:45], dg_LDE_KE_u_all[1:] + dg_LDE_KE_v_all[1:], label='LDE', linewidth=2, color=scols[1])
+ax[1, 2].plot(mode_num[0:45], 0.5 * (dg_LDE_KE_u_all[1:] + dg_LDE_KE_v_all[1:]), label='LDE', linewidth=2, color=scols[1])
 ax[1, 2].plot(mode_num[0:45], dg_LDE_KE_u_all[1:], label='LDE', linewidth=1, color=scols[1], linestyle=':')
 ax[1, 2].plot(mode_num[0:45], dg_LDE_KE_v_all[1:], label='LDE', linewidth=1, color=scols[1], linestyle='--')
 ax[1, 2].plot(mode_num[0:45], 0.25 * dg_LDE_GMPE[0:45], color=scols[0], linewidth=0.5, linestyle='--')
 ax[1, 2].plot(mode_num[0:45], 0.25 * dg_LDE_GMKE[0:45], color=scols[1], linewidth=0.5, linestyle='--')
-ke_lde_tot = dg_LDE_KE_u_all + dg_LDE_KE_v_all
+ke_lde_tot = 0.5 * (dg_LDE_KE_u_all + dg_LDE_KE_v_all)
 ax[1, 2].plot([x_min, mode_num[0]], [ke_lde_tot[0], ke_lde_tot[1]], linewidth=2, color=scols[1])
 lde_hl = np.sqrt(dg_LDE_PE_all[1] / ke_lde_tot[1])  # hor length scale as ratio to L_d1 (PE/KE = (L/L_d)^2)
 ax[1, 2].text(x_min + 1.2*x_min, 10 ** (-8) + 2*10 ** (-8), r'L$_1$ = ' + str(np.round(lde_hl, 2)) + 'L$_{d1}$')
@@ -711,7 +757,7 @@ ax[0, 2].grid()
 ax[1, 0].grid()
 ax[1, 1].grid()
 plot_pro(ax[1, 2])
-fig01.savefig("/Users/jake/Documents/baroclinic_modes/dissertation/pe_ke_across_sites.jpg", dpi=300)
+# fig01.savefig("/Users/jake/Documents/baroclinic_modes/dissertation/pe_ke_across_sites.jpg", dpi=300)
 # -------------------------------------------------------------------
 # --- PE/KE seasonal plots for 36N in winter 2018-19 and summer 2019 ---
 matplotlib.rcParams['figure.figsize'] = (16,8)
@@ -785,31 +831,36 @@ plot_pro(ax2)
 # f_s_en.savefig("/Users/jake/Documents/baroclinic_modes/dissertation/dg_36n_energy_seasons_95percent.jpg", dpi=400)
 # -------------------------------------------------------------------
 # --- PE/KE comparisons on same plot ---
+# matlab colors
+mat_cols = np.array([[0, 0.4470, 0.7410], [0.8500, 0.3250, 0.0980], [0.9290, 0.6940, 0.1250],
+                     [0.4940, 0.1840, 0.5560], [0.4660, 0.6740, 0.1880], [0.3010, 0.7450, 0.9330], [0.6350, 0.0780, 0.1840]])
+
+
 matplotlib.rcParams['figure.figsize'] = (11, 6)
 f, (ax1, ax2) = plt.subplots(1, 2)
 mode_num = np.arange(1, 61, 1)
 x_min = 7 * 10 ** -1
 e_col = ['#B22222', '#FF8C00', '#00FF7F', 'k', '#4682B4', 'b']
 
-ax1.plot(mode_num[0:45], bats0_dg_PE_all[1:], label='BATS 2014', linewidth=2, color=e_col[0])
-ax1.plot(mode_num[0:45], bats_dg_PE_all[1:], label='BATS 2015', linewidth=2, color=e_col[1])
+ax1.plot(mode_num[0:45], bats0_dg_PE_all[1:], label='BATS 2014', linewidth=2, color=mat_cols[0, :])
+ax1.plot(mode_num[0:45], bats_dg_PE_all[1:], label='BATS 2015', linewidth=2, color=mat_cols[1, :])
 ax1.plot(mode_num[0:len(PE_ab)-1], PE_ab[1:], label='ABACO 2017', linewidth=2, color=e_col[2])
-ax1.plot(mode_num[0:40], dg_36n_PE_all[1:], label=r'36$^{\circ}$N 2018', linewidth=2, color=e_col[3])
-ax1.plot(mode_num[0:45], dg_36_2_PE_all[1:], label=r'36$^{\circ}$N 2019', linewidth=2, color=e_col[4])
-ax1.plot(mode_num[0:45], dg_LDE_PE_all[1:], label='LDE 2019', linewidth=2, color=e_col[5])
+ax1.plot(mode_num[0:40], dg_36n_PE_all[1:], label=r'36$^{\circ}$N 2018', linewidth=2, color=mat_cols[2, :])
+ax1.plot(mode_num[0:45], dg_36_2_PE_all[1:], label=r'36$^{\circ}$N 2019', linewidth=2, color=mat_cols[2, :], linestyle='-.')
+ax1.plot(mode_num[0:45], dg_LDE_PE_all[1:], label='LDE 2019', linewidth=2, color=mat_cols[3, :])
 
-ax2.plot(mode_num[0:45], bats0_dg_KE_all[1:], label='BATS 2014', linewidth=2, color=e_col[0])
-ax2.plot([x_min, mode_num[0]], [bats0_dg_KE_all[0], bats0_dg_KE_all[1]], linewidth=2, color=e_col[0])
-ax2.plot(mode_num[0:45], bats_dg_KE_all[1:], label='BATS 2015', linewidth=2, color=e_col[1])
-ax2.plot([x_min, mode_num[0]], [bats_dg_KE_all[0], bats_dg_KE_all[1]], linewidth=2, color=e_col[1])
+ax2.plot(mode_num[0:45], bats0_dg_KE_all[1:], label='BATS 2014', linewidth=2, color=mat_cols[0, :])
+ax2.plot([x_min, mode_num[0]], [bats0_dg_KE_all[0], bats0_dg_KE_all[1]], linewidth=2, color=mat_cols[0, :])
+ax2.plot(mode_num[0:45], bats_dg_KE_all[1:], label='BATS 2015', linewidth=2, color=mat_cols[1, :])
+ax2.plot([x_min, mode_num[0]], [bats_dg_KE_all[0], bats_dg_KE_all[1]], linewidth=2, color=mat_cols[1, :])
 ax2.plot(mode_num[0:len(PE_ab)-1], KE_ab[1:], label='ABACO 2017', linewidth=2, color=e_col[2]) # (1/2)
 ax2.plot([x_min, mode_num[0]], [KE_ab[0], KE_ab[1]], linewidth=2, color=e_col[2])
-ax2.plot(mode_num[0:40], dg_36n_KE_all[1:], label=r'36$^{\circ}$N 2018', linewidth=2, color=e_col[3])
-ax2.plot([x_min, mode_num[0]], [dg_36n_KE_all[0], dg_36n_KE_all[1]], linewidth=2, color=e_col[3])
-ax2.plot(mode_num[0:45], dg_36_2_KE_u_all[1:] + dg_36_2_KE_v_all[1:], label=r'36$^{\circ}$N 2019', linewidth=2, color=e_col[4])
-ax2.plot([x_min, mode_num[0]], [dg_36_2_KE_u_all[0] + dg_36_2_KE_v_all[0], dg_36_2_KE_u_all[1] + dg_36_2_KE_v_all[1]], linewidth=2, color=e_col[4])
-ax2.plot(mode_num[0:45], dg_LDE_KE_u_all[1:] + dg_LDE_KE_v_all[1:], label='LDE 2019', linewidth=2, color=e_col[5])
-ax2.plot([x_min, mode_num[0]], [dg_LDE_KE_u_all[0] + dg_LDE_KE_v_all[0], dg_LDE_KE_u_all[1] + dg_LDE_KE_v_all[1]], linewidth=2, color=e_col[5])
+ax2.plot(mode_num[0:40], dg_36n_KE_all[1:], label=r'36$^{\circ}$N 2018', linewidth=2, color=mat_cols[2, :])
+ax2.plot([x_min, mode_num[0]], [dg_36n_KE_all[0], dg_36n_KE_all[1]], linewidth=2, color=mat_cols[2, :])
+ax2.plot(mode_num[0:45], 0.5 * (dg_36_2_KE_u_all[1:] + dg_36_2_KE_v_all[1:]), label=r'36$^{\circ}$N 2019', linewidth=2, color=mat_cols[2, :], linestyle='-.')
+ax2.plot([x_min, mode_num[0]], 0.5 * np.array([dg_36_2_KE_u_all[0] + dg_36_2_KE_v_all[0], dg_36_2_KE_u_all[1] + dg_36_2_KE_v_all[1]]), linewidth=2, color=mat_cols[2, :], linestyle='-.')
+ax2.plot(mode_num[0:45], 0.5 * (dg_LDE_KE_u_all[1:] + dg_LDE_KE_v_all[1:]), label='LDE 2019', linewidth=2, color=mat_cols[3, :])
+ax2.plot([x_min, mode_num[0]], 0.5 * np.array([dg_LDE_KE_u_all[0] + dg_LDE_KE_v_all[0], dg_LDE_KE_u_all[1] + dg_LDE_KE_v_all[1]]), linewidth=2, color=mat_cols[3, :])
 
 ax1.plot([10 ** 0, 10 ** 2], [10 ** -3, 10 ** -9], color='k', linewidth=0.5, linestyle='--')
 ax1.plot([10 ** 0, 10 ** 3], [3*10 ** -4, 3*10 ** -10], color='k', linewidth=0.5, linestyle='--')
@@ -843,7 +894,7 @@ matplotlib.rcParams['figure.figsize'] = (7, 6)
 scols = ['#00BFFF', '#6B8E23', '#800000']
 fig01, ax0 = plt.subplots()
 mode_num = np.arange(1, 61, 1)
-PE_sta_p1 = ax0.plot(mode_num, sta_bats_pe_total[1:], label='BATS', linewidth=2, color=scols[0])
+PE_sta_p1 = ax0.plot(mode_num, sta_bats_pe_total[1:], label='BATS', linewidth=2, color=mat_cols[0, :])
 PE_sta_hots = ax0.plot(mode_num, sta_aloha_pe[1:], label='ALOHA', linewidth=2, color=scols[1])
 PE_sta_papa = ax0.plot(mode_num, np.nanmean(sta_papa_pe[1:], axis=1), label='PAPA', linewidth=2,
                        color=scols[2])
