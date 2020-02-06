@@ -27,9 +27,10 @@ folder_list2 = glob.glob('/pgdat1/parker/LiveOcean_roms/output/cas6_v3_lo8b/f201
 folder_list = np.concatenate((folder_list0, folder_list1, folder_list2))
 for j in tqdm(range(0, len(folder_list)), ncols=50):  # range(len(folder_list)):
     file_list = glob.glob(folder_list[j] + '/ocean_his_0*.nc')
+    file_list_sort = np.sort(file_list)
     # LOOP over files
-    for i in tqdm(range(0, len(file_list)), ncols=50):  # range(len(file_list) - 1):
-        file_name = file_list[i]
+    for i in tqdm(range(0, len(file_list_sort)-1), ncols=50):  
+        file_name = file_list_sort[i]
 
         xx = xarray.open_dataset(file_name)
         temp_xx = xx.temp.isel(eta_rho=lat_select_i, xi_rho=lon_select_i).data[0]

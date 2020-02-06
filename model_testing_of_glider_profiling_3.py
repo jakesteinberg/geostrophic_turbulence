@@ -5,6 +5,7 @@ import datetime
 from netCDF4 import Dataset
 import gsw
 import time as TT
+import matlab.engine
 from scipy.integrate import cumtrapz
 from scipy.signal import savgol_filter
 from mode_decompositions import eta_fit, vertical_modes, PE_Tide_GM, vertical_modes_f
@@ -17,7 +18,7 @@ from zrfun import get_basic_info, get_z
 
 # because we load pickle protocol 2 (needed for matlab engine) we need 'glider' environment (not 'geo_env')
 
-this_path = 'e_w_extraction_nov28_nov30_offshore'  # 'n_s_extraction_eddy_nov1_nov3'  #
+this_path = 'e_w_extraction_nov16_nov18_offshore'  # 'n_s_extraction_eddy_nov1_nov3'  #
 these_paths = glob.glob('/Users/jake/Documents/baroclinic_modes/Model/LiveOcean/e_w*')
 
 # -- LOAD extracted and PROCESSED MODEL TIME STEPS WITH COMPUTED GAMMA
@@ -30,8 +31,8 @@ MOD = pickle.load(pkl_file)
 pkl_file.close()
 ref_lat = 44
 sig0_out_s = MOD['gamma'][:]
-ct_out_s = MOD['CT'][:]  # temp
-sa_out_s = MOD['SA'][:]  # salin
+ct_out_s = MOD['CT'][:]  # temp (not conservative temp)
+sa_out_s = MOD['SA'][:]  # salin (not absolute salinity)
 u_out_s = MOD['vel_cross_transect'][:]
 u_off_out_s = MOD['vel_along_transect']
 time_out_s = MOD['time'][:]
@@ -86,17 +87,17 @@ z_dg_s = 0        # depth, start of glider dives
 
 dac_error = 0.01  # m/s
 g_error = 0.00001
-t_error = 0.003
-s_error = 0.01
+t_error = 0.003/2.0
+s_error = 0.01/2.0
 partial_mw = 0    # include exclude partial m/w estimates
 
-save_anom = 0  # save file
+save_anom = 1  # save file
 
 plan_plot = 0  # plot plan view of slice
 plot0 = 0  # cross section
 plot1 = 0  # vel error
 plot_anom = 0  # eta and v
-plot_grad = 1  # density grad at four depths
+plot_grad = 0  # density grad at four depths
 plot_energy = 0  # energy spectra
 save_samp = 0  # save sample eta, v
 save_p = 0  # save figure cross section
@@ -108,26 +109,27 @@ tag = str(t_s.month) + '_' + str(t_s.day) + '_' + str(t_e.month) + '_' + str(t_e
 
 # suite of parameters to sweep through
 # vertical speed, glide slope, number of dives, starting xy pos, starting time
-params = np.array([[0.1, 3, 4, 10000, np.nanmin(time_ord_s)]])
+# params = np.array([[0.1, 3, 4, 10000, np.nanmin(time_ord_s)]])
 u_mod_all = 0  # instantaneous model spectra
 
 time_s = np.nanmin(time_ord_s)
 # [w, glide-slope, number of dives, horizontal dive start loc, time start]
-# params = np.array([[0.06, 3, 2, 10000, time_s], [0.06, 3, 2, 25000, time_s], [0.06, 3, 2, 40000, time_s], [0.06, 3, 2, 55000, time_s],
-#                    [0.06, 3, 2, 70000, time_s], [0.06, 3, 2, 85000, time_s], [0.06, 3, 2, 100000, time_s], [0.06, 3, 2, 115000, time_s],
-#                    [0.075, 3, 2, 10000, time_s], [0.075, 3, 2, 25000, time_s], [0.075, 3, 2, 40000, time_s], [0.075, 3, 2, 55000, time_s],
-#                    [0.075, 3, 2, 70000, time_s], [0.075, 3, 2, 85000, time_s], [0.075, 3, 2, 100000, time_s], [0.075, 3, 2, 115000, time_s],
-#                    [0.1, 3, 4, 10000, time_s], [0.1, 3, 4, 40000, time_s], [0.1, 3, 4, 70000, time_s], [0.1, 3, 4, 100000, time_s],
-#                    [0.2, 3, 4, 10000, time_s], [0.2, 3, 4, 40000, time_s], [0.2, 3, 4, 70000, time_s], [0.2, 3, 4, 100000, time_s],
-#                    [0.06, 2, 2, 10000, time_s], [0.06, 2, 2, 25000, time_s], [0.06, 2, 2, 40000, time_s], [0.06, 2, 2, 55000, time_s],
-#                    [0.06, 2, 2, 70000, time_s], [0.06, 2, 2, 85000, time_s], [0.06, 2, 2, 100000, time_s], [0.06, 2, 2, 115000, time_s],
-#                    [0.075, 2, 2, 10000, time_s], [0.075, 2, 2, 25000, time_s], [0.075, 2, 2, 40000, time_s], [0.075, 2, 2, 55000, time_s],
-#                    [0.075, 2, 2, 70000, time_s], [0.075, 2, 2, 85000, time_s], [0.075, 2, 2, 100000, time_s], [0.075, 2, 2, 115000, time_s],
-#                    [0.1, 2, 4, 10000, time_s], [0.1, 2, 4, 40000, time_s], [0.1, 2, 4, 70000, time_s], [0.1, 2, 4, 100000, time_s],
-#                    [0.2, 2, 4, 10000, time_s], [0.2, 2, 4, 40000, time_s], [0.2, 2, 4, 70000, time_s], [0.2, 2, 4, 100000, time_s]])
+params = np.array([[0.06, 3, 2, 10000, time_s], [0.06, 3, 2, 25000, time_s], [0.06, 3, 2, 40000, time_s], [0.06, 3, 2, 55000, time_s],
+                   [0.06, 3, 2, 70000, time_s], [0.06, 3, 2, 85000, time_s], [0.06, 3, 2, 100000, time_s], [0.06, 3, 2, 115000, time_s],
+                   [0.075, 3, 2, 10000, time_s], [0.075, 3, 2, 25000, time_s], [0.075, 3, 2, 40000, time_s], [0.075, 3, 2, 55000, time_s],
+                   [0.075, 3, 2, 70000, time_s], [0.075, 3, 2, 85000, time_s], [0.075, 3, 2, 100000, time_s], [0.075, 3, 2, 115000, time_s],
+                   [0.1, 3, 4, 10000, time_s], [0.1, 3, 4, 40000, time_s], [0.1, 3, 4, 70000, time_s], [0.1, 3, 4, 100000, time_s],
+                   [0.2, 3, 4, 10000, time_s], [0.2, 3, 4, 40000, time_s], [0.2, 3, 4, 70000, time_s], [0.2, 3, 4, 100000, time_s],
+                   [0.06, 2, 2, 10000, time_s], [0.06, 2, 2, 25000, time_s], [0.06, 2, 2, 40000, time_s], [0.06, 2, 2, 55000, time_s],
+                   [0.06, 2, 2, 70000, time_s], [0.06, 2, 2, 85000, time_s], [0.06, 2, 2, 100000, time_s], [0.06, 2, 2, 115000, time_s],
+                   [0.075, 2, 2, 10000, time_s], [0.075, 2, 2, 25000, time_s], [0.075, 2, 2, 40000, time_s], [0.075, 2, 2, 55000, time_s],
+                   [0.075, 2, 2, 70000, time_s], [0.075, 2, 2, 85000, time_s], [0.075, 2, 2, 100000, time_s], [0.075, 2, 2, 115000, time_s],
+                   [0.1, 2, 4, 10000, time_s], [0.1, 2, 4, 40000, time_s], [0.1, 2, 4, 70000, time_s], [0.1, 2, 4, 100000, time_s],
+                   [0.2, 2, 4, 10000, time_s], [0.2, 2, 4, 40000, time_s], [0.2, 2, 4, 70000, time_s], [0.2, 2, 4, 100000, time_s]])
 
 # loop over varied flight parameters
 for master in range(np.shape(params)[0]):
+    print(str(np.float64([master])/np.shape(params)[0]))
     dg_vertical_speed = params[master, 0]
     dg_glide_slope = params[master, 1]
     num_dives = np.int(params[master, 2])
@@ -221,25 +223,28 @@ for master in range(np.shape(params)[0]):
     dg_sig0 = np.nan * np.ones(np.shape(dg_t))
     dg_sa = np.nan * np.ones(np.shape(dg_t))
     dg_ct = np.nan * np.ones(np.shape(dg_t))
+    dg_p_per_prof = []
     for i in range(np.shape(dg_y)[1]):  # xy_grid
         max_ind = np.where(np.isnan(dg_y[:, i]))[0][0]
         this_dg_z = dg_z[0:max_ind]
+        dg_p_per_prof.append(gsw.p_from_z(this_dg_z, 44))
         for j in range(len(this_dg_z)):  # depth
             if (i < 1) & (j < 1):
-                dg_sig0[j, i] = np.interp(dg_y[j, i], xy_grid, data_interp[j, :, 0] + (g_error * np.random.rand(1)))
-                dg_sa[j, i] = np.interp(dg_y[j, i], xy_grid, sa_interp[j, :, 0] + (s_error * np.random.rand(1)))
-                dg_ct[j, i] = np.interp(dg_y[j, i], xy_grid, ct_interp[j, :, 0] + (t_error * np.random.rand(1)))
+                # add normally distributed error with mean of zero and 1 std of specified value
+                dg_sa[j, i] = np.interp(dg_y[j, i], xy_grid, sa_interp[j, :, 0] + (np.random.normal(0, s_error)))
+                dg_ct[j, i] = np.interp(dg_y[j, i], xy_grid, ct_interp[j, :, 0] + (np.random.normal(0, t_error)))
+                dg_sig0[j, i] = np.interp(dg_y[j, i], xy_grid, data_interp[j, :, 0] + (np.random.normal(0, g_error)))
             else:
                 this_t = dg_t[j, i]
                 # find time bounding model runs
                 nearest_model_t_over = np.where(time_ord_s > this_t)[0][0]
                 # interpolate to hor position of glider dive for time before and after
-                sig_t_before = np.interp(dg_y[j, i], xy_grid, data_interp[j, :, nearest_model_t_over - 1] + (g_error * np.random.rand(1)))
-                sig_t_after = np.interp(dg_y[j, i], xy_grid, data_interp[j, :, nearest_model_t_over] + (g_error * np.random.rand(1)))
-                sa_t_before = np.interp(dg_y[j, i], xy_grid, sa_interp[j, :, nearest_model_t_over - 1] + (t_error * np.random.rand(1)))
-                sa_t_after = np.interp(dg_y[j, i], xy_grid, sa_interp[j, :, nearest_model_t_over] + (t_error * np.random.rand(1)))
-                ct_t_before = np.interp(dg_y[j, i], xy_grid, ct_interp[j, :, nearest_model_t_over - 1] + (s_error * np.random.rand(1)))
-                ct_t_after = np.interp(dg_y[j, i], xy_grid, ct_interp[j, :, nearest_model_t_over] + (s_error * np.random.rand(1)))
+                sig_t_before = np.interp(dg_y[j, i], xy_grid, data_interp[j, :, nearest_model_t_over - 1] + (np.random.normal(0, g_error)))
+                sig_t_after = np.interp(dg_y[j, i], xy_grid, data_interp[j, :, nearest_model_t_over] + (np.random.normal(0, g_error)))
+                sa_t_before = np.interp(dg_y[j, i], xy_grid, sa_interp[j, :, nearest_model_t_over - 1] + (np.random.normal(0, t_error)))
+                sa_t_after = np.interp(dg_y[j, i], xy_grid, sa_interp[j, :, nearest_model_t_over] + (np.random.normal(0, t_error)))
+                ct_t_before = np.interp(dg_y[j, i], xy_grid, ct_interp[j, :, nearest_model_t_over - 1] + (np.random.normal(0, s_error)))
+                ct_t_after = np.interp(dg_y[j, i], xy_grid, ct_interp[j, :, nearest_model_t_over] + (np.random.normal(0, s_error)))
                 # interpolate across time
                 dg_sig0[j, i] = np.interp(this_t, [time_ord_s[nearest_model_t_over - 1],
                                                    time_ord_s[nearest_model_t_over]], [sig_t_before, sig_t_after])
@@ -249,6 +254,25 @@ for master in range(np.shape(params)[0]):
                                                  time_ord_s[nearest_model_t_over]], [ct_t_before, ct_t_after])
     print('Simulated Glider Flight')
     # ---------------------------------------------------------------------------------------------------------------------
+    # # --- convert in matlab
+    eng = matlab.engine.start_matlab()
+    eng.addpath(r'/Users/jake/Documents/MATLAB/eos80_legacy_gamma_n/')
+    eng.addpath(r'/Users/jake/Documents/MATLAB/eos80_legacy_gamma_n/library/')
+    gamma = np.nan * np.ones(np.shape(dg_sa))
+    profile_lon = np.nanmean(dg_y, 0)/(1852. * 60. * np.cos(np.deg2rad(np.nanmean(44)))) + ref_lon
+    print('Opened Matlab')
+    tic = TT.clock()
+    for j in range(np.shape(dg_sa)[1]):  # loop over columns
+        good_ind = np.where(~np.isnan(dg_sa[:, j]))[0]
+        gamma[good_ind, j] = np.squeeze(np.array(eng.eos80_legacy_gamma_n(
+                matlab.double(dg_sa[good_ind, j].tolist()), matlab.double(dg_ct[good_ind, j].tolist()),
+                matlab.double(dg_p_per_prof[j][good_ind].tolist()), matlab.double([profile_lon[j]]), matlab.double([ref_lat]))))
+        toc = TT.clock()
+        print('Time step = ' + str(j) + ' = ' + str(toc - tic) + 's')
+    eng.quit()
+    print('Closed Matlab')
+    dg_sig0 = gamma.copy()
+
     ff = np.pi * np.sin(np.deg2rad(ref_lat)) / (12 * 1800)  # Coriolis parameter [s^-1]
     num_profs = np.shape(dg_sig0)[1]
     order_set = np.arange(0, np.shape(dg_sig0)[1], 2)
