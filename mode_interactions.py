@@ -548,7 +548,7 @@ for i in range(1, 45+1):
 # --------------------------------------------------------------------------------------------
 # PE and KE by mode number for DG missions, BATS 2015, 36N 2018, 36N 2019, ABACO 2018, LDE 2019
 matplotlib.rcParams['figure.figsize'] = (12, 8)
-scols = ['#00BFFF', '#6B8E23', '#800000']
+scols = ['#1E90FF', '#B22222']  # ['#00BFFF', '#6B8E23', '#800000']
 fig01, ax = plt.subplots(2, 3)
 mode_num = np.arange(1, 61, 1)
 x_min = 7 * 10 ** -1
@@ -757,7 +757,7 @@ ax[0, 2].grid()
 ax[1, 0].grid()
 ax[1, 1].grid()
 plot_pro(ax[1, 2])
-# fig01.savefig("/Users/jake/Documents/baroclinic_modes/dissertation/pe_ke_across_sites.jpg", dpi=300)
+fig01.savefig("/Users/jake/Documents/baroclinic_modes/dissertation/pe_ke_across_sites.jpg", dpi=300)
 # -------------------------------------------------------------------
 # --- PE/KE seasonal plots for 36N in winter 2018-19 and summer 2019 ---
 matplotlib.rcParams['figure.figsize'] = (16,8)
