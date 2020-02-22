@@ -256,8 +256,8 @@ for master in range(np.shape(params)[0]):
                 dg_ct[j, i] = np.interp(this_t, [time_ord_s[nearest_model_t_over - 1],
                                                  time_ord_s[nearest_model_t_over]], [ct_t_before, ct_t_after])
     print('Simulated Glider Flight')
-    # ---------------------------------------------------------------------------------------------------------------------
-    # # --- convert in matlab
+    # ------------------------------------------------------------------------------------------------------------------
+    # --- convert in matlab (estimate neutral density from t,s,p)
     eng = matlab.engine.start_matlab()
     eng.addpath(r'/Users/jake/Documents/MATLAB/eos80_legacy_gamma_n/')
     eng.addpath(r'/Users/jake/Documents/MATLAB/eos80_legacy_gamma_n/library/')
@@ -275,6 +275,7 @@ for master in range(np.shape(params)[0]):
     eng.quit()
     print('Closed Matlab')
     dg_sig0 = gamma.copy()
+    # ------------------------------------------------------------------------------------------------------------------
 
     ff = np.pi * np.sin(np.deg2rad(ref_lat)) / (12 * 1800)  # Coriolis parameter [s^-1]
     num_profs = np.shape(dg_sig0)[1]

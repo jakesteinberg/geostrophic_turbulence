@@ -37,10 +37,10 @@ caxis([-4000, 0])
 ylim([43, 50])
 xlim([-122-( (50-43) /cosd(32)) -122])
 zlim([-4500, 500])
-xlabel('Longitude [^{\circ} E]', 'fontsize', 14)
-ylabel('Latitude [^{\circ} N]', 'fontsize', 13)
-zlabel('z [m]')
-title('LiveOcean subdomain and extracted transect', 'fontsize', 15)
+xlabel('Longitude [^{\circ} E]', 'fontsize', 16)
+ylabel('Latitude [^{\circ} N]', 'fontsize', 16)
+zlabel('z [m]', 'fontsize', 14)
+title('LiveOcean subdomain and extracted transect', 'fontsize', 19)
 view([-40, 30])
 
 ax2 = axes; 
@@ -81,6 +81,6 @@ cb2 = colorbar(ax2,'Position',[.88 .11 .03 .815]);
 cb2.Label.String = 'Northward Velocity, v [m s^{-1}]';
 cb2.TickLabels = -.35:.07:.35;
 cb2.FontWeight = 'bold';
-cb2.FontSize = 12;
+cb2.FontSize = 14;
 cb2.Color = 'k';
 print -djpeg -r450 ~/Documents/glider_flight_sim_paper/reviewer_comments_minor_revisions/LiveOcean_domain_kh.jpeg

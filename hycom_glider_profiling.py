@@ -1,10 +1,9 @@
 import numpy as np
 import matplotlib.animation as manimation
 import pickle
-import datetime
-from netCDF4 import Dataset
 import gsw
 import time as TT
+import matlab.engine
 import scipy.io as si
 from scipy.integrate import cumtrapz
 from scipy.signal import savgol_filter
@@ -12,18 +11,16 @@ from mode_decompositions import eta_fit, vertical_modes, PE_Tide_GM, vertical_mo
 # -- plotting
 import matplotlib
 import matplotlib.pyplot as plt
-from mpl_toolkits.axes_grid1 import make_axes_locatable
-from toolkit import plot_pro, nanseg_interp
-from zrfun import get_basic_info, get_z
+from toolkit import plot_pro, nanseg_interp, find_nearest
 
 # load mat file
 
 # -- BATS --
 # pp = '1'
-filename = 'HYCOM_hrly_b_3087N_214_01_228_00'  # E_W profile 1
+# filename = 'HYCOM_hrly_b_3087N_214_01_228_00'  # E_W profile 1
 # filename = 'HYCOM_hrly_b_6336W_214_01_228_00'  # N_S profile 1
 pp = '2'
-# filename = 'HYCOM_hrly_b_3128N_214_01_228_00'  # E_W profile 2
+filename = 'HYCOM_hrly_b_3128N_214_01_228_00'  # E_W profile 2
 # filename = 'HYCOM_hrly_b_6376W_214_01_228_00'  # N_S profile 2
 
 # -- 36N,65W --
@@ -89,10 +86,10 @@ ff = np.pi * np.sin(np.deg2rad(ref_lat)) / (12 * 1800)  # Coriolis parameter [s^
 
 # main set of parameters
 # errors
-dac_error = 0.01  # m/s
-g_error = 0.00001
-t_error = 0.003
-s_error = 0.01
+dac_error = 0.01/2.0  # m/s
+g_error = 0.00001/2.0
+t_error = 0.003/10.0
+s_error = 0.01/10.0
 
 # t_st_ind = 10      # time start index
 # dg_vertical_speeds = np.array([0.1])  # m/s
@@ -103,30 +100,34 @@ s_error = 0.01
 z_dg_s = 0        # depth, start of glider dives
 partial_mw = 0    # include exclude partial m/w estimates
 
-plot0 = 1  # plot model, glider cross section
-plot_v = 1  # plot velocity eta profiles
-plot_rho = 1  # plot density at 4 depths in space and time
+plot0 = 0  # plot model, glider cross section
+plot_v = 0  # plot velocity eta profiles
+plot_rho = 0  # plot density at 4 depths in space and time
 plot_sp = 0  # run and save gif
 
-save_anom = 0
+save_anom = 1
 save_p = 0
 save_v = 0
 save_rho = 0
 
 # use these settings as the background to compute instant model fields (use n/s transect)
-params = np.array([[0.06, 3, 3, 50000, 10]])
-u_mod_all = 0
+params = np.array([[0.1, 3.0, 3.0, 50000.0, 10.0]])
+u_mod_all = 1
 # if on, compute model pe/ke spectrum over many many instantaneous model vel profiles
 
 # iterate over everything
 # params = np.array([[0.06, 3, 4, 10000, 10], [0.075, 3, 4, 10000, 10], [0.1, 3, 4, 10000, 10], [0.2, 3, 4, 10000, 10],
-#                    [0.06, 3, 4, 10000, 144], [0.075, 3, 4, 10000, 144], [0.1, 3, 4, 10000, 144], [0.2, 3, 4, 10000, 144],
+#                    [0.06, 3, 4, 10000, 144], [0.075, 3, 4, 10000, 144],
+#                    [0.1, 3, 4, 10000, 144], [0.2, 3, 4, 10000, 144],
 #                    [0.06, 3, 4, 50000, 10], [0.075, 3, 4, 50000, 10], [0.1, 3, 4, 50000, 10], [0.2, 3, 4, 50000, 10],
-#                    [0.06, 3, 4, 50000, 144], [0.075, 3, 4, 50000, 144], [0.1, 3, 4, 50000, 144], [0.2, 3, 4, 50000, 144]])
-# params = np.array([[0.06, 2, 4, 10000, 10], [0.075, 2, 4, 10000, 10], [0.1, 2, 4, 10000, 10], [0.2, 2, 4, 10000, 10],
-#                    [0.06, 2, 4, 10000, 144], [0.075, 2, 4, 10000, 144], [0.1, 2, 4, 10000, 144], [0.2, 2, 4, 10000, 144],
+#                    [0.06, 3, 4, 50000, 144], [0.075, 3, 4, 50000, 144],
+#                    [0.1, 3, 4, 50000, 144], [0.2, 3, 4, 50000, 144],
+#                    [0.06, 2, 4, 10000, 10], [0.075, 2, 4, 10000, 10], [0.1, 2, 4, 10000, 10], [0.2, 2, 4, 10000, 10],
+#                    [0.06, 2, 4, 10000, 144], [0.075, 2, 4, 10000, 144],
+#                    [0.1, 2, 4, 10000, 144], [0.2, 2, 4, 10000, 144],
 #                    [0.06, 2, 4, 50000, 10], [0.075, 2, 4, 50000, 10], [0.1, 2, 4, 50000, 10], [0.2, 2, 4, 50000, 10],
-#                    [0.06, 2, 4, 50000, 144], [0.075, 2, 4, 50000, 144], [0.1, 2, 4, 50000, 144], [0.2, 2, 4, 50000, 144]])
+#                    [0.06, 2, 4, 50000, 144], [0.075, 2, 4, 50000, 144],
+#                    [0.1, 2, 4, 50000, 144], [0.2, 2, 4, 50000, 144]])
 
 # loop over varied flight parameters
 for master in range(np.shape(params)[0]):
@@ -138,6 +139,7 @@ for master in range(np.shape(params)[0]):
 
     # need to specify D_TGT or have glider 'fly' until it hits bottom
     data_loc = np.nanmean(sig0_out_s, axis=0)  # (depth X xy_grid)
+
 
     # glider dives are simulated by considered the depth grid as fixed and march down and up while stepping horizontally
     # following the desired glide slope and vertical velocity
@@ -248,27 +250,29 @@ for master in range(np.shape(params)[0]):
     dg_sig0 = np.nan * np.ones(np.shape(dg_t))
     dg_sa = np.nan * np.ones(np.shape(dg_t))
     dg_ct = np.nan * np.ones(np.shape(dg_t))
+    dg_p_per_prof = []
     for i in range(np.shape(dg_y)[1]):  # xy_grid
         max_ind = np.where(np.isnan(dg_y[:, i]))[0][0]
         this_dg_z = dg_z[0:max_ind]
+        dg_p_per_prof.append(gsw.p_from_z(this_dg_z, 32))
         for j in range(len(this_dg_z)):  # depth
             if (i < 1) & (j < 1):
                 # interpolation to horizontal position begins at t_st_ind
-                dg_sig0[j, i] = np.interp(dg_y[j, i], xy_grid, data_interp[t_st_ind, j, :] + (g_error * np.random.rand(1)))
-                dg_sa[j, i] = np.interp(dg_y[j, i], xy_grid, sa_interp[t_st_ind, j, :] + (s_error * np.random.rand(1)))
-                dg_ct[j, i] = np.interp(dg_y[j, i], xy_grid, ct_interp[t_st_ind, j, :] + (t_error * np.random.rand(1)))
+                dg_sig0[j, i] = np.interp(dg_y[j, i], xy_grid, data_interp[t_st_ind, j, :] + (np.random.normal(0, g_error)))
+                dg_sa[j, i] = np.interp(dg_y[j, i], xy_grid, sa_interp[t_st_ind, j, :] + (np.random.normal(0, s_error)))
+                dg_ct[j, i] = np.interp(dg_y[j, i], xy_grid, ct_interp[t_st_ind, j, :] + (np.random.normal(0, t_error)))
             else:
                 this_t = dg_t[j, i]
                 # find time bounding model runs
                 nearest_model_t_over = np.where(time_ord_s > this_t)[0][0]
                 # print(this_t - time_ord_s[nearest_model_t_over])
                 # interpolate to hor position of glider dive for time before and after
-                sig_t_before = np.interp(dg_y[j, i], xy_grid, data_interp[nearest_model_t_over - 1, j, :] + (g_error * np.random.rand(1)))
-                sig_t_after = np.interp(dg_y[j, i], xy_grid, data_interp[nearest_model_t_over, j, :] + (g_error * np.random.rand(1)))
-                sa_t_before = np.interp(dg_y[j, i], xy_grid, sa_interp[nearest_model_t_over - 1, j, :] + (s_error * np.random.rand(1)))
-                sa_t_after = np.interp(dg_y[j, i], xy_grid, sa_interp[nearest_model_t_over, j, :] + (s_error * np.random.rand(1)))
-                ct_t_before = np.interp(dg_y[j, i], xy_grid, ct_interp[nearest_model_t_over - 1, j, :] + (t_error * np.random.rand(1)))
-                ct_t_after = np.interp(dg_y[j, i], xy_grid, ct_interp[nearest_model_t_over, j, :] + (t_error * np.random.rand(1)))
+                sig_t_before = np.interp(dg_y[j, i], xy_grid, data_interp[nearest_model_t_over - 1, j, :] + (np.random.normal(0, g_error)))  # (g_error * np.random.rand(1)))
+                sig_t_after = np.interp(dg_y[j, i], xy_grid, data_interp[nearest_model_t_over, j, :] + (np.random.normal(0, g_error)))
+                sa_t_before = np.interp(dg_y[j, i], xy_grid, sa_interp[nearest_model_t_over - 1, j, :] + (np.random.normal(0, s_error)))
+                sa_t_after = np.interp(dg_y[j, i], xy_grid, sa_interp[nearest_model_t_over, j, :] + (np.random.normal(0, s_error)))
+                ct_t_before = np.interp(dg_y[j, i], xy_grid, ct_interp[nearest_model_t_over - 1, j, :] + (np.random.normal(0, t_error)))
+                ct_t_after = np.interp(dg_y[j, i], xy_grid, ct_interp[nearest_model_t_over, j, :] + (np.random.normal(0, t_error)))
                 # interpolate across time
                 dg_sig0[j, i] = np.interp(this_t, [time_ord_s[nearest_model_t_over - 1], time_ord_s[nearest_model_t_over]],
                                           [sig_t_before, sig_t_after])
@@ -278,7 +282,29 @@ for master in range(np.shape(params)[0]):
                                         [ct_t_before, ct_t_after])
 
     print('Simulated Glider Flight')
-    # ---------------------------------------------------------------------------------------------------------------------
+    # ------------------------------------------------------------------------------------------------------------------
+
+    # ------------------------------------------------------------------------------------------------------------------
+    # # --- convert in matlab (estimate neutral density from t,s,p)
+    eng = matlab.engine.start_matlab()
+    eng.addpath(r'/Users/jake/Documents/MATLAB/eos80_legacy_gamma_n/')
+    eng.addpath(r'/Users/jake/Documents/MATLAB/eos80_legacy_gamma_n/library/')
+    gamma = np.nan * np.ones(np.shape(dg_sa))
+    profile_lon = np.nanmean(dg_y, 0)/(1852. * 60. * np.cos(np.deg2rad(ref_lat))) + (-63.5)
+    print('Opened Matlab')
+    tic = TT.clock()
+    for j in range(np.shape(dg_sa)[1]):  # loop over columns
+        good_ind = np.where(~np.isnan(dg_sa[:, j]))[0]
+        gamma[good_ind, j] = np.squeeze(np.array(eng.eos80_legacy_gamma_n(
+                matlab.double(dg_sa[good_ind, j].tolist()), matlab.double(dg_ct[good_ind, j].tolist()),
+                matlab.double(dg_p_per_prof[j][good_ind].tolist()), matlab.double([profile_lon[j]]), matlab.double([ref_lat]))))
+        toc = TT.clock()
+        print('Time step = ' + str(j) + ' = ' + str(toc - tic) + 's')
+    eng.quit()
+    print('Closed Matlab')
+    dg_sig0 = gamma.copy()
+    # ------------------------------------------------------------------------------------------------------------------
+
     num_profs = np.shape(dg_sig0)[1]
     order_set = np.arange(0, np.shape(dg_sig0)[1], 2)
 
@@ -416,8 +442,8 @@ for master in range(np.shape(params)[0]):
                     # local density referenced to the current pressure
                     local_sig = gsw.rho(dg_sa[j, c_i_m], dg_ct[j, c_i_m], p_grid[j]) - 1000
 
-                    drhodatM = np.polyfit(dg_y[j, c_i_m], local_sig, 1)[0]
-                    # drhodatM = np.polyfit(dg_y[j, c_i_m], dg_sig0[j, c_i_m], 1)[0]
+                    # drhodatM = np.polyfit(dg_y[j, c_i_m], local_sig, 1)[0]
+                    drhodatM = np.polyfit(dg_y[j, c_i_m], dg_sig0[j, c_i_m], 1)[0]
                     shearM[j] = -g * drhodatM / (rho0 * ff)  # shear to port of track [m/s/km]
 
                     p_avg_sig_M[j] = np.nanmean(dg_sig0[j, c_i_m])
@@ -439,8 +465,8 @@ for master in range(np.shape(params)[0]):
                     # local density referenced to the current pressure
                     local_sig = gsw.rho(dg_sa[j, c_i_w], dg_ct[j, c_i_w], p_grid[j]) - 1000
 
-                    drhodatW = np.polyfit(dg_y[j, c_i_w], local_sig, 1)[0]
-                    # drhodatW = np.polyfit(dg_y[j, c_i_w], dg_sig0[j, c_i_w], 1)[0]
+                    # drhodatW = np.polyfit(dg_y[j, c_i_w], local_sig, 1)[0]
+                    drhodatW = np.polyfit(dg_y[j, c_i_w], dg_sig0[j, c_i_w], 1)[0]
                     shearW[j] = -g * drhodatW / (rho0 * ff)  # shear to port of track [m/s/km]
 
                     p_avg_sig_W[j] = np.nanmean(dg_sig0[j, c_i_w])
@@ -759,11 +785,12 @@ for master in range(np.shape(params)[0]):
     G, Gz, c, epsilon = vertical_modes(avg_N2, -1.0 * z_grid_n2, omega, mmax)  # N2
     # ---------------------------------------------------------------------------------------------------------------------
     # -- DG eta avg across four profiles
-    eta_sm = np.nan * np.ones(np.shape(avg_sig_pd))
+    eta_sm_old = np.nan * np.ones(np.shape(avg_sig_pd))
     AG_dg_sm = np.zeros((nmodes, num_profs_eta))
     PE_per_mass_dg_sm = np.nan * np.ones((nmodes, num_profs_eta))
     eta_m_dg_sm = np.nan * np.ones((len(dg_z), num_profs_eta))
     Neta_m_dg_sm = np.nan * np.ones((len(dg_z), num_profs_eta))
+    eta_sm = np.nan * np.ones(np.shape(avg_sig_pd))
     for i in range(np.shape(avg_sig_pd)[1]):
         good = np.where(~np.isnan(avg_sig_pd[:, i]))[0]
 
@@ -773,7 +800,23 @@ for master in range(np.shape(params)[0]):
         ddz_avg_sig0_match = np.interp(np.abs(dg_z[good]), np.abs(z_grid_n2), ddz_avg_sig0)
         avg_N2_match = np.interp(np.abs(dg_z[good]), np.abs(z_grid_n2), avg_N2)
 
-        eta_sm[good, i] = (avg_sig_pd[good, i] - avg_sig0_match) / ddz_avg_sig0_match
+        ddz_avg_sig0_match_2 = savgol_filter(ddz_avg_sig0_match, 11, 2)
+
+        # ETA ALT 3 (direct search )
+        this_z = dg_z[good]
+        avg_sig_pd_cut = avg_sig_pd[good, i]
+        for j in range(len(this_z)):
+            # find this profile density at j along avg profile
+            idx, rho_idx = find_nearest(avg_sig0_match, avg_sig_pd_cut[j])
+            if idx <= 2:
+                z_rho_1 = this_z[0:idx + 3]
+                eta_sm[j, i] = np.interp(avg_sig_pd_cut[j], avg_sig0_match[0:idx + 3], z_rho_1) - this_z[j]
+            else:
+                z_rho_1 = this_z[idx - 2:idx + 3]
+                eta_sm[j, i] = np.interp(avg_sig_pd_cut[j], avg_sig0_match[idx - 2:idx + 3], z_rho_1) - \
+                                  this_z[j]
+
+        eta_sm_old[good, i] = (avg_sig_pd[good, i] - avg_sig0_match) / ddz_avg_sig0_match_2
 
         grid = -1. * dg_z[good]
         bvf = np.sqrt(avg_N2_match)
@@ -990,6 +1033,7 @@ for master in range(np.shape(params)[0]):
                     HKE_mod_TOT = np.concatenate((HKE_mod_TOT, HKE_per_mass_model_tot), axis=1)
                     PE_mod_TOT = np.concatenate((PE_mod_TOT, PE_per_mass_model_tot), axis=1)
 
+    print('fraction completed = ' + str(master / np.float64(np.shape(params)[0])))
     # ----------------------------------------------------------------------------------------------------------------------
     # Save
     if save_anom:
@@ -1151,7 +1195,7 @@ if plot_rho > 0:
 
     cmap = plt.cm.get_cmap("YlGnBu_r")
     # cmaps = [0.15, 0.22, 0.3, 0.37, 0.45, 0.52, 0.6, 0.67, 0.75, 0.82, .9, .98]
-    cmaps = np.arange(0, 1, 1/len(t_steps))
+    cmaps = np.arange(0, 1, 1.0/len(t_steps))
     lab_y = [np.round(np.nanmin(isop_dep[0, :, 0]), 2), np.round(np.nanmin(isop_dep[1, :, 0]), 2),
              np.round(np.nanmin(isop_dep[2, :, 0]), 2), np.round(np.nanmin(isop_dep[3, :, 0]), 2)]
     matplotlib.rcParams['figure.figsize'] = (10, 7)

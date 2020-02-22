@@ -1,8 +1,6 @@
 import numpy as np
 import pickle
 import glob
-import datetime
-from netCDF4 import Dataset
 import gsw
 import time as TT
 from scipy.integrate import cumtrapz
@@ -11,15 +9,11 @@ from mode_decompositions import eta_fit, vertical_modes, PE_Tide_GM, vertical_mo
 import matplotlib
 import matplotlib.pyplot as plt
 from toolkit import plot_pro, nanseg_interp
-from zrfun import get_basic_info, get_z
 
-
-# file_list_0 = glob.glob('/Users/jake/Documents/baroclinic_modes/Model/LiveOcean/simulated_dg_velocities/ve_ew_v*slp*_y10_11_2*.pkl')
 file_list = glob.glob('/Users/jake/Documents/baroclinic_modes/Model/LiveOcean/simulated_dg_velocities/ve_ew_v*_slp*_y*_*.pkl')
-# file_list = np.concatenate([file_list_0, file_list_1])
 save_metr = 0  # ratio
 save_e = 0  # save energy spectra
-save_rms = 0  # save v error plot
+save_rms = 1  # save v error plot
 save_eof = 0
 
 direct_anom = []
@@ -147,7 +141,7 @@ ax.set_xlim([1, 10**4])
 ax.set_ylim([-3000, 0])
 plot_pro(ax)
 if save_metr > 0:
-    f.savefig('/Users/jake/Documents/glider_flight_sim_paper/lo_mod_shear_error.png', dpi=300)
+    f.savefig('/Users/jake/Documents/glider_flight_sim_paper/reviewer_comments_minor_revisions/revised_figures/lo_mod_shear_error.png', dpi=300)
 
 # load in hycom and liveocean sampled as a mooring, to compute eof and compare (look at decay of eof with depth)
 pkl_file = open('/Users/jake/Documents/baroclinic_modes/Model/model_mooring_samplings.pkl', 'rb')
@@ -328,20 +322,20 @@ lo_moor_f_eof2 = np.array(np.real(Vmodf_Uz[:, 1]))
 
 # ----------------------------------------------------
 # ----------------------------------------------------
-matplotlib.rcParams['figure.figsize'] = (5.5, 7)
-f, ax = plt.subplots()
-for i in range(np.shape(v)[1]):
-    if slope_tag[i] < 3:
-        ax.plot(v[:, i], z_grid, color='#48D1CC', linewidth=0.5)
-    else:
-        ax.plot(v[:, i], z_grid, color='#B22222', linewidth=0.5)
-ax.set_title('Simulated DG Cross-Track Velocities (1:2 = blue, 1:3 = red)')
-ax.set_xlabel(r'm s$^{-1}$')
-ax.set_ylabel('z [m]')
-ax.set_xlim([-0.4, 0.4])
-plot_pro(ax)
-if save_eof > 0:
-    f.savefig('/Users/jake/Documents/glider_flight_sim_paper/lo_mod_all_v.png', dpi=300)
+# matplotlib.rcParams['figure.figsize'] = (5.5, 7)
+# f, ax = plt.subplots()
+# for i in range(np.shape(v)[1]):
+#     if slope_tag[i] < 3:
+#         ax.plot(v[:, i], z_grid, color='#48D1CC', linewidth=0.5)
+#     else:
+#         ax.plot(v[:, i], z_grid, color='#B22222', linewidth=0.5)
+# ax.set_title('Simulated DG Cross-Track Velocities (1:2 = blue, 1:3 = red)')
+# ax.set_xlabel(r'm s$^{-1}$')
+# ax.set_ylabel('z [m]')
+# ax.set_xlim([-0.4, 0.4])
+# plot_pro(ax)
+# if save_eof > 0:
+#     f.savefig('/Users/jake/Documents/glider_flight_sim_paper/lo_mod_all_v.png', dpi=300)
 
 
 matplotlib.rcParams['figure.figsize'] = (10, 7)
@@ -377,49 +371,74 @@ plot_pro(ax2)
 if save_eof > 0:
     f.savefig('/Users/jake/Documents/glider_flight_sim_paper/lo_mod_eofs_s3.png', dpi=300)
 
+# --------------------------------------------------------------------------------------------
 # RMS at different depths
+
+# DAC error = 0.01
 anomy = v - mod_v_avg  # velocity anomaly
 # estimate rms error by w
 w_s = np.unique(w_tag)
 w_cols = '#191970', 'g', '#FF8C00', '#B22222'
 mm = np.nan * np.ones((len(slope_s), len(z_grid), len(w_s)))
 avg_anom = np.nan * np.ones((len(slope_s), len(z_grid), len(w_s)))
-for ss in range(len(np.unique(slope_tag))):
-    for i in range(len(np.unique(w_tag))):
-        inn = np.where((w_tag == w_s[i]) & (slope_tag == slope_s[ss]))[0]
-
-        this_anom = anomy[:, inn]
-        this_sq_anom = anomy[:, inn]**2
-
-        good = np.where(~np.isnan(this_anom[100, :]))[0]
-
-        mm[ss, :, i] = np.nanmean(this_sq_anom[:, good], axis=1)  # rms error
-        avg_anom[ss, :, i] = np.nanmean(this_anom[:, good], axis=1)
-# std about error
 min_a = np.nan * np.ones((len(slope_s), len(z_grid), 4))
 max_a = np.nan * np.ones((len(slope_s), len(z_grid), 4))
-for ss in range(len(np.unique(slope_tag))):
-    for i in range(np.shape(anomy)[0]):
-        for j in range(len(w_s)):
-            inn = np.where((w_tag == w_s[j]) & (slope_tag == slope_s[ss]))[0]
+for ss in range(len(np.unique(slope_tag))):  # loop over slopes
+    for i in range(len(np.unique(w_tag))):  # loop over w values
+        inn = np.where((w_tag == w_s[i]) & (slope_tag == slope_s[ss]))[0]
+        this_anom = anomy[:, inn]
+        this_sq_anom = anomy[:, inn]**2
+        good = np.where(~np.isnan(this_anom[100, :]))[0]
+        mm[ss, :, i] = np.nanmean(this_sq_anom[:, good], axis=1)  # rms error
+        avg_anom[ss, :, i] = np.nanmean(this_anom[:, good], axis=1)
+        for j in range(np.shape(anomy)[0]):  # loop over depths
+            min_a[ss, j, i] = np.nanmean(this_anom[j, good]) - np.nanstd(this_anom[j, good])
+            max_a[ss, j, i] = np.nanmean(this_anom[j, good]) + np.nanstd(this_anom[j, good])
 
-            this_anom = anomy[i, inn]
-            good = np.where(~np.isnan(anomy[100, inn]))[0]
+# DAC error = 0.02
+file_list_2 = glob.glob('/Users/jake/Documents/baroclinic_modes/Model/LiveOcean/simulated_dg_velocities/dg_vel_w_dac_err_2cms/ve_ew_v*_slp*_y*_*.pkl')
+for i in range(len(file_list_2)):
+    pkl_file = open(file_list_2[i], 'rb')
+    MOD = pickle.load(pkl_file)
+    pkl_file.close()
+    glider_v_2 = MOD['dg_v'][:]
+    model_v_avg_2 = MOD['model_u_at_mw_avg']
+    if i < 1:
+        v_2 = glider_v_2.copy()
+        mod_v_avg_2 = model_v_avg_2.copy()
+    else:
+        v_2 = np.concatenate((v_2, glider_v_2.copy()), axis=1)
+        mod_v_avg_2 = np.concatenate((mod_v_avg_2, model_v_avg_2), axis=1)
+anomy_2 = v_2 - mod_v_avg_2  # velocity anomaly
+mm_2 = np.nan * np.ones((len(slope_s), len(z_grid), len(w_s)))
+avg_anom_2 = np.nan * np.ones((len(slope_s), len(z_grid), len(w_s)))
+min_a_2 = np.nan * np.ones((len(slope_s), len(z_grid), 4))
+max_a_2 = np.nan * np.ones((len(slope_s), len(z_grid), 4))
+for ss in range(len(np.unique(slope_tag))):  # loop over slopes
+    for i in range(len(np.unique(w_tag))):  # loop over w values
+        inn = np.where((w_tag == w_s[i]) & (slope_tag == slope_s[ss]))[0]
+        this_anom = anomy_2[:, inn]
+        this_sq_anom = anomy_2[:, inn]**2
+        good = np.where(~np.isnan(this_anom[100, :]))[0]
+        mm_2[ss, :, i] = np.nanmean(this_sq_anom[:, good], axis=1)  # rms error
+        avg_anom_2[ss, :, i] = np.nanmean(this_anom[:, good], axis=1)
+        for j in range(np.shape(anomy_2)[0]):  # loop over depths
+            min_a_2[ss, j, i] = np.nanmean(this_anom[j, good]) - np.nanstd(this_anom[j, good])
+            max_a_2[ss, j, i] = np.nanmean(this_anom[j, good]) + np.nanstd(this_anom[j, good])
 
-            min_a[ss, i, j] = np.nanmean(this_anom[good]) - np.nanstd(this_anom[good])
-            max_a[ss, i, j] = np.nanmean(this_anom[good]) + np.nanstd(this_anom[good])  # np.nanmean(anomy[i, inn])
-
+# PLOT v error and std
 matplotlib.rcParams['figure.figsize'] = (12, 6.5)
 f, ax = plt.subplots(1, 4, sharey=True)
 # w_cols_2 = '#48D1CC', '#32CD32', '#FFA500', '#CD5C5C'
 w_cols_2 = '#40E0D0', '#2E8B57', '#FFA500', '#CD5C5C'
 for i in range(len(w_s)):
-    ax[i].fill_betweenx(z_grid, min_a[1, :, i], x2=max_a[1, :, i], color=w_cols_2[i], zorder=i, alpha=0.95)
+    ax[i].fill_betweenx(z_grid, min_a_2[1, :, i], x2=max_a_2[1, :, i], color='#C0C0C0', zorder=i, alpha=0.8)
+    ax[i].fill_betweenx(z_grid, min_a[1, :, i], x2=max_a[1, :, i], color=w_cols_2[i], zorder=i, alpha=0.8)
     ax[i].plot(avg_anom[1, :, i], z_grid, color=w_cols[i], linewidth=3, zorder=4, label='dg w = ' + str(np.round(w_s[i]/100, decimals=3)) + ' m s$^{-1}$')
-    ax[i].set_xlim([-.2, .2])
-    ax[i].set_xlabel(r'[m s$^{-1}$]')
-    ax[i].set_title(r'($v$ - $\overline{v_{model}}$) (|w|=$\mathbf{' + str(np.round(w_s[i]/100, decimals=2)) + '}$ m s$^{-1}$)', fontsize=10)
-ax[0].set_ylabel('z [m]')
+    ax[i].set_xlim([-.1, .1])
+    ax[i].set_xlabel(r'[m s$^{-1}$]', fontsize=12)
+    ax[i].set_title(r'($v$ - $\overline{v_{model}}$) (|w|=$\mathbf{' + str(np.round(w_s[i]/100, decimals=2)) + '}$ m s$^{-1}$)', fontsize=12)
+ax[0].set_ylabel('z [m]', fontsize=12)
 ax[0].set_ylim([-3000, 0])
 good = np.where(~np.isnan(anomy[100, :]) & (slope_tag > 2))[0]
 # ax[0].text(0.025, -2800, str(np.shape(anomy[:, slope_tag > 2])[1]) + ' profiles')
@@ -429,9 +448,9 @@ ax[1].grid()
 ax[2].grid()
 plot_pro(ax[3])
 if save_rms > 0:
-    f.savefig('/Users/jake/Documents/glider_flight_sim_paper/lo_mod_dg_vel_e.png', dpi=350)
+    f.savefig('/Users/jake/Documents/glider_flight_sim_paper/reviewer_comments_minor_revisions/revised_figures/lo_mod_dg_vel_e.png', dpi=350)
 
-matplotlib.rcParams['figure.figsize'] = (6.5, 7)
+matplotlib.rcParams['figure.figsize'] = (6.7, 7)
 f, ax2 = plt.subplots()
 for i in range(np.shape(mm)[2]):
     ax2.plot(mm[0, :, i], z_grid, linewidth=1.5, color=w_cols[i], linestyle='--',
@@ -442,12 +461,12 @@ handles, labels = ax2.get_legend_handles_labels()
 ax2.legend(handles, labels, fontsize=10, loc='lower right')
 ax2.set_xlim([0, .005])
 ax2.set_ylim([-3000, 0])
-ax2.set_xlabel(r'[m$^2$ s$^{-2}$]')
-ax2.set_title(r'LiveOcean: Glider-Model Mean Square Error $\left< (v - \overline{v_{model}})^2 \right>$')
-ax2.set_ylabel('z [m]')
+ax2.set_xlabel(r'[m$^2$ s$^{-2}$]', fontsize=12)
+ax2.set_title(r'LiveOcean: Glider-Model Mean Square Error $\left< (v - \overline{v_{model}})^2 \right>$', fontsize=12)
+ax2.set_ylabel('z [m]', fontsize=12)
 plot_pro(ax2)
 if save_rms > 0:
-    f.savefig('/Users/jake/Documents/glider_flight_sim_paper/lo_mod_dg_vel_rms_e.png', dpi=350)
+    f.savefig('/Users/jake/Documents/glider_flight_sim_paper/reviewer_comments_minor_revisions/revised_figures/lo_mod_dg_vel_rms_e.png', dpi=350)
 
 # ---------------------------------------------------------------------------------------------------------------------
 # --- PLOT ENERGY SPECTRA
@@ -529,11 +548,11 @@ ax[0,1].set_ylim([10 ** (-4), 3 * 10 ** 2])
 ax[0,0].set_yscale('log')
 ax[0,0].set_xscale('log')
 ax[0,1].set_xscale('log')
-ax[0,0].set_ylabel('Variance per Vertical Wavenumber', fontsize=10)  # ' (and Hor. Wavenumber)')
+ax[0,0].set_ylabel('Variance per Vertical Wavenumber', fontsize=13)  # ' (and Hor. Wavenumber)')
 # ax[0,0].set_xlabel('Mode Number', fontsize=12)
 # ax[0,1].set_xlabel('Mode Number', fontsize=12)
-ax[0,0].set_title('LiveOcean: Potential Energy (s = 1/' + str(np.int(slope_s[0])) + ')', fontsize=12)
-ax[0,1].set_title('LiveOcean: Kinetic Energy (s = 1/' + str(np.int(slope_s[0])) + ')', fontsize=12)
+ax[0,0].set_title('LiveOcean: Potential Energy (s = 1/' + str(np.int(slope_s[0])) + ')', fontsize=14)
+ax[0,1].set_title('LiveOcean: Kinetic Energy (s = 1/' + str(np.int(slope_s[0])) + ')', fontsize=14)
 handles, labels = ax[0,1].get_legend_handles_labels()
 ax[0,1].legend(handles, labels, fontsize=10, loc=1)
 handles, labels = ax[0,0].get_legend_handles_labels()
@@ -591,11 +610,11 @@ ax[1,1].set_ylim([10 ** (-4), 3 * 10 ** 2])
 ax[1,0].set_yscale('log')
 ax[1,0].set_xscale('log')
 ax[1,1].set_xscale('log')
-ax[1,0].set_ylabel('Variance per Vertical Wavenumber', fontsize=10)  # ' (and Hor. Wavenumber)')
-ax[1,0].set_xlabel('Mode Number', fontsize=10)
-ax[1,1].set_xlabel('Mode Number', fontsize=10)
-ax[1,0].set_title('LiveOcean: Potential Energy (s = 1/' + str(np.int(slope_s[1])) + ')', fontsize=12)
-ax[1,1].set_title('LiveOcean: Kinetic Energy (s = 1/' + str(np.int(slope_s[1])) + ')', fontsize=12)
+ax[1,0].set_ylabel('Variance per Vertical Wavenumber', fontsize=13)  # ' (and Hor. Wavenumber)')
+ax[1,0].set_xlabel('Mode Number', fontsize=13)
+ax[1,1].set_xlabel('Mode Number', fontsize=13)
+ax[1,0].set_title('LiveOcean: Potential Energy (s = 1/' + str(np.int(slope_s[1])) + ')', fontsize=14)
+ax[1,1].set_title('LiveOcean: Kinetic Energy (s = 1/' + str(np.int(slope_s[1])) + ')', fontsize=14)
 handles, labels = ax[1,1].get_legend_handles_labels()
 ax[1,1].legend(handles, labels, fontsize=10, loc=1)
 handles, labels = ax[1,0].get_legend_handles_labels()
@@ -609,7 +628,7 @@ plt.gcf().text(0.5, 0.48, 'd)', fontsize=12)
 
 plot_pro(ax[1,1])
 if save_e > 0:
-    f.savefig('/Users/jake/Documents/glider_flight_sim_paper/lo_mod_energy_eddy.png', dpi=300)
+    f.savefig('/Users/jake/Documents/glider_flight_sim_paper/reviewer_comments_minor_revisions/revised_figures/lo_mod_energy_eddy.png', dpi=300)
 
 # ----------------
 # horizontal scale

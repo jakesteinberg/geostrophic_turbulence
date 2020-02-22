@@ -18,7 +18,7 @@ file_list = glob.glob('/Users/jake/Documents/baroclinic_modes/Model/HYCOM/simula
 tagg = 'yall_v20_slp3'
 savee = 0
 save_rms = 1  # vel error plot
-save_e = 1 # energy spectra plot
+save_e = 1  # energy spectra plot
 save_eof = 0
 plot_se = 0  # plot shear error scatter plot
 
@@ -212,7 +212,7 @@ ax.set_title('Glider-Model Velocity EOFs slope=1:2')
 ax.set_xlim([-.3, 0.3])
 plot_pro(ax)
 if save_eof > 0:
-    f.savefig('/Users/jake/Documents/glider_flight_sim_paper/hy_mod_eof_nsflow.png', dpi=300)
+    f.savefig('/Users/jake/Documents/glider_flight_sim_paper/reviewer_comments_minor_revisions/revised_figures/hy_mod_eof_nsflow.png', dpi=300)
 
 # RMS at different depths
 anomy = v - mod_v_avg  # velocity anomaly
@@ -284,9 +284,9 @@ for i in range(len(w_s)):
     ax[i].fill_betweenx(z_grid, min_a[1, :, i], x2=max_a[1, :, i], color=w_cols_2[i], zorder=i, alpha=0.95)
     ax[i].plot(avg_anom[1, :, i], z_grid, color=w_cols[i], linewidth=3, zorder=4, label='dg w = ' + str(np.round(w_s[i]/100, decimals=3)) + ' m s$^{-1}$')
     ax[i].set_xlim([-.2, .2])
-    ax[i].set_xlabel(r'[m s$^{-1}$]')
-    ax[i].set_title(r'($v$ - $\overline{v_{model}}$) (|w|=$\mathbf{' + str(np.round(w_s[i]/100, decimals=2)) + '}$ m s$^{-1}$)', fontsize=10)
-ax[0].set_ylabel('z [m]')
+    ax[i].set_xlabel(r'[m s$^{-1}$]', fontsize=12)
+    ax[i].set_title(r'($v$ - $\overline{v_{model}}$) (|w|=$\mathbf{' + str(np.round(w_s[i]/100, decimals=2)) + '}$ m s$^{-1}$)', fontsize=12)
+ax[0].set_ylabel('z [m]', fontsize=12)
 ax[0].set_ylim([-4750, 0])
 # ax[0].text(0.025, -2800, str(np.shape(anomy[:, slope_tag < 3])[1]) + ' profiles')
 ax[0].grid()
@@ -294,9 +294,9 @@ ax[1].grid()
 ax[2].grid()
 plot_pro(ax[3])
 if save_rms > 0:
-    f.savefig('/Users/jake/Documents/glider_flight_sim_paper/h_mod_dg_vel_e.png', dpi=300)
+    f.savefig('/Users/jake/Documents/glider_flight_sim_paper/reviewer_comments_minor_revisions/revised_figures/h_mod_dg_vel_e.png', dpi=300)
 
-matplotlib.rcParams['figure.figsize'] = (6.5, 7)
+matplotlib.rcParams['figure.figsize'] = (6.7, 7)
 f, ax2 = plt.subplots()
 for i in range(np.shape(mm)[2]):
     ax2.plot(mm[0, :, i], z_grid, linewidth=1.5, color=w_cols[i], linestyle='--',
@@ -307,12 +307,12 @@ handles, labels = ax2.get_legend_handles_labels()
 ax2.legend(handles, labels, fontsize=10, loc='lower right')
 ax2.set_xlim([0, .05])
 ax2.set_ylim([-4750, 0])
-ax2.set_xlabel(r'[m$^2$ s$^{-2}$]')
-ax2.set_title(r'HYCOM: Glider-Model Mean Square Error $\left< (v - \overline{v_{model}})^2 \right>$')
-ax2.set_ylabel('z [m]')
+ax2.set_xlabel(r'[m$^2$ s$^{-2}$]', fontsize=12)
+ax2.set_title(r'HYCOM: Glider-Model Mean Square Error $\left< (v - \overline{v_{model}})^2 \right>$', fontsize=12)
+ax2.set_ylabel('z [m]', fontsize=12)
 plot_pro(ax2)
 if save_rms > 0:
-    f.savefig('/Users/jake/Documents/glider_flight_sim_paper/h_mod_dg_vel_rms_e.png', dpi=300)
+    f.savefig('/Users/jake/Documents/glider_flight_sim_paper/reviewer_comments_minor_revisions/revised_figures/h_mod_dg_vel_rms_e.png', dpi=300)
 
 # ---------------------------------------------------------------------------------------------------------------------
 # --- PLOT ENERGY SPECTRA
@@ -381,15 +381,15 @@ ax[0,1].set_ylim([10 ** (-4), 3 * 10 ** 2])
 ax[0,0].set_yscale('log')
 ax[0,0].set_xscale('log')
 ax[0,1].set_xscale('log')
-ax[0,0].set_ylabel('Variance per Vertical Wavenumber', fontsize=10)  # ' (and Hor. Wavenumber)')
+ax[0,0].set_ylabel('Variance per Vertical Wavenumber', fontsize=13)  # ' (and Hor. Wavenumber)')
 # ax[0,0].set_xlabel('Mode Number', fontsize=12)
 # ax[0,1].set_xlabel('Mode Number', fontsize=12)
-ax[0,0].set_title('HYCOM: Potential Energy (s = 1/' + str(np.int(slope_s[0])) + ')', fontsize=12)
-ax[0,1].set_title('HYCOM: Kinetic Energy (s = 1/' + str(np.int(slope_s[0])) + ')', fontsize=12)
+ax[0,0].set_title('HYCOM: Potential Energy (s = 1/' + str(np.int(slope_s[0])) + ')', fontsize=14)
+ax[0,1].set_title('HYCOM: Kinetic Energy (s = 1/' + str(np.int(slope_s[0])) + ')', fontsize=14)
 handles, labels = ax[0,1].get_legend_handles_labels()
-ax[0,1].legend(handles, labels, fontsize=8)
+ax[0,1].legend(handles, labels, fontsize=10, loc='upper right')
 handles, labels = ax[0,0].get_legend_handles_labels()
-ax[0,0].legend(handles, labels, fontsize=8)
+ax[0,0].legend(handles, labels, fontsize=10, loc='upper right')
 ax[0,0].grid()
 ax[0,1].grid()
 
@@ -440,15 +440,15 @@ ax[1,1].set_ylim([10 ** (-4), 3 * 10 ** 2])
 ax[1,0].set_yscale('log')
 ax[1,0].set_xscale('log')
 ax[1,1].set_xscale('log')
-ax[1,0].set_ylabel('Variance per Vertical Wavenumber', fontsize=10)  # ' (and Hor. Wavenumber)')
-ax[1,0].set_xlabel('Mode Number', fontsize=10)
-ax[1,1].set_xlabel('Mode Number', fontsize=10)
-ax[1,0].set_title('HYCOM: Potential Energy (s = 1/' + str(np.int(slope_s[1])) + ')', fontsize=12)
-ax[1,1].set_title('HYCOM: Kinetic Energy (s = 1/' + str(np.int(slope_s[1])) + ')', fontsize=12)
+ax[1,0].set_ylabel('Variance per Vertical Wavenumber', fontsize=13)  # ' (and Hor. Wavenumber)')
+ax[1,0].set_xlabel('Mode Number', fontsize=13)
+ax[1,1].set_xlabel('Mode Number', fontsize=13)
+ax[1,0].set_title('HYCOM: Potential Energy (s = 1/' + str(np.int(slope_s[1])) + ')', fontsize=14)
+ax[1,1].set_title('HYCOM: Kinetic Energy (s = 1/' + str(np.int(slope_s[1])) + ')', fontsize=14)
 handles, labels = ax[1,1].get_legend_handles_labels()
-ax[1,1].legend(handles, labels, fontsize=8, loc='upper right')
+ax[1,1].legend(handles, labels, fontsize=10, loc='upper right')
 handles, labels = ax[1,0].get_legend_handles_labels()
-ax[1,0].legend(handles, labels, fontsize=8, loc='upper right')
+ax[1,0].legend(handles, labels, fontsize=10, loc='upper right')
 ax[1,0].grid()
 
 plt.gcf().text(0.06, 0.9, 'a)', fontsize=12)
@@ -458,7 +458,7 @@ plt.gcf().text(0.5, 0.48, 'd)', fontsize=12)
 
 plot_pro(ax[1,1])
 if save_e > 0:
-    f.savefig('/Users/jake/Documents/glider_flight_sim_paper/h_mod_energy.png', dpi=300)
+    f.savefig('/Users/jake/Documents/glider_flight_sim_paper/reviewer_comments_minor_revisions/revised_figures/h_mod_energy.png', dpi=300)
 
 
 
