@@ -18,7 +18,7 @@ from zrfun import get_basic_info, get_z
 
 # because we load pickle protocol 2 (needed for matlab engine) we need 'glider' environment (not 'geo_env')
 
-this_path = 'e_w_extraction_nov10_nov12_offshore'  # 'n_s_extraction_eddy_nov1_nov3'  #
+this_path = 'e_w_extraction_nov28_nov30_offshore'  # 'n_s_extraction_eddy_nov1_nov3'  #
 these_paths = glob.glob('/Users/jake/Documents/baroclinic_modes/Model/LiveOcean/e_w*')
 
 # -- LOAD extracted and PROCESSED MODEL TIME STEPS WITH COMPUTED GAMMA
@@ -92,7 +92,7 @@ t_error = 0.003/2.0
 s_error = 0.01/2.0
 partial_mw = 0    # include exclude partial m/w estimates
 
-save_anom = 1  # save file
+save_anom = 0  # save file
 
 plan_plot = 0  # plot plan view of slice
 plot0 = 0  # cross section
@@ -110,23 +110,23 @@ tag = str(t_s.month) + '_' + str(t_s.day) + '_' + str(t_e.month) + '_' + str(t_e
 
 # suite of parameters to sweep through
 # vertical speed, glide slope, number of dives, starting xy pos, starting time
-# params = np.array([[0.1, 3, 4, 10000, np.nanmin(time_ord_s)]])
+params = np.array([[0.1, 3, 4, 10000, np.nanmin(time_ord_s)]])
 u_mod_all = 0  # instantaneous model spectra
 
 time_s = np.nanmin(time_ord_s)
 # [w, glide-slope, number of dives, horizontal dive start loc, time start]
-params = np.array([[0.06, 3, 2, 10000, time_s], [0.06, 3, 2, 25000, time_s], [0.06, 3, 2, 40000, time_s], [0.06, 3, 2, 55000, time_s],
-                   [0.06, 3, 2, 70000, time_s], [0.06, 3, 2, 85000, time_s], [0.06, 3, 2, 100000, time_s], [0.06, 3, 2, 115000, time_s],
-                   [0.075, 3, 2, 10000, time_s], [0.075, 3, 2, 25000, time_s], [0.075, 3, 2, 40000, time_s], [0.075, 3, 2, 55000, time_s],
-                   [0.075, 3, 2, 70000, time_s], [0.075, 3, 2, 85000, time_s], [0.075, 3, 2, 100000, time_s], [0.075, 3, 2, 115000, time_s],
-                   [0.1, 3, 4, 10000, time_s], [0.1, 3, 4, 40000, time_s], [0.1, 3, 4, 70000, time_s], [0.1, 3, 4, 100000, time_s],
-                   [0.2, 3, 4, 10000, time_s], [0.2, 3, 4, 40000, time_s], [0.2, 3, 4, 70000, time_s], [0.2, 3, 4, 100000, time_s],
-                   [0.06, 2, 2, 10000, time_s], [0.06, 2, 2, 25000, time_s], [0.06, 2, 2, 40000, time_s], [0.06, 2, 2, 55000, time_s],
-                   [0.06, 2, 2, 70000, time_s], [0.06, 2, 2, 85000, time_s], [0.06, 2, 2, 100000, time_s], [0.06, 2, 2, 115000, time_s],
-                   [0.075, 2, 2, 10000, time_s], [0.075, 2, 2, 25000, time_s], [0.075, 2, 2, 40000, time_s], [0.075, 2, 2, 55000, time_s],
-                   [0.075, 2, 2, 70000, time_s], [0.075, 2, 2, 85000, time_s], [0.075, 2, 2, 100000, time_s], [0.075, 2, 2, 115000, time_s],
-                   [0.1, 2, 4, 10000, time_s], [0.1, 2, 4, 40000, time_s], [0.1, 2, 4, 70000, time_s], [0.1, 2, 4, 100000, time_s],
-                   [0.2, 2, 4, 10000, time_s], [0.2, 2, 4, 40000, time_s], [0.2, 2, 4, 70000, time_s], [0.2, 2, 4, 100000, time_s]])
+# params = np.array([[0.06, 3, 2, 10000, time_s], [0.06, 3, 2, 25000, time_s], [0.06, 3, 2, 40000, time_s], [0.06, 3, 2, 55000, time_s],
+#                    [0.06, 3, 2, 70000, time_s], [0.06, 3, 2, 85000, time_s], [0.06, 3, 2, 100000, time_s], [0.06, 3, 2, 115000, time_s],
+#                    [0.075, 3, 2, 10000, time_s], [0.075, 3, 2, 25000, time_s], [0.075, 3, 2, 40000, time_s], [0.075, 3, 2, 55000, time_s],
+#                    [0.075, 3, 2, 70000, time_s], [0.075, 3, 2, 85000, time_s], [0.075, 3, 2, 100000, time_s], [0.075, 3, 2, 115000, time_s],
+#                    [0.1, 3, 4, 10000, time_s], [0.1, 3, 4, 40000, time_s], [0.1, 3, 4, 70000, time_s], [0.1, 3, 4, 100000, time_s],
+#                    [0.2, 3, 4, 10000, time_s], [0.2, 3, 4, 40000, time_s], [0.2, 3, 4, 70000, time_s], [0.2, 3, 4, 100000, time_s],
+#                    [0.06, 2, 2, 10000, time_s], [0.06, 2, 2, 25000, time_s], [0.06, 2, 2, 40000, time_s], [0.06, 2, 2, 55000, time_s],
+#                    [0.06, 2, 2, 70000, time_s], [0.06, 2, 2, 85000, time_s], [0.06, 2, 2, 100000, time_s], [0.06, 2, 2, 115000, time_s],
+#                    [0.075, 2, 2, 10000, time_s], [0.075, 2, 2, 25000, time_s], [0.075, 2, 2, 40000, time_s], [0.075, 2, 2, 55000, time_s],
+#                    [0.075, 2, 2, 70000, time_s], [0.075, 2, 2, 85000, time_s], [0.075, 2, 2, 100000, time_s], [0.075, 2, 2, 115000, time_s],
+#                    [0.1, 2, 4, 10000, time_s], [0.1, 2, 4, 40000, time_s], [0.1, 2, 4, 70000, time_s], [0.1, 2, 4, 100000, time_s],
+#                    [0.2, 2, 4, 10000, time_s], [0.2, 2, 4, 40000, time_s], [0.2, 2, 4, 70000, time_s], [0.2, 2, 4, 100000, time_s]])
 
 # loop over varied flight parameters
 for master in range(np.shape(params)[0]):
@@ -1506,9 +1506,9 @@ if plot_anom:
     mode_col = '#A9A9A9'
     matplotlib.rcParams['figure.figsize'] = (7, 8)
     f, (ax2, ax3) = plt.subplots(1, 2, sharey=True)
-    ax2.plot(G_0[:, 1]/20, z_grid_n2_0, linewidth=0.5, color=mode_col, zorder=0)
-    ax2.plot(G_0[:, 2]/20, z_grid_n2_0, linewidth=0.5, color=mode_col, zorder=0)
-    ax2.plot(G_0[:, 3]/20, z_grid_n2_0, linewidth=0.5, color=mode_col, zorder=0)
+    # ax2.plot(G_0[:, 1]/20, z_grid_n2_0, linewidth=0.5, color=mode_col, zorder=0)
+    # ax2.plot(G_0[:, 2]/20, z_grid_n2_0, linewidth=0.5, color=mode_col, zorder=0)
+    # ax2.plot(G_0[:, 3]/20, z_grid_n2_0, linewidth=0.5, color=mode_col, zorder=0)
     for i in range(np.shape(eta_sm)[1]):
         ax2.plot(eta_sm[(dg_z < -10) & (dg_z > -2750), i], dg_z[(dg_z < -10) & (dg_z > -2750)],
                  color='#4682B4', linewidth=1.5, label=r'glider $\xi$, |w| = 0.1 m s$^{-1}$', zorder=1)
@@ -1524,9 +1524,9 @@ if plot_anom:
     ax2.set_ylim([-3000, 0])
     ax2.grid()
 
-    ax3.plot(Gz_0[:, 1]/10, z_grid_n2_0, linewidth=0.5, color=mode_col, zorder=0)
-    ax3.plot(Gz_0[:, 2]/10, z_grid_n2_0, linewidth=0.5, color=mode_col, zorder=0)
-    ax3.plot(Gz_0[:, 3]/10, z_grid_n2_0, linewidth=0.5, color=mode_col, zorder=0)
+    # ax3.plot(Gz_0[:, 1]/10, z_grid_n2_0, linewidth=0.5, color=mode_col, zorder=0)
+    # ax3.plot(Gz_0[:, 2]/10, z_grid_n2_0, linewidth=0.5, color=mode_col, zorder=0)
+    # ax3.plot(Gz_0[:, 3]/10, z_grid_n2_0, linewidth=0.5, color=mode_col, zorder=0)
     for i in range(np.shape(v_g)[1]):
         ax3.plot(v_g[:, i], dg_z, color='#4682B4', linewidth=1.5, label=r'glider $v$, |w| = 0.1 m s$^{-1}$',zorder=2)
         # ax3.plot(V_m[:, i], dg_z, color='k', linestyle='--', linewidth=.75)
@@ -1542,7 +1542,8 @@ if plot_anom:
 
     plot_pro(ax3)
     if save_samp > 0:
-        f.savefig('/Users/jake/Documents/glider_flight_sim_paper/reviewer_comments_minor_revisions/revised_figures/lo_mod_dg_samp.png', dpi=200)
+        # f.savefig('/Users/jake/Documents/glider_flight_sim_paper/reviewer_comments_minor_revisions/revised_figures/lo_mod_dg_samp.png', dpi=200)
+        f.savefig('/Users/jake/Desktop/defense_lo_mod_dg_samp.png', dpi=250)
 
 # --- PLOT ENERGY SPECTRA
 mm = 10

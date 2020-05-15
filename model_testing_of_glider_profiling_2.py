@@ -12,14 +12,14 @@ from toolkit import plot_pro
 
 
 # ---- LOAD model extraction FILES ------------------------------------------------------------------------------------
-file_path = 'e_w_extraction_nov10_nov12_offshore'  # 'n_s_extraction_eddy_nov1_nov3'  #
+file_path = 'e_w_extraction_nov28_nov30_offshore'  # 'n_s_extraction_eddy_nov1_nov3'  #
 
 # file_list = glob.glob('/Users/jake/Documents/baroclinic_modes/Model/' + file_path + '/*.pkl')
 # first run will save output as old pickle format (above)
 # second run will load these pkl files with old format so that gamma can be estimated (below)
 # when gamma is computed need to use different conda environment (older version of ipython) -- USE glider
 
-file_list = glob.glob('/Users/jake/Documents/baroclinic_modes/Model/' + file_path + '/pickle_protocol_2/*.pkl')
+file_list = glob.glob('/Users/jake/Documents/baroclinic_modes/Model/LiveOcean/' + file_path + '/pickle_protocol_2/*.pkl')
 
 file_name = open(file_list[0], 'rb')
 D_0 = pickle.load(file_name)

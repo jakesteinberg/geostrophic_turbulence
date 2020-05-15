@@ -13,7 +13,7 @@ from toolkit import plot_pro, nanseg_interp
 file_list = glob.glob('/Users/jake/Documents/baroclinic_modes/Model/LiveOcean/simulated_dg_velocities/ve_ew_v*_slp*_y*_*.pkl')
 save_metr = 0  # ratio
 save_e = 0  # save energy spectra
-save_rms = 1  # save v error plot
+save_rms = 0  # save v error plot
 save_eof = 0
 
 direct_anom = []
@@ -629,6 +629,49 @@ plt.gcf().text(0.5, 0.48, 'd)', fontsize=12)
 plot_pro(ax[1,1])
 if save_e > 0:
     f.savefig('/Users/jake/Documents/glider_flight_sim_paper/reviewer_comments_minor_revisions/revised_figures/lo_mod_energy_eddy.png', dpi=300)
+
+
+# ----------------
+# figure for defense
+# ----------------
+matplotlib.rcParams['figure.figsize'] = (7, 7)
+f, ax = plt.subplots()
+# glide (slope = 2)
+i = 0
+inn = np.where((w_tag == w_s[i]) & (slope_tag < 3))[0]
+# KE
+avg_KE = 2 * np.nanmean(ke_dg[:, inn], axis=1)
+ax.plot(sc_x, avg_KE[1:mm] / dk, color=w_cols[3], label='simulated glider', linewidth=2.2)
+ax.scatter(sc_x, avg_KE[1:mm] / dk, color=w_cols[3], s=10)  # DG KE
+ax.plot([l_lim, sc_x[0]], avg_KE[0:2] / dk, color=w_cols[3], linewidth=2.2)  # DG KE_0
+ax.scatter(l_lim, avg_KE[0] / dk, color=w_cols[3], s=10, facecolors='none')  # DG KE_0
+# Model
+good = np.where((ke_mod[1, :] < 1*10**0) & (slope_tag < 3))[0]
+avg_KE_model = 2 * np.nanmean(ke_mod[:, good], axis=1)
+ax.plot(sc_x, avg_KE_model[1:mm] / dk, color='k', label='model', linewidth=2.2)
+ax.scatter(sc_x, avg_KE_model[1:mm] / dk, color='k', s=10)
+ax.plot([l_lim, sc_x[0]], avg_KE_model[0:2] / dk, color='k', linewidth=2.2)
+ax.scatter(l_lim, avg_KE_model[0] / dk, color='k', s=10, facecolors='none')
+ax.set_title('LiveOcean: Kinetic Energy (s = 1/' + str(np.int(slope_s[0])) + ')', fontsize=16)
+
+ax.plot([10**0, 10**1], [10**-1, 10**-4], linewidth=0.75, color='k')
+ax.plot([10**0, 10**1], [10**-1, 10**-3], linewidth=0.75, color='k')
+ax.text(8*10**0, 2*10**-3, '-2', fontsize=11)
+ax.text(2.5*10**0, 2*10**-3, '-3', fontsize=11)
+
+handles, labels = ax.get_legend_handles_labels()
+ax.legend(handles, labels, fontsize=12, loc=1)
+
+limm = 5
+ax.set_xlim([l_lim, 0.5 * 10 ** 2])
+ax.set_ylim([10 ** (-4), 3 * 10 ** 2])
+ax.set_yscale('log')
+ax.set_xscale('log')
+ax.set_ylabel('Variance per Vertical Wavenumber', fontsize=15)  # ' (and Hor. Wavenumber)')
+ax.set_xlabel('Mode Number', fontsize=15)
+
+plot_pro(ax)
+f.savefig('/Users/jake/Desktop/defense_liveocean_ke_comp.png', dpi=300)
 
 # ----------------
 # horizontal scale

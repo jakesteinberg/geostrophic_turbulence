@@ -138,7 +138,7 @@ dk = f_ref / c[1]
 sc_x = 1000 * f_ref / c[1:]
 vert_wavenumber = f_ref / c[1:]
 dk_ke = 1000 * f_ref / c[1]
-PE_SD, PE_GM, GMPE, GMKE = PE_Tide_GM(rho0, grid, nmodes, np.transpose(np.atleast_2d(N2)), f_ref)
+# PE_SD, PE_GM, GMPE, GMKE = PE_Tide_GM(rho0, grid, nmodes, np.transpose(np.atleast_2d(N2)), f_ref)
 avg_PE = np.nanmean(PE_per_mass, 1)
 
 # load in Station BATs PE Comparison
@@ -152,8 +152,8 @@ sta_bats_f = np.pi * np.sin(np.deg2rad(31.6)) / (12 * 1800)
 sta_bats_dk = sta_bats_f / sta_bats_c[1]
 sta_bats_n2 = np.nanmean(SB['N2_per_season'], axis=1)
 G_B, Gz_B, c_B, epsilon_B = vertical_modes(sta_bats_n2, SB['depth'], omega, mmax)
-PE_SD_bats, PE_GM_bats, GMPE_bats, GMKE_bats = PE_Tide_GM(rho0, sta_bats_depth, nmodes,
-                                                          np.transpose(np.atleast_2d(sta_bats_n2)), sta_bats_f)
+# PE_SD_bats, PE_GM_bats, GMPE_bats, GMKE_bats = PE_Tide_GM(rho0, sta_bats_depth, nmodes,
+#                                                           np.transpose(np.atleast_2d(sta_bats_n2)), sta_bats_f)
 
 # load in Station PAPA PE Comparison
 pkl_file = open('/Users/jake/Documents/baroclinic_modes/Line_P/canada_DFO/papa_energy_spectra_jun13.pkl', 'rb')
@@ -166,8 +166,8 @@ sta_papa_f = np.pi * np.sin(np.deg2rad(49.98)) / (12 * 1800)
 sta_papa_dk = sta_papa_f / sta_papa_c[1]
 sta_papa_n2 = SP['N2']
 G_P, Gz_P, c_P, epsilon_P = vertical_modes(sta_papa_n2, SP['depth'], omega, mmax)
-PE_SD_papa, PE_GM_papa, GMPE_papa, GMKE_papa = PE_Tide_GM(rho0, sta_papa_depth, nmodes,
-                                                          np.transpose(np.atleast_2d(sta_papa_n2)), sta_papa_f)
+# PE_SD_papa, PE_GM_papa, GMPE_papa, GMKE_papa = PE_Tide_GM(rho0, sta_papa_depth, nmodes,
+#                                                           np.transpose(np.atleast_2d(sta_papa_n2)), sta_papa_f)
 
 # load in Station Deep Argo NZ PE Comparison
 pkl_file = open('/Users/jake/Documents/baroclinic_modes/Deep_Argo/float6036_oct17.pkl', 'rb')
@@ -180,8 +180,8 @@ sta_nz_f = np.pi * np.sin(np.deg2rad(49.98)) / (12 * 1800)
 sta_nz_dk = sta_nz_f / sta_nz_c[1]
 sta_nz_n2 = SNZ['N2_avg']
 G_P, Gz_P, c_P, epsilon_P = vertical_modes(sta_nz_n2, SNZ['bin_depth'], omega, mmax)
-PE_SD_nz, PE_GM_nz, GMPE_nz, GMKE_nz = PE_Tide_GM(rho0, sta_nz_depth, nmodes,
-                                                  np.transpose(np.atleast_2d(sta_nz_n2)), sta_nz_f)
+# PE_SD_nz, PE_GM_nz, GMPE_nz, GMKE_nz = PE_Tide_GM(rho0, sta_nz_depth, nmodes,
+#                                                   np.transpose(np.atleast_2d(sta_nz_n2)), sta_nz_f)
 
 
 # f, (ax0, ax1, ax2) = plt.subplots(1, 3)
@@ -244,9 +244,9 @@ PE_sta_papa_p = ax.plot(mode_num, np.nanmean(sta_papa_pe[1:], axis=1),
 #                    color='c', label='APE$_{NZ}$', linewidth=2)
 
 # GM
-ax.plot(mode_num, PE_GM, linestyle='--', color='#B22222', linewidth=1)
-ax.plot(mode_num, PE_GM_bats, linestyle='--', color='g', linewidth=1)  # #00FF7F
-ax.plot(mode_num, PE_GM_papa, linestyle='--', color='#4682B4', linewidth=1)
+# ax.plot(mode_num, PE_GM, linestyle='--', color='#B22222', linewidth=1)
+# ax.plot(mode_num, PE_GM_bats, linestyle='--', color='g', linewidth=1)  # #00FF7F
+# ax.plot(mode_num, PE_GM_papa, linestyle='--', color='#4682B4', linewidth=1)
 # ax.plot(mode_num, PE_GM_nz / sta_nz_dk, linestyle='--', color='c', linewidth=0.75)
 # ax.plot(1000 * sta_bats_f / sta_bats_c[1:], PE_GM_bats / sta_bats_dk, linestyle='--', color='#FF8C00', linewidth=0.75)
 # ax.text(sc_x[0] - .005, PE_GM[1] / dk, r'$PE_{GM}$', fontsize=13)
@@ -280,9 +280,10 @@ ax.set_xlabel('Mode Number', fontsize=16)
 ax.set_ylabel('Variance', fontsize=16)  # ' (and Hor. Wavenumber)')
 ax.set_title('PE: ALOHA, BATS, PAPA', fontsize=18)
 plot_pro(ax)
-f.savefig("/Users/jake/Documents/baroclinic_modes/Meetings/meeting_19_05_17/ship_pe_energy_comp.jpg", dpi=300)
+# f.savefig("/Users/jake/Documents/baroclinic_modes/Meetings/meeting_19_05_17/ship_pe_energy_comp.jpg", dpi=300)
 
 cmap = matplotlib.cm.get_cmap('Blues')
+matplotlib.rcParams['figure.figsize'] = (12,8)
 f, arm = plt.subplots(3, 3, sharex=True, sharey=True)
 vmi = 0
 vma = 2.5
@@ -366,9 +367,9 @@ plot_pro(ax)
 
 # --- SAVE ---
 # write python dict to a file
-sa = 0
+sa = 1
 if sa > 0:
-    mydict = {'bin_depth': grid, 'N2': N2, 'PE': avg_PE, 'c': c, 'f': f, 'sig0': sig0, 'date': time}
-    output = open('/Users/jake/Documents/baroclinic_modes/Shipboard/HOTS_92_10.pkl', 'wb')
+    mydict = {'bin_depth': grid, 'N2': N2, 'PE': avg_PE, 'PE_per_prof': PE_per_mass, 'c': c, 'f': f, 'sig0': sig0, 'date': time}
+    output = open('/Users/jake/Documents/baroclinic_modes/Shipboard/HOTS_92_10_2.pkl', 'wb')
     pickle.dump(mydict, output)
     output.close()

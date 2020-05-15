@@ -213,10 +213,9 @@ for i in range(len(c_lon)):
 # pkl_file.close()
 # gamma = MOD['gamma'][:]
 
-# -- load matlabbed gamma as nc
+# --- load matlabbed gamma as nc
 GD = Dataset('/Users/jake/Documents/baroclinic_modes/Shipboard/BATS_station/extracted_gridded_gamma_2.nc', 'r')
 gamma = GD.variables['Gamma'][:]
-
 
 # grid = GD.variables['grid'][:]
 grid_p = gsw.p_from_z(-1 * grid, ref_lat)
@@ -224,8 +223,7 @@ z = -1 * grid
 # c_s = np.concatenate([c_s, np.tile(c_s[-1, :], (19, 1))], axis=0)
 # c_t = np.concatenate([c_t, np.tile(c_t[-1, :], (19, 1))], axis=0)
 
-
-# ------------- initial processing
+# --- initial processing
 num_profs0 = np.sum(np.isfinite(c_log))
 theta = np.nan * np.zeros((len(grid), num_profs0))
 conservative_t = np.nan * np.zeros((len(grid), num_profs0))
@@ -744,41 +742,73 @@ ax.set_ylabel('Spectral Density', fontsize=12)  # ' (and Hor. Wavenumber)')
 ax.set_title('BATS Hydro. Seasonal PE Spectrum', fontsize=12)
 plot_pro(ax)
 
-# --- PLOT MODE AMPLITUDES IN TIME
-# f, (ax1, ax2) = plt.subplots(2, 1, sharex=True)
-# colors = ['r', 'g', 'b', 'm']
-# for i in range(4):
-#     AG1 = AG[i][1, :].copy()
-#     AG1 = nanseg_interp(c_date[bckgrds[i]], AG1)
-#     y_sg = savgol_filter(AG1, window_size, poly_order)
-#     AG2 = AG[i][2, :].copy()
-#     AG2 = nanseg_interp(c_date[bckgrds[i]], AG2)
-#     y_sg2 = savgol_filter(AG2, window_size, poly_order)
-#
-#     # ax.plot(c_date[bckgrds[i]], AG[1, :], color='#FF8C00', linewidth=0.5)
-#     ax1.plot(c_date[bckgrds[i]], y_sg, color=colors[i], linewidth=1, label='Mode 1')
-#     # ax.plot(c_date[bckgrds[i]], AG[2, :], linewidth=0.5, color='#5F9EA0')
-#     ax2.plot(c_date[bckgrds[i]], y_sg2, color=colors[i], linewidth=1, label='Mode 2')
-# window_size = 25
-# poly_order = 3
-# AG1_all = AG_all[1, :].copy()
-# AG1_all = nanseg_interp(c_date, AG1_all)
-# y_sg_all = savgol_filter(AG1_all, window_size, poly_order)
-# ax1.plot(c_date, c[1] * AG1_all, color='k', linewidth=2, label='Mode 1')
-# AG2_all = AG_all[2, :].copy()
-# AG2_all = nanseg_interp(c_date, AG2_all)
-# y_sg2_all = savgol_filter(AG2_all, window_size, poly_order)
-# ax2.plot(c_date, c[2] * AG2_all, color='k', linewidth=2, label='Mode 1')
-# # ax1.legend(['Spring', 'Summer', 'Fall', 'Winter', 'All'], fontsize=10)
-# ax2.set_xlabel('Date')
-# ax1.set_ylabel('Mode Amplitude')
-# ax2.set_ylabel('Mode Amplitude')
-# ax1.set_title(r'Station BATS Scaled Mode 1 Amplitude (c$_{n}\beta_{n}$) in Time')
-# ax2.set_title(r'Station BATS Mode 2 Amplitude (c$_{n}\beta_{n}$) in Time')
-# ax1.set_ylim([-.16, 0.25])
-# ax2.set_ylim([-.16, 0.25])
-# ax1.grid()
-# plot_pro(ax2)
+# --- TIME SERIES OF ISOSPYCNAL DEPTH AND MODE AMPLITUDES
+time_series = 1
+if time_series > 0:
+    # ISOPYCNAL DEPTH IN TIME
+    # isopycnals I care about
+    # rho1 = 27.0
+    # rho2 = 27.8
+    # rho3 = 28.05
+    rho1 = 36.2
+    rho2 = 35.8
+    rho3 = 35.05
+
+    import datetime
+    import matplotlib
+
+    d_time_per_prof = c_date.copy()
+    d_time_per_prof_date = []
+    d_dep_rho1 = np.nan * np.ones((3, len(d_time_per_prof)))
+    for i in range(len(d_time_per_prof)):
+        d_time_per_prof_date.append(datetime.date.fromordinal(np.int(d_time_per_prof[i])))
+        d_dep_rho1[0, i] = np.interp(rho1, np.flipud(salin[:, i]), np.flipud(grid))
+        d_dep_rho1[1, i] = np.interp(rho2, np.flipud(salin[:, i]), np.flipud(grid))
+        d_dep_rho1[2, i] = np.interp(rho3, np.flipud(salin[:, i]), np.flipud(grid))
+
+    # ------
+    matplotlib.rcParams['figure.figsize'] = (10, 7)
+    f, (ax1, ax2, ax3) = plt.subplots(3, 1, sharex=True)
+    ax1.scatter(d_time_per_prof, d_dep_rho1[0, :], color='g', s=15, label=r'CTD$_{ind}$')
+    ax2.scatter(d_time_per_prof, d_dep_rho1[1, :], color='g', s=15)
+    ax3.scatter(d_time_per_prof, d_dep_rho1[2, :], color='g', s=15)
+
+    # smooth
+    date_grid = np.arange(1990, 2015, 0.5)
+    dep_rho1_smooth = np.nan * np.ones((3, len(date_grid)))
+    for i in range(len(date_grid)):
+        inn = np.where( (c_date > (date_grid[i] - 0.25)) & (c_date < (date_grid[i] + 0.25)) )[0]
+        if len(inn) > 2:
+            dep_rho1_smooth[0, i] = np.nanmean(d_dep_rho1[0, inn])
+            dep_rho1_smooth[1, i] = np.nanmean(d_dep_rho1[1, inn])
+            dep_rho1_smooth[2, i] = np.nanmean(d_dep_rho1[2, inn])
+    ax1.plot(date_grid, dep_rho1_smooth[0, :], color='b', linewidth=0.75)
+    ax2.plot(date_grid, dep_rho1_smooth[1, :], color='b', linewidth=0.75)
+    ax3.plot(date_grid, dep_rho1_smooth[2, :], color='b', linewidth=0.75)
+
+    ax1.set_title('Depth of $\gamma^{n}$ = ' + str(rho1))
+    ax2.set_title('Depth of $\gamma^{n}$ = ' + str(rho2))
+    ax3.set_title('Depth of $\gamma^{n}$ = ' + str(rho3))
+    ax1.set_ylabel('Depth [m]')
+    ax2.set_ylabel('Depth [m]')
+    ax3.set_ylabel('Depth [m]')
+    handles, labels = ax1.get_legend_handles_labels()
+    ax1.legend(handles, labels, fontsize=10)
+    # ax1.plot([datetime.date(2015, 5, 31), datetime.date(2015, 5, 31)], [400, 900], color='b', linewidth=1.2)
+    # ax1.plot([datetime.date(2015, 6, 1), datetime.date(2015, 6, 1)], [400, 900], color='r', linewidth=1.2)
+    # ax1.plot([datetime.date(2015, 9, 15), datetime.date(2015, 9, 15)], [400, 900], color='r', linewidth=1.2)
+    # ax1.plot([datetime.date(2015, 9, 16), datetime.date(2015, 9, 16)], [400, 900], color='b', linewidth=1.2)
+    # ax1.set_ylim([500, 850])
+    # ax2.set_ylim([1050, 1400])
+    # ax3.set_ylim([2600, 2950])
+    ax1.invert_yaxis()
+    ax2.invert_yaxis()
+    ax3.invert_yaxis()
+    ax1.grid()
+    ax2.grid()
+    # ax3.set_xlim([datetime.date(2015, 1, 1), datetime.date(2015, 12, 1)])
+    ax3.set_xlabel('Date')
+    plot_pro(ax3)
 
 # -- MODE AMPLITUDE IN TIME
 f, (ax, ax2, ax3, ax4) = plt.subplots(4, 1, sharex=True)
@@ -835,7 +865,7 @@ plot_pro(ax4)
 
 # --- SAVE
 # write python dict to a file
-sa = 1
+sa = 0
 if sa > 0:
     my_dict = {'depth': grid, 'Sigma0': sigma0, 'Sigma2': sigma2, 'lon': c_lon, 'lat': c_lat, 'time': c_date,
                'N2_per_season': N2, 'background indices': bckgrds, 'background order': ['spr', 'sum', 'fall', 'wint'],
